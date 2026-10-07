@@ -220,6 +220,47 @@ test("loadChapter returns expanded zh/ja John.2 scaffolds", async () => {
   assert.match(kougoyakuPd.verses[0]?.text ?? "", /カナ|婚筵/);
 });
 
+test("loadChapter returns zh/ja John.3 scaffolds (includes 3:16)", async () => {
+  const cuvs = await loadChapter("cuvs", { book: "John", chapter: 3 });
+  assert.ok(!("external" in cuvs));
+  assert.equal(cuvs.chapter, 3);
+  assert.match(cuvs.verses[0]?.text ?? "", /尼哥底母|法利赛/);
+  assert.match(cuvs.verses.find((v) => v.verse === 16)?.text ?? "", /神爱世人|独生子/);
+
+  const cuvt = await loadChapter("cuvt", { book: "John", chapter: 3 });
+  assert.ok(!("external" in cuvt));
+  assert.match(cuvt.verses.find((v) => v.verse === 16)?.text ?? "", /神愛世人|獨生子/);
+
+  const rcuv = await loadChapter("rcuv", { book: "John", chapter: 3 });
+  assert.ok(!("external" in rcuv));
+  assert.match(rcuv.verses.find((v) => v.verse === 16)?.text ?? "", /神爱世人|独生子/);
+
+  const ccb = await loadChapter("ccb", { book: "John", chapter: 3 });
+  assert.ok(!("external" in ccb));
+  assert.match(ccb.verses.find((v) => v.verse === 16)?.text ?? "", /上帝深爱世人|独生子/);
+
+  const lzz = await loadChapter("lzz", { book: "John", chapter: 3 });
+  assert.ok(!("external" in lzz));
+  assert.match(lzz.verses.find((v) => v.verse === 16)?.text ?? "", /上帝这样地爱了世人|独生子/);
+
+  const kougo = await loadChapter("kougo", { book: "John", chapter: 3 });
+  assert.ok(!("external" in kougo));
+  assert.match(kougo.verses[0]?.text ?? "", /ニコデモ/);
+  assert.match(kougo.verses.find((v) => v.verse === 16)?.text ?? "", /ひとり子|永遠の命/);
+
+  const shinkaiyaku = await loadChapter("shinkaiyaku", { book: "John", chapter: 3 });
+  assert.ok(!("external" in shinkaiyaku));
+  assert.match(shinkaiyaku.verses.find((v) => v.verse === 16)?.text ?? "", /ひとり子|永遠のいのち/);
+
+  const shinKyoudou = await loadChapter("shinKyoudou", { book: "John", chapter: 3 });
+  assert.ok(!("external" in shinKyoudou));
+  assert.match(shinKyoudou.verses.find((v) => v.verse === 16)?.text ?? "", /独り子|永遠の命/);
+
+  const kougoyakuPd = await loadChapter("kougoyaku-pd", { book: "John", chapter: 3 });
+  assert.ok(!("external" in kougoyakuPd));
+  assert.match(kougoyakuPd.verses.find((v) => v.verse === 16)?.text ?? "", /獨り子|永遠の生命/);
+});
+
 test("partner external chapter marks sso when flags on", async () => {
   const off = await loadChapter("endao", { book: "John", chapter: 1 }, { endao: false, weread: false });
   assert.ok("external" in off && off.external);

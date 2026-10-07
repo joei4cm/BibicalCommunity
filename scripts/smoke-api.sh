@@ -39,6 +39,17 @@ echo "== chapter ASV John.3 =="
 A3=$(curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3")
 echo "$A3" | head -c 160; echo
 echo "$A3" | grep -q 'God so loved the world'
+echo "== chapter mainstream John.3 scaffolds (zh/ja) =="
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.3" | grep -qE '神爱世人|独生子'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.3" | grep -qE '神愛世人|獨生子'
+curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.3" | grep -qE '神爱世人|独生子'
+curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.3" | grep -qE '上帝深爱世人|独生子'
+curl -sf "$BASE/v1/bible/chapter?translation=lzz&ref=John.3" | grep -qE '上帝这样地爱了世人|独生子'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.3" | grep -qE 'ニコデモ|ひとり子'
+curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.3" | grep -qE 'ニコデモ|ひとり子'
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.3" | grep -qE 'ニコデモ|独り子'
+curl -sf "$BASE/v1/bible/chapter?translation=kougoyaku-pd&ref=John.3" | grep -qE 'ニコデモ|獨り子'
+echo "JOHN3_ZHJA_OK"
 echo "== chapter CUVS John.1 (zh) =="
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
 echo "$CUVS" | head -c 160; echo
