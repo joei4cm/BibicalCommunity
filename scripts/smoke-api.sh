@@ -78,27 +78,6 @@ PLAN=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
 echo "$PLAN" | head -c 120; echo
 echo "$PLAN" | grep -q '"id":"plan_'
 echo "PLAN_CREATE_OK"
-echo "== encrypted annotations (note/highlight/bookmark) =="
-ANN_NOTE=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"translationId":"web","ref":{"book":"John","chapter":1,"verseStart":1},"kind":"note","ciphertext":"c2FtcGxl","iv":"aXY="}' \
-  "$BASE/v1/annotations")
-echo "$ANN_NOTE" | grep -q '"id":"ann_'
-ANN_HL=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"translationId":"web","ref":{"book":"John","chapter":1,"verseStart":1},"kind":"highlight","color":"#f5d76e","ciphertext":"aGw=","iv":"aXY="}' \
-  "$BASE/v1/annotations")
-echo "$ANN_HL" | grep -q '"id":"ann_'
-ANN_BM=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"translationId":"web","ref":{"book":"John","chapter":1,"verseStart":1},"kind":"bookmark","ciphertext":"Ym0=","iv":"aXY="}' \
-  "$BASE/v1/annotations")
-echo "$ANN_BM" | grep -q '"id":"ann_'
-ANN_LIST=$(curl -sf -H "$AUTH" "$BASE/v1/annotations?translation=web")
-echo "$ANN_LIST" | grep -q '"kind":"note"'
-echo "$ANN_LIST" | grep -q '"kind":"highlight"'
-echo "$ANN_LIST" | grep -q '"kind":"bookmark"'
-echo "$ANN_LIST" | grep -q '"ciphertext":"c2FtcGxl"'
-# plaintext must not appear in stored ciphertext field
-echo "$ANN_LIST" | grep -qv 'sample plaintext'
-echo "ANNOTATIONS_SMOKE_OK"
 echo "== turn credentials =="
 curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' -d '{}' \
   "$BASE/v1/calls/turn-credentials" | head -c 200; echo
@@ -241,5 +220,8 @@ bash "$SCRIPT_DIR/smoke-study-embed.sh" "$BASE"
 
 echo "== call + screen signaling fan-out =="
 node "$SCRIPT_DIR/smoke-call-signaling.mjs" "$BASE"
+
+echo "== annotations CRUD (highlight + bookmark + note) =="
+bash "$SCRIPT_DIR/smoke-annotations.sh" "$BASE"
 
 echo "SMOKE_OK"

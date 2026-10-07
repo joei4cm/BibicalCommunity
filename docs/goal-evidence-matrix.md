@@ -19,7 +19,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 11 | Encrypted storage | session-aes + annotation ciphertext | PARTIAL |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS (smoke) |
 | 13 | i18n + themes | web/mobile locale + Me theme | PARTIAL |
-| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK`; local wrangler | PARTIAL — preflight PASS; live CF account OPEN |
+| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK`; `DEPLOY_DRY_RUN_OK` (`RUN_DEPLOY_DRY_RUN=1`); local wrangler | PARTIAL — preflight+dry-run PASS; live CF account OPEN |
 | 15 | Hostile privacy floors / wipe | `HOME_HOSTILE_OK` + wipeToken | PARTIAL |
 
 ## Smoke tokens (local wrangler :8787)

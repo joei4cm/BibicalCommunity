@@ -162,6 +162,17 @@ cat <<'EOF'
 EOF
 
 echo
+if [[ "${RUN_DEPLOY_DRY_RUN:-}" == "1" ]]; then
+  echo "── Optional: wrangler deploy --dry-run (RUN_DEPLOY_DRY_RUN=1) ──"
+  if (cd "$API" && pnpm exec wrangler deploy --dry-run -c wrangler.production.toml); then
+    ok "wrangler deploy --dry-run succeeded (bundle + bindings resolve)"
+    echo "DEPLOY_DRY_RUN_OK"
+  else
+    bad "wrangler deploy --dry-run failed"
+  fi
+fi
+
+echo
 if [[ "$fail" -ne 0 ]]; then
   echo "DEPLOY_CHECK_FAIL"
   exit 1
