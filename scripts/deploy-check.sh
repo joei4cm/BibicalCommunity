@@ -58,6 +58,9 @@ require_line 'ENVIRONMENT\s*=\s*"production"' 'ENVIRONMENT=production'
 require_line 'ENDAO_SSO_ENABLED' 'partner SSO flag ENDAO_SSO_ENABLED documented'
 require_line 'WEREAD_SSO_ENABLED' 'partner SSO flag WEREAD_SSO_ENABLED documented'
 require_line 'PARTNER_SSO_MOCK\s*=\s*"false"' 'PARTNER_SSO_MOCK=false (prod)'
+require_line 'ENDAO_OAUTH_CLIENT_ID' 'ENDAO_OAUTH_CLIENT_ID documented for real IdP'
+require_line 'WEREAD_OAUTH_CLIENT_ID' 'WEREAD_OAUTH_CLIENT_ID documented for real IdP'
+require_line 'PARTNER_OAUTH_REDIRECT_BASE' 'PARTNER_OAUTH_REDIRECT_BASE documented for real IdP'
 require_line 'TURN_URIS' 'TURN_URIS non-secret var present'
 
 if rg -q 'wrangler secret put HANDLE_PEPPER' "$CFG" \

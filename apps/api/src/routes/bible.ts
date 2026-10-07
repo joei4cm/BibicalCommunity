@@ -134,7 +134,7 @@ bibleRoutes.get("/chapter", async (c) => {
       endao: c.env.ENDAO_SSO_ENABLED === "true",
       weread: c.env.WEREAD_SSO_ENABLED === "true",
     });
-    if ("external" in local && local.external) return c.json(local);
+    if ("external" in local) return c.json(local);
     if (local.verses.length > 0 && !local.verses[0]?.text.startsWith(`[${meta.abbreviation}] Sample`)) {
       return c.json(local);
     }

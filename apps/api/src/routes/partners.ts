@@ -15,7 +15,8 @@ import { randomToken } from "../services/crypto";
  * URLs only (verse ref). Do not start OAuth; clients must deep-link only.
  * When SSO is enabled without real partner credentials, `/mock-authorize`
  * provides a configurable local OAuth stand-in so the callback loop works in
- * development. Production must replace authorize URLs with real partner IdPs.
+ * development. Production: set PARTNER_SSO_MOCK=false plus
+ * ENDAO_OAUTH_CLIENT_ID / WEREAD_OAUTH_CLIENT_ID and PARTNER_OAUTH_REDIRECT_BASE.
  */
 export const partnerRoutes = new Hono<{ Bindings: Env }>();
 
@@ -26,6 +27,29 @@ function ssoEnabled(env: Env, partner: PartnerId): boolean {
 
 function useMockIdp(env: Env): boolean {
   return (env.PARTNER_SSO_MOCK ?? "true") === "true";
+}
+
+function oauthClientId(env: Env, partner: PartnerId): string | undefined {
+  const raw =
+    partner === "endao" ? env.ENDAO_OAUTH_CLIENT_ID : env.WEREAD_OAUTH_CLIENT_ID;
+  const trimmed = raw?.trim();
+  return trimmed || undefined;
+}
+
+function authorizeBase(env: Env, partner: PartnerId): string | undefined {
+  const raw =
+    partner === "endao"
+      ? env.ENDAO_OAUTH_AUTHORIZE_BASE
+      : env.WEREAD_OAUTH_AUTHORIZE_BASE;
+  const trimmed = raw?.trim();
+  return trimmed || undefined;
+}
+
+function redirectUri(env: Env, partner: PartnerId, requestUrl: string): string {
+  const base = env.PARTNER_OAUTH_REDIRECT_BASE?.trim().replace(/\/$/, "");
+  if (base) return `${base}/v1/partners/${partner}/callback`;
+  const origin = new URL(requestUrl).origin;
+  return `${origin}/v1/partners/${partner}/callback`;
 }
 
 partnerRoutes.get("/status", (c) => {
@@ -59,13 +83,22 @@ partnerRoutes.get("/:id/start", (c) => {
       ref,
       state,
       ssoEnabled: enabled,
+      oauthClientId: oauthClientId(c.env, id),
+      redirectUri: enabled ? redirectUri(c.env, id, c.req.url) : undefined,
+      authorizeBase: authorizeBase(c.env, id),
     });
   }
 
   if (c.req.query("redirect") === "1") {
     return c.redirect(url, 302);
   }
-  return c.json({ url, partner: id, ssoEnabled: enabled, state, mockIdp: useMockIdp(c.env) && enabled });
+  return c.json({
+    url,
+    partner: id,
+    ssoEnabled: enabled,
+    state,
+    mockIdp: useMockIdp(c.env) && enabled,
+  });
 });
 
 /** Dev-only mock IdP consent page → redirects to callback with code. */
@@ -74,9 +107,10 @@ partnerRoutes.get("/mock-authorize", (c) => {
   const partner = c.req.query("partner") ?? "endao";
   const state = c.req.query("state") ?? "";
   const ref = c.req.query("ref") ?? "";
-  const redirectUri = c.req.query("redirect_uri") ?? `/v1/partners/${partner}/callback`;
+  const redirectUriParam =
+    c.req.query("redirect_uri") ?? `/v1/partners/${partner}/callback`;
   const code = `mock_${randomToken(6)}`;
-  const target = new URL(redirectUri, c.req.url);
+  const target = new URL(redirectUriParam, c.req.url);
   target.searchParams.set("code", code);
   target.searchParams.set("state", state);
   if (ref) target.searchParams.set("ref", ref);

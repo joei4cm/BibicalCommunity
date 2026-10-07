@@ -53,7 +53,7 @@ Generate long random values (≥32 chars for `KEK_MASTER`). Never commit them.
 
 **Bindings (must exist in production toml):** `DB` (D1), `MEDIA` (R2), `CALL_ROOM` → `CallRoomDO`.
 
-Non-secret `[vars]`: `ENDAO_SSO_ENABLED`, `WEREAD_SSO_ENABLED`, `PARTNER_SSO_MOCK` (must be `"false"` in production), `TURN_URIS`. Keep partner SSO flags false until real OAuth client credentials and token exchange are wired.
+Non-secret `[vars]`: `ENDAO_SSO_ENABLED`, `WEREAD_SSO_ENABLED`, `PARTNER_SSO_MOCK` (must be `"false"` in production), `TURN_URIS`. For real partner authorize URLs also set `ENDAO_OAUTH_CLIENT_ID` / `WEREAD_OAUTH_CLIENT_ID` and `PARTNER_OAUTH_REDIRECT_BASE` (see `wrangler.production.toml` comments). Keep partner SSO flags false until real OAuth client credentials and token exchange are wired.
 
 ## 5. Deploy API Worker
 
