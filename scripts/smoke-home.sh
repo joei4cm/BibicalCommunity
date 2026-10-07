@@ -36,7 +36,7 @@ test -n "$CHURCH_ID"
 echo "$CHURCH" | grep -q '"role":"admin"'
 echo "HOME_CHURCH_OK"
 
-echo "== home create board post (notice) =="
+echo "== home create board post (notice + general) =="
 POST=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"notice\",\"title\":\"Smoke notice\",\"body\":\"Hello church\"}" \
   "$BASE/v1/home/posts")
@@ -45,6 +45,12 @@ echo "$POST" | grep -q '"id":"post_'
 POST_ID=$(echo "$POST" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 LIST=$(curl -sf -H "$AUTH" "$BASE/v1/home/${CHURCH_ID}/posts?board=notice")
 echo "$LIST" | grep -q "$POST_ID"
+GPOST=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"general\",\"title\":\"Smoke general\",\"body\":\"General board\"}" \
+  "$BASE/v1/home/posts")
+echo "$GPOST" | grep -q '"id":"post_'
+GLIST=$(curl -sf -H "$AUTH" "$BASE/v1/home/${CHURCH_ID}/posts?board=general")
+echo "$GLIST" | grep -q "$(echo "$GPOST" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')"
 echo "HOME_POST_OK"
 
 echo "== home peer join + verify member =="
@@ -57,7 +63,20 @@ VERIFY=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   "$BASE/v1/home/members/verify")
 echo "$VERIFY" | head -c 160; echo
 echo "$VERIFY" | grep -q '"verified":true'
+CHLIST=$(curl -sf -H "$AUTH2" "$BASE/v1/home/churches")
+echo "$CHLIST" | grep -q "$CHURCH_ID"
+echo "$CHLIST" | grep -q '"verified":true'
 echo "HOME_VERIFY_OK"
+
+echo "== home patch security → hostile =="
+SEC=$(curl -sf -X PATCH -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"securityMode":"hostile"}' \
+  "$BASE/v1/home/churches/${CHURCH_ID}/security")
+echo "$SEC" | head -c 160; echo
+echo "$SEC" | grep -q '"securityMode":"hostile"'
+ME_AFTER=$(curl -sf -H "$AUTH2" "$BASE/v1/me")
+echo "$ME_AFTER" | grep -q '"discoverableByHandle":false'
+echo "HOME_SECURITY_PATCH_OK"
 
 echo "== home create group =="
 GROUP=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
