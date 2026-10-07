@@ -125,6 +125,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Luke.2" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Deut.6" | grep -qE '样例|以色列|独一的主'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Deut.6" | grep -qE '見本|イスラエル|唯一の主'
 echo "MULTI_BOOK_NARRATIVE_OK"
+echo "== multi-book teaching scaffolds Matt.6 / Gal.5 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.6" | grep -qiE 'Our Father|daily bread|seek first'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.6" | grep -qiE 'Our Father|daily bread|kingdom of God'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.6" | grep -qiE 'Our Father|daily bread|his kingdom'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gal.5" | grep -qiE 'fruit of the Spirit|love, joy, peace|walk by the Spirit'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gal.5" | grep -qiE 'fruit of the Spirit|Walk in the Spirit|longsuffering'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Gal.5" | grep -qiE 'fruit of the Spirit|Walk by the Spirit|self-control'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Matt.6" | grep -qE '样例|天上的父|先求他的国'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.6" | grep -qE '見本|われらの父|神の国'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gal.5" | grep -qE '样例|圣灵所结的果子|仁爱'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gal.5" | grep -qE '見本|御霊の実|愛、喜び'
+echo "MULTI_BOOK_TEACHING_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")

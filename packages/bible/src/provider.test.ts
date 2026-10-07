@@ -640,3 +640,62 @@ test("loadChapter returns zh/ja Luke.2 and Deuteronomy.6 scaffolds", async () =>
   assert.ok(!("external" in kougoDeut));
   assert.match(kougoDeut.verses.find((v) => v.verse === 4)?.text ?? "", /見本|イスラエル|唯一の主/);
 });
+
+test("loadChapter returns PD Matt.6 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Matt", chapter: 6 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Matt");
+  assert.equal(web.chapter, 6);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 9)?.text ?? "", /Our Father|name be kept holy/i);
+  assert.match(web.verses.find((v) => v.verse === 33)?.text ?? "", /seek first|Kingdom/i);
+
+  const kjv = await loadChapter("kjv", { book: "Matthew", chapter: 6 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Matt");
+  assert.match(kjv.verses.find((v) => v.verse === 11)?.text ?? "", /daily bread/i);
+
+  const asv = await loadChapter("asv", { book: "Mt", chapter: 6 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 10)?.text ?? "", /Thy kingdom come|will be done/i);
+});
+
+test("loadChapter returns PD Galatians.5 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Gal", chapter: 5 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Gal");
+  assert.equal(web.chapter, 5);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 22)?.text ?? "", /fruit of the Spirit|love, joy, peace/i);
+
+  const kjv = await loadChapter("kjv", { book: "Galatians", chapter: 5 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Gal");
+  assert.match(kjv.verses.find((v) => v.verse === 16)?.text ?? "", /Walk in the Spirit/i);
+
+  const asv = await loadChapter("asv", { book: "gal", chapter: 5 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 23)?.text ?? "", /self-control|no law/i);
+});
+
+test("loadChapter returns zh/ja Matt.6 and Galatians.5 scaffolds", async () => {
+  const cuvsMatt = await loadChapter("cuvs", { book: "马太福音", chapter: 6 });
+  assert.ok(!("external" in cuvsMatt));
+  assert.equal(cuvsMatt.book, "Matt");
+  assert.ok(cuvsMatt.verses.length >= 3 && cuvsMatt.verses.length <= 5);
+  assert.match(cuvsMatt.verses.find((v) => v.verse === 9)?.text ?? "", /样例|天上的父|尊你的名/);
+
+  const kougoMatt = await loadChapter("kougo", { book: "マタイ", chapter: 6 });
+  assert.ok(!("external" in kougoMatt));
+  assert.match(kougoMatt.verses.find((v) => v.verse === 9)?.text ?? "", /見本|われらの父|御名/);
+
+  const cuvsGal = await loadChapter("cuvs", { book: "加拉太书", chapter: 5 });
+  assert.ok(!("external" in cuvsGal));
+  assert.equal(cuvsGal.book, "Gal");
+  assert.match(cuvsGal.verses.find((v) => v.verse === 22)?.text ?? "", /样例|圣灵所结的果子|仁爱/);
+
+  const kougoGal = await loadChapter("kougo", { book: "ガラテヤ", chapter: 5 });
+  assert.ok(!("external" in kougoGal));
+  assert.match(kougoGal.verses.find((v) => v.verse === 22)?.text ?? "", /見本|御霊の実|愛、喜び/);
+});

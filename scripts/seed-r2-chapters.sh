@@ -226,4 +226,29 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Luke.2" -H "$AUTH" | grep
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Deut.6" -H "$AUTH" | grep -qE '样例|以色列|独一的主'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Deut.6" -H "$AUTH" | grep -qE '見本|イスラエル|唯一の主'
 echo "MULTI_BOOK_NARRATIVE_OK"
+
+# Multi-book teaching dual-pane scaffolds (Matt.6 / Gal.5) — short license-safe samples
+put_chapter "bible/web/Matt.6.json" '{"book":"Matt","chapter":6,"verses":[{"verse":9,"text":"Pray like this: \"Our Father in heaven, may your name be kept holy."},{"verse":10,"text":"Let your Kingdom come. Let your will be done on earth as it is in heaven."},{"verse":11,"text":"Give us today our daily bread."},{"verse":33,"text":"But seek first God'\''s Kingdom and his righteousness; and all these things will be given to you as well."}]}'
+put_chapter "bible/kjv/Matt.6.json" '{"book":"Matt","chapter":6,"verses":[{"verse":9,"text":"After this manner therefore pray ye: Our Father which art in heaven, Hallowed be thy name."},{"verse":10,"text":"Thy kingdom come. Thy will be done in earth, as it is in heaven."},{"verse":11,"text":"Give us this day our daily bread."},{"verse":33,"text":"But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you."}]}'
+put_chapter "bible/asv/Matt.6.json" '{"book":"Matt","chapter":6,"verses":[{"verse":9,"text":"After this manner therefore pray ye: Our Father who art in heaven, Hallowed be thy name."},{"verse":10,"text":"Thy kingdom come. Thy will be done, as in heaven, so on earth."},{"verse":11,"text":"Give us this day our daily bread."},{"verse":33,"text":"But seek ye first his kingdom, and his righteousness; and all these things shall be added unto you."}]}'
+put_chapter "bible/cuvs/Matt.6.json" '{"book":"Matt","chapter":6,"verses":[{"verse":9,"text":"（样例）所以，你们祷告要这样说：我们在天上的父：愿人都尊你的名为圣。"},{"verse":10,"text":"（样例）愿你的国降临；愿你的旨意行在地上，如同行在天上。"},{"verse":11,"text":"（样例）我们日用的饮食，今日赐给我们。"},{"verse":33,"text":"（样例）你们要先求他的国和他的义，这些东西都要加给你们了。"}]}'
+put_chapter "bible/kougo/Matt.6.json" '{"book":"Matt","chapter":6,"verses":[{"verse":9,"text":"（見本）だから、あなたがたはこう祈りなさい、『天にいますわれらの父よ。御名があがめられますように。"},{"verse":10,"text":"（見本）御国がきますように。みこころが天に行われるとおり、地にも行われますように。"},{"verse":11,"text":"（見本）わたしたちの日ごとの食物を、今日もお与えください。"},{"verse":33,"text":"（見本）まず神の国と神の義とを求めなさい。そうすれば、これらのものは、すべて添えて与えられるであろう。"}]}'
+put_chapter "bible/web/Gal.5.json" '{"book":"Gal","chapter":5,"verses":[{"verse":16,"text":"But I say, walk by the Spirit, and you won'\''t fulfill the lust of the flesh."},{"verse":22,"text":"But the fruit of the Spirit is love, joy, peace, patience, kindness, goodness, faith,"},{"verse":23,"text":"gentleness, and self-control. Against such things there is no law."},{"verse":25,"text":"If we live by the Spirit, let'\''s also walk by the Spirit."}]}'
+put_chapter "bible/kjv/Gal.5.json" '{"book":"Gal","chapter":5,"verses":[{"verse":16,"text":"This I say then, Walk in the Spirit, and ye shall not fulfil the lust of the flesh."},{"verse":22,"text":"But the fruit of the Spirit is love, joy, peace, longsuffering, gentleness, goodness, faith,"},{"verse":23,"text":"Meekness, temperance: against such there is no law."},{"verse":25,"text":"If we live in the Spirit, let us also walk in the Spirit."}]}'
+put_chapter "bible/asv/Gal.5.json" '{"book":"Gal","chapter":5,"verses":[{"verse":16,"text":"But I say, Walk by the Spirit, and ye shall not fulfil the lust of the flesh."},{"verse":22,"text":"But the fruit of the Spirit is love, joy, peace, longsuffering, kindness, goodness, faithfulness,"},{"verse":23,"text":"meekness, self-control; against such there is no law."},{"verse":25,"text":"If we live by the Spirit, by the Spirit let us also walk."}]}'
+put_chapter "bible/cuvs/Gal.5.json" '{"book":"Gal","chapter":5,"verses":[{"verse":16,"text":"（样例）我说，你们当顺着圣灵而行，就不放纵肉体的情欲了。"},{"verse":22,"text":"（样例）圣灵所结的果子，就是仁爱、喜乐、和平、忍耐、恩慈、良善、信实、"},{"verse":23,"text":"（样例）温柔、节制。这样的事没有律法禁止。"},{"verse":25,"text":"（样例）我们若是靠圣灵得生，就当靠圣灵行事。"}]}'
+put_chapter "bible/kougo/Gal.5.json" '{"book":"Gal","chapter":5,"verses":[{"verse":16,"text":"（見本）わたしは命じる。御霊によって歩きなさい。そうすれば、決して肉の欲を満たすことはない。"},{"verse":22,"text":"（見本）御霊の実は、愛、喜び、平和、寛容、慈愛、善意、忠実、"},{"verse":23,"text":"（見本）柔和、自制である。これらを禁ずる律法はない。"},{"verse":25,"text":"（見本）もしわたしたちが御霊によって生きるのなら、また御霊によって進もうではないか。"}]}'
+
+echo "Multi-book teaching scaffolds:"
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.6" -H "$AUTH" | grep -qiE 'Our Father|daily bread|seek first'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.6" -H "$AUTH" | grep -qiE 'Our Father|daily bread|kingdom of God'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.6" -H "$AUTH" | grep -qiE 'Our Father|daily bread|his kingdom'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gal.5" -H "$AUTH" | grep -qiE 'fruit of the Spirit|love, joy, peace|walk by the Spirit'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gal.5" -H "$AUTH" | grep -qiE 'fruit of the Spirit|Walk in the Spirit|longsuffering'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Gal.5" -H "$AUTH" | grep -qiE 'fruit of the Spirit|Walk by the Spirit|self-control'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Matt.6" -H "$AUTH" | grep -qE '样例|天上的父|先求他的国'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.6" -H "$AUTH" | grep -qE '見本|われらの父|神の国'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gal.5" -H "$AUTH" | grep -qE '样例|圣灵所结的果子|仁爱'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gal.5" -H "$AUTH" | grep -qE '見本|御霊の実|愛、喜び'
+echo "MULTI_BOOK_TEACHING_OK"
 echo SEED_R2_OK
