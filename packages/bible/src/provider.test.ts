@@ -463,3 +463,62 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   assert.ok(!("external" in kougoActs));
   assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
 });
+
+test("loadChapter returns PD Psalm.1 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Ps", chapter: 1 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Ps");
+  assert.equal(web.chapter, 1);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /Blessed is the man|counsel of the wicked/i);
+  assert.match(web.verses.find((v) => v.verse === 3)?.text ?? "", /tree planted|streams of water/i);
+
+  const kjv = await loadChapter("kjv", { book: "Psalm", chapter: 1 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Ps");
+  assert.match(kjv.verses[0]?.text ?? "", /Blessed is the man|counsel of the ungodly/i);
+
+  const asv = await loadChapter("asv", { book: "Psalms", chapter: 1 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /law of Jehovah|meditate day and night/i);
+});
+
+test("loadChapter returns PD Proverbs.3 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Prov", chapter: 3 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Prov");
+  assert.equal(web.chapter, 3);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 5)?.text ?? "", /Trust in Yahweh|own understanding/i);
+
+  const kjv = await loadChapter("kjv", { book: "Proverbs", chapter: 3 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Prov");
+  assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /Trust in the LORD|own understanding/i);
+
+  const asv = await loadChapter("asv", { book: "prov", chapter: 3 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 6)?.text ?? "", /acknowledge him|direct thy paths/i);
+});
+
+test("loadChapter returns zh/ja Psalm.1 and Proverbs.3 scaffolds", async () => {
+  const cuvsPs = await loadChapter("cuvs", { book: "Ps", chapter: 1 });
+  assert.ok(!("external" in cuvsPs));
+  assert.equal(cuvsPs.book, "Ps");
+  assert.ok(cuvsPs.verses.length >= 3 && cuvsPs.verses.length <= 5);
+  assert.match(cuvsPs.verses[0]?.text ?? "", /样例|恶人的计谋|有福/);
+
+  const kougoPs = await loadChapter("kougo", { book: "Psalm", chapter: 1 });
+  assert.ok(!("external" in kougoPs));
+  assert.match(kougoPs.verses[0]?.text ?? "", /見本|悪しき者|さいわい/);
+
+  const cuvsProv = await loadChapter("cuvs", { book: "箴言", chapter: 3 });
+  assert.ok(!("external" in cuvsProv));
+  assert.equal(cuvsProv.book, "Prov");
+  assert.match(cuvsProv.verses.find((v) => v.verse === 5)?.text ?? "", /样例|仰赖耶和华|自己的聪明/);
+
+  const kougoProv = await loadChapter("kougo", { book: "Proverbs", chapter: 3 });
+  assert.ok(!("external" in kougoProv));
+  assert.match(kougoProv.verses.find((v) => v.verse === 5)?.text ?? "", /見本|主に信頼|自分の知識/);
+});

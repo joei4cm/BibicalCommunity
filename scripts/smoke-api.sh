@@ -89,7 +89,20 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Isa.53" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Acts.2" | grep -qE '样例|五旬节'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Acts.2" | grep -qE '見本|五旬節'
 echo "MULTI_BOOK_OTNT_OK"
+echo "== multi-book wisdom scaffolds Ps.1 / Prov.3 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Ps.1" | grep -qiE 'Blessed is the man|counsel of the wicked'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Ps.1" | grep -qiE 'Blessed is the man|counsel of the ungodly'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Ps.1" | grep -qiE 'Blessed is the man|counsel of the wicked'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Prov.3" | grep -qiE 'Trust in Yahweh|own understanding'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Prov.3" | grep -qiE 'Trust in the LORD|own understanding'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Prov.3" | grep -qiE 'Trust in Jehovah|own understanding'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.1" | grep -qE '样例|恶人的计谋|有福'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.1" | grep -qE '見本|悪しき者|さいわい'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Prov.3" | grep -qE '样例|仰赖耶和华|自己的聪明'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Prov.3" | grep -qE '見本|主に信頼|自分の知識'
+echo "MULTI_BOOK_WISDOM_OK"
 echo "== chapter CUVS John.1 (zh) =="
+
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
 echo "$CUVS" | head -c 160; echo
 echo "$CUVS" | grep -q '太初有道'
