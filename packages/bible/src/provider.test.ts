@@ -142,3 +142,22 @@ test("loadChapter returns cuvs scaffold John.1", async () => {
   assert.ok(result.verses.length > 0);
   assert.match(result.verses[0]?.text ?? "", /太初有道/);
 });
+
+test("loadChapter returns lzz scaffold John.1", async () => {
+  const result = await loadChapter("lzz", { book: "John", chapter: 1 });
+  assert.ok(!("external" in result));
+  assert.ok(result.verses.length > 0);
+  assert.match(result.verses[0]?.text ?? "", /起初有道|太初有道/);
+});
+
+test("partner external chapter marks sso when flags on", async () => {
+  const off = await loadChapter("endao", { book: "John", chapter: 1 }, { endao: false, weread: false });
+  assert.ok("external" in off && off.external);
+  assert.equal(off.sso, false);
+  assert.ok(!off.url.includes("sso=1"));
+
+  const on = await loadChapter("endao", { book: "John", chapter: 1 }, { endao: true, weread: false });
+  assert.ok("external" in on && on.external);
+  assert.equal(on.sso, true);
+  assert.ok(on.url.includes("sso=1"));
+});

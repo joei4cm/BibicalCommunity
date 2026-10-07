@@ -16,6 +16,7 @@ import { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
 import { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
 import { SHIN_KYOUDOU_JOHN_1 } from "./packs/shin-kyoudou-john1.js";
 import { CCB_JOHN_1 } from "./packs/ccb-john1.js";
+import { LZZ_JOHN_1 } from "./packs/lzz-john1.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -48,13 +49,21 @@ const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: s
   shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1 },
   shinKyoudou: { 1: SHIN_KYOUDOU_JOHN_1 },
   ccb: { 1: CCB_JOHN_1 },
+  lzz: { 1: LZZ_JOHN_1 },
+};
+
+export type ExternalChapterPayload = {
+  external: true;
+  url: string;
+  meta: TranslationMeta;
+  sso: boolean;
 };
 
 export async function loadChapter(
   translationId: string,
   ref: VerseRef,
   sso: PartnerSsoFlags = { endao: false, weread: false },
-): Promise<ChapterPayload | { external: true; url: string; meta: TranslationMeta }> {
+): Promise<ChapterPayload | ExternalChapterPayload> {
   const meta = getTranslation(translationId);
   if (!meta) throw new Error(`Unknown translation: ${translationId}`);
 
@@ -62,10 +71,11 @@ export async function loadChapter(
     const url = buildExternalUrl(meta, formatRef(ref));
     if (!url) throw new Error("Missing external URL template");
     // SSO: when partner supports cross-login, callers attach tokens; else plain deep link.
-    if (meta.ssoFlag && sso[meta.ssoFlag]) {
-      return { external: true, url: `${url}&sso=1`, meta };
+    const ssoOn = Boolean(meta.ssoFlag && sso[meta.ssoFlag]);
+    if (ssoOn) {
+      return { external: true, url: `${url}&sso=1`, meta, sso: true as const };
     }
-    return { external: true, url, meta };
+    return { external: true, url, meta, sso: false as const };
   }
 
   // Local PD / scaffold samples (John chapters for dual-pane / offline reading)

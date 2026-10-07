@@ -44,6 +44,14 @@ curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.1" | grep -q '
 echo "== chapter CCB John.1 (zh) =="
 # Local scaffold (太初有道) or R2 sample seed (宇宙被造以前…)
 curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.1" | grep -qE '太初有道|宇宙被造以前|道已经存在|道就是'
+echo "== chapter LZZ John.1 (zh) =="
+curl -sf "$BASE/v1/bible/chapter?translation=lzz&ref=John.1" | grep -qE '起初有道|太初有道|道与'
+echo "== partner endao chapter sso flag =="
+ENDAO_CH=$(curl -sf "$BASE/v1/bible/chapter?translation=endao&ref=John.1")
+echo "$ENDAO_CH" | head -c 200; echo
+echo "$ENDAO_CH" | grep -q '"sso":true'
+echo "$ENDAO_CH" | grep -q 'sso=1'
+echo "ENDAO_SSO_CHAPTER_OK"
 echo "== chapter NIV external =="
 curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
 echo "== partner mock authorize =="

@@ -40,7 +40,7 @@ type ChapterPayload =
       verses: { verse: number; text: string }[];
       source: string;
     }
-  | { external: true; url: string; meta: TranslationMeta };
+  | { external: true; url: string; meta: TranslationMeta; sso?: boolean };
 
 const HIGHLIGHT_COLORS = [
   { id: "amber", value: "#f5d76e" },
@@ -55,8 +55,13 @@ function bookLocaleKey(lang: string): "zh" | "en" | "ja" {
   return "en";
 }
 
+function partnerSsoEnabled(chapter: { url: string; sso?: boolean }): boolean {
+  return Boolean(chapter.sso) || chapter.url.includes("sso=1");
+}
+
 function ChapterPane({
   chapter,
+  verseRef,
   fontSize,
   lineHeight,
   fontFamily,
@@ -67,6 +72,7 @@ function ChapterPane({
   highlightByVerse,
 }: {
   chapter: ChapterPayload | null;
+  verseRef: string;
   fontSize: number;
   lineHeight: number;
   fontFamily: string;
@@ -82,14 +88,21 @@ function ChapterPane({
     const href =
       partner && isPartnerId(partner)
         ? buildPartnerAuthUrl(partner, {
-            ref: `${chapter.meta.id}`,
-            ssoEnabled: Boolean((chapter as { sso?: boolean }).sso),
+            ref: verseRef,
+            ssoEnabled: partnerSsoEnabled(chapter),
           })
         : chapter.url;
     return (
-      <div className="panel">
+      <div className="panel" data-testid="reader-external">
         <p>{chapter.meta.name[locale]}</p>
-        <a className="btn" href={href} target="_blank" rel="noreferrer">
+        <a
+          className="btn"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="reader-external-link"
+          data-sso={partnerSsoEnabled(chapter) ? "1" : "0"}
+        >
           {chapter.meta.ssoFlag === "endao" ? t("reader.external.endao") : t("reader.external.weread")}
         </a>
       </div>
@@ -497,6 +510,7 @@ export function BibleReader() {
       <div className={dualPane ? "reader-dual" : undefined}>
         <ChapterPane
           chapter={chapter}
+          verseRef={ref}
           fontSize={fontSize}
           lineHeight={lineHeight}
           fontFamily={readerFont}
@@ -509,6 +523,7 @@ export function BibleReader() {
         {dualPane && (
           <ChapterPane
             chapter={secondChapter}
+            verseRef={ref}
             fontSize={fontSize}
             lineHeight={lineHeight}
             fontFamily={readerFont}

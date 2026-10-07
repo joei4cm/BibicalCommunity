@@ -126,7 +126,7 @@ export default function BibleScreen() {
     const href =
       partner && isPartnerId(partner)
         ? buildPartnerAuthUrl(partner, {
-            ref: external.meta.id,
+            ref,
             ssoEnabled: Boolean(external.sso) || external.url.includes("sso=1"),
           })
         : external.url;

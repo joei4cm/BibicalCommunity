@@ -22,3 +22,4 @@ export { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
 export { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
 export { SHIN_KYOUDOU_JOHN_1 } from "./packs/shin-kyoudou-john1.js";
 export { CCB_JOHN_1 } from "./packs/ccb-john1.js";
+export { LZZ_JOHN_1 } from "./packs/lzz-john1.js";
