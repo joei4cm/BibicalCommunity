@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { parsePlanCsv } from "@logoshome/bible";
-import { api, getToken } from "../lib/api";
+import { listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
+import { api, apiOptional, getToken } from "../lib/api";
 import {
   DEVOTION_STEPS,
   devotionProgress,
@@ -9,12 +9,71 @@ import {
   type DevotionStep,
 } from "./devotion";
 
+type Plan = {
+  id: string;
+  title: string;
+  description?: string | null;
+  visibility: string;
+  days: unknown[];
+};
+
+type PublicPlan = { id: string; title: string; description?: string | null };
+type Subscription = { id: string; planId: string; progressDay: number };
+
 export function PlansPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
   const [message, setMessage] = useState<string | null>(null);
   const [step, setStep] = useState<DevotionStep>("pause");
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [daysJson, setDaysJson] = useState("[]");
+  const [subscribeId, setSubscribeId] = useState("");
+  const [publicPlans, setPublicPlans] = useState<PublicPlan[] | null>(null);
+  const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
   const progress = devotionProgress(step);
+
+  const lang = i18n.language.startsWith("zh") ? "zh" : i18n.language.startsWith("ja") ? "ja" : "en";
+  const studyMaterials = useMemo(() => listStudyMaterials({ language: lang }), [lang]);
+
+  const selected = plans.find((p) => p.id === selectedId) ?? null;
+
+  const refreshPlans = useCallback(async () => {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    const res = await api<{ plans: Plan[] }>("/v1/plans");
+    setPlans(res.plans);
+    setMessage(null);
+    setSelectedId((prev) => {
+      if (prev) return prev;
+      const first = res.plans[0];
+      if (!first) return prev;
+      setDaysJson(JSON.stringify(first.days, null, 2));
+      return first.id;
+    });
+  }, []);
+
+  useEffect(() => {
+    void refreshPlans().catch((e) => setMessage(e instanceof Error ? e.message : "error"));
+  }, [refreshPlans]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    void (async () => {
+      const pub = await apiOptional<{ plans: PublicPlan[] }>("/v1/plans/public");
+      setPublicPlans(pub?.plans ?? null);
+      const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+      setSubscriptions(subs?.subscriptions ?? null);
+    })();
+  }, []);
+
+  function selectPlan(id: string) {
+    setSelectedId(id);
+    const plan = plans.find((p) => p.id === id);
+    if (plan) setDaysJson(JSON.stringify(plan.days, null, 2));
+  }
 
   async function importCsv() {
     if (!getToken()) {
@@ -31,6 +90,43 @@ export function PlansPage() {
       }),
     });
     setMessage(`created:${res.id} (${days.length} days)`);
+    await refreshPlans();
+  }
+
+  async function saveDays() {
+    if (!getToken() || !selectedId) {
+      setMessage("login_required");
+      return;
+    }
+    let days: unknown[];
+    try {
+      days = JSON.parse(daysJson) as unknown[];
+      if (!Array.isArray(days)) throw new Error("invalid");
+    } catch {
+      setMessage("invalid_json");
+      return;
+    }
+    await api(`/v1/plans/${encodeURIComponent(selectedId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ days }),
+    });
+    setMessage("saved");
+    await refreshPlans();
+  }
+
+  async function subscribe() {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    const id = subscribeId.trim();
+    if (!id) return;
+    const res = await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    setMessage(`subscribed:${res.id}`);
+    setSubscribeId("");
   }
 
   function advance() {
@@ -45,6 +141,82 @@ export function PlansPage() {
   return (
     <section className="fade-up">
       <h1 className="brand">{t("nav.plans")}</h1>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("plans.owned")}</h2>
+        {message && <p className="muted">{message}</p>}
+        <ul className="list">
+          {plans.length === 0 && <li className="muted">—</li>}
+          {plans.map((p) => (
+            <li key={p.id}>
+              <button type="button" className="linkish" onClick={() => selectPlan(p.id)}>
+                <strong>{p.title}</strong>
+              </button>
+              <div className="muted">
+                {p.visibility} · {p.days.length} days
+                {selectedId === p.id ? ` · ${t("plans.selected")}` : ""}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {selected && (
+          <>
+            <div className="field" style={{ marginTop: "1rem" }}>
+              <label>{t("plans.editDays")}</label>
+              <textarea rows={8} value={daysJson} onChange={(e) => setDaysJson(e.target.value)} />
+            </div>
+            <button type="button" className="btn" onClick={() => void saveDays()}>
+              {t("plans.save")}
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("plans.subscribe")}</h2>
+        <div className="field">
+          <label>{t("plans.subscribeId")}</label>
+          <input
+            value={subscribeId}
+            onChange={(e) => setSubscribeId(e.target.value)}
+            placeholder="plan_…"
+          />
+        </div>
+        <button type="button" className="btn" onClick={() => void subscribe()}>
+          {t("plans.subscribe")}
+        </button>
+      </div>
+
+      {publicPlans && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("plans.public")}</h2>
+          <ul className="list">
+            {publicPlans.length === 0 && <li className="muted">—</li>}
+            {publicPlans.map((p) => (
+              <li key={p.id}>
+                <strong>{p.title}</strong>
+                <div className="muted">{p.id}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {subscriptions && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("plans.subscriptions")}</h2>
+          <ul className="list">
+            {subscriptions.length === 0 && <li className="muted">—</li>}
+            {subscriptions.map((s) => (
+              <li key={s.id}>
+                {s.planId}
+                <div className="muted">day {s.progressDay}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.importCsv")}</h2>
         <div className="field">
@@ -53,10 +225,10 @@ export function PlansPage() {
         <button type="button" className="btn" onClick={() => void importCsv()}>
           {t("plans.importCsv")}
         </button>
-        {message && <p className="muted">{message}</p>}
       </div>
+
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>Devotion</h2>
+        <h2 style={{ marginTop: 0 }}>{t("plans.devotion")}</h2>
         <p className="muted">
           {progress.index + 1} / {progress.total}
           {progress.done ? " · done" : ""}
@@ -86,6 +258,20 @@ export function PlansPage() {
             Reset
           </button>
         </div>
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("plans.materials")}</h2>
+        <ul className="list">
+          {studyMaterials.map((m) => (
+            <li key={m.id}>
+              <a href={m.url} target="_blank" rel="noreferrer">
+                {m.title}
+              </a>
+              <div className="muted">{m.license}</div>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

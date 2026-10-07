@@ -123,15 +123,16 @@ select {
   border-radius: var(--lh-radius);
   padding: 1.25rem 1.1rem 1.5rem;
   border: 1px solid var(--lh-border);
+  font-family: var(--lh-font-reader);
 }
 
 .reader h2 {
-  font-family: var(--lh-font-reader);
+  font-family: inherit;
   margin: 0 0 1rem;
 }
 
 .verse {
-  font-family: var(--lh-font-reader);
+  font-family: inherit;
   font-size: var(--reader-size, 1.15rem);
   line-height: var(--reader-lh, 1.75);
   margin: 0 0 0.85rem;
@@ -293,5 +294,67 @@ select {
 .step-chip.step-done .step-index {
   background: var(--lh-accent);
   color: #fff;
+}
+
+.linkish {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.linkish:hover {
+  color: var(--lh-accent);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+  color: var(--lh-ink);
+}
+
+.btn.danger {
+  background: var(--lh-danger);
+}
+
+.badge-verified {
+  color: var(--lh-accent);
+  font-weight: 600;
+}
+
+.media-embed {
+  margin-top: 0.65rem;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--lh-border);
+  background: #000;
+}
+
+.media-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.media-native {
+  display: block;
+  width: 100%;
+  margin-top: 0.65rem;
+  border-radius: 10px;
+}
+
+.typography-panel input[type="range"] {
+  width: 100%;
+  accent-color: var(--lh-accent);
 }
 
