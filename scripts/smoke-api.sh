@@ -88,20 +88,32 @@ WS_HOST="${WS_HOST#https://}"
 WS_URL="ws://${WS_HOST}/v1/calls/${CALL_ID}/ws?token=${TOKEN}&conversationId=${CID}"
 node --input-type=module -e '
 const url = process.argv[1];
+let ok = false;
 const ws = new WebSocket(url);
 const timer = setTimeout(() => { console.error("CALL_WS_TIMEOUT"); process.exit(1); }, 8000);
 ws.addEventListener("message", (ev) => {
   let msg;
   try { msg = JSON.parse(String(ev.data)); } catch { return; }
   if (msg && msg.type === "joined") {
+    ok = true;
     clearTimeout(timer);
     console.log("CALL_WS_OK");
     ws.close();
     process.exit(0);
   }
 });
-ws.addEventListener("error", () => { clearTimeout(timer); console.error("CALL_WS_ERROR"); process.exit(1); });
-ws.addEventListener("close", () => { clearTimeout(timer); console.error("CALL_WS_CLOSED"); process.exit(1); });
+ws.addEventListener("error", () => {
+  if (ok) return;
+  clearTimeout(timer);
+  console.error("CALL_WS_ERROR");
+  process.exit(1);
+});
+ws.addEventListener("close", () => {
+  if (ok) return;
+  clearTimeout(timer);
+  console.error("CALL_WS_CLOSED");
+  process.exit(1);
+});
 ' "$WS_URL"
 echo "== peer key bundle list =="
 curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
