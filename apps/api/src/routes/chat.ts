@@ -200,13 +200,23 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
   )[0];
   if (!member) return c.json({ error: "forbidden" }, 403);
 
+  const now = Date.now();
   const rows = await db
     .select()
     .from(schema.messages)
     .where(and(eq(schema.messages.conversationId, conversationId), eq(schema.messages.tombstoned, false)));
 
-  return c.json({
-    messages: rows.map((m) => ({
+  // Disappearing messages: tombstone expired rows and omit ciphertext from the response.
+  const live = [];
+  for (const m of rows) {
+    if (m.expiresAt != null && m.expiresAt <= now) {
+      await db
+        .update(schema.messages)
+        .set({ tombstoned: true, ratchetHeader: "", ciphertext: "" })
+        .where(eq(schema.messages.id, m.id));
+      continue;
+    }
+    live.push({
       id: m.id,
       senderDeviceId: m.senderDeviceId,
       ratchetHeader: m.ratchetHeader,
@@ -214,8 +224,10 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
       contentType: m.contentType,
       createdAt: m.createdAt,
       expiresAt: m.expiresAt,
-    })),
-  });
+    });
+  }
+
+  return c.json({ messages: live });
 });
 
 const favoriteSchema = z.object({

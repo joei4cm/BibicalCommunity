@@ -78,10 +78,12 @@ export function ChatPanel() {
     const res = await api<{ messages: ChatMessage[] }>(
       `/v1/chat/conversations/${conversationId}/messages`,
     );
-    setMessages(res.messages);
+    const now = Date.now();
+    const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+    setMessages(live);
     const key = await sessionKeyFor(conversationId);
     const decoded: Record<string, string> = {};
-    for (const m of res.messages) {
+    for (const m of live) {
       try {
         decoded[m.id] = await decryptChatMessage(conversationId, m.ratchetHeader, m.ciphertext);
       } catch {
