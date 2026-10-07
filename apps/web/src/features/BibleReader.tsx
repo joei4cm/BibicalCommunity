@@ -12,6 +12,12 @@ import {
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { decryptJson, encryptJson } from "../lib/note-crypto";
+import {
+  applyReaderSkin,
+  loadReaderSkin,
+  READER_SKIN_IDS,
+  type ReaderSkinId,
+} from "../lib/reader-skins";
 
 type AnnotationRow = {
   id: string;
@@ -156,6 +162,7 @@ export function BibleReader() {
   const [lineHeight, setLineHeight] = useState(1.75);
   const [serif, setSerif] = useState(true);
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
+  const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
 
   const TYPO_PRESETS = {
     compact: { fontSize: 1.0, lineHeight: 1.35, serif: false },
@@ -170,6 +177,10 @@ export function BibleReader() {
     setLineHeight(p.lineHeight);
     setSerif(p.serif);
   }
+
+  useEffect(() => {
+    applyReaderSkin(readerSkin);
+  }, [readerSkin]);
   const [noteText, setNoteText] = useState("");
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
@@ -471,6 +482,21 @@ export function BibleReader() {
           >
             {t("reader.sans")}
           </button>
+        </div>
+        <div className="field">
+          <label htmlFor="reader-skin">{t("reader.skin")}</label>
+          <select
+            id="reader-skin"
+            data-testid="reader-skin"
+            value={readerSkin}
+            onChange={(e) => setReaderSkin(e.target.value as ReaderSkinId)}
+          >
+            {READER_SKIN_IDS.map((id) => (
+              <option key={id} value={id}>
+                {t(`reader.skin.${id}`)}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label htmlFor="reader-lh">

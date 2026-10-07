@@ -10,6 +10,7 @@ import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import { humanizeStatus } from "../lib/status";
 import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
+import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 
 type Conversation = {
   id: string;
@@ -297,6 +298,11 @@ export function ChatPanel() {
   }
 
   async function shareScreen() {
+    const gate = probeDisplayMedia();
+    if (!gate.available) {
+      setCallNote((prev) => `${prev ?? ""} · ${t("chat.screenShareUnavailable")} (${gate.reason})`);
+      return;
+    }
     if (!callRef.current) {
       await startCall();
     }
@@ -310,6 +316,8 @@ export function ChatPanel() {
       setCallNote(e instanceof Error ? e.message : "screen_share_failed");
     }
   }
+
+  const screenShareReady = canStartScreenShare();
 
   async function endScreen() {
     if (!callRef.current) return;
@@ -412,7 +420,13 @@ export function ChatPanel() {
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void startCall()}>
               {t("chat.call")}
             </button>
-            <button type="button" className="btn ghost" disabled={busy} onClick={() => void shareScreen()}>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy || !screenShareReady}
+              title={screenShareReady ? undefined : t("chat.screenShareUnavailable")}
+              onClick={() => void shareScreen()}
+            >
               {t("chat.screenShare")}
             </button>
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
