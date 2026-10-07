@@ -36,8 +36,9 @@ export class CallRoomDO implements DurableObject {
       ws.send(JSON.stringify({ type: "error", error: "invalid_json" }));
       return;
     }
-    // Allow only signaling message types
-    if (!payload.type || !["offer", "answer", "ice", "hangup", "screen"].includes(payload.type)) {
+    // Allow only signaling message types (incl. screen-share SDP)
+    const allowed = ["offer", "answer", "ice", "hangup", "screen", "screen-offer", "screen-answer"];
+    if (!payload.type || !allowed.includes(payload.type)) {
       ws.send(JSON.stringify({ type: "error", error: "invalid_type" }));
       return;
     }

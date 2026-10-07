@@ -131,3 +131,93 @@ homeRoutes.post("/posts", async (c) => {
   });
   return c.json({ id }, 201);
 });
+
+const createGroupSchema = z.object({
+  churchId: z.string().min(1),
+  name: z.string().min(1).max(200),
+});
+
+homeRoutes.post("/groups", async (c) => {
+  const body = createGroupSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const membership = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(eq(schema.churchMembers.churchId, body.churchId), eq(schema.churchMembers.userId, userId)),
+      )
+      .limit(1)
+  )[0];
+  if (!membership) return c.json({ error: "forbidden" }, 403);
+
+  const id = createId("grp");
+  const now = Date.now();
+  await db.insert(schema.churchGroups).values({
+    id,
+    churchId: body.churchId,
+    name: body.name,
+    createdAt: now,
+  });
+
+  let groupIds: string[] = [];
+  try {
+    groupIds = JSON.parse(membership.groupIdsJson || "[]") as string[];
+  } catch {
+    groupIds = [];
+  }
+  if (!groupIds.includes(id)) groupIds.push(id);
+  await db
+    .update(schema.churchMembers)
+    .set({ groupIdsJson: JSON.stringify(groupIds) })
+    .where(eq(schema.churchMembers.id, membership.id));
+
+  return c.json({ id, churchId: body.churchId, name: body.name }, 201);
+});
+
+const verifyMemberSchema = z.object({
+  churchId: z.string().min(1),
+  userId: z.string().min(1),
+});
+
+homeRoutes.post("/members/verify", async (c) => {
+  const body = verifyMemberSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const actor = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(
+          eq(schema.churchMembers.churchId, body.churchId),
+          eq(schema.churchMembers.userId, c.get("userId")),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!actor || (actor.role !== "admin" && actor.role !== "security_officer")) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const target = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(
+          eq(schema.churchMembers.churchId, body.churchId),
+          eq(schema.churchMembers.userId, body.userId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!target) return c.json({ error: "not_found" }, 404);
+
+  await db
+    .update(schema.churchMembers)
+    .set({ verified: true })
+    .where(eq(schema.churchMembers.id, target.id));
+
+  return c.json({ ok: true, churchId: body.churchId, userId: body.userId, verified: true });
+});

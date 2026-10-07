@@ -218,6 +218,44 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
   });
 });
 
+const favoriteSchema = z.object({
+  messageId: z.string().min(1),
+  ciphertext: z.string().min(1),
+  iv: z.string().min(1),
+});
+
+chatRoutes.post("/favorites", async (c) => {
+  const body = favoriteSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const id = createId("fav");
+  await db.insert(schema.messageFavorites).values({
+    id,
+    userId: c.get("userId"),
+    messageId: body.messageId,
+    ciphertext: body.ciphertext,
+    iv: body.iv,
+    createdAt: Date.now(),
+  });
+  return c.json({ id }, 201);
+});
+
+chatRoutes.get("/favorites", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const rows = await db
+    .select()
+    .from(schema.messageFavorites)
+    .where(eq(schema.messageFavorites.userId, c.get("userId")));
+  return c.json({
+    favorites: rows.map((f) => ({
+      id: f.id,
+      messageId: f.messageId,
+      ciphertext: f.ciphertext,
+      iv: f.iv,
+      createdAt: f.createdAt,
+    })),
+  });
+});
+
 chatRoutes.post("/calls", async (c) => {
   const body = z
     .object({ conversationId: z.string(), callId: z.string().optional() })

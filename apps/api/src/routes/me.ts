@@ -28,6 +28,7 @@ meRoutes.get("/", async (c) => {
     theme: user.theme,
     privacy: JSON.parse(user.privacyJson),
     nickname: user.nicknameCt,
+    legalName: user.legalNameCt,
     signature: user.signatureCt,
     churches: memberships.map((m) => ({
       churchId: m.churchId,

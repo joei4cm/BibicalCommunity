@@ -9,6 +9,7 @@ import { planRoutes } from "./routes/plans";
 import { homeRoutes } from "./routes/home";
 import { chatRoutes } from "./routes/chat";
 import { adminRoutes } from "./routes/admin";
+import { mediaRoutes } from "./routes/media";
 import { CallRoomDO } from "./durable/CallRoomDO";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -18,7 +19,7 @@ app.use(
   cors({
     origin: (origin) => origin || "*",
     allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
 
@@ -38,6 +39,7 @@ app.route("/v1/plans", planRoutes);
 app.route("/v1/home", homeRoutes);
 app.route("/v1/chat", chatRoutes);
 app.route("/v1/admin", adminRoutes);
+app.route("/v1/media", mediaRoutes);
 
 async function scheduled(_event: ScheduledEvent, env: Env) {
   await env.DB.prepare(

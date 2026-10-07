@@ -71,6 +71,26 @@ export const churchMembers = sqliteTable("church_members", {
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 
+export const churchGroups = sqliteTable("church_groups", {
+  id: text("id").primaryKey(),
+  churchId: text("church_id")
+    .notNull()
+    .references(() => churches.id),
+  name: text("name").notNull(),
+  createdAt: integer("created_at", { mode: "number" }).notNull(),
+});
+
+export const messageFavorites = sqliteTable("message_favorites", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  messageId: text("message_id").notNull(),
+  ciphertext: text("ciphertext").notNull(),
+  iv: text("iv").notNull(),
+  createdAt: integer("created_at", { mode: "number" }).notNull(),
+});
+
 export const annotations = sqliteTable("annotations", {
   id: text("id").primaryKey(),
   userId: text("user_id")
