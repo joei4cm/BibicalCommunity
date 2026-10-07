@@ -21,15 +21,21 @@ const LocaleContext = createContext<LocaleContextValue>({
   setLocale: () => undefined,
 });
 
+/** Normalize stored / device locale prefixes to API LocaleCode (matches Web). */
+export function normalizeApiLocale(lng: string | null | undefined): LocaleCode {
+  const value = lng || "zh-CN";
+  if (value.startsWith("zh")) return "zh-CN";
+  if (value.startsWith("ja")) return "ja";
+  return "en";
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<LocaleCode>("zh-CN");
 
   useEffect(() => {
     void AsyncStorage.getItem(LOCALE_KEY)
       .then((value) => {
-        if (value === "zh-CN" || value === "en" || value === "ja") {
-          setLocaleState(value);
-        }
+        if (value) setLocaleState(normalizeApiLocale(value));
       })
       .catch(() => undefined);
   }, []);

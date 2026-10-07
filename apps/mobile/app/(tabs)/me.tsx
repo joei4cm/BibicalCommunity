@@ -12,7 +12,8 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { t, type LocaleCode, type PrivacySettings } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken, setToken } from "../../src/api";
-import { useLocale } from "../../src/locale";
+import { normalizeApiLocale, useLocale } from "../../src/locale";
+import { humanizeStatus } from "../../src/status";
 
 const LOCALES: { id: LocaleCode; label: string }[] = [
   { id: "zh-CN", label: "中文" },
@@ -30,13 +31,24 @@ const DEFAULT_PRIVACY: PrivacySettings = {
   shareLastActive: false,
 };
 
+type MeChurch = {
+  churchId: string;
+  role: string;
+  verified: boolean;
+  groups: string[];
+};
+
 type MeProfile = {
   id: string;
   uid: string;
   nickname: string | null;
+  legalName: string | null;
   signature: string | null;
   privacy?: PrivacySettings;
+  churches?: MeChurch[];
 };
+
+type SearchHit = { id: string; uid: string; nickname: string | null };
 
 async function clearLocalStorage(): Promise<void> {
   const keys = await AsyncStorage.getAllKeys();
@@ -49,8 +61,12 @@ export default function MeScreen() {
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
+  const [legalName, setLegalName] = useState("");
+  const [signature, setSignature] = useState("");
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [privacy, setPrivacy] = useState<PrivacySettings>(DEFAULT_PRIVACY);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -60,6 +76,8 @@ export default function MeScreen() {
     const me = await api<MeProfile>("/v1/me");
     setProfile(me);
     if (me.nickname) setNickname(me.nickname);
+    if (me.legalName) setLegalName(me.legalName);
+    if (me.signature) setSignature(me.signature);
     if (me.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...me.privacy });
   }
 
@@ -79,7 +97,7 @@ export default function MeScreen() {
           handle,
           password,
           nickname: nickname || handle,
-          locale,
+          locale: normalizeApiLocale(locale),
         }),
       });
       await setToken(res.token);
@@ -108,7 +126,7 @@ export default function MeScreen() {
     }
   }
 
-  async function savePrivacy() {
+  async function saveProfile() {
     if (!getApiBase() || !getToken()) {
       setMsg("login_required");
       return;
@@ -119,6 +137,8 @@ export default function MeScreen() {
         method: "PATCH",
         body: JSON.stringify({
           nickname: nickname || undefined,
+          signature,
+          legalName,
           privacy: {
             discoverableByHandle: privacy.discoverableByHandle,
             discoverableByUid: privacy.discoverableByUid,
@@ -133,6 +153,26 @@ export default function MeScreen() {
       setMsg(e instanceof Error ? e.message : "error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function searchUsers() {
+    if (!getApiBase() || !getToken()) {
+      setMsg("login_required");
+      return;
+    }
+    const q = searchQ.trim();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const res = await api<{ results: SearchHit[] }>(
+        `/v1/me/search?q=${encodeURIComponent(q)}`,
+      );
+      setSearchResults(res.results);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
     }
   }
 
@@ -169,6 +209,8 @@ export default function MeScreen() {
     }
   }
 
+  const statusText = humanizeStatus(locale, msg);
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.me")}</Text>
@@ -182,7 +224,7 @@ export default function MeScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Text style={styles.label}>Nickname</Text>
+      <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
       <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
 
       <View style={styles.row}>
@@ -199,7 +241,28 @@ export default function MeScreen() {
           UID: <Text style={styles.strong}>{profile.uid}</Text>
         </Text>
       )}
-      {msg && <Text style={styles.muted}>{msg}</Text>}
+      {statusText && <Text style={styles.muted}>{statusText}</Text>}
+
+      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.profile")}</Text>
+      <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
+      <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
+      <Text style={styles.label}>{t(locale, "me.legalName")}</Text>
+      <TextInput style={styles.input} value={legalName} onChangeText={setLegalName} />
+      <Text style={styles.label}>{t(locale, "me.signature")}</Text>
+      <TextInput
+        style={[styles.input, styles.textarea]}
+        value={signature}
+        onChangeText={setSignature}
+        multiline
+        textAlignVertical="top"
+      />
+      <Pressable
+        style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
+        disabled={busy}
+        onPress={() => void saveProfile()}
+      >
+        <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
+      </Pressable>
 
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.privacy")}</Text>
       <View style={styles.toggleRow}>
@@ -229,7 +292,7 @@ export default function MeScreen() {
       <Pressable
         style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
         disabled={busy}
-        onPress={() => void savePrivacy()}
+        onPress={() => void saveProfile()}
       >
         <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
       </Pressable>
@@ -249,6 +312,40 @@ export default function MeScreen() {
           );
         })}
       </View>
+
+      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.churches")}</Text>
+      {!profile?.churches?.length ? (
+        <Text style={styles.muted}>—</Text>
+      ) : (
+        profile.churches.map((c) => (
+          <View key={c.churchId} style={styles.listItem}>
+            <Text style={styles.strong}>{c.churchId}</Text>
+            <Text style={styles.muted}>
+              {c.role}
+              {c.verified ? ` · ${t(locale, "me.verified")}` : ""}
+            </Text>
+          </View>
+        ))
+      )}
+
+      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.search")}</Text>
+      <Text style={styles.label}>{t(locale, "me.searchUid")}</Text>
+      <TextInput
+        style={styles.input}
+        value={searchQ}
+        onChangeText={setSearchQ}
+        placeholder="UID"
+        autoCapitalize="none"
+      />
+      <Pressable style={[styles.btn, { marginTop: 12 }]} onPress={() => void searchUsers()}>
+        <Text style={styles.btnText}>{t(locale, "me.search")}</Text>
+      </Pressable>
+      {searchResults.map((r) => (
+        <View key={r.id} style={styles.listItem}>
+          <Text style={styles.strong}>{r.uid}</Text>
+          {r.nickname ? <Text style={styles.muted}>{r.nickname}</Text> : null}
+        </View>
+      ))}
 
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "security.wipe")}</Text>
       <Text style={styles.muted}>{t(locale, "security.wipeHint")}</Text>
@@ -279,6 +376,7 @@ const styles = StyleSheet.create({
     color: "#1c2b2a",
     fontSize: 16,
   },
+  textarea: { minHeight: 72 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
   toggleRow: {
     flexDirection: "row",
@@ -300,8 +398,9 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontWeight: "600" },
   btnGhostText: { color: "#0f6b5c" },
   body: { marginTop: 16, color: "#1c2b2a", fontSize: 16 },
-  strong: { fontWeight: "700" },
+  strong: { fontWeight: "700", color: "#1c2b2a" },
   muted: { marginTop: 12, color: "#5a6a68", lineHeight: 22 },
+  listItem: { marginTop: 10 },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
