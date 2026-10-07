@@ -5,6 +5,7 @@ import { KJV_JOHN_1 } from "./sample-kjv-john1.js";
 import { ASV_JOHN_1 } from "./sample-asv-john1.js";
 import { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
 import { WEB_JOHN_3 } from "./packs/web-john3.js";
+import { WEB_PSALM_23 } from "./sample-web-ps23.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -78,6 +79,22 @@ export async function loadChapter(
         source: "local",
       };
     }
+  }
+
+  if (
+    meta.id === "web" &&
+    (ref.book.toLowerCase() === "ps" ||
+      ref.book.toLowerCase() === "psalm" ||
+      ref.book.toLowerCase() === "psalms") &&
+    ref.chapter === 23
+  ) {
+    return {
+      translationId: meta.id,
+      book: "Ps",
+      chapter: 23,
+      verses: WEB_PSALM_23,
+      source: "local",
+    };
   }
 
   return {

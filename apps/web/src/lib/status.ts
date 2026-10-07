@@ -6,11 +6,14 @@ export function humanizeStatus(
   if (!code) return null;
   const map: Record<string, string> = {
     login_required: "auth.loginRequired",
+    "auth.invalidCredentials": "auth.invalidCredentials",
     members_required: "chat.membersRequired",
     registered: "auth.registered",
     logged_in: "auth.loggedIn",
     saved: "common.saved",
     entitlement_ok: "reader.entitlementOk",
+    handle_taken: "auth.handleTaken",
+    invalid_credentials: "auth.badLogin",
   };
   const key = map[code];
   return key ? t(key) : code;

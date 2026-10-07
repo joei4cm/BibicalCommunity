@@ -12,4 +12,6 @@ export type Env = {
   TURN_URIS?: string;
   HANDLE_PEPPER?: string;
   KEK_MASTER?: string;
+  /** When true (default), SSO start uses local mock IdP instead of partner authorize URL. */
+  PARTNER_SSO_MOCK?: string;
 };

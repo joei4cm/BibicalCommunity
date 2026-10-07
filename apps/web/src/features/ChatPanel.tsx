@@ -8,15 +8,8 @@ import {
 import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import { humanizeStatus } from "../lib/status";
-import {
-  attachLocalMedia,
-  createOffer,
-  createPeerConnection,
-  openSignalingChannel,
-  startScreenShare,
-  stopScreenShare,
-  type PeerCallbacks,
-} from "../lib/webrtc";
+import { startCallSession, type CallSession } from "../lib/call-session";
+import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 
 type Conversation = {
   id: string;
@@ -63,8 +56,8 @@ export function ChatPanel() {
   const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
+  const callRef = useRef<CallSession | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const selected = useMemo(
     () => conversations.find((c) => c.id === selectedId) ?? null,
@@ -233,6 +226,7 @@ export function ChatPanel() {
     setBusy(true);
     setCallNote(null);
     try {
+      callRef.current?.close();
       const res = await api<{
         callId: string;
         signalingPath: string;
@@ -262,31 +256,22 @@ export function ChatPanel() {
       const wsUrl = token
         ? `${proto}://${window.location.host}${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(selectedId)}`
         : null;
-      const channel = openSignalingChannel(wsUrl);
-      const sendSignal = (msg: object) => {
-        const raw = JSON.stringify(msg);
-        if (channel instanceof WebSocket && channel.readyState === WebSocket.OPEN) {
-          channel.send(raw);
-        } else if (!(channel instanceof WebSocket) && "send" in channel) {
-          (channel as { send: (m: never) => void }).send(msg as never);
-        }
-      };
-      const callbacks: PeerCallbacks = {
-        onLocalDescription: (desc) => {
-          if (desc.type === "offer") sendSignal({ type: "offer", sdp: desc.sdp });
-          if (desc.type === "answer") sendSignal({ type: "answer", sdp: desc.sdp });
+      const session = await startCallSession({
+        wsUrl,
+        iceServers,
+        onRemoteStream: (stream) => {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = stream;
+          }
         },
-        onIceCandidate: (cand) => sendSignal({ type: "ice", candidate: cand?.toJSON() ?? null }),
-      };
-      const pc = createPeerConnection(callbacks, { iceServers });
-      pcRef.current = pc;
-      localStreamRef.current = await attachLocalMedia(pc, { audio: true, video: true });
-      await createOffer(pc, callbacks);
+        onNote: (m) => setCallNote((prev) => `${prev ?? ""} · ${m}`),
+      });
+      callRef.current = session;
       setCallNote(
         (prev) =>
           `${prev ? `${prev} · ` : ""}${t("chat.callStarted")}: ${res.callId} · ${res.signalingPath}` +
           (res.note ? ` · ${res.note}` : "") +
-          ` · signaling=${channel instanceof WebSocket ? "ws" : "mock"}`,
+          ` · signaling=${session.channel instanceof WebSocket ? "ws" : "mock"}`,
       );
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "error");
@@ -296,12 +281,12 @@ export function ChatPanel() {
   }
 
   async function shareScreen() {
-    if (!pcRef.current) {
+    if (!callRef.current) {
       await startCall();
     }
-    if (!pcRef.current) return;
+    if (!callRef.current) return;
     try {
-      await startScreenShare(pcRef.current);
+      await startScreenShare(callRef.current.pc);
       setCallNote((prev) => `${prev ?? ""} · screen-share-on`);
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "screen_share_failed");
@@ -309,9 +294,16 @@ export function ChatPanel() {
   }
 
   async function endScreen() {
-    if (!pcRef.current) return;
-    await stopScreenShare(pcRef.current, localStreamRef.current);
+    if (!callRef.current) return;
+    await stopScreenShare(callRef.current.pc, callRef.current.localStream);
     setCallNote((prev) => `${prev ?? ""} · screen-share-off`);
+  }
+
+  function hangup() {
+    callRef.current?.close();
+    callRef.current = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    setCallNote((prev) => `${prev ?? ""} · hung-up`);
   }
 
   return (
@@ -407,6 +399,9 @@ export function ChatPanel() {
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
               Stop share
             </button>
+            <button type="button" className="btn ghost" onClick={hangup}>
+              Hang up
+            </button>
             <button
               type="button"
               className="btn ghost"
@@ -416,6 +411,13 @@ export function ChatPanel() {
             </button>
           </div>
           {callNote && <p className="muted">{callNote}</p>}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            muted={false}
+            style={{ width: "100%", maxHeight: 240, background: "#0e1514", borderRadius: 8 }}
+          />
 
           <ul className="list">
             {messages.length === 0 && <li className="muted">{t("chat.noMessages")}</li>}

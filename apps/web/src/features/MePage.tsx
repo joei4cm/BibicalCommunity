@@ -129,31 +129,45 @@ export function MePage() {
   }, []);
 
   async function register() {
-    const res = await api<{ token: string; deviceId: string }>("/v1/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        handle,
-        password,
-        nickname: nickname || handle,
-        locale: i18n.language,
-      }),
-    });
-    setToken(res.token);
-    localStorage.setItem("lh.deviceId", res.deviceId);
-    setMsg("registered");
-    await refresh();
+    setMsg(null);
+    try {
+      if (!handle.trim() || password.length < 10) {
+        setMsg("auth.invalidCredentials");
+        return;
+      }
+      const res = await api<{ token: string; deviceId: string; uid: string }>("/v1/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          handle: handle.trim(),
+          password,
+          nickname: (nickname || handle).trim(),
+          locale: i18n.language,
+        }),
+      });
+      setToken(res.token);
+      localStorage.setItem("lh.deviceId", res.deviceId);
+      setMsg("registered");
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
+    }
   }
 
   async function login() {
-    const res = await api<{ token: string; deviceId: string }>("/v1/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ handleOrEmail: handle, password, platform: "web" }),
-    });
-    setToken(res.token);
-    localStorage.setItem("lh.deviceId", res.deviceId);
-    setMsg("logged_in");
-    await refresh();
-    await checkPendingWipe();
+    setMsg(null);
+    try {
+      const res = await api<{ token: string; deviceId: string }>("/v1/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ handleOrEmail: handle.trim(), password, platform: "web" }),
+      });
+      setToken(res.token);
+      localStorage.setItem("lh.deviceId", res.deviceId);
+      setMsg("logged_in");
+      await refresh();
+      await checkPendingWipe();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
+    }
   }
 
   async function saveProfile() {
@@ -307,22 +321,52 @@ export function MePage() {
       )}
 
       <div className="panel">
-        <div className="field">
-          <label>Handle / UID login</label>
-          <input value={handle} onChange={(e) => setHandle(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        <div className="toolbar">
-          <button type="button" className="btn" onClick={() => void register()}>
-            {t("auth.register")}
-          </button>
-          <button type="button" className="btn ghost" onClick={() => void login()}>
-            {t("auth.login")}
-          </button>
-        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void login();
+          }}
+        >
+          <div className="field">
+            <label htmlFor="lh-handle">{t("auth.handle")}</label>
+            <input
+              id="lh-handle"
+              name="handle"
+              autoComplete="username"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="lh-password">{t("auth.password")}</label>
+            <input
+              id="lh-password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="lh-nickname-auth">{t("me.nickname")}</label>
+            <input
+              id="lh-nickname-auth"
+              name="nickname"
+              autoComplete="nickname"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+            />
+          </div>
+          <div className="toolbar">
+            <button type="button" className="btn" onClick={() => void register()}>
+              {t("auth.register")}
+            </button>
+            <button type="submit" className="btn ghost">
+              {t("auth.login")}
+            </button>
+          </div>
+        </form>
         {profile?.uid && (
           <p>
             UID: <strong>{profile.uid}</strong>
