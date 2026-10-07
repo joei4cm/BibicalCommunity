@@ -64,3 +64,7 @@ console.log("PREKEY_CONSUMED_OK id=" + d.oneTimePrekey.id);
 ' "$FETCH"
 
 echo "KEYS_P2P_OK"
+
+echo "== keys smoke: X3DH + chat courier roundtrip =="
+node "$SCRIPT_DIR/smoke-keys-x3dh.mjs" "$BASE"
+echo "KEYS_X3DH_CHAT_OK"
