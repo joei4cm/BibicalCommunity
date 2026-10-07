@@ -699,3 +699,62 @@ test("loadChapter returns zh/ja Matt.6 and Galatians.5 scaffolds", async () => {
   assert.ok(!("external" in kougoGal));
   assert.match(kougoGal.verses.find((v) => v.verse === 22)?.text ?? "", /見本|御霊の実|愛、喜び/);
 });
+
+test("loadChapter returns PD Philippians.4 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Phil", chapter: 4 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Phil");
+  assert.equal(web.chapter, 4);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Rejoice in the Lord/i);
+  assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /all things through Christ/i);
+
+  const kjv = await loadChapter("kjv", { book: "Philippians", chapter: 4 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Phil");
+  assert.match(kjv.verses.find((v) => v.verse === 7)?.text ?? "", /peace of God/i);
+
+  const asv = await loadChapter("asv", { book: "Php", chapter: 4 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 13)?.text ?? "", /all things in him/i);
+});
+
+test("loadChapter returns PD 1Corinthians.13 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "1Cor", chapter: 13 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "1Cor");
+  assert.equal(web.chapter, 13);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Love is patient/i);
+  assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /greatest of these is love/i);
+
+  const kjv = await loadChapter("kjv", { book: "1Corinthians", chapter: 13 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "1Cor");
+  assert.match(kjv.verses.find((v) => v.verse === 13)?.text ?? "", /greatest of these is charity/i);
+
+  const asv = await loadChapter("asv", { book: "1Co", chapter: 13 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 1)?.text ?? "", /have not love/i);
+});
+
+test("loadChapter returns zh/ja Philippians.4 and 1Corinthians.13 scaffolds", async () => {
+  const cuvsPhil = await loadChapter("cuvs", { book: "腓立比书", chapter: 4 });
+  assert.ok(!("external" in cuvsPhil));
+  assert.equal(cuvsPhil.book, "Phil");
+  assert.match(cuvsPhil.verses.find((v) => v.verse === 4)?.text ?? "", /样例|常常喜乐/);
+
+  const kougoPhil = await loadChapter("kougo", { book: "ピリピ", chapter: 4 });
+  assert.ok(!("external" in kougoPhil));
+  assert.match(kougoPhil.verses.find((v) => v.verse === 4)?.text ?? "", /見本|常に喜び/);
+
+  const cuvsCor = await loadChapter("cuvs", { book: "哥林多前书", chapter: 13 });
+  assert.ok(!("external" in cuvsCor));
+  assert.equal(cuvsCor.book, "1Cor");
+  assert.match(cuvsCor.verses.find((v) => v.verse === 13)?.text ?? "", /样例|最大的是爱/);
+
+  const kougoCor = await loadChapter("kougo", { book: "コリント第一", chapter: 13 });
+  assert.ok(!("external" in kougoCor));
+  assert.match(kougoCor.verses.find((v) => v.verse === 13)?.text ?? "", /見本|最も大いなるものは、愛/);
+});

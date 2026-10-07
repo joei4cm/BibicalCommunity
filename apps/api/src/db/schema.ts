@@ -131,6 +131,10 @@ export const planSubscriptions = sqliteTable("plan_subscriptions", {
     .notNull()
     .references(() => users.id),
   progressDay: integer("progress_day").notNull().default(0),
+  /** Current devotion step: pause | read | reflect | pray | act */
+  devotionStep: text("devotion_step").notNull().default("pause"),
+  /** Optional devotion material id bound to this subscription */
+  devotionMaterialId: text("devotion_material_id"),
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 

@@ -27,6 +27,8 @@ type Subscription = {
   planId: string;
   title?: string;
   progressDay: number;
+  devotionStep?: DevotionStep;
+  devotionMaterialId?: string | null;
   days?: PlanDay[];
 };
 
@@ -98,6 +100,52 @@ export function PlansPage() {
       setSubscriptions(subs?.subscriptions ?? null);
     })();
   }, []);
+
+  // Hydrate devotion step / material from the active subscription when it changes.
+  useEffect(() => {
+    const sub =
+      (subscriptions ?? []).find((s) => s.planId === activeSubPlanId) ?? (subscriptions ?? [])[0];
+    if (!sub) return;
+    if (sub.devotionStep && DEVOTION_STEPS.includes(sub.devotionStep)) {
+      setStep(sub.devotionStep);
+    }
+    if (sub.devotionMaterialId) {
+      setMaterialId(sub.devotionMaterialId);
+    }
+  }, [subscriptions, activeSubPlanId]);
+
+  async function persistDevotion(nextStepValue: DevotionStep, nextMaterialId?: string) {
+    const planId = activeSub?.planId;
+    if (!planId || !getToken()) {
+      setStep(nextStepValue);
+      if (nextMaterialId) setMaterialId(nextMaterialId);
+      return;
+    }
+    setStep(nextStepValue);
+    if (nextMaterialId) setMaterialId(nextMaterialId);
+    try {
+      await api(`/v1/plans/${encodeURIComponent(planId)}/devotion`, {
+        method: "POST",
+        body: JSON.stringify({
+          step: nextStepValue,
+          materialId: nextMaterialId ?? materialId,
+        }),
+      });
+      setSubscriptions((prev) =>
+        (prev ?? []).map((s) =>
+          s.planId === planId
+            ? {
+                ...s,
+                devotionStep: nextStepValue,
+                devotionMaterialId: nextMaterialId ?? materialId,
+              }
+            : s,
+        ),
+      );
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "error");
+    }
+  }
 
   function selectPlan(id: string) {
     setSelectedId(id);
@@ -215,11 +263,11 @@ export function PlansPage() {
 
   function advance() {
     const next = nextStep(step);
-    if (next) setStep(next);
+    if (next) void persistDevotion(next);
   }
 
   function resetSteps() {
-    setStep("pause");
+    void persistDevotion("pause");
   }
 
   return (
@@ -384,7 +432,10 @@ export function PlansPage() {
         )}
         <div className="field">
           <label>{t("plans.devotionMaterial")}</label>
-          <select value={activeMaterial?.id ?? ""} onChange={(e) => setMaterialId(e.target.value)}>
+          <select
+            value={activeMaterial?.id ?? ""}
+            onChange={(e) => void persistDevotion(step, e.target.value)}
+          >
             {devotionMaterials.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.title[localeKey] ?? m.title.en}
@@ -415,7 +466,7 @@ export function PlansPage() {
                 type="button"
                 role="listitem"
                 className={`step-chip step-${state}`}
-                onClick={() => setStep(s)}
+                onClick={() => void persistDevotion(s)}
               >
                 <span className="step-index">{i + 1}</span>
                 {t(`devotion.${s}`)}
