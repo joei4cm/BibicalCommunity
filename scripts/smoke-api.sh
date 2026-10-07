@@ -137,6 +137,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.6" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gal.5" | grep -qE '样例|圣灵所结的果子|仁爱'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gal.5" | grep -qE '見本|御霊の実|愛、喜び'
 echo "MULTI_BOOK_TEACHING_OK"
+echo "== multi-book pastoral scaffolds Phil.4 / 1Cor.13 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Phil.4" | grep -qiE 'Rejoice in the Lord|peace of God|all things through Christ'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Phil.4" | grep -qiE 'Rejoice in the Lord|peace of God|all things through Christ'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Phil.4" | grep -qiE 'Rejoice in the Lord|peace of God|all things in him'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=1Cor.13" | grep -qiE 'don.t have love|Love is patient|greatest of these is love'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=1Cor.13" | grep -qiE 'have not charity|Charity suffereth|greatest of these is charity'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=1Cor.13" | grep -qiE 'have not love|Love suffereth|greatest of these is love'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Phil.4" | grep -qE '样例|常常喜乐|凡事都能做'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Phil.4" | grep -qE '見本|常に喜び|何事でもできる'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=1Cor.13" | grep -qE '样例|恒久忍耐|最大的是爱'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=1Cor.13" | grep -qE '見本|愛は寛容|最も大いなるものは、愛'
+echo "MULTI_BOOK_PASTORAL_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
@@ -208,6 +220,25 @@ PROG=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: 
 echo "$PROG" | grep -q '"ok":true'
 echo "$PROG" | grep -q '"progressDay":1'
 echo "PLAN_CSV_SUBSCRIBE_OK"
+echo "== plans devotion step persist =="
+DEVOTION=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
+  -d '{"step":"read","materialId":"morning-examen"}' "$BASE/v1/plans/$PUB_ID/devotion")
+echo "$DEVOTION" | head -c 200; echo
+echo "$DEVOTION" | grep -q '"ok":true'
+echo "$DEVOTION" | grep -q '"devotionStep":"read"'
+echo "$DEVOTION" | grep -q '"devotionMaterialId":"morning-examen"'
+SUBS_AFTER=$(curl -sf -H "Authorization: Bearer $TOKEN_SUB" "$BASE/v1/plans/subscriptions")
+echo "$SUBS_AFTER" | grep -q '"devotionStep":"read"'
+echo "$SUBS_AFTER" | grep -q '"devotionMaterialId":"morning-examen"'
+# Advance to reflect and confirm persistence
+DEVOTION2=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
+  -d '{"step":"reflect"}' "$BASE/v1/plans/$PUB_ID/devotion")
+echo "$DEVOTION2" | grep -q '"devotionStep":"reflect"'
+# materialId omitted → previous material retained
+echo "$DEVOTION2" | grep -q '"devotionMaterialId":"morning-examen"'
+SUBS_REFLECT=$(curl -sf -H "Authorization: Bearer $TOKEN_SUB" "$BASE/v1/plans/subscriptions")
+echo "$SUBS_REFLECT" | grep -q '"devotionStep":"reflect"'
+echo "PLAN_DEVOTION_STEP_OK"
 test -n "$PLAN_ID"
 echo "== turn credentials =="
 curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' -d '{}' \
