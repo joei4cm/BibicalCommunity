@@ -10,9 +10,10 @@ All features are in scope. Delivery is phased so each phase ships a usable verti
 - Auth sessions, field-encrypted profile, privacy search, church verify
 - Reader: book/chapter, dual-pane, typography, notes/highlights, study panel, Endao/WeRead
 - Plans: CSV, edit, subscribe, public/subscriptions, devotion steps + open materials
-- Home: churches, boards, embeds, ChatPanel (AES-GCM session crypto, TTL, archive, favorites)
+- Home: churches, boards, embeds, ChatPanel (AES-GCM + Double Ratchet path, TTL tombstone, archive, favorites)
 - Calls: DO signaling + screen-share helpers; R2 media proxy
-- Expo tabs parity; i18n zh/en/ja; themes; CI
+- Expo tabs parity (Me profile/search/wipe, Bible study/外链); i18n zh/en/ja; themes; CI
+- Translation catalog: PD + licensed R2 scaffolds + NIV/ESV/NLT/恩道/微读 externals; locale tag normalize
 
 ## Phase 1 — Reader product
 
