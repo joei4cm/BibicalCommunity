@@ -89,6 +89,16 @@ import { KJV_EXOD_20 } from "./packs/kjv-exod20.js";
 import { ASV_EXOD_20 } from "./packs/asv-exod20.js";
 import { CUVS_EXOD_20 } from "./packs/cuvs-exod20.js";
 import { KOUGO_EXOD_20 } from "./packs/kougo-exod20.js";
+import { WEB_LUKE_2 } from "./packs/web-luke2.js";
+import { KJV_LUKE_2 } from "./packs/kjv-luke2.js";
+import { ASV_LUKE_2 } from "./packs/asv-luke2.js";
+import { CUVS_LUKE_2 } from "./packs/cuvs-luke2.js";
+import { KOUGO_LUKE_2 } from "./packs/kougo-luke2.js";
+import { WEB_DEUT_6 } from "./packs/web-deut6.js";
+import { KJV_DEUT_6 } from "./packs/kjv-deut6.js";
+import { ASV_DEUT_6 } from "./packs/asv-deut6.js";
+import { CUVS_DEUT_6 } from "./packs/cuvs-deut6.js";
+import { KOUGO_DEUT_6 } from "./packs/kougo-deut6.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -144,6 +154,18 @@ function normalizeBookKey(book: string): string | null {
   ) {
     return "exod";
   }
+  if (b === "luke" || b === "lk" || book === "路加福音" || book === "ルカ") {
+    return "luke";
+  }
+  if (
+    b === "deut" ||
+    b === "dt" ||
+    b === "deuteronomy" ||
+    book === "申命记" ||
+    book === "申命記"
+  ) {
+    return "deut";
+  }
   return null;
 }
 
@@ -171,6 +193,10 @@ function canonicalBookId(key: string): string {
       return "Mark";
     case "exod":
       return "Exod";
+    case "luke":
+      return "Luke";
+    case "deut":
+      return "Deut";
     default:
       return key;
   }
@@ -193,6 +219,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     acts: { 2: WEB_ACTS_2 },
     mark: { 1: WEB_MARK_1 },
     exod: { 20: WEB_EXOD_20 },
+    luke: { 2: WEB_LUKE_2 },
+    deut: { 6: WEB_DEUT_6 },
   },
   kjv: {
     john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
@@ -206,6 +234,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     acts: { 2: KJV_ACTS_2 },
     mark: { 1: KJV_MARK_1 },
     exod: { 20: KJV_EXOD_20 },
+    luke: { 2: KJV_LUKE_2 },
+    deut: { 6: KJV_DEUT_6 },
   },
   asv: {
     john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
@@ -219,6 +249,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     acts: { 2: ASV_ACTS_2 },
     mark: { 1: ASV_MARK_1 },
     exod: { 20: ASV_EXOD_20 },
+    luke: { 2: ASV_LUKE_2 },
+    deut: { 6: ASV_DEUT_6 },
   },
   "kougoyaku-pd": {
     john: { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
@@ -234,6 +266,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     acts: { 2: KOUGO_ACTS_2 },
     mark: { 1: KOUGO_MARK_1 },
     exod: { 20: KOUGO_EXOD_20 },
+    luke: { 2: KOUGO_LUKE_2 },
+    deut: { 6: KOUGO_DEUT_6 },
   },
   cuvt: {
     john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
@@ -249,6 +283,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     acts: { 2: CUVS_ACTS_2 },
     mark: { 1: CUVS_MARK_1 },
     exod: { 20: CUVS_EXOD_20 },
+    luke: { 2: CUVS_LUKE_2 },
+    deut: { 6: CUVS_DEUT_6 },
   },
 
   rcuv: {

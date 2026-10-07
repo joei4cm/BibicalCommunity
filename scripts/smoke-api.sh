@@ -113,6 +113,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Mark.1" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Exod.20" | grep -qE '样例|耶和华你的神|不可有别的神'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Exod.20" | grep -qE '見本|エジプトの地|神としてはならない'
 echo "MULTI_BOOK_LAW_GOSPEL_OK"
+echo "== multi-book narrative scaffolds Luke.2 / Deut.6 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Luke.2" | grep -qiE 'Caesar Augustus|good news of great joy|Christ the Lord'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Luke.2" | grep -qiE 'Caesar Augustus|manger|Christ the Lord'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Luke.2" | grep -qiE 'Caesar Augustus|good tidings|Christ the Lord'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Deut.6" | grep -qiE 'Hear, Israel|Yahweh is one|love Yahweh your God'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Deut.6" | grep -qiE 'Hear, O Israel|one LORD|love the LORD thy God'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Deut.6" | grep -qiE 'Hear, O Israel|one Jehovah|love Jehovah thy God'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Luke.2" | grep -qE '样例|凯撒|救主'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Luke.2" | grep -qE '見本|アウグスト|救主'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Deut.6" | grep -qE '样例|以色列|独一的主'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Deut.6" | grep -qE '見本|イスラエル|唯一の主'
+echo "MULTI_BOOK_NARRATIVE_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
