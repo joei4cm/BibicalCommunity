@@ -8,7 +8,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + crypto gate | PARTIAL — PWA build PASS; physical device WebCrypto E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt; `ANNOTATIONS_SMOKE_OK` | PARTIAL — core PASS; multi-color polish OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; John + Gen/Matt/Ps scaffolds; `MULTI_BOOK_SCAFFOLD_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; John + Gen/Matt/Ps + Rom.8/Heb.11; `MULTI_BOOK_SCAFFOLD_OK` / `MULTI_BOOK_NT_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token` | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** (CSV import, public subscribe, progress) | PARTIAL — API smoke PASS; deeper devotion UX OPEN |
