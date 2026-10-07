@@ -81,4 +81,34 @@ echo "$ARCH" | head -c 200; echo
 echo "$ARCH" | grep -q '"archived":true'
 echo "HOME_ARCHIVE_OK"
 
+echo "== hostile church privacy floors =="
+HSLUG="hostile-$(date +%s)"
+HCH=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"name\":\"Hostile Church\",\"slug\":\"$HSLUG\",\"securityMode\":\"hostile\"}" \
+  "$BASE/v1/home/churches")
+HCH_ID=$(echo "$HCH" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+test -n "$HCH_ID"
+curl -sf -X POST -H "$AUTH2" -H 'content-type: application/json' -d '{}' \
+  "$BASE/v1/home/churches/${HCH_ID}/join" >/dev/null
+ME2=$(curl -sf -H "$AUTH2" "$BASE/v1/me")
+echo "$ME2" | grep -q '"discoverableByHandle":false'
+echo "$ME2" | grep -q '"allowMessageRequests":"admin-approved"'
+echo "HOME_HOSTILE_OK"
+
+echo "== self wipe + wipeToken ack =="
+ME=$(curl -sf -H "$AUTH" "$BASE/v1/me")
+SELF=$(echo "$ME" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+WIPE=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"userId\":\"$SELF\",\"reasonCode\":\"self\"}" \
+  "$BASE/v1/admin/wipe")
+echo "$WIPE" | head -c 200; echo
+WID=$(echo "$WIPE" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+WTOK=$(echo "$WIPE" | sed -n 's/.*"wipeToken":"\([^"]*\)".*/\1/p')
+test -n "$WID" && test -n "$WTOK"
+ACK=$(curl -sf -X POST -H 'content-type: application/json' \
+  -d "{\"wipeToken\":\"$WTOK\"}" \
+  "$BASE/v1/admin/wipe/${WID}/ack")
+echo "$ACK" | grep -q '"ok":true'
+echo "HOME_WIPE_OK"
+
 echo "HOME_SMOKE_OK"

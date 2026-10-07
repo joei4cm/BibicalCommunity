@@ -330,10 +330,20 @@ export function MePage() {
       return;
     }
     if (!window.confirm(t("security.wipeConfirm"))) return;
-    await api("/v1/admin/wipe", {
+    const wipeRes = await api<{ id: string; wipeToken: string }>("/v1/admin/wipe", {
       method: "POST",
       body: JSON.stringify({ userId: profile.id, reasonCode: "self" }),
     });
+    // Session is revoked server-side; ack with one-time wipeToken (no Bearer).
+    try {
+      await fetch(`/v1/admin/wipe/${wipeRes.id}/ack`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wipeToken: wipeRes.wipeToken }),
+      });
+    } catch {
+      /* best-effort ack */
+    }
     await wipeLocalClientState();
     setToken(null);
     setProfile(null);
