@@ -135,3 +135,10 @@ test("loadChapter returns kougo scaffold John.1", async () => {
   assert.ok(result.verses.length > 0);
   assert.match(result.verses[0]?.text ?? "", /初めに言があった/);
 });
+
+test("loadChapter returns cuvs scaffold John.1", async () => {
+  const result = await loadChapter("cuvs", { book: "John", chapter: 1 });
+  assert.ok(!("external" in result));
+  assert.ok(result.verses.length > 0);
+  assert.match(result.verses[0]?.text ?? "", /太初有道/);
+});

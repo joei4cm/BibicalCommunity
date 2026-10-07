@@ -99,30 +99,40 @@ bibleRoutes.get("/chapter", async (c) => {
 
     const key = r2ChapterObjectKey(translationId, ref.book, ref.chapter);
     const obj = await c.env.MEDIA.get(key);
-    if (!obj) {
-      return c.json(
-        {
-          error: "chapter_not_in_r2",
-          hint: `Upload JSON to MEDIA key "${key}" (see scripts/seed-r2-sample.md)`,
-        },
-        404,
-      );
+    if (obj) {
+      let parsed;
+      try {
+        parsed = parseR2ChapterJson(await obj.text());
+      } catch {
+        return c.json({ error: "invalid_r2_chapter_json", key }, 500);
+      }
+
+      return c.json({
+        translationId,
+        book: parsed.book,
+        chapter: parsed.chapter,
+        verses: parsed.verses,
+        source: "r2" as const,
+      });
     }
 
-    let parsed;
-    try {
-      parsed = parseR2ChapterJson(await obj.text());
-    } catch {
-      return c.json({ error: "invalid_r2_chapter_json", key }, 500);
-    }
-
-    return c.json({
-      translationId,
-      book: parsed.book,
-      chapter: parsed.chapter,
-      verses: parsed.verses,
-      source: "r2" as const,
+    // Dev / scaffold fallback: local John packs (cuvs/cuvt/kougo/…) when R2 empty.
+    const local = await loadChapter(translationId, ref, {
+      endao: c.env.ENDAO_SSO_ENABLED === "true",
+      weread: c.env.WEREAD_SSO_ENABLED === "true",
     });
+    if ("external" in local && local.external) return c.json(local);
+    if (local.verses.length > 0 && !local.verses[0]?.text.startsWith(`[${meta.abbreviation}] Sample`)) {
+      return c.json(local);
+    }
+
+    return c.json(
+      {
+        error: "chapter_not_in_r2",
+        hint: `Upload JSON to MEDIA key "${key}" (see scripts/seed-r2-sample.md)`,
+      },
+      404,
+    );
   }
 
   const result = await loadChapter(translationId, ref, {

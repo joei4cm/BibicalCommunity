@@ -26,12 +26,27 @@ echo "== chapter ASV John.3 =="
 A3=$(curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3")
 echo "$A3" | head -c 160; echo
 echo "$A3" | grep -q 'God so loved the world'
+echo "== chapter CUVS John.1 (zh) =="
+CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
+echo "$CUVS" | head -c 160; echo
+echo "$CUVS" | grep -q '太初有道'
+echo "== chapter CUVT John.1 (zh) =="
+curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.1" | grep -q '太初有道'
+echo "== chapter kougo John.1 (ja) =="
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.1" | grep -q '初めに言があった'
 echo "== chapter NIV external =="
 curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
 echo "== partner mock authorize =="
 curl -sf -o /dev/null -w "%{http_code}\n" "$BASE/v1/partners/mock-authorize?partner=endao&ref=John.1&redirect_uri=/v1/partners/endao/callback"
 echo "== me =="
 curl -sf -H "$AUTH" "$BASE/v1/me" | head -c 160; echo
+echo "== plans create (non-CSV) =="
+PLAN=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"title":"晨祷计划","description":"smoke","visibility":"private","days":[{"day":1,"ref":"John.1","title":"Begin"},{"day":2,"ref":"John.2","title":"Wedding"}]}' \
+  "$BASE/v1/plans")
+echo "$PLAN" | head -c 120; echo
+echo "$PLAN" | grep -q '"id":"plan_'
+echo "PLAN_CREATE_OK"
 echo "== encrypted annotation note =="
 curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d '{"translationId":"web","ref":{"book":"John","chapter":1,"verseStart":1},"kind":"note","ciphertext":"c2FtcGxl","iv":"aXY="}' \

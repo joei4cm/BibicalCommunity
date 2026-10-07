@@ -17,3 +17,4 @@ export { KJV_JOHN_3 } from "./packs/kjv-john3.js";
 export { ASV_JOHN_3 } from "./packs/asv-john3.js";
 export { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
 export { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
+export { CUVS_JOHN_1 } from "./packs/cuvs-john1.js";
