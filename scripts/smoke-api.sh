@@ -18,8 +18,14 @@ echo "== bible translations =="
 curl -sf "$BASE/v1/bible/translations" | head -c 120; echo
 echo "== chapter WEB John.1 =="
 curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.1" | head -c 160; echo
+echo "== chapter WEB John.2 =="
+J2=$(curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.2")
+echo "$J2" | head -c 160; echo
+echo "$J2" | grep -q 'wedding in Cana'
 echo "== chapter NIV external =="
 curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
+echo "== partner mock authorize =="
+curl -sf -o /dev/null -w "%{http_code}\n" "$BASE/v1/partners/mock-authorize?partner=endao&ref=John.1&redirect_uri=/v1/partners/endao/callback"
 echo "== me =="
 curl -sf -H "$AUTH" "$BASE/v1/me" | head -c 160; echo
 echo "== encrypted annotation note =="
