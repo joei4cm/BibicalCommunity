@@ -4,7 +4,8 @@
     "jsx": "react-jsx",
     "noEmit": true,
     "lib": ["ES2022"],
-    "types": ["expo-router/entry"]
+    "skipLibCheck": true,
+    "types": ["react"]
   },
-  "include": ["app", "src"]
+  "include": ["app", "src", "src/env.d.ts"]
 }
