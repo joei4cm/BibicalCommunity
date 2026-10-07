@@ -23,8 +23,10 @@
 #   PARTNER_OAUTH_REDIRECT_BASE — public API origin, e.g. https://api.example.com
 #     (redirect_uri becomes ${base}/v1/partners/{endao|weread}/callback)
 #   ENDAO_OAUTH_AUTHORIZE_BASE / WEREAD_OAUTH_AUTHORIZE_BASE — optional host overrides
-# Token exchange (client_secret / code→token) is not wired yet; partner IdP
-# secrets must be added separately before flipping SSO flags to true.
+# Token exchange: set client secrets + optional token URL overrides, then flip SSO.
+#   wrangler secret put ENDAO_OAUTH_CLIENT_SECRET -c wrangler.production.toml
+#   wrangler secret put WEREAD_OAUTH_CLIENT_SECRET -c wrangler.production.toml
+# Optional vars: ENDAO_OAUTH_TOKEN_URL / WEREAD_OAUTH_TOKEN_URL
 #
 #   wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
 #   wrangler secret put KEK_MASTER -c wrangler.production.toml

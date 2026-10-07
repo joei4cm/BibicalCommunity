@@ -52,6 +52,62 @@ function redirectUri(env: Env, partner: PartnerId, requestUrl: string): string {
   return `${origin}/v1/partners/${partner}/callback`;
 }
 
+function oauthClientSecret(env: Env, partner: PartnerId): string | undefined {
+  const raw =
+    partner === "endao" ? env.ENDAO_OAUTH_CLIENT_SECRET : env.WEREAD_OAUTH_CLIENT_SECRET;
+  const trimmed = raw?.trim();
+  return trimmed || undefined;
+}
+
+function oauthTokenUrl(env: Env, partner: PartnerId): string {
+  const override =
+    partner === "endao" ? env.ENDAO_OAUTH_TOKEN_URL : env.WEREAD_OAUTH_TOKEN_URL;
+  const trimmed = override?.trim();
+  if (trimmed) return trimmed;
+  return partner === "endao"
+    ? "https://oauth.edobible.com/token"
+    : "https://api.weixin.qq.com/sns/oauth2/access_token";
+}
+
+/**
+ * Exchange authorization code for tokens when client_id + secret are configured.
+ * Never returns tokens to the client JSON — only exchange status (server-side courier).
+ */
+export async function exchangePartnerCode(
+  env: Env,
+  partner: PartnerId,
+  code: string,
+  requestUrl: string,
+): Promise<{ attempted: boolean; ok: boolean; status?: number; error?: string }> {
+  const clientId = oauthClientId(env, partner);
+  const clientSecret = oauthClientSecret(env, partner);
+  if (!clientId || !clientSecret) {
+    return { attempted: false, ok: false, error: "missing_oauth_credentials" };
+  }
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: redirectUri(env, partner, requestUrl),
+  });
+  try {
+    const res = await fetch(oauthTokenUrl(env, partner), {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+      body,
+    });
+    if (!res.ok) {
+      return { attempted: true, ok: false, status: res.status, error: "token_endpoint_error" };
+    }
+    // Discard body — do not echo access_token to clients.
+    await res.arrayBuffer();
+    return { attempted: true, ok: true, status: res.status };
+  } catch {
+    return { attempted: true, ok: false, error: "token_fetch_failed" };
+  }
+}
+
 partnerRoutes.get("/status", (c) => {
   return c.json({
     endao: { ssoEnabled: c.env.ENDAO_SSO_ENABLED === "true", id: "endao" },
@@ -117,14 +173,23 @@ partnerRoutes.get("/mock-authorize", (c) => {
   return c.redirect(target.toString(), 302);
 });
 
-/** OAuth callback — mock exchanges code; production needs real token exchange. */
-partnerRoutes.get("/:id/callback", (c) => {
+/** OAuth callback — mock closed loop locally; production attempts token exchange when secrets set. */
+partnerRoutes.get("/:id/callback", async (c) => {
   const id = c.req.param("id");
   if (!isPartnerId(id)) return c.json({ error: "unknown_partner" }, 404);
   const code = c.req.query("code");
   const state = c.req.query("state");
   const ref = c.req.query("ref");
   const mock = Boolean(code?.startsWith("mock_"));
+
+  let tokenExchange: { attempted: boolean; ok: boolean; status?: number; error?: string } = {
+    attempted: false,
+    ok: false,
+  };
+  if (!mock && code) {
+    tokenExchange = await exchangePartnerCode(c.env, id, code, c.req.url);
+  }
+
   return c.json({
     ok: true,
     partner: id,
@@ -132,8 +197,13 @@ partnerRoutes.get("/:id/callback", (c) => {
     state: state ?? null,
     ref: ref ?? null,
     mock,
+    tokenExchange,
     note: mock
-      ? "Mock SSO callback succeeded. Set PARTNER_SSO_MOCK=false and real client_id for production."
-      : "configure client_id and token exchange with partner",
+      ? "Mock SSO callback succeeded. Set PARTNER_SSO_MOCK=false and real client_id/secret for production."
+      : tokenExchange.attempted
+        ? tokenExchange.ok
+          ? "Partner token exchange succeeded (tokens not returned to client)."
+          : `Partner token exchange failed: ${tokenExchange.error ?? "unknown"}`
+        : "Received partner callback. Configure OAuth client_id + client_secret to enable exchange.",
   });
 });

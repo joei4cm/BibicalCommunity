@@ -27,4 +27,10 @@ export type Env = {
   ENDAO_OAUTH_AUTHORIZE_BASE?: string;
   /** Optional override for 微读 authorize URL. */
   WEREAD_OAUTH_AUTHORIZE_BASE?: string;
+  /** Partner OAuth client secrets (wrangler secret put) for token exchange. */
+  ENDAO_OAUTH_CLIENT_SECRET?: string;
+  WEREAD_OAUTH_CLIENT_SECRET?: string;
+  /** Optional token endpoint overrides (default partner token URLs). */
+  ENDAO_OAUTH_TOKEN_URL?: string;
+  WEREAD_OAUTH_TOKEN_URL?: string;
 };

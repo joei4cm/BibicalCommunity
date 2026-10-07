@@ -71,6 +71,13 @@ else
   bad "production toml must document secret put for HANDLE_PEPPER, KEK_MASTER, TURN_SECRET"
 fi
 
+if rg -q 'wrangler secret put ENDAO_OAUTH_CLIENT_SECRET' "$CFG" \
+  && rg -q 'wrangler secret put WEREAD_OAUTH_CLIENT_SECRET' "$CFG"; then
+  ok "secret put docs: ENDAO/WEREAD_OAUTH_CLIENT_SECRET"
+else
+  bad "production toml must document secret put for partner OAuth client secrets"
+fi
+
 if rg -qi 'no separate JWT|opaque bearer|session token' "$CFG"; then
   ok "JWT/session model documented (opaque D1 session, no JWT secret)"
 else

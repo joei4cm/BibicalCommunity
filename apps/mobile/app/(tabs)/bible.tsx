@@ -78,6 +78,7 @@ export default function BibleScreen() {
   const [annMsg, setAnnMsg] = useState<string | null>(null);
   const [annBusy, setAnnBusy] = useState(false);
   const [annotations, setAnnotations] = useState<AnnotationRow[]>([]);
+  const [fontSize, setFontSize] = useState(18);
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const apiBase = getApiBase();
   const studyLang = bookLocaleKey(locale);
@@ -367,6 +368,21 @@ export default function BibleScreen() {
       </ScrollView>
 
       <Text style={styles.chapter}>{chapterLabel}</Text>
+      <Text style={styles.label}>{t(locale, "reader.typography")}</Text>
+      <View style={styles.annActions}>
+        <Pressable
+          style={[styles.btn, styles.btnGhost]}
+          onPress={() => setFontSize((s) => Math.max(14, s - 2))}
+        >
+          <Text style={styles.btnGhostText}>A−</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnGhost]}
+          onPress={() => setFontSize((s) => Math.min(28, s + 2))}
+        >
+          <Text style={styles.btnGhostText}>A+</Text>
+        </Pressable>
+      </View>
       {loading && <ActivityIndicator color="#0f6b5c" />}
       {error && <Text style={styles.error}>{error}</Text>}
 
@@ -391,7 +407,7 @@ export default function BibleScreen() {
                 hl ? { backgroundColor: hl } : null,
               ]}
             >
-              <Text style={styles.verse}>
+              <Text style={[styles.verse, { fontSize, lineHeight: fontSize * 1.65 }]}>
                 <Text style={styles.num}>{v.verse} </Text>
                 {v.text}
               </Text>
