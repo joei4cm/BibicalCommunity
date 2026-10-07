@@ -4,6 +4,8 @@ import { drizzle } from "drizzle-orm/d1";
 import { and, eq, isNull, or, gt } from "drizzle-orm";
 import {
   getTranslation,
+  listDevotionMaterials,
+  listStudyMaterials,
   listTranslations,
   loadChapter,
   parseR2ChapterJson,
@@ -27,6 +29,17 @@ bibleRoutes.get("/translations", (c) => {
       endaoSso: c.env.ENDAO_SSO_ENABLED === "true",
       wereadSso: c.env.WEREAD_SSO_ENABLED === "true",
     },
+  });
+});
+
+const studyLangSchema = z.enum(["zh", "en", "ja"]);
+
+bibleRoutes.get("/study", (c) => {
+  const languageRaw = c.req.query("language");
+  const language = languageRaw ? studyLangSchema.parse(languageRaw) : undefined;
+  return c.json({
+    materials: listStudyMaterials(language ? { language } : undefined),
+    devotion: listDevotionMaterials(),
   });
 });
 

@@ -193,6 +193,9 @@ echo "== church home paths =="
 export TOKEN TOKEN2 PEER CID BASE
 bash "$SCRIPT_DIR/smoke-home.sh" "$BASE"
 
+echo "== study materials + home externalMediaUrl =="
+bash "$SCRIPT_DIR/smoke-study-embed.sh" "$BASE"
+
 echo "== call + screen signaling fan-out =="
 node "$SCRIPT_DIR/smoke-call-signaling.mjs" "$BASE"
 
