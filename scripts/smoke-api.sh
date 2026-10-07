@@ -101,6 +101,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.1" | grep -qE '見本|
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Prov.3" | grep -qE '样例|仰赖耶和华|自己的聪明'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Prov.3" | grep -qE '見本|主に信頼|自分の知識'
 echo "MULTI_BOOK_WISDOM_OK"
+echo "== multi-book law/gospel scaffolds Mark.1 / Exod.20 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Mark.1" | grep -qiE 'beginning of the Good News|Jesus Christ|baptism of repentance'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Mark.1" | grep -qiE 'beginning of the gospel|Son of God|baptism of repentance'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Mark.1" | grep -qiE 'beginning of the gospel|Make ye ready|baptism of repentance'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Exod.20" | grep -qiE 'Yahweh your God|no other gods|Honor your father'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Exod.20" | grep -qiE 'LORD thy God|no other gods|Honour thy father'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Exod.20" | grep -qiE 'Jehovah thy God|no other gods|Honor thy father'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Mark.1" | grep -qE '样例|耶稣基督|福音的起头'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Mark.1" | grep -qE '見本|イエス・キリスト|福音のはじめ'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Exod.20" | grep -qE '样例|耶和华你的神|不可有别的神'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Exod.20" | grep -qE '見本|エジプトの地|神としてはならない'
+echo "MULTI_BOOK_LAW_GOSPEL_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")

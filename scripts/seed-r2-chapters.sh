@@ -176,4 +176,29 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.1" -H "$AUTH" | grep -
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Prov.3" -H "$AUTH" | grep -qE '样例|仰赖耶和华|自己的聪明'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Prov.3" -H "$AUTH" | grep -qE '見本|主に信頼|自分の知識'
 echo "MULTI_BOOK_WISDOM_OK"
+
+# Multi-book law/gospel dual-pane scaffolds (Mark.1 / Exod.20) — short license-safe samples
+put_chapter "bible/web/Mark.1.json" '{"book":"Mark","chapter":1,"verses":[{"verse":1,"text":"The beginning of the Good News of Jesus Christ, the Son of God."},{"verse":2,"text":"As it is written in the prophets, \"Behold, I send my messenger before your face, who will prepare your way before you:"},{"verse":3,"text":"the voice of one crying in the wilderness, '\''Make ready the way of the Lord! Make his paths straight!'\''\""},{"verse":4,"text":"John came baptizing in the wilderness and preaching the baptism of repentance for forgiveness of sins."}]}'
+put_chapter "bible/kjv/Mark.1.json" '{"book":"Mark","chapter":1,"verses":[{"verse":1,"text":"The beginning of the gospel of Jesus Christ, the Son of God;"},{"verse":2,"text":"As it is written in the prophets, Behold, I send my messenger before thy face, which shall prepare thy way before thee."},{"verse":3,"text":"The voice of one crying in the wilderness, Prepare ye the way of the Lord, make his paths straight."},{"verse":4,"text":"John did baptize in the wilderness, and preach the baptism of repentance for the remission of sins."}]}'
+put_chapter "bible/asv/Mark.1.json" '{"book":"Mark","chapter":1,"verses":[{"verse":1,"text":"The beginning of the gospel of Jesus Christ, the Son of God."},{"verse":2,"text":"Even as it is written in Isaiah the prophet, Behold, I send my messenger before thy face, Who shall prepare thy way;"},{"verse":3,"text":"The voice of one crying in the wilderness, Make ye ready the way of the Lord, Make his paths straight;"},{"verse":4,"text":"John came, who baptized in the wilderness and preached the baptism of repentance unto remission of sins."}]}'
+put_chapter "bible/cuvs/Mark.1.json" '{"book":"Mark","chapter":1,"verses":[{"verse":1,"text":"（样例）神的儿子，耶稣基督福音的起头。"},{"verse":2,"text":"（样例）正如先知书上记着说：看哪，我要差遣我的使者在你前面，预备道路。"},{"verse":3,"text":"（样例）在旷野有人声喊着说：预备主的道，修直他的路。"},{"verse":4,"text":"（样例）照这话，约翰来了，在旷野施洗，传悔改的洗礼，使罪得赦。"}]}'
+put_chapter "bible/kougo/Mark.1.json" '{"book":"Mark","chapter":1,"verses":[{"verse":1,"text":"（見本）神の子イエス・キリストの福音のはじめ。"},{"verse":2,"text":"（見本）預言者イザヤの書にこう書いてある、「見よ、わたしは使いをあなたの前につかわし、あなたの道を整えさせるであろう。"},{"verse":3,"text":"（見本）荒野で呼ばわる者の声がする、『主の道を備えよ、その道筋をまっすぐにせよ』」。"},{"verse":4,"text":"（見本）そのとおりに、バプテスマのヨハネが荒野に現われ、罪のゆるしを得させる悔改めのバプテスマを宣べ伝えた。"}]}'
+put_chapter "bible/web/Exod.20.json" '{"book":"Exod","chapter":20,"verses":[{"verse":1,"text":"God spoke all these words, saying,"},{"verse":2,"text":"\"I am Yahweh your God, who brought you out of the land of Egypt, out of the house of bondage."},{"verse":3,"text":"\"You shall have no other gods before me."},{"verse":12,"text":"\"Honor your father and your mother, that your days may be long in the land which Yahweh your God gives you."}]}'
+put_chapter "bible/kjv/Exod.20.json" '{"book":"Exod","chapter":20,"verses":[{"verse":1,"text":"And God spake all these words, saying,"},{"verse":2,"text":"I am the LORD thy God, which have brought thee out of the land of Egypt, out of the house of bondage."},{"verse":3,"text":"Thou shalt have no other gods before me."},{"verse":12,"text":"Honour thy father and thy mother: that thy days may be long upon the land which the LORD thy God giveth thee."}]}'
+put_chapter "bible/asv/Exod.20.json" '{"book":"Exod","chapter":20,"verses":[{"verse":1,"text":"And God spake all these words, saying,"},{"verse":2,"text":"I am Jehovah thy God, who brought thee out of the land of Egypt, out of the house of bondage."},{"verse":3,"text":"Thou shalt have no other gods before me."},{"verse":12,"text":"Honor thy father and thy mother, that thy days may be long in the land which Jehovah thy God giveth thee."}]}'
+put_chapter "bible/cuvs/Exod.20.json" '{"book":"Exod","chapter":20,"verses":[{"verse":1,"text":"（样例）神吩咐这一切的话说："},{"verse":2,"text":"（样例）我是耶和华你的神，曾将你从埃及地为奴之家领出来。"},{"verse":3,"text":"（样例）除了我以外，你不可有别的神。"},{"verse":12,"text":"（样例）当孝敬父母，使你的日子在耶和华你神所赐你的地上得以长久。"}]}'
+put_chapter "bible/kougo/Exod.20.json" '{"book":"Exod","chapter":20,"verses":[{"verse":1,"text":"（見本）神はこのすべての言葉を語って言われた、"},{"verse":2,"text":"（見本）「わたしはあなたの神、主であって、あなたをエジプトの地、奴隷の家から導き出した者である。"},{"verse":3,"text":"（見本）あなたはわたしのほかに、なにものをも神としてはならない。"},{"verse":12,"text":"（見本）あなたの父と母を敬え。これはあなたの神、主が賜わる地に、あなたが長く生きるためである。"}]}'
+
+echo "Multi-book law/gospel scaffolds:"
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Mark.1" -H "$AUTH" | grep -qiE 'beginning of the Good News|Jesus Christ|baptism of repentance'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Mark.1" -H "$AUTH" | grep -qiE 'beginning of the gospel|Son of God|baptism of repentance'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Mark.1" -H "$AUTH" | grep -qiE 'beginning of the gospel|Make ye ready|baptism of repentance'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Exod.20" -H "$AUTH" | grep -qiE 'Yahweh your God|no other gods|Honor your father'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Exod.20" -H "$AUTH" | grep -qiE 'LORD thy God|no other gods|Honour thy father'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Exod.20" -H "$AUTH" | grep -qiE 'Jehovah thy God|no other gods|Honor thy father'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Mark.1" -H "$AUTH" | grep -qE '样例|耶稣基督|福音的起头'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Mark.1" -H "$AUTH" | grep -qE '見本|イエス・キリスト|福音のはじめ'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Exod.20" -H "$AUTH" | grep -qE '样例|耶和华你的神|不可有别的神'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Exod.20" -H "$AUTH" | grep -qE '見本|エジプトの地|神としてはならない'
+echo "MULTI_BOOK_LAW_GOSPEL_OK"
 echo SEED_R2_OK

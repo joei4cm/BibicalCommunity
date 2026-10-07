@@ -522,3 +522,62 @@ test("loadChapter returns zh/ja Psalm.1 and Proverbs.3 scaffolds", async () => {
   assert.ok(!("external" in kougoProv));
   assert.match(kougoProv.verses.find((v) => v.verse === 5)?.text ?? "", /見本|主に信頼|自分の知識/);
 });
+
+test("loadChapter returns PD Mark.1 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Mark", chapter: 1 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Mark");
+  assert.equal(web.chapter, 1);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /beginning of the Good News|Jesus Christ/i);
+  assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /John came baptizing|baptism of repentance/i);
+
+  const kjv = await loadChapter("kjv", { book: "Mk", chapter: 1 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Mark");
+  assert.match(kjv.verses[0]?.text ?? "", /beginning of the gospel|Son of God/i);
+
+  const asv = await loadChapter("asv", { book: "mark", chapter: 1 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 3)?.text ?? "", /voice of one crying|Make ye ready/i);
+});
+
+test("loadChapter returns PD Exodus.20 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Exod", chapter: 20 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Exod");
+  assert.equal(web.chapter, 20);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 2)?.text ?? "", /Yahweh your God|land of Egypt/i);
+
+  const kjv = await loadChapter("kjv", { book: "Exodus", chapter: 20 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Exod");
+  assert.match(kjv.verses.find((v) => v.verse === 3)?.text ?? "", /no other gods before me/i);
+
+  const asv = await loadChapter("asv", { book: "Ex", chapter: 20 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /Jehovah thy God|Egypt/i);
+});
+
+test("loadChapter returns zh/ja Mark.1 and Exodus.20 scaffolds", async () => {
+  const cuvsMark = await loadChapter("cuvs", { book: "马可福音", chapter: 1 });
+  assert.ok(!("external" in cuvsMark));
+  assert.equal(cuvsMark.book, "Mark");
+  assert.ok(cuvsMark.verses.length >= 3 && cuvsMark.verses.length <= 5);
+  assert.match(cuvsMark.verses[0]?.text ?? "", /样例|耶稣基督|福音的起头/);
+
+  const kougoMark = await loadChapter("kougo", { book: "マルコ", chapter: 1 });
+  assert.ok(!("external" in kougoMark));
+  assert.match(kougoMark.verses[0]?.text ?? "", /見本|イエス・キリスト|福音のはじめ/);
+
+  const cuvsExod = await loadChapter("cuvs", { book: "出埃及记", chapter: 20 });
+  assert.ok(!("external" in cuvsExod));
+  assert.equal(cuvsExod.book, "Exod");
+  assert.match(cuvsExod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|不可有别的神/);
+
+  const kougoExod = await loadChapter("kougo", { book: "出エジプト記", chapter: 20 });
+  assert.ok(!("external" in kougoExod));
+  assert.match(kougoExod.verses.find((v) => v.verse === 2)?.text ?? "", /見本|エジプトの地|奴隷の家/);
+});
