@@ -182,11 +182,14 @@ a.ws.close(); b.ws.close();
 process.exit(0);
 ' "$WS_URL" "$WS_URL2"
 
-echo "== peer key bundle list =="
+echo "== peer key bundle list (empty until upload) =="
 curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
 
-echo "== church home paths =="
+echo "== auth-then-P2P key distribution =="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/smoke-keys.sh" "$BASE"
+
+echo "== church home paths =="
 export TOKEN TOKEN2 PEER CID BASE
 bash "$SCRIPT_DIR/smoke-home.sh" "$BASE"
 
