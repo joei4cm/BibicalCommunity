@@ -47,6 +47,8 @@ planRoutes.get("/subscriptions", async (c) => {
       visibility: plan.visibility,
       days: JSON.parse(plan.daysJson),
       progressDay: sub.progressDay,
+      devotionStep: sub.devotionStep ?? "pause",
+      devotionMaterialId: sub.devotionMaterialId ?? null,
       subscribedAt: sub.createdAt,
     });
   }
@@ -121,6 +123,7 @@ planRoutes.post("/:id/subscribe", async (c) => {
     planId,
     userId: c.get("userId"),
     progressDay: 0,
+    devotionStep: "pause",
     createdAt: Date.now(),
   });
   return c.json({ id }, 201);
@@ -128,6 +131,13 @@ planRoutes.post("/:id/subscribe", async (c) => {
 
 const progressSchema = z.object({
   day: z.number().int().nonnegative(),
+});
+
+const DEVOTION_STEPS = ["pause", "read", "reflect", "pray", "act"] as const;
+
+const devotionSchema = z.object({
+  step: z.enum(DEVOTION_STEPS),
+  materialId: z.string().min(1).max(128).optional().nullable(),
 });
 
 planRoutes.post("/:id/progress", async (c) => {
@@ -152,6 +162,42 @@ planRoutes.post("/:id/progress", async (c) => {
     .where(eq(schema.planSubscriptions.id, sub.id));
 
   return c.json({ ok: true, planId, progressDay: body.day });
+});
+
+planRoutes.post("/:id/devotion", async (c) => {
+  const body = devotionSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const planId = c.req.param("id");
+  const userId = c.get("userId");
+  const sub = (
+    await db
+      .select()
+      .from(schema.planSubscriptions)
+      .where(
+        and(eq(schema.planSubscriptions.planId, planId), eq(schema.planSubscriptions.userId, userId)),
+      )
+      .limit(1)
+  )[0];
+  if (!sub) return c.json({ error: "not_subscribed" }, 404);
+
+  const patch: Partial<typeof schema.planSubscriptions.$inferInsert> = {
+    devotionStep: body.step,
+  };
+  if (body.materialId !== undefined) {
+    patch.devotionMaterialId = body.materialId;
+  }
+
+  await db
+    .update(schema.planSubscriptions)
+    .set(patch)
+    .where(eq(schema.planSubscriptions.id, sub.id));
+
+  return c.json({
+    ok: true,
+    planId,
+    devotionStep: body.step,
+    devotionMaterialId: body.materialId === undefined ? (sub.devotionMaterialId ?? null) : body.materialId,
+  });
 });
 
 planRoutes.patch("/:id", async (c) => {

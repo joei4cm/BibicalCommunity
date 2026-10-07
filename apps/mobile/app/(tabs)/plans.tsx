@@ -31,6 +31,8 @@ type Subscription = {
   planId: string;
   title?: string;
   progressDay: number;
+  devotionStep?: DevotionStep;
+  devotionMaterialId?: string | null;
 };
 
 export default function PlansScreen() {
@@ -77,9 +79,33 @@ export default function PlansScreen() {
     void refreshLists().catch(() => undefined);
   }, [refreshLists]);
 
+  useEffect(() => {
+    const sub = subscriptions[0];
+    if (sub?.devotionStep && DEVOTION_STEPS.includes(sub.devotionStep)) {
+      setStep(sub.devotionStep);
+    }
+  }, [subscriptions]);
+
+  async function persistDevotion(next: DevotionStep) {
+    setStep(next);
+    const planId = subscriptions[0]?.planId;
+    if (!planId || !getToken()) return;
+    try {
+      await api(`/v1/plans/${planId}/devotion`, {
+        method: "POST",
+        body: JSON.stringify({ step: next }),
+      });
+      setSubscriptions((prev) =>
+        prev.map((s) => (s.planId === planId ? { ...s, devotionStep: next } : s)),
+      );
+    } catch {
+      // Keep local step; list refresh will reconcile.
+    }
+  }
+
   function advance() {
     const next = nextStep(step);
-    if (next) setStep(next);
+    if (next) void persistDevotion(next);
   }
 
   async function importCsv() {
@@ -239,7 +265,7 @@ export default function PlansScreen() {
                 state === "current" && styles.stepCurrent,
                 state === "done" && styles.stepDone,
               ]}
-              onPress={() => setStep(s)}
+              onPress={() => void persistDevotion(s)}
             >
               <Text style={styles.stepText}>
                 {i + 1}. {t(locale, `devotion.${s}`)}
@@ -252,7 +278,10 @@ export default function PlansScreen() {
         <Pressable style={styles.btn} onPress={advance} disabled={progress.done}>
           <Text style={styles.btnText}>{progress.done ? "✓" : "→"}</Text>
         </Pressable>
-        <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => setStep("pause")}>
+        <Pressable
+          style={[styles.btn, styles.btnGhost]}
+          onPress={() => void persistDevotion("pause")}
+        >
           <Text style={[styles.btnText, styles.btnGhostText]}>Reset</Text>
         </Pressable>
       </View>
