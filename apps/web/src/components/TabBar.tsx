@@ -4,10 +4,10 @@ import { useTranslation } from "react-i18next";
 export function TabBar() {
   const { t } = useTranslation();
   const tabs = [
-    { to: "/", label: t("nav.bible"), end: true },
-    { to: "/plans", label: t("nav.plans") },
-    { to: "/home", label: t("nav.home") },
-    { to: "/me", label: t("nav.me") },
+    { to: "/app", label: t("nav.bible"), end: true },
+    { to: "/app/plans", label: t("nav.plans") },
+    { to: "/app/home", label: t("nav.home") },
+    { to: "/app/me", label: t("nav.me") },
   ];
   return (
     <nav className="tab-bar" aria-label="Primary">

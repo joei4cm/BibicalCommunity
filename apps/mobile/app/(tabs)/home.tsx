@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Text, View, StyleSheet, Pressable, ScrollView } from "react-native";
+import { useRouter } from "expo-router";
 import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../../src/api";
 import { useLocale } from "../../src/locale";
@@ -14,6 +15,7 @@ type Church = {
 
 export default function HomeChurchScreen() {
   const { locale } = useLocale();
+  const router = useRouter();
   const [churches, setChurches] = useState<Church[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -44,6 +46,9 @@ export default function HomeChurchScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.home")}</Text>
+      <Pressable style={styles.msgLink} onPress={() => router.push("/messages")}>
+        <Text style={styles.msgLinkText}>{t(locale, "home.messages")} →</Text>
+      </Pressable>
       <Text style={styles.section}>{t(locale, "home.forum")}</Text>
       {note && <Text style={styles.muted}>{note}</Text>}
       {!ready && <Text style={styles.muted}>…</Text>}
@@ -73,6 +78,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f3efe6" },
   content: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
+  msgLink: { marginTop: 12, alignSelf: "flex-start" },
+  msgLinkText: { color: "#0f6b5c", fontWeight: "700", fontSize: 16 },
   section: { marginTop: 16, fontSize: 18, fontWeight: "600", color: "#1c2b2a" },
   muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
   list: { marginTop: 12, gap: 12 },

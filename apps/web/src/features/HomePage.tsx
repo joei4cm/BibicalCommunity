@@ -10,7 +10,12 @@ type Church = {
   slug?: string;
   role: string;
   verified: boolean;
+  groups?: string[];
 };
+
+function isChurchAdmin(role: string): boolean {
+  return role === "admin" || role === "security_officer";
+}
 
 type Board = "notice" | "general" | "group";
 
@@ -39,6 +44,12 @@ export function HomePage() {
   const [body, setBody] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [verifyUserId, setVerifyUserId] = useState("");
+  const [groupName, setGroupName] = useState("");
+
+  const selectedChurch = churches.find((c) => c.id === selectedChurchId) ?? null;
+  const canAdmin = selectedChurch ? isChurchAdmin(selectedChurch.role) : false;
+  const membershipGroups = selectedChurch?.groups ?? [];
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -121,6 +132,48 @@ export function HomePage() {
     }
   }
 
+  async function verifyMember() {
+    if (!getToken() || !selectedChurchId || !verifyUserId.trim()) {
+      setNote("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("/v1/home/members/verify", {
+        method: "POST",
+        body: JSON.stringify({ churchId: selectedChurchId, userId: verifyUserId.trim() }),
+      });
+      setVerifyUserId("");
+      setNote("member_verified");
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createGroup() {
+    if (!getToken() || !selectedChurchId || !groupName.trim()) {
+      setNote("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("/v1/home/groups", {
+        method: "POST",
+        body: JSON.stringify({ churchId: selectedChurchId, name: groupName.trim() }),
+      });
+      setGroupName("");
+      setNote("group_created");
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="fade-up">
       <h1 className="brand">{t("nav.home")}</h1>
@@ -163,6 +216,50 @@ export function HomePage() {
           {t("home.createChurch")}
         </button>
       </div>
+
+      {selectedChurchId && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("home.groups")}</h2>
+          <ul className="list">
+            {membershipGroups.length === 0 && <li className="muted">{t("home.noGroups")}</li>}
+            {membershipGroups.map((g) => (
+              <li key={g}>
+                <code>{g}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {selectedChurchId && canAdmin && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("home.verifyMember")}</h2>
+          <div className="field">
+            <label>{t("home.verifyUserId")}</label>
+            <input
+              value={verifyUserId}
+              onChange={(e) => setVerifyUserId(e.target.value)}
+              placeholder="usr_…"
+            />
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void verifyMember()}>
+            {t("home.verify")}
+          </button>
+
+          <h3 style={{ marginTop: "1.25rem" }}>{t("home.createGroup")}</h3>
+          <div className="field">
+            <label>{t("home.groupName")}</label>
+            <input
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder={t("home.groupName")}
+            />
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
+            {t("home.createGroup")}
+          </button>
+        </div>
+      )}
 
       {selectedChurchId && (
         <div className="panel">

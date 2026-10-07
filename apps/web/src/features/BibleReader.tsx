@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   buildPartnerAuthUrl,
@@ -10,6 +10,26 @@ import {
   type TranslationMeta,
 } from "@logoshome/bible";
 import { api, getToken } from "../lib/api";
+import { decryptJson, encryptJson } from "../lib/note-crypto";
+
+type AnnotationRow = {
+  id: string;
+  translationId: string;
+  book: string;
+  chapter: number;
+  verseStart: number | null;
+  verseEnd: number | null;
+  kind: string;
+  color?: string | null;
+  ciphertext: string;
+  iv: string;
+};
+
+type DecryptedNote = {
+  id: string;
+  label: string;
+  text: string;
+};
 
 type ChapterPayload =
   | {
@@ -121,6 +141,7 @@ export function BibleReader() {
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [noteMsg, setNoteMsg] = useState<string | null>(null);
+  const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
   const translations = listTranslations();
   const locale = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
   const bookNameLocale = bookLocaleKey(i18n.language || "zh-CN");
@@ -175,6 +196,43 @@ export function BibleReader() {
     };
   }, [dualPane, secondTranslationId, ref]);
 
+  const refreshNotes = useCallback(async () => {
+    if (!getToken()) {
+      setDecryptedNotes([]);
+      return;
+    }
+    try {
+      const res = await api<{ annotations: AnnotationRow[] }>(
+        `/v1/annotations?translation=${encodeURIComponent(translationId)}`,
+      );
+      const notes: DecryptedNote[] = [];
+      for (const row of res.annotations) {
+        if (row.kind !== "note") continue;
+        try {
+          const payload = await decryptJson<{ text?: string }>(row.ciphertext, row.iv, "note");
+          notes.push({
+            id: row.id,
+            label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
+            text: payload.text ?? "",
+          });
+        } catch {
+          notes.push({
+            id: row.id,
+            label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
+            text: "…",
+          });
+        }
+      }
+      setDecryptedNotes(notes);
+    } catch {
+      /* listing is optional when offline / unauthenticated */
+    }
+  }, [translationId]);
+
+  useEffect(() => {
+    void refreshNotes();
+  }, [refreshNotes]);
+
   async function grantEntitlement() {
     if (!getToken()) {
       setError("login_required");
@@ -196,14 +254,14 @@ export function BibleReader() {
       setError("login_required");
       return;
     }
-    const iv = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(12))));
+    const { ciphertext, iv } = await encryptJson({ kind: "bookmark" }, "bookmark");
     await api("/v1/annotations", {
       method: "POST",
       body: JSON.stringify({
         translationId,
         ref: { book: bookId, chapter: chapterNum, verseStart: selectedVerse ?? 1 },
         kind: "bookmark",
-        ciphertext: btoa("bookmark"),
+        ciphertext,
         iv,
       }),
     });
@@ -215,7 +273,7 @@ export function BibleReader() {
       return;
     }
     const verse = selectedVerse ?? 1;
-    const iv = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(12))));
+    const { ciphertext, iv } = await encryptJson({ kind: "highlight", color }, "highlight");
     await api("/v1/annotations", {
       method: "POST",
       body: JSON.stringify({
@@ -223,7 +281,7 @@ export function BibleReader() {
         ref: { book: bookId, chapter: chapterNum, verseStart: verse, verseEnd: verse },
         kind: "highlight",
         color,
-        ciphertext: btoa(`highlight:${color}`),
+        ciphertext,
         iv,
       }),
     });
@@ -235,19 +293,20 @@ export function BibleReader() {
       return;
     }
     if (selectedVerse == null || !noteText.trim()) return;
-    const iv = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(12))));
+    const { ciphertext, iv } = await encryptJson({ text: noteText.trim() }, "note");
     await api("/v1/annotations", {
       method: "POST",
       body: JSON.stringify({
         translationId,
         ref: { book: bookId, chapter: chapterNum, verseStart: selectedVerse, verseEnd: selectedVerse },
         kind: "note",
-        ciphertext: btoa(JSON.stringify({ text: noteText.trim() })),
+        ciphertext,
         iv,
       }),
     });
     setNoteMsg("saved");
     setNoteText("");
+    await refreshNotes();
   }
 
   return (
@@ -417,6 +476,19 @@ export function BibleReader() {
             onSelectVerse={setSelectedVerse}
           />
         )}
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("reader.notesPanel")}</h2>
+        <ul className="list">
+          {decryptedNotes.length === 0 && <li className="muted">{t("reader.noNotes")}</li>}
+          {decryptedNotes.map((n) => (
+            <li key={n.id}>
+              <strong>{n.label}</strong>
+              <p style={{ margin: "0.35rem 0 0" }}>{n.text}</p>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="panel">

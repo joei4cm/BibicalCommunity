@@ -6,8 +6,11 @@ import {
   TextInput,
   Pressable,
   ScrollView,
+  Switch,
+  Alert,
 } from "react-native";
-import { t, type LocaleCode } from "@logoshome/shared";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { t, type LocaleCode, type PrivacySettings } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken, setToken } from "../../src/api";
 import { useLocale } from "../../src/locale";
 
@@ -17,24 +20,47 @@ const LOCALES: { id: LocaleCode; label: string }[] = [
   { id: "ja", label: "日本語" },
 ];
 
+const DEFAULT_PRIVACY: PrivacySettings = {
+  discoverableByHandle: true,
+  discoverableByUid: true,
+  showInChurchDirectory: true,
+  allowMessageRequests: "church-only",
+  shareReadReceipts: true,
+  shareTypingIndicators: true,
+  shareLastActive: false,
+};
+
+type MeProfile = {
+  id: string;
+  uid: string;
+  nickname: string | null;
+  signature: string | null;
+  privacy?: PrivacySettings;
+};
+
+async function clearLocalStorage(): Promise<void> {
+  const keys = await AsyncStorage.getAllKeys();
+  const lhKeys = keys.filter((k) => k.startsWith("lh."));
+  await Promise.all(lhKeys.map((k) => AsyncStorage.removeItem(k)));
+}
+
 export default function MeScreen() {
   const { locale, setLocale } = useLocale();
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
-  const [profile, setProfile] = useState<{ uid?: string; signature?: string | null } | null>(
-    null,
-  );
+  const [profile, setProfile] = useState<MeProfile | null>(null);
+  const [privacy, setPrivacy] = useState<PrivacySettings>(DEFAULT_PRIVACY);
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function refresh() {
     await hydrateToken();
     if (!getApiBase() || !getToken()) return;
-    const me = await api<{ uid: string; signature: string | null; nickname: string | null }>(
-      "/v1/me",
-    );
+    const me = await api<MeProfile>("/v1/me");
     setProfile(me);
     if (me.nickname) setNickname(me.nickname);
+    if (me.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...me.privacy });
   }
 
   useEffect(() => {
@@ -82,6 +108,67 @@ export default function MeScreen() {
     }
   }
 
+  async function savePrivacy() {
+    if (!getApiBase() || !getToken()) {
+      setMsg("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("/v1/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          nickname: nickname || undefined,
+          privacy: {
+            discoverableByHandle: privacy.discoverableByHandle,
+            discoverableByUid: privacy.discoverableByUid,
+            showInChurchDirectory: privacy.showInChurchDirectory,
+            allowMessageRequests: privacy.allowMessageRequests,
+          },
+        }),
+      });
+      setMsg("saved");
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function confirmWipe() {
+    Alert.alert(t(locale, "security.wipe"), t(locale, "security.wipeConfirm"), [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: t(locale, "security.wipe"),
+        style: "destructive",
+        onPress: () => void selfWipe(),
+      },
+    ]);
+  }
+
+  async function selfWipe() {
+    if (!getApiBase() || !getToken() || !profile?.id) {
+      setMsg("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("/v1/admin/wipe", {
+        method: "POST",
+        body: JSON.stringify({ userId: profile.id, reasonCode: "self" }),
+      });
+      await clearLocalStorage();
+      await setToken(null);
+      setProfile(null);
+      setMsg("wiped");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.me")}</Text>
@@ -115,6 +202,38 @@ export default function MeScreen() {
       {msg && <Text style={styles.muted}>{msg}</Text>}
 
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.privacy")}</Text>
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByHandle")}</Text>
+        <Switch
+          value={privacy.discoverableByHandle}
+          onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByHandle: v }))}
+          trackColor={{ true: "#0f6b5c" }}
+        />
+      </View>
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByUid")}</Text>
+        <Switch
+          value={privacy.discoverableByUid}
+          onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByUid: v }))}
+          trackColor={{ true: "#0f6b5c" }}
+        />
+      </View>
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleLabel}>{t(locale, "me.showInChurchDirectory")}</Text>
+        <Switch
+          value={privacy.showInChurchDirectory}
+          onValueChange={(v) => setPrivacy((p) => ({ ...p, showInChurchDirectory: v }))}
+          trackColor={{ true: "#0f6b5c" }}
+        />
+      </View>
+      <Pressable
+        style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
+        disabled={busy}
+        onPress={() => void savePrivacy()}
+      >
+        <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
+      </Pressable>
+
       <Text style={styles.label}>Language</Text>
       <View style={styles.row}>
         {LOCALES.map((item) => {
@@ -130,9 +249,16 @@ export default function MeScreen() {
           );
         })}
       </View>
-      <Text style={styles.muted}>
-        {t(locale, "me.privacy")} · {t(locale, "security.wipe")}
-      </Text>
+
+      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "security.wipe")}</Text>
+      <Text style={styles.muted}>{t(locale, "security.wipeHint")}</Text>
+      <Pressable
+        style={[styles.btn, styles.btnDanger, { marginTop: 12 }, busy && styles.btnDisabled]}
+        disabled={busy}
+        onPress={confirmWipe}
+      >
+        <Text style={styles.btnText}>{t(locale, "security.wipe")}</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -154,13 +280,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 12,
+    gap: 12,
+  },
+  toggleLabel: { flex: 1, color: "#1c2b2a", fontSize: 15 },
   btn: {
     backgroundColor: "#0f6b5c",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
   },
+  btnDisabled: { opacity: 0.6 },
   btnGhost: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#0f6b5c" },
+  btnDanger: { backgroundColor: "#9b2c2c" },
   btnText: { color: "#fff", fontWeight: "600" },
   btnGhostText: { color: "#0f6b5c" },
   body: { marginTop: 16, color: "#1c2b2a", fontSize: 16 },
