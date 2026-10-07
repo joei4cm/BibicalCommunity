@@ -144,20 +144,38 @@ export function MePage() {
         setMsg("auth.invalidCredentials");
         return;
       }
-      const res = await api<{ token: string; deviceId: string; uid: string }>("/v1/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          handle: handle.trim(),
-          password,
-          nickname: (nickname || handle).trim(),
-          locale: apiLocale(),
-        }),
-      });
+      const nick = (nickname || handle).trim();
+      const res = await api<{ token: string; deviceId: string; uid: string; userId: string }>(
+        "/v1/auth/register",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            handle: handle.trim(),
+            password,
+            nickname: nick,
+            locale: apiLocale(),
+          }),
+        },
+      );
       setToken(res.token);
       localStorage.setItem("lh.deviceId", res.deviceId);
-      setProfile((p) => ({ ...(p ?? {}), uid: res.uid }));
+      // Full optimistic profile — partial objects crash render on profile.churches.map.
+      setProfile({
+        id: res.userId,
+        uid: res.uid,
+        nickname: nick,
+        legalName: null,
+        signature: null,
+        privacy: DEFAULT_PRIVACY,
+        churches: [],
+      });
+      setNickname(nick);
       setMsg("registered");
-      await refresh();
+      try {
+        await refresh();
+      } catch (refreshErr) {
+        setMsg(refreshErr instanceof Error ? refreshErr.message : "registered");
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     }
@@ -478,7 +496,7 @@ export function MePage() {
         <h2 style={{ marginTop: 0 }}>{t("me.churches")}</h2>
         <ul className="list">
           {!profile?.churches?.length && <li className="muted">—</li>}
-          {profile?.churches.map((c) => (
+          {(profile?.churches ?? []).map((c) => (
             <li key={c.churchId}>
               <strong>{c.churchId}</strong>
               <div className="muted">

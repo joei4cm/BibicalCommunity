@@ -64,6 +64,7 @@ function ChapterPane({
   t,
   selectedVerse,
   onSelectVerse,
+  highlightByVerse,
 }: {
   chapter: ChapterPayload | null;
   fontSize: number;
@@ -73,6 +74,7 @@ function ChapterPane({
   t: (key: string) => string;
   selectedVerse: number | null;
   onSelectVerse: (verse: number) => void;
+  highlightByVerse?: Record<number, string>;
 }) {
   if (!chapter) return <p className="muted">…</p>;
   if ("external" in chapter && chapter.external) {
@@ -106,21 +108,25 @@ function ChapterPane({
       <h2>
         {chapter.book} {chapter.chapter}
       </h2>
-      {chapter.verses.map((v) => (
-        <p
-          className={`verse${selectedVerse === v.verse ? " verse-selected" : ""}`}
-          key={v.verse}
-          onClick={() => onSelectVerse(v.verse)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
-          }}
-          role="button"
-          tabIndex={0}
-        >
-          <span className="verse-num">{v.verse}</span>
-          {v.text}
-        </p>
-      ))}
+      {chapter.verses.map((v) => {
+        const hl = highlightByVerse?.[v.verse];
+        return (
+          <p
+            className={`verse${selectedVerse === v.verse ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
+            key={v.verse}
+            style={hl ? { backgroundColor: hl } : undefined}
+            onClick={() => onSelectVerse(v.verse)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <span className="verse-num">{v.verse}</span>
+            {v.text}
+          </p>
+        );
+      })}
     </article>
   );
 }
@@ -143,6 +149,8 @@ export function BibleReader() {
   const [error, setError] = useState<string | null>(null);
   const [noteMsg, setNoteMsg] = useState<string | null>(null);
   const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
+  const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
+  const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
   const translations = listTranslations();
   const locale = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
   const bookNameLocale = bookLocaleKey(i18n.language || "zh-CN");
@@ -200,6 +208,8 @@ export function BibleReader() {
   const refreshNotes = useCallback(async () => {
     if (!getToken()) {
       setDecryptedNotes([]);
+      setHighlightByVerse({});
+      setBookmarks([]);
       return;
     }
     try {
@@ -207,28 +217,48 @@ export function BibleReader() {
         `/v1/annotations?translation=${encodeURIComponent(translationId)}`,
       );
       const notes: DecryptedNote[] = [];
+      const highlights: Record<number, string> = {};
+      const marks: { id: string; label: string }[] = [];
+      const colorMap: Record<string, string> = {
+        amber: "#f5d76e",
+        mint: "#a8e6cf",
+        rose: "#f8b4c4",
+        sky: "#a8d8ea",
+      };
       for (const row of res.annotations) {
-        if (row.kind !== "note") continue;
-        try {
-          const payload = await decryptJson<{ text?: string }>(row.ciphertext, row.iv, "note");
-          notes.push({
+        const sameChapter = row.book === bookId && row.chapter === chapterNum;
+        if (row.kind === "note") {
+          try {
+            const payload = await decryptJson<{ text?: string }>(row.ciphertext, row.iv, "note");
+            notes.push({
+              id: row.id,
+              label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
+              text: payload.text ?? "",
+            });
+          } catch {
+            notes.push({
+              id: row.id,
+              label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
+              text: "…",
+            });
+          }
+        } else if (row.kind === "highlight" && sameChapter && row.verseStart != null) {
+          const raw = row.color ?? "amber";
+          highlights[row.verseStart] = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
+        } else if (row.kind === "bookmark") {
+          marks.push({
             id: row.id,
-            label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
-            text: payload.text ?? "",
-          });
-        } catch {
-          notes.push({
-            id: row.id,
-            label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
-            text: "…",
+            label: `${row.book} ${row.chapter}:${row.verseStart ?? 1}`,
           });
         }
       }
       setDecryptedNotes(notes);
+      setHighlightByVerse(highlights);
+      setBookmarks(marks);
     } catch {
       /* listing is optional when offline / unauthenticated */
     }
-  }, [translationId]);
+  }, [translationId, bookId, chapterNum]);
 
   useEffect(() => {
     void refreshNotes();
@@ -255,17 +285,19 @@ export function BibleReader() {
       setError("login_required");
       return;
     }
+    const verse = selectedVerse ?? 1;
     const { ciphertext, iv } = await encryptJson({ kind: "bookmark" }, "bookmark");
     await api("/v1/annotations", {
       method: "POST",
       body: JSON.stringify({
         translationId,
-        ref: { book: bookId, chapter: chapterNum, verseStart: selectedVerse ?? 1 },
+        ref: { book: bookId, chapter: chapterNum, verseStart: verse },
         kind: "bookmark",
         ciphertext,
         iv,
       }),
     });
+    await refreshNotes();
   }
 
   async function addHighlight(color: string) {
@@ -274,6 +306,12 @@ export function BibleReader() {
       return;
     }
     const verse = selectedVerse ?? 1;
+    const colorMap: Record<string, string> = {
+      amber: "#f5d76e",
+      mint: "#a8e6cf",
+      rose: "#f8b4c4",
+      sky: "#a8d8ea",
+    };
     const { ciphertext, iv } = await encryptJson({ kind: "highlight", color }, "highlight");
     await api("/v1/annotations", {
       method: "POST",
@@ -286,6 +324,8 @@ export function BibleReader() {
         iv,
       }),
     });
+    setHighlightByVerse((prev) => ({ ...prev, [verse]: colorMap[color] ?? color }));
+    await refreshNotes();
   }
 
   async function saveNote() {
@@ -427,7 +467,7 @@ export function BibleReader() {
             className="swatch"
             style={{ background: c.value }}
             aria-label={`${t("reader.highlight")} ${c.id}`}
-            onClick={() => void addHighlight(c.value)}
+            onClick={() => void addHighlight(c.id)}
           />
         ))}
       </div>
@@ -464,6 +504,7 @@ export function BibleReader() {
           t={t}
           selectedVerse={selectedVerse}
           onSelectVerse={setSelectedVerse}
+          highlightByVerse={highlightByVerse}
         />
         {dualPane && (
           <ChapterPane
@@ -475,8 +516,21 @@ export function BibleReader() {
             t={t}
             selectedVerse={selectedVerse}
             onSelectVerse={setSelectedVerse}
+            highlightByVerse={highlightByVerse}
           />
         )}
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("reader.bookmark")}</h2>
+        <ul className="list">
+          {bookmarks.length === 0 && <li className="muted">—</li>}
+          {bookmarks.map((b) => (
+            <li key={b.id}>
+              <strong>{b.label}</strong>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="panel">

@@ -218,6 +218,11 @@ select {
   cursor: pointer;
 }
 
+.verse-highlighted {
+  border-radius: 6px;
+  padding-inline: 0.2rem;
+}
+
 .verse[role="button"] {
   cursor: pointer;
 }

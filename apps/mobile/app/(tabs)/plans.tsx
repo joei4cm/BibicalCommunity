@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Text,
   View,
@@ -17,6 +17,14 @@ import {
 } from "../../src/devotion";
 import { api, getApiBase, getToken, hydrateToken } from "../../src/api";
 import { useLocale } from "../../src/locale";
+import { humanizeStatus } from "../../src/status";
+
+type PlanRow = {
+  id: string;
+  title: string;
+  visibility?: string;
+  dayCount?: number;
+};
 
 export default function PlansScreen() {
   const { locale } = useLocale();
@@ -24,8 +32,35 @@ export default function PlansScreen() {
   const [step, setStep] = useState<DevotionStep>("pause");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mine, setMine] = useState<PlanRow[]>([]);
+  const [publicPlans, setPublicPlans] = useState<PlanRow[]>([]);
   const progress = devotionProgress(step);
   const apiConfigured = Boolean(getApiBase());
+
+  const refreshLists = useCallback(async () => {
+    await hydrateToken();
+    if (!getApiBase() || !getToken()) {
+      setMine([]);
+      setPublicPlans([]);
+      return;
+    }
+    try {
+      const owned = await api<{ plans: PlanRow[] }>("/v1/plans");
+      setMine(owned.plans ?? []);
+    } catch {
+      setMine([]);
+    }
+    try {
+      const pub = await api<{ plans: PlanRow[] }>("/v1/plans/public");
+      setPublicPlans(pub.plans ?? []);
+    } catch {
+      setPublicPlans([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshLists().catch(() => undefined);
+  }, [refreshLists]);
 
   function advance() {
     const next = nextStep(step);
@@ -55,6 +90,26 @@ export default function PlansScreen() {
         }),
       });
       setMessage(`created:${res.id} (${days.length} days)`);
+      await refreshLists();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function subscribe(planId: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await hydrateToken();
+      if (!getToken()) {
+        setMessage("login_required");
+        return;
+      }
+      await api(`/v1/plans/${planId}/subscribe`, { method: "POST", body: "{}" });
+      setMessage("saved");
+      await refreshLists();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "error");
     } finally {
@@ -65,6 +120,30 @@ export default function PlansScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.plans")}</Text>
+
+      <Text style={styles.section}>{t(locale, "plans.mine")}</Text>
+      {mine.length === 0 && <Text style={styles.muted}>—</Text>}
+      {mine.map((p) => (
+        <View key={p.id} style={styles.card}>
+          <Text style={styles.cardTitle}>{p.title}</Text>
+          <Text style={styles.muted}>{p.id}</Text>
+        </View>
+      ))}
+
+      <Text style={styles.section}>{t(locale, "plans.public")}</Text>
+      {publicPlans.length === 0 && <Text style={styles.muted}>—</Text>}
+      {publicPlans.map((p) => (
+        <View key={p.id} style={styles.card}>
+          <Text style={styles.cardTitle}>{p.title}</Text>
+          <Pressable
+            style={[styles.btn, { marginTop: 8 }, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void subscribe(p.id)}
+          >
+            <Text style={styles.btnText}>{t(locale, "plans.subscribe")}</Text>
+          </Pressable>
+        </View>
+      ))}
 
       <Text style={styles.section}>{t(locale, "plans.importCsv")}</Text>
       <TextInput
@@ -86,7 +165,7 @@ export default function PlansScreen() {
       ) : (
         <Text style={styles.muted}>CSV paste stub — set EXPO_PUBLIC_API_BASE to create via API.</Text>
       )}
-      {message && <Text style={styles.muted}>{message}</Text>}
+      {message && <Text style={styles.muted}>{humanizeStatus(locale, message)}</Text>}
 
       <Text style={[styles.section, { marginTop: 24 }]}>Devotion</Text>
       <Text style={styles.muted}>
@@ -131,6 +210,15 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
   section: { marginTop: 16, fontSize: 18, fontWeight: "600", color: "#1c2b2a" },
   muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
+  card: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cfc6b4",
+    backgroundColor: "#fffdf8",
+  },
+  cardTitle: { fontWeight: "700", color: "#1c2b2a" },
   input: {
     marginTop: 10,
     minHeight: 120,
