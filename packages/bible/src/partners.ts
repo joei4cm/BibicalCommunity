@@ -44,15 +44,15 @@ export function buildPartnerAuthUrl(
   }
 
   const base = OAUTH_AUTHORIZE[partner];
-  const params = new URLSearchParams({
-    client_id: "CONFIGURE",
-    response_type: "code",
-    scope: "bible.read",
-    redirect_uri: `https://app.logoshome.example/v1/partners/${partner}/callback`,
-  });
-  if (opts.state) params.set("state", opts.state);
-  if (ref) params.set("ref", ref);
-  return `${base}?${params.toString()}`;
+  const parts = [
+    `client_id=${encodeURIComponent("CONFIGURE")}`,
+    `response_type=code`,
+    `scope=${encodeURIComponent("bible.read")}`,
+    `redirect_uri=${encodeURIComponent(`https://app.logoshome.example/v1/partners/${partner}/callback`)}`,
+  ];
+  if (opts.state) parts.push(`state=${encodeURIComponent(opts.state)}`);
+  if (ref) parts.push(`ref=${encodeURIComponent(ref)}`);
+  return `${base}?${parts.join("&")}`;
 }
 
 export function isPartnerId(id: string): id is PartnerId {
