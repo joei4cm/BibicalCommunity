@@ -22,6 +22,10 @@ echo "== chapter WEB John.2 =="
 J2=$(curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.2")
 echo "$J2" | head -c 160; echo
 echo "$J2" | grep -q 'wedding in Cana'
+echo "== chapter ASV John.3 =="
+A3=$(curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3")
+echo "$A3" | head -c 160; echo
+echo "$A3" | grep -q 'God so loved the world'
 echo "== chapter NIV external =="
 curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
 echo "== partner mock authorize =="
