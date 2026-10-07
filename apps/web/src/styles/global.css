@@ -197,3 +197,101 @@ select {
 .fade-up {
   animation: fade-up 360ms ease both;
 }
+
+.reader-dual {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .reader-dual {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.verse-selected {
+  background: color-mix(in srgb, var(--lh-accent-soft) 80%, transparent);
+  border-radius: 6px;
+  outline: 1px solid var(--lh-border);
+  padding-inline: 0.2rem;
+  cursor: pointer;
+}
+
+.verse[role="button"] {
+  cursor: pointer;
+}
+
+.btn.active-toggle {
+  background: var(--lh-accent-soft);
+  color: var(--lh-accent);
+}
+
+.highlight-colors {
+  align-items: center;
+}
+
+.swatch {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--lh-border);
+  cursor: pointer;
+  padding: 0;
+  appearance: none;
+  transition: transform 160ms ease;
+}
+
+.swatch:hover {
+  transform: scale(1.08);
+}
+
+.step-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.75rem 0;
+}
+
+.step-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--lh-border);
+  background: var(--lh-bg-elevated);
+  color: var(--lh-ink-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.step-chip .step-index {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--lh-accent-soft) 70%, transparent);
+  color: var(--lh-accent);
+}
+
+.step-chip.step-current {
+  color: var(--lh-accent);
+  border-color: var(--lh-accent);
+  background: var(--lh-accent-soft);
+}
+
+.step-chip.step-done {
+  color: var(--lh-ink);
+  border-color: color-mix(in srgb, var(--lh-accent) 35%, var(--lh-border));
+}
+
+.step-chip.step-done .step-index {
+  background: var(--lh-accent);
+  color: #fff;
+}
+
