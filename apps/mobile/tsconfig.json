@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "types": ["react"]
+  },
+  "include": ["app", "src", "src/env.d.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

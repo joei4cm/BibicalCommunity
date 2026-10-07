@@ -1,0 +1,44 @@
+name = "logoshome-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "logoshome"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "logoshome-media"
+
+[durable_objects]
+bindings = [
+  { name = "CALL_ROOM", class_name = "CallRoomDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["CallRoomDO"]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+APP_NAME = "LogosHome"
+ENVIRONMENT = "development"
+ENDAO_SSO_ENABLED = "true"
+WEREAD_SSO_ENABLED = "true"
+PARTNER_SSO_MOCK = "true"
+# Local-only OAuth fixtures so callback can exercise token exchange against /v1/partners/mock-token.
+# Production must use wrangler secret put + real partner token URLs (see wrangler.production.toml).
+ENDAO_OAUTH_CLIENT_ID = "dev-endao-client"
+ENDAO_OAUTH_CLIENT_SECRET = "dev-endao-secret"
+WEREAD_OAUTH_CLIENT_ID = "dev-weread-client"
+WEREAD_OAUTH_CLIENT_SECRET = "dev-weread-secret"
+PARTNER_OAUTH_REDIRECT_BASE = "http://127.0.0.1:8787"
+ENDAO_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
+WEREAD_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
+TURN_SECRET = "dev-turn-secret"
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"

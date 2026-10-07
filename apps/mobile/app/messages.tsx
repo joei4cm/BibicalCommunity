@@ -1,0 +1,370 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  Text,
+  View,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { t } from "@logoshome/shared";
+import { api, getApiBase, getToken, hydrateToken } from "../src/api";
+import { ensureBase64Globals } from "../src/crypto-polyfill";
+import { useLocale } from "../src/locale";
+import { decryptMobileMessage, encryptMobileMessage } from "../src/session-crypto";
+import { humanizeStatus } from "../src/status";
+
+ensureBase64Globals();
+
+type Conversation = {
+  id: string;
+  kind: string;
+  title: string | null;
+  disappearingTtlSec: number | null;
+  membership: { id: string; role: string; archived: boolean };
+};
+
+type ChatMessage = {
+  id: string;
+  ratchetHeader: string;
+  ciphertext: string;
+  createdAt: number;
+  expiresAt: number | null;
+};
+
+const TTL_OPTIONS = [
+  { labelKey: "chat.ttlOff" as const, value: null as number | null },
+  { labelKey: "chat.ttl1h" as const, value: 3600 },
+  { labelKey: "chat.ttl1d" as const, value: 86400 },
+  { labelKey: "chat.ttl7d" as const, value: 604800 },
+];
+
+/**
+ * Mobile chat: AES-GCM session payloads via @logoshome/crypto session-aes.
+ * Full Double Ratchet / X3DH remains richest on web ChatPanel; mobile stores
+ * per-conversation key material via secure-kv (SecureStore → AsyncStorage).
+ */
+export default function MessagesScreen() {
+  const { locale } = useLocale();
+  const router = useRouter();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
+  const [memberIds, setMemberIds] = useState("");
+  const [draft, setDraft] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const selected = conversations.find((c) => c.id === selectedId) ?? null;
+
+  const refresh = useCallback(async () => {
+    await hydrateToken();
+    if (!getApiBase()) {
+      setNote("EXPO_PUBLIC_API_BASE not set");
+      return;
+    }
+    if (!getToken()) {
+      setNote("login_required");
+      return;
+    }
+    const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
+    setConversations(
+      res.conversations.filter((c) =>
+        showArchived ? c.membership.archived : !c.membership.archived,
+      ),
+    );
+    setNote(null);
+  }, [showArchived]);
+
+  const loadMessages = useCallback(async (conversationId: string) => {
+    const res = await api<{ messages: ChatMessage[] }>(
+      `/v1/chat/conversations/${conversationId}/messages`,
+    );
+    const now = Date.now();
+    const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+    setMessages(live);
+    const decoded: Record<string, string> = {};
+    for (const m of live) {
+      const pt = await decryptMobileMessage(conversationId, m.ratchetHeader, m.ciphertext);
+      decoded[m.id] = pt ?? "[ciphertext]";
+    }
+    setPlaintexts((prev) => ({ ...prev, ...decoded }));
+  }, []);
+
+  useEffect(() => {
+    void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setMessages([]);
+      return;
+    }
+    void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [selectedId, loadMessages]);
+
+  async function createDm() {
+    setBusy(true);
+    try {
+      await hydrateToken();
+      if (!getToken()) {
+        setNote("login_required");
+        return;
+      }
+      const ids = memberIds
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (ids.length === 0) {
+        setNote("members_required");
+        return;
+      }
+      const res = await api<{ id: string }>("/v1/chat/conversations", {
+        method: "POST",
+        body: JSON.stringify({ kind: "dm", memberIds: ids }),
+      });
+      setMemberIds("");
+      await refresh();
+      setSelectedId(res.id);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function patchTtl(ttl: number | null) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/chat/conversations/${selectedId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ disappearingTtlSec: ttl }),
+      });
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function archiveConversation(archived: boolean) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/chat/conversations/${selectedId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ archived }),
+      });
+      if (archived) setSelectedId(null);
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function send() {
+    if (!selectedId || !draft.trim()) return;
+    setBusy(true);
+    try {
+      const text = draft.trim();
+      const payload = await encryptMobileMessage(selectedId, text);
+      const expiresAt = selected?.disappearingTtlSec
+        ? Date.now() + selected.disappearingTtlSec * 1000
+        : undefined;
+      const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ ...payload, contentType: "msg", expiresAt }),
+      });
+      setPlaintexts((p) => ({ ...p, [res.id]: text }));
+      setDraft("");
+      await loadMessages(selectedId);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      <Pressable onPress={() => router.back()} style={styles.back}>
+        <Text style={styles.backText}>← {t(locale, "nav.home")}</Text>
+      </Pressable>
+      <Text style={styles.title}>{t(locale, "home.messages")}</Text>
+      {note && <Text style={styles.muted}>{humanizeStatus(locale, note)}</Text>}
+
+      <Text style={styles.section}>{t(locale, "chat.newConversation")}</Text>
+      <TextInput
+        style={styles.input}
+        value={memberIds}
+        onChangeText={setMemberIds}
+        placeholder="usr_…"
+        autoCapitalize="none"
+      />
+      <Pressable
+        style={[styles.btn, busy && styles.btnDisabled]}
+        disabled={busy}
+        onPress={() => void createDm()}
+      >
+        <Text style={styles.btnText}>
+          {t(locale, "chat.dm")} / {t(locale, "chat.group")}
+        </Text>
+      </Pressable>
+
+      <Text style={styles.section}>{t(locale, "home.messages")}</Text>
+      <Pressable
+        style={[styles.ttlChip, showArchived && styles.ttlChipActive, { marginBottom: 10 }]}
+        onPress={() => setShowArchived((v) => !v)}
+      >
+        <Text style={[styles.ttlChipText, showArchived && styles.ttlChipTextActive]}>
+          {t(locale, "chat.archive")}
+          {showArchived ? " ✓" : ""}
+        </Text>
+      </Pressable>
+      {conversations.length === 0 && <Text style={styles.muted}>{t(locale, "chat.empty")}</Text>}
+      {conversations.map((c) => (
+        <Pressable
+          key={c.id}
+          style={[styles.item, selectedId === c.id && styles.itemActive]}
+          onPress={() => setSelectedId(c.id)}
+        >
+          <Text style={styles.itemTitle}>{c.title ?? c.kind}</Text>
+          <Text style={styles.muted}>
+            {c.id}
+            {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
+            {c.membership.archived ? " · archived" : ""}
+          </Text>
+        </Pressable>
+      ))}
+
+      {selectedId && (
+        <View style={styles.thread}>
+          <Pressable
+            style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled, { marginBottom: 12 }]}
+            disabled={busy}
+            onPress={() => void archiveConversation(!selected?.membership.archived)}
+          >
+            <Text style={styles.btnGhostText}>
+              {selected?.membership.archived ? "Unarchive" : t(locale, "chat.archive")}
+            </Text>
+          </Pressable>
+          <Text style={styles.label}>{t(locale, "chat.disappearing")}</Text>
+          <View style={styles.ttlRow}>
+            {TTL_OPTIONS.map((opt) => {
+              const active = (selected?.disappearingTtlSec ?? null) === opt.value;
+              return (
+                <Pressable
+                  key={String(opt.value)}
+                  style={[styles.ttlChip, active && styles.ttlChipActive, busy && styles.btnDisabled]}
+                  disabled={busy}
+                  onPress={() => void patchTtl(opt.value)}
+                >
+                  <Text style={[styles.ttlChipText, active && styles.ttlChipTextActive]}>
+                    {t(locale, opt.labelKey)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {busy && <ActivityIndicator color="#0f6b5c" />}
+          {messages.map((m) => (
+            <View key={m.id} style={styles.bubble}>
+              <Text style={styles.body}>{plaintexts[m.id] ?? "[ciphertext]"}</Text>
+              <Text style={styles.muted}>
+                {new Date(m.createdAt).toLocaleString()}
+                {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
+              </Text>
+            </View>
+          ))}
+          <TextInput
+            style={[styles.input, { minHeight: 72 }]}
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+            placeholder={t(locale, "chat.send")}
+          />
+          <Pressable
+            style={[styles.btn, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void send()}
+          >
+            <Text style={styles.btnText}>{t(locale, "chat.send")}</Text>
+          </Pressable>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#f3efe6" },
+  content: { padding: 20, paddingBottom: 40, paddingTop: 56 },
+  back: { marginBottom: 12 },
+  backText: { color: "#0f6b5c", fontWeight: "600", fontSize: 15 },
+  title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
+  section: { marginTop: 20, marginBottom: 8, fontSize: 16, fontWeight: "600", color: "#1c2b2a" },
+  label: { fontSize: 13, fontWeight: "600", color: "#5a6a68", marginBottom: 8 },
+  muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
+  ttlRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 12, gap: 8 },
+  ttlChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#e8e2d4",
+  },
+  ttlChipActive: { backgroundColor: "#0f6b5c" },
+  ttlChipText: { color: "#1c2b2a", fontWeight: "600", fontSize: 13 },
+  ttlChipTextActive: { color: "#fff" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#cfc6b4",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    color: "#1c2b2a",
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  btn: {
+    backgroundColor: "#0f6b5c",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  btnGhost: {
+    backgroundColor: "#e8e2d4",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  btnGhostText: { color: "#1c2b2a", fontWeight: "600" },
+  btnDisabled: { opacity: 0.6 },
+  btnText: { color: "#fff", fontWeight: "600" },
+  item: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cfc6b4",
+    backgroundColor: "#fffdf8",
+    marginBottom: 8,
+  },
+  itemActive: { borderColor: "#0f6b5c" },
+  itemTitle: { fontWeight: "700", color: "#1c2b2a" },
+  thread: { marginTop: 16 },
+  bubble: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#e8e2d4",
+    marginBottom: 8,
+  },
+  body: { color: "#1c2b2a", fontSize: 16, lineHeight: 24 },
+});

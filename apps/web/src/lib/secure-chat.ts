@@ -1,0 +1,247 @@
+/**
+ * Conversation Double Ratchet with X3DH bootstrap when peer prekeys exist.
+ * Falls back to a conversation-scoped seed only when keys are missing (degraded).
+ */
+import {
+  generateEphemeralKeyPair,
+  initRatchetSession,
+  ratchetDecrypt,
+  ratchetEncrypt,
+  x3dhInitiate,
+  x3dhRespond,
+  type IdentityKeyPair,
+  type OneTimePrekey,
+  type RatchetMessage,
+  type RatchetSessionState,
+  type SignedPrekey,
+} from "@logoshome/crypto";
+import { api } from "./api";
+
+const STATE_PREFIX = "lh.ratchet.";
+const DEVICE_PRIV_KEY = "lh.device.priv";
+
+type LocalDevicePriv = {
+  identity: IdentityKeyPair;
+  signedPrekey: SignedPrekey;
+  oneTimePrekeys: OneTimePrekey[];
+  registrationId: number;
+};
+
+type PeerDeviceBundle = {
+  deviceId: string;
+  identityKeyPub: string | null;
+  signedPrekeyPub: string | null;
+  signedPrekeySig: string | null;
+  signedPrekeyId: number | null;
+  registrationId: number | null;
+  oneTimePrekey: { id: number; pub: string } | null;
+};
+
+type X3dhPreamble = {
+  v: 1;
+  ik: JsonWebKey;
+  ek: JsonWebKey;
+  spkId: number;
+  opkId?: number;
+};
+
+function loadState(conversationId: string): RatchetSessionState | null {
+  const raw = localStorage.getItem(STATE_PREFIX + conversationId);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as RatchetSessionState;
+  } catch {
+    return null;
+  }
+}
+
+function saveState(conversationId: string, state: RatchetSessionState) {
+  localStorage.setItem(STATE_PREFIX + conversationId, JSON.stringify(state));
+}
+
+function loadLocalPriv(): LocalDevicePriv | null {
+  const raw = localStorage.getItem(DEVICE_PRIV_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as LocalDevicePriv;
+  } catch {
+    return null;
+  }
+}
+
+function parseIdentityPub(raw: string): { ecdh: JsonWebKey; signing: JsonWebKey } {
+  const parsed = JSON.parse(raw) as { ecdh?: JsonWebKey; signing?: JsonWebKey } | JsonWebKey;
+  if (parsed && typeof parsed === "object" && "ecdh" in parsed && parsed.ecdh && parsed.signing) {
+    return { ecdh: parsed.ecdh, signing: parsed.signing };
+  }
+  return { ecdh: parsed as JsonWebKey, signing: parsed as JsonWebKey };
+}
+
+async function fetchPeerBundle(peerUserId: string): Promise<PeerDeviceBundle | null> {
+  try {
+    const res = await api<{ devices: PeerDeviceBundle[] }>(`/v1/keys/${encodeURIComponent(peerUserId)}`);
+    return (
+      res.devices.find((d) => d.identityKeyPub && d.signedPrekeyPub && d.signedPrekeySig) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function bootstrapFromX3dh(
+  conversationId: string,
+  peerUserId: string,
+): Promise<{ state: RatchetSessionState; preamble: X3dhPreamble } | null> {
+  const local = loadLocalPriv();
+  if (!local) return null;
+  const peer = await fetchPeerBundle(peerUserId);
+  if (!peer?.identityKeyPub || !peer.signedPrekeyPub || !peer.signedPrekeySig || peer.signedPrekeyId == null) {
+    return null;
+  }
+  const remoteId = parseIdentityPub(peer.identityKeyPub);
+  const ephemeral = await generateEphemeralKeyPair();
+  const shared = await x3dhInitiate(
+    { identity: local.identity, ephemeral },
+    {
+      identityKey: remoteId.ecdh,
+      identitySigningKey: remoteId.signing,
+      signedPrekey: JSON.parse(peer.signedPrekeyPub) as JsonWebKey,
+      signedPrekeyId: peer.signedPrekeyId,
+      signedPrekeySignature: peer.signedPrekeySig,
+      oneTimePrekey: peer.oneTimePrekey
+        ? (JSON.parse(peer.oneTimePrekey.pub) as JsonWebKey)
+        : undefined,
+      oneTimePrekeyId: peer.oneTimePrekey?.id,
+      registrationId: peer.registrationId ?? 0,
+    },
+  );
+  const state = await initRatchetSession(shared, "initiator");
+  saveState(conversationId, state);
+  localStorage.setItem(`lh.x3dh.${conversationId}`, "initiator");
+  const preamble: X3dhPreamble = {
+    v: 1,
+    ik: local.identity.publicKey,
+    ek: ephemeral.publicKey,
+    spkId: peer.signedPrekeyId,
+    opkId: peer.oneTimePrekey?.id,
+  };
+  localStorage.setItem(`lh.x3dh.preamble.${conversationId}`, JSON.stringify(preamble));
+  return { state, preamble };
+}
+
+async function bootstrapDegraded(conversationId: string): Promise<RatchetSessionState> {
+  const seed = new TextEncoder().encode(`logoshome-bootstrap:${conversationId}`);
+  const ab = seed.buffer.slice(seed.byteOffset, seed.byteOffset + seed.byteLength);
+  const state = await initRatchetSession(ab, "initiator");
+  saveState(conversationId, state);
+  localStorage.setItem(`lh.x3dh.${conversationId}`, "degraded");
+  return state;
+}
+
+/** Ensure a Double Ratchet session; prefer X3DH when peerUserId + device keys exist. */
+export async function ensureRatchet(
+  conversationId: string,
+  peerUserId?: string | null,
+): Promise<RatchetSessionState> {
+  const existing = loadState(conversationId);
+  if (existing) return existing;
+  if (peerUserId) {
+    const x3dh = await bootstrapFromX3dh(conversationId, peerUserId);
+    if (x3dh) return x3dh.state;
+  }
+  return bootstrapDegraded(conversationId);
+}
+
+async function ensureResponderFromPreamble(
+  conversationId: string,
+  preamble: X3dhPreamble,
+): Promise<RatchetSessionState | null> {
+  const local = loadLocalPriv();
+  if (!local) return null;
+  const otp = local.oneTimePrekeys.find((p) => p.id === preamble.opkId) ?? local.oneTimePrekeys[0];
+  const shared = await x3dhRespond(
+    {
+      identity: local.identity,
+      signedPrekey: local.signedPrekey,
+      oneTimePrekey: otp,
+    },
+    preamble.ik,
+    preamble.ek,
+  );
+  const state = await initRatchetSession(shared, "responder");
+  saveState(conversationId, state);
+  localStorage.setItem(`lh.x3dh.${conversationId}`, "responder");
+  return state;
+}
+
+function encodeHeader(message: RatchetMessage, preamble?: X3dhPreamble | null): string {
+  const payload = preamble ? { ...message.header, x3dh: preamble } : message.header;
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+}
+
+function decodeHeader(ratchetHeader: string): {
+  header: RatchetMessage["header"];
+  preamble?: X3dhPreamble;
+} {
+  const parsed = JSON.parse(decodeURIComponent(escape(atob(ratchetHeader)))) as RatchetMessage["header"] & {
+    x3dh?: X3dhPreamble;
+  };
+  const { x3dh, ...header } = parsed;
+  return { header: header as RatchetMessage["header"], preamble: x3dh };
+}
+
+export async function encryptChatMessage(
+  conversationId: string,
+  plaintext: string,
+  peerUserId?: string | null,
+): Promise<{ ratchetHeader: string; ciphertext: string; mode: "x3dh" | "degraded" }> {
+  let state = await ensureRatchet(conversationId, peerUserId);
+  const mode = (localStorage.getItem(`lh.x3dh.${conversationId}`) as "x3dh" | "degraded" | "initiator" | "responder") ?? "degraded";
+  let preamble: X3dhPreamble | null = null;
+  if (mode === "initiator") {
+    const raw = localStorage.getItem(`lh.x3dh.preamble.${conversationId}`);
+    if (raw) preamble = JSON.parse(raw) as X3dhPreamble;
+    // Attach preamble only once (first outbound after bootstrap).
+    localStorage.removeItem(`lh.x3dh.preamble.${conversationId}`);
+  }
+  const { message, state: next } = await ratchetEncrypt(state, plaintext);
+  saveState(conversationId, next);
+  return {
+    ratchetHeader: encodeHeader(message, preamble),
+    ciphertext: JSON.stringify({ iv: message.iv, ciphertext: message.ciphertext }),
+    mode: mode === "degraded" ? "degraded" : "x3dh",
+  };
+}
+
+export async function decryptChatMessage(
+  conversationId: string,
+  ratchetHeader: string,
+  ciphertextBlob: string,
+): Promise<string> {
+  let state = loadState(conversationId);
+  let header: RatchetMessage["header"];
+  let preamble: X3dhPreamble | undefined;
+  let body: { iv: string; ciphertext: string };
+  try {
+    ({ header, preamble } = decodeHeader(ratchetHeader));
+    body = JSON.parse(ciphertextBlob) as { iv: string; ciphertext: string };
+  } catch {
+    throw new Error("legacy_or_invalid");
+  }
+
+  if (!state && preamble) {
+    state = await ensureResponderFromPreamble(conversationId, preamble);
+  }
+  if (!state) {
+    state = await ensureRatchet(conversationId);
+  }
+
+  const msg: RatchetMessage = {
+    header,
+    iv: body.iv,
+    ciphertext: body.ciphertext,
+  };
+  const { plaintext, state: next } = await ratchetDecrypt(state, msg);
+  saveState(conversationId, next);
+  return plaintext;
+}
