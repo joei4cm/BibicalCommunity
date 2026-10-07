@@ -38,6 +38,13 @@ export const HOSTILE_PRIVACY_FLOORS = {
   allowMessageRequests: "admin-approved",
 } as const satisfies Partial<z.infer<typeof privacySettingsSchema>>;
 
+/** Merge never raises discovery — floors always win over looser member settings. */
+export function mergeHostilePrivacy(
+  current: Partial<z.infer<typeof privacySettingsSchema>>,
+): z.infer<typeof privacySettingsSchema> {
+  return privacySettingsSchema.parse({ ...current, ...HOSTILE_PRIVACY_FLOORS });
+}
+
 export const registerSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(10).max(128),

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
-import { HOSTILE_PRIVACY_FLOORS, type PrivacySettings } from "@logoshome/shared";
+import { mergeHostilePrivacy, type PrivacySettings } from "@logoshome/shared";
 import * as schema from "../db/schema";
 
 type Db = DrizzleD1Database<typeof schema>;
@@ -19,7 +19,7 @@ export async function applyHostilePrivacyFloors(db: Db, userId: string): Promise
     current = {};
   }
 
-  const merged = { ...current, ...HOSTILE_PRIVACY_FLOORS };
+  const merged = mergeHostilePrivacy(current);
   await db
     .update(schema.users)
     .set({ privacyJson: JSON.stringify(merged) })
