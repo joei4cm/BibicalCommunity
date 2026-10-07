@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { ZodError } from "zod";
 import type { Env } from "./env";
 import { authRoutes } from "./routes/auth";
 import { bibleRoutes } from "./routes/bible";
@@ -25,6 +26,20 @@ app.use(
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
+
+app.onError((err, c) => {
+  if (err instanceof ZodError) {
+    return c.json(
+      {
+        error: "validation_error",
+        issues: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+      },
+      400,
+    );
+  }
+  console.error(err);
+  return c.json({ error: "internal_error" }, 500);
+});
 
 app.get("/health", (c) =>
   c.json({
