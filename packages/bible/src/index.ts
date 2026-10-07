@@ -7,4 +7,7 @@ export * from "./study.js";
 export * from "./r2-format.js";
 export * from "./partners.js";
 export { WEB_JOHN_1 } from "./sample-web-john1.js";
+export { KJV_JOHN_1 } from "./sample-kjv-john1.js";
+export { ASV_JOHN_1 } from "./sample-asv-john1.js";
 export { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
+export { WEB_JOHN_3 } from "./packs/web-john3.js";

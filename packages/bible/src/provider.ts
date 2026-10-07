@@ -1,7 +1,10 @@
 import { buildExternalUrl, getTranslation, type TranslationMeta } from "./translations.js";
 import { formatRef, type VerseRef } from "./refs.js";
 import { WEB_JOHN_1 } from "./sample-web-john1.js";
+import { KJV_JOHN_1 } from "./sample-kjv-john1.js";
+import { ASV_JOHN_1 } from "./sample-asv-john1.js";
 import { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
+import { WEB_JOHN_3 } from "./packs/web-john3.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -16,6 +19,19 @@ export interface PartnerSsoFlags {
   endao: boolean;
   weread: boolean;
 }
+
+function isJohn(book: string): boolean {
+  const b = book.toLowerCase();
+  return b === "john" || book === "ヨハネ";
+}
+
+const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: string }[]>> = {
+  web: { 1: WEB_JOHN_1, 3: WEB_JOHN_3 },
+  kjv: { 1: KJV_JOHN_1 },
+  asv: { 1: ASV_JOHN_1 },
+  "kougoyaku-pd": { 1: BUNGO_JOHN_1 },
+  kougo: { 1: BUNGO_JOHN_1 },
+};
 
 export async function loadChapter(
   translationId: string,
@@ -50,29 +66,18 @@ export async function loadChapter(
     };
   }
 
-  // Local PD sample scaffold
-  if (meta.id === "web" && ref.book.toLowerCase() === "john" && ref.chapter === 1) {
-    return {
-      translationId: meta.id,
-      book: "John",
-      chapter: 1,
-      verses: WEB_JOHN_1,
-      source: "local",
-    };
-  }
-
-  if (
-    (meta.id === "kougoyaku-pd" || meta.id === "kougo") &&
-    (ref.book.toLowerCase() === "john" || ref.book === "ヨハネ") &&
-    ref.chapter === 1
-  ) {
-    return {
-      translationId: meta.id,
-      book: "John",
-      chapter: 1,
-      verses: BUNGO_JOHN_1,
-      source: "local",
-    };
+  // Local PD samples (John chapters for dual-pane / scaffold reading)
+  if (isJohn(ref.book)) {
+    const verses = LOCAL_JOHN_SAMPLES[meta.id]?.[ref.chapter];
+    if (verses) {
+      return {
+        translationId: meta.id,
+        book: "John",
+        chapter: ref.chapter,
+        verses,
+        source: "local",
+      };
+    }
   }
 
   return {
