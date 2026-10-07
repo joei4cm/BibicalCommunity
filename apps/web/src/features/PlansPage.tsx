@@ -21,9 +21,15 @@ type Plan = {
 type PublicPlan = { id: string; title: string; description?: string | null };
 type Subscription = { id: string; planId: string; progressDay: number };
 
+type PlanVisibility = "private" | "church" | "public";
+
 export function PlansPage() {
   const { t, i18n } = useTranslation();
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createVisibility, setCreateVisibility] = useState<PlanVisibility>("private");
+  const [createDaysText, setCreateDaysText] = useState("1,John.1,Begin\n2,John.2,Wedding");
   const [message, setMessage] = useState<string | null>(null);
   const [step, setStep] = useState<DevotionStep>("pause");
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -76,6 +82,43 @@ export function PlansPage() {
     setSelectedId(id);
     const plan = plans.find((p) => p.id === id);
     if (plan) setDaysJson(JSON.stringify(plan.days, null, 2));
+  }
+
+  async function createPlan() {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    const title = createTitle.trim();
+    if (!title) {
+      setMessage("title_required");
+      return;
+    }
+    let days: ReturnType<typeof parsePlanCsv>;
+    try {
+      days = parsePlanCsv(`day,ref,title,note\n${createDaysText}`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "invalid_days");
+      return;
+    }
+    if (days.length === 0) {
+      setMessage("days_required");
+      return;
+    }
+    const res = await api<{ id: string }>("/v1/plans", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        description: createDescription.trim() || undefined,
+        visibility: createVisibility,
+        days,
+      }),
+    });
+    setMessage(`created:${res.id} (${days.length} days)`);
+    setCreateTitle("");
+    setCreateDescription("");
+    await refreshPlans();
+    setSelectedId(res.id);
   }
 
   async function importCsv() {
@@ -145,9 +188,54 @@ export function PlansPage() {
     <section className="fade-up">
       <h1 className="brand">{t("nav.plans")}</h1>
 
+      <div className="panel" data-testid="plans-create-panel">
+        <h2 style={{ marginTop: 0 }}>{t("plans.create")}</h2>
+        {message && <p className="muted">{humanizeStatus(t, message)}</p>}
+        <div className="field">
+          <label htmlFor="plan-title">{t("plans.title")}</label>
+          <input
+            id="plan-title"
+            data-testid="plans-create-title"
+            value={createTitle}
+            onChange={(e) => setCreateTitle(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="plan-description">{t("plans.description")}</label>
+          <input
+            id="plan-description"
+            value={createDescription}
+            onChange={(e) => setCreateDescription(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="plan-visibility">{t("plans.visibility")}</label>
+          <select
+            id="plan-visibility"
+            value={createVisibility}
+            onChange={(e) => setCreateVisibility(e.target.value as PlanVisibility)}
+          >
+            <option value="private">{t("plans.visibilityPrivate")}</option>
+            <option value="church">{t("plans.visibilityChurch")}</option>
+            <option value="public">{t("plans.visibilityPublic")}</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="plan-days">{t("plans.daysHint")}</label>
+          <textarea
+            id="plan-days"
+            rows={4}
+            value={createDaysText}
+            onChange={(e) => setCreateDaysText(e.target.value)}
+          />
+        </div>
+        <button type="button" className="btn" data-testid="plans-create-submit" onClick={() => void createPlan()}>
+          {t("plans.create")}
+        </button>
+      </div>
+
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.owned")}</h2>
-        {message && <p className="muted">{humanizeStatus(t, message)}</p>}
         <ul className="list">
           {plans.length === 0 && <li className="muted">—</li>}
           {plans.map((p) => (

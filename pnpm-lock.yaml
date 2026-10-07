@@ -54,6 +54,9 @@ importers:
       '@logoshome/bible':
         specifier: workspace:*
         version: link:../../packages/bible
+      '@logoshome/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@logoshome/shared':
         specifier: workspace:*
         version: link:../../packages/shared

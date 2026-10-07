@@ -11,8 +11,12 @@ import {
 import { useRouter } from "expo-router";
 import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../src/api";
+import { ensureBase64Globals } from "../src/crypto-polyfill";
 import { useLocale } from "../src/locale";
+import { decryptMobileMessage, encryptMobileMessage } from "../src/session-crypto";
 import { humanizeStatus } from "../src/status";
+
+ensureBase64Globals();
 
 type Conversation = {
   id: string;
@@ -30,31 +34,10 @@ type ChatMessage = {
   expiresAt: number | null;
 };
 
-function utf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  const btoaFn = globalThis.btoa?.bind(globalThis);
-  if (btoaFn) return btoaFn(binary);
-  // Fallback without btoa (some RN runtimes)
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i] ?? 0;
-    const b = bytes[i + 1];
-    const c = bytes[i + 2];
-    out += chars[a >> 2];
-    out += chars[((a & 3) << 4) | ((b ?? 0) >> 4)];
-    out += b === undefined ? "=" : chars[(((b ?? 0) & 15) << 2) | ((c ?? 0) >> 6)];
-    out += c === undefined ? "=" : chars[(c ?? 0) & 63];
-  }
-  return out;
-}
-
 /**
- * Mobile chat: lists conversations and posts ciphertext payloads.
- * Full Double Ratchet UX remains richest on web ChatPanel; mobile stores
- * plaintext locally keyed by message id for display after send.
+ * Mobile chat: AES-GCM session payloads via @logoshome/crypto session-aes.
+ * Full Double Ratchet / X3DH remains richest on web ChatPanel; mobile stores
+ * per-conversation key material in AsyncStorage for local decrypt.
  */
 export default function MessagesScreen() {
   const { locale } = useLocale();
@@ -92,10 +75,11 @@ export default function MessagesScreen() {
     setMessages(live);
     const decoded: Record<string, string> = {};
     for (const m of live) {
-      decoded[m.id] = plaintexts[m.id] ?? "[ciphertext]";
+      const pt = await decryptMobileMessage(conversationId, m.ratchetHeader, m.ciphertext);
+      decoded[m.id] = pt ?? "[ciphertext]";
     }
     setPlaintexts((prev) => ({ ...prev, ...decoded }));
-  }, [plaintexts]);
+  }, []);
 
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
@@ -107,7 +91,7 @@ export default function MessagesScreen() {
       return;
     }
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps -- avoid load loop on plaintexts
+  }, [selectedId, loadMessages]);
 
   async function createDm() {
     setBusy(true);
@@ -143,16 +127,11 @@ export default function MessagesScreen() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
     try {
-      // Mobile posts opaque ciphertext; ratchet UX is denser on web.
       const text = draft.trim();
-      const payload = {
-        ratchetHeader: utf8ToBase64(`mobile:${selectedId}`),
-        ciphertext: utf8ToBase64(text),
-        contentType: "msg" as const,
-      };
+      const payload = await encryptMobileMessage(selectedId, text);
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, contentType: "msg" }),
       });
       setPlaintexts((p) => ({ ...p, [res.id]: text }));
       setDraft("");
