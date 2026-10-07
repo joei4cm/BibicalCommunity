@@ -34,6 +34,13 @@ type ChatMessage = {
   expiresAt: number | null;
 };
 
+const TTL_OPTIONS = [
+  { labelKey: "chat.ttlOff" as const, value: null as number | null },
+  { labelKey: "chat.ttl1h" as const, value: 3600 },
+  { labelKey: "chat.ttl1d" as const, value: 86400 },
+  { labelKey: "chat.ttl7d" as const, value: 604800 },
+];
+
 /**
  * Mobile chat: AES-GCM session payloads via @logoshome/crypto session-aes.
  * Full Double Ratchet / X3DH remains richest on web ChatPanel; mobile stores
@@ -50,6 +57,8 @@ export default function MessagesScreen() {
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
   const refresh = useCallback(async () => {
     await hydrateToken();
@@ -123,15 +132,34 @@ export default function MessagesScreen() {
     }
   }
 
+  async function patchTtl(ttl: number | null) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/chat/conversations/${selectedId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ disappearingTtlSec: ttl }),
+      });
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function send() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
     try {
       const text = draft.trim();
       const payload = await encryptMobileMessage(selectedId, text);
+      const expiresAt = selected?.disappearingTtlSec
+        ? Date.now() + selected.disappearingTtlSec * 1000
+        : undefined;
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ ...payload, contentType: "msg" }),
+        body: JSON.stringify({ ...payload, contentType: "msg", expiresAt }),
       });
       setPlaintexts((p) => ({ ...p, [res.id]: text }));
       setDraft("");
@@ -178,17 +206,41 @@ export default function MessagesScreen() {
           onPress={() => setSelectedId(c.id)}
         >
           <Text style={styles.itemTitle}>{c.title ?? c.kind}</Text>
-          <Text style={styles.muted}>{c.id}</Text>
+          <Text style={styles.muted}>
+            {c.id}
+            {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
+          </Text>
         </Pressable>
       ))}
 
       {selectedId && (
         <View style={styles.thread}>
+          <Text style={styles.label}>{t(locale, "chat.disappearing")}</Text>
+          <View style={styles.ttlRow}>
+            {TTL_OPTIONS.map((opt) => {
+              const active = (selected?.disappearingTtlSec ?? null) === opt.value;
+              return (
+                <Pressable
+                  key={String(opt.value)}
+                  style={[styles.ttlChip, active && styles.ttlChipActive, busy && styles.btnDisabled]}
+                  disabled={busy}
+                  onPress={() => void patchTtl(opt.value)}
+                >
+                  <Text style={[styles.ttlChipText, active && styles.ttlChipTextActive]}>
+                    {t(locale, opt.labelKey)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           {busy && <ActivityIndicator color="#0f6b5c" />}
           {messages.map((m) => (
             <View key={m.id} style={styles.bubble}>
               <Text style={styles.body}>{plaintexts[m.id] ?? "[ciphertext]"}</Text>
-              <Text style={styles.muted}>{new Date(m.createdAt).toLocaleString()}</Text>
+              <Text style={styles.muted}>
+                {new Date(m.createdAt).toLocaleString()}
+                {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
+              </Text>
             </View>
           ))}
           <TextInput
@@ -218,7 +270,18 @@ const styles = StyleSheet.create({
   backText: { color: "#0f6b5c", fontWeight: "600", fontSize: 15 },
   title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
   section: { marginTop: 20, marginBottom: 8, fontSize: 16, fontWeight: "600", color: "#1c2b2a" },
+  label: { fontSize: 13, fontWeight: "600", color: "#5a6a68", marginBottom: 8 },
   muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
+  ttlRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 12, gap: 8 },
+  ttlChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#e8e2d4",
+  },
+  ttlChipActive: { backgroundColor: "#0f6b5c" },
+  ttlChipText: { color: "#1c2b2a", fontWeight: "600", fontSize: 13 },
+  ttlChipTextActive: { color: "#fff" },
   input: {
     borderWidth: 1,
     borderColor: "#cfc6b4",

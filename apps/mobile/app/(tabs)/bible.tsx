@@ -82,6 +82,8 @@ export default function BibleScreen() {
   const [annBusy, setAnnBusy] = useState(false);
   const [annotations, setAnnotations] = useState<AnnotationRow[]>([]);
   const [fontSize, setFontSize] = useState(18);
+  const [lineHeight, setLineHeight] = useState(1.65);
+  const [serif, setSerif] = useState(true);
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const apiBase = getApiBase();
   const studyLang = bookLocaleKey(locale);
@@ -414,6 +416,39 @@ export default function BibleScreen() {
         >
           <Text style={styles.btnGhostText}>A+</Text>
         </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, serif && styles.chipActive]}
+          onPress={() => setSerif(true)}
+        >
+          <Text style={[styles.btnGhostText, serif && styles.chipTextActive]}>
+            {t(locale, "reader.serif")}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, !serif && styles.chipActive]}
+          onPress={() => setSerif(false)}
+        >
+          <Text style={[styles.btnGhostText, !serif && styles.chipTextActive]}>
+            {t(locale, "reader.sans")}
+          </Text>
+        </Pressable>
+      </View>
+      <Text style={styles.label}>
+        {t(locale, "reader.lineHeight")}: {lineHeight.toFixed(2)}
+      </Text>
+      <View style={styles.annActions}>
+        <Pressable
+          style={[styles.btn, styles.btnGhost]}
+          onPress={() => setLineHeight((h) => Math.max(1.2, Math.round((h - 0.1) * 100) / 100))}
+        >
+          <Text style={styles.btnGhostText}>LH−</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnGhost]}
+          onPress={() => setLineHeight((h) => Math.min(2.4, Math.round((h + 0.1) * 100) / 100))}
+        >
+          <Text style={styles.btnGhostText}>LH+</Text>
+        </Pressable>
       </View>
       {loading && <ActivityIndicator color="#0f6b5c" />}
       {error && <Text style={styles.error}>{error}</Text>}
@@ -439,7 +474,16 @@ export default function BibleScreen() {
                 hl ? { backgroundColor: hl } : null,
               ]}
             >
-              <Text style={[styles.verse, { fontSize, lineHeight: fontSize * 1.65 }]}>
+              <Text
+                style={[
+                  styles.verse,
+                  {
+                    fontSize,
+                    lineHeight: fontSize * lineHeight,
+                    fontFamily: serif ? "Georgia" : "Helvetica Neue",
+                  },
+                ]}
+              >
                 <Text style={styles.num}>{v.verse} </Text>
                 {v.text}
               </Text>
