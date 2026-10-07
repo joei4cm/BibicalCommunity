@@ -14,6 +14,8 @@ import { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
 import { CUVS_JOHN_1 } from "./packs/cuvs-john1.js";
 import { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
 import { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
+import { SHIN_KYOUDOU_JOHN_1 } from "./packs/shin-kyoudou-john1.js";
+import { CCB_JOHN_1 } from "./packs/ccb-john1.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -44,6 +46,8 @@ const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: s
   cuvs: { 1: CUVS_JOHN_1 },
   rcuv: { 1: RCUV_JOHN_1 },
   shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1 },
+  shinKyoudou: { 1: SHIN_KYOUDOU_JOHN_1 },
+  ccb: { 1: CCB_JOHN_1 },
 };
 
 export async function loadChapter(

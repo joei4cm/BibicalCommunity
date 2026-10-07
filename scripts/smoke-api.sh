@@ -39,6 +39,11 @@ curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.1" | grep -q '太初�
 echo "== chapter shinkaiyaku John.1 (ja) =="
 # Local scaffold or R2 sample seed both include 初めに…
 curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.1" | grep -qE '初めに(ことば|言)が'
+echo "== chapter shinKyoudou John.1 (ja) =="
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.1" | grep -q '初めに言があった'
+echo "== chapter CCB John.1 (zh) =="
+# Local scaffold (太初有道) or R2 sample seed (宇宙被造以前…)
+curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.1" | grep -qE '太初有道|宇宙被造以前|道已经存在|道就是'
 echo "== chapter NIV external =="
 curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
 echo "== partner mock authorize =="
