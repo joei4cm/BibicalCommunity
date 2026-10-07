@@ -22,7 +22,7 @@ import {
 import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../../src/api";
 import { useLocale } from "../../src/locale";
-import { encryptJson } from "../../src/note-crypto";
+import { decryptJson, encryptJson } from "../../src/note-crypto";
 import { humanizeStatus } from "../../src/status";
 
 type ChapterPayload = {
@@ -49,6 +49,9 @@ type AnnotationRow = {
   chapter: number;
   verseStart: number | null;
   color: string | null;
+  ciphertext?: string;
+  iv?: string;
+  notePreview?: string;
 };
 
 function bookLocaleKey(lang: string): "zh" | "en" | "ja" {
@@ -106,7 +109,6 @@ export default function BibleScreen() {
         `/v1/annotations?translation=${encodeURIComponent(translationId)}`,
       );
       const rows = res.annotations ?? [];
-      setAnnotations(rows);
       const colorMap: Record<string, string> = {
         amber: "#f5d76e",
         mint: "#a8e6cf",
@@ -114,7 +116,22 @@ export default function BibleScreen() {
         sky: "#a8d8ea",
       };
       const highlights: Record<number, string> = {};
+      const enriched: AnnotationRow[] = [];
       for (const row of rows) {
+        let notePreview: string | undefined;
+        if (row.kind === "note" && row.ciphertext && row.iv) {
+          try {
+            const payload = await decryptJson<{ text?: string }>(
+              row.ciphertext,
+              row.iv,
+              "note",
+            );
+            notePreview = payload.text?.trim() || undefined;
+          } catch {
+            notePreview = undefined;
+          }
+        }
+        enriched.push({ ...row, notePreview });
         if (
           row.kind === "highlight" &&
           row.book === bookId &&
@@ -125,6 +142,7 @@ export default function BibleScreen() {
           highlights[row.verseStart] = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
         }
       }
+      setAnnotations(enriched);
       setHighlightByVerse(highlights);
     } catch {
       setAnnotations([]);
@@ -284,6 +302,21 @@ export default function BibleScreen() {
       });
       setNoteText("");
       setAnnMsg("saved");
+      await refreshAnnotations();
+    } catch (e) {
+      setAnnMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAnnBusy(false);
+    }
+  }
+
+  async function deleteAnnotation(id: string) {
+    setAnnBusy(true);
+    setAnnMsg(null);
+    try {
+      if (!(await requireAuth())) return;
+      await api(`/v1/annotations/${id}`, { method: "DELETE" });
+      setAnnMsg("deleted");
       await refreshAnnotations();
     } catch (e) {
       setAnnMsg(e instanceof Error ? e.message : "error");
@@ -465,9 +498,21 @@ export default function BibleScreen() {
           {chapterAnnotations.length > 0 && (
             <View style={{ marginTop: 12 }}>
               {chapterAnnotations.map((a) => (
-                <Text key={a.id} style={styles.annItem}>
-                  {a.kind} · {a.book} {a.chapter}:{a.verseStart ?? "?"}
-                </Text>
+                <View key={a.id} style={styles.annItemRow}>
+                  <Text style={styles.annItem}>
+                    {a.kind} · {a.book} {a.chapter}:{a.verseStart ?? "?"}
+                    {a.notePreview ? ` — ${a.notePreview}` : ""}
+                  </Text>
+                  <Pressable
+                    style={[styles.btn, styles.btnGhost, styles.btnDelete, annBusy && styles.btnDisabled]}
+                    disabled={annBusy}
+                    onPress={() => void deleteAnnotation(a.id)}
+                  >
+                    <Text style={styles.btnGhostText}>
+                      {locale.startsWith("zh") ? "删除" : locale.startsWith("ja") ? "削除" : "Delete"}
+                    </Text>
+                  </Pressable>
+                </View>
               ))}
             </View>
           )}
@@ -539,7 +584,15 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   annStatus: { marginTop: 8, color: "#0f6b5c", fontWeight: "600" },
-  annItem: { color: "#5a6a68", marginTop: 4, fontSize: 13 },
+  annItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 6,
+  },
+  annItem: { flex: 1, color: "#5a6a68", fontSize: 13 },
+  btnDelete: { marginRight: 0, paddingVertical: 6, paddingHorizontal: 10 },
   studyItem: { marginTop: 10 },
   studyTitle: { color: "#0f6b5c", fontWeight: "600", fontSize: 16 },
 });

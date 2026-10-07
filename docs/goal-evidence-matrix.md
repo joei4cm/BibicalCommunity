@@ -7,8 +7,8 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | # | Requirement | Evidence (authoritative) | Status |
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web`, `apps/mobile`; typecheck; mobile `crypto-polyfill` tests (`hasWebCrypto` gate) | PARTIAL — apps+gate PASS; physical device WebCrypto E2E OPEN |
-| 2 | Bible highlights / bookmarks / notes / typography | Web BibleReader; mobile annotate + A+/A−; `ANNOTATIONS_SMOKE_OK` | PARTIAL — API+web+mobile PASS; deeper typography themes OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; John.1–3 scaffolds; `JOHN2_MULTILANG_OK` / `JOHN3_ZHJA_OK` / `JOHN3_R2_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
+| 2 | Bible highlights / bookmarks / notes / typography | Web BibleReader; mobile annotate/delete + note decrypt + A+/A−; `ANNOTATIONS_SMOKE_OK` | PARTIAL — API+web+mobile PASS; multi-color highlight polish OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; John.1–3 + Gen.1/Matt.5/Ps.23; `JOHN2_*` / `JOHN3_*` / `MULTI_BOOK_SCAFFOLD_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS (smoke) |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; `PARTNER_OAUTH_URL_OK`; `PARTNER_TOKEN_EXCHANGE_SHAPE_OK` + unit exchange with mocked token URL | PARTIAL — mock + exchange seam PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + Playwright | PARTIAL |
