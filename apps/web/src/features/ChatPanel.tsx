@@ -6,6 +6,7 @@ import {
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { api, getToken } from "../lib/api";
+import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
   attachLocalMedia,
   createOffer,
@@ -13,6 +14,7 @@ import {
   openSignalingChannel,
   startScreenShare,
   stopScreenShare,
+  type PeerCallbacks,
 } from "../lib/webrtc";
 
 type Conversation = {
@@ -87,9 +89,13 @@ export function ChatPanel() {
     const decoded: Record<string, string> = {};
     for (const m of res.messages) {
       try {
-        decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
+        decoded[m.id] = await decryptChatMessage(conversationId, m.ratchetHeader, m.ciphertext);
       } catch {
-        decoded[m.id] = "[ciphertext]";
+        try {
+          decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
+        } catch {
+          decoded[m.id] = localStorage.getItem(`lh.msg.${m.id}`) ?? "[ciphertext]";
+        }
       }
     }
     setPlaintexts(decoded);
@@ -157,12 +163,12 @@ export function ChatPanel() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
     try {
-      const key = await sessionKeyFor(selectedId);
-      const enc = await encryptSessionPayload(key, draft.trim());
+      const text = draft.trim();
+      const enc = await encryptChatMessage(selectedId, text);
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;
-      await api(`/v1/chat/conversations/${selectedId}/messages`, {
+      const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
         body: JSON.stringify({
           ratchetHeader: enc.ratchetHeader,
@@ -171,6 +177,7 @@ export function ChatPanel() {
           expiresAt,
         }),
       });
+      localStorage.setItem(`lh.msg.${res.id}`, text);
       setDraft("");
       await loadMessages(selectedId);
     } catch (e) {
@@ -233,13 +240,31 @@ export function ChatPanel() {
         method: "POST",
         body: JSON.stringify({ conversationId: selectedId }),
       });
-      const pc = createPeerConnection();
+      let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+      try {
+        const turn = await api<{
+          username: string;
+          credential: string;
+          uris: string[];
+          ttl: number;
+        }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
+        iceServers = [
+          ...iceServers,
+          { urls: turn.uris, username: turn.username, credential: turn.credential },
+        ];
+        setCallNote(`TURN ttl=${turn.ttl}s · ${turn.uris.join(",")}`);
+      } catch {
+        /* STUN-only fallback */
+      }
+      const callbacks: PeerCallbacks = {};
+      const pc = createPeerConnection(callbacks, { iceServers });
       pcRef.current = pc;
       localStreamRef.current = await attachLocalMedia(pc, { audio: true, video: true });
       await createOffer(pc);
       const channel = openSignalingChannel(null);
       setCallNote(
-        `${t("chat.callStarted")}: ${res.callId} · ${res.signalingPath}` +
+        (prev) =>
+          `${prev ? `${prev} · ` : ""}${t("chat.callStarted")}: ${res.callId} · ${res.signalingPath}` +
           (res.note ? ` · ${res.note}` : "") +
           ` · signaling=${channel instanceof WebSocket ? "ws" : "mock"}`,
       );

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  buildPartnerAuthUrl,
   getBook,
+  isPartnerId,
   listBooks,
   listStudyMaterials,
   listTranslations,
@@ -53,10 +55,18 @@ function ChapterPane({
 }) {
   if (!chapter) return <p className="muted">…</p>;
   if ("external" in chapter && chapter.external) {
+    const partner = chapter.meta.ssoFlag;
+    const href =
+      partner && isPartnerId(partner)
+        ? buildPartnerAuthUrl(partner, {
+            ref: `${chapter.meta.id}`,
+            ssoEnabled: Boolean((chapter as { sso?: boolean }).sso),
+          })
+        : chapter.url;
     return (
       <div className="panel">
         <p>{chapter.meta.name[locale]}</p>
-        <a className="btn" href={chapter.url} target="_blank" rel="noreferrer">
+        <a className="btn" href={href} target="_blank" rel="noreferrer">
           {chapter.meta.ssoFlag === "endao" ? t("reader.external.endao") : t("reader.external.weread")}
         </a>
       </div>
@@ -165,6 +175,22 @@ export function BibleReader() {
     };
   }, [dualPane, secondTranslationId, ref]);
 
+  async function grantEntitlement() {
+    if (!getToken()) {
+      setError("login_required");
+      return;
+    }
+    try {
+      await api("/v1/bible/entitlements", {
+        method: "POST",
+        body: JSON.stringify({ translationId }),
+      });
+      setNoteMsg("entitlement_ok");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "error");
+    }
+  }
+
   async function addBookmark() {
     if (!getToken()) {
       setError("login_required");
@@ -270,6 +296,9 @@ export function BibleReader() {
         </button>
         <button type="button" className="btn ghost" onClick={() => void addBookmark()}>
           {t("reader.bookmark")}
+        </button>
+        <button type="button" className="btn ghost" onClick={() => void grantEntitlement()}>
+          {t("reader.entitlement")}
         </button>
       </div>
 
