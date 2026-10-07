@@ -7,6 +7,7 @@ import {
 } from "@logoshome/crypto";
 import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
+import { humanizeStatus } from "../lib/status";
 import {
   attachLocalMedia,
   createOffer,
@@ -319,7 +320,7 @@ export function ChatPanel() {
       <p className="muted">
         AES-GCM session crypto · {t("chat.disappearing")} · {t("chat.call")}
       </p>
-      {note && <p className="muted">{note}</p>}
+      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
       <div className="field">
         <label>{t("chat.newConversation")}</label>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listDevotionMaterials, listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
+import { humanizeStatus } from "../lib/status";
 import {
   DEVOTION_STEPS,
   devotionProgress,
@@ -146,7 +147,7 @@ export function PlansPage() {
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.owned")}</h2>
-        {message && <p className="muted">{message}</p>}
+        {message && <p className="muted">{humanizeStatus(t, message)}</p>}
         <ul className="list">
           {plans.length === 0 && <li className="muted">—</li>}
           {plans.map((p) => (

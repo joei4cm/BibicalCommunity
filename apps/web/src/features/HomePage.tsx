@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SecurityMode } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
+import { humanizeStatus } from "../lib/status";
 import { ChatPanel } from "./ChatPanel";
 import { ExternalMedia } from "./media";
 
@@ -237,7 +238,7 @@ export function HomePage() {
       <h1 className="brand">{t("nav.home")}</h1>
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("home.forum")}</h2>
-        {note && <p className="muted">{note}</p>}
+        {note && <p className="muted">{humanizeStatus(t, note)}</p>}
         <ul className="list">
           {churches.length === 0 && <li className="muted">{t("home.noChurches")}</li>}
           {churches.map((c) => (

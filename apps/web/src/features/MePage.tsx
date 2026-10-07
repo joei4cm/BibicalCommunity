@@ -9,6 +9,7 @@ import {
 import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
+import { humanizeStatus } from "../lib/status";
 
 type MeChurch = {
   churchId: string;
@@ -327,7 +328,7 @@ export function MePage() {
             UID: <strong>{profile.uid}</strong>
           </p>
         )}
-        {msg && <p className="muted">{msg}</p>}
+        {msg && <p className="muted">{humanizeStatus(t, msg)}</p>}
       </div>
 
       <div className="panel">

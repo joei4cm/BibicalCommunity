@@ -126,6 +126,12 @@ export const zhCN: Record<string, string> = {
   "security.uploadKeys": "上传加密身份",
   "auth.login": "登录",
   "auth.register": "注册",
+  "auth.loginRequired": "请先登录（前往「我」）",
+  "auth.registered": "注册成功",
+  "auth.loggedIn": "已登录",
+  "chat.membersRequired": "请填写成员 ID",
+  "common.saved": "已保存",
+  "reader.entitlementOk": "译本权益已开通",
 };
 
 export const en: Record<string, string> = {
@@ -256,6 +262,12 @@ export const en: Record<string, string> = {
   "security.uploadKeys": "Upload crypto identity",
   "auth.login": "Log in",
   "auth.register": "Sign up",
+  "auth.loginRequired": "Please log in (open Me)",
+  "auth.registered": "Registered",
+  "auth.loggedIn": "Logged in",
+  "chat.membersRequired": "Member IDs required",
+  "common.saved": "Saved",
+  "reader.entitlementOk": "Translation access granted",
 };
 
 export const ja: Record<string, string> = {
@@ -386,4 +398,10 @@ export const ja: Record<string, string> = {
   "security.uploadKeys": "暗号アイデンティティをアップロード",
   "auth.login": "ログイン",
   "auth.register": "登録",
+  "auth.loginRequired": "先にログインしてください（「マイページ」へ）",
+  "auth.registered": "登録完了",
+  "auth.loggedIn": "ログイン済み",
+  "chat.membersRequired": "メンバー ID を入力してください",
+  "common.saved": "保存しました",
+  "reader.entitlementOk": "翻訳アクセスを有効化しました",
 };

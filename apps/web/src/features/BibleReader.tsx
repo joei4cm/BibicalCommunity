@@ -10,6 +10,7 @@ import {
   type TranslationMeta,
 } from "@logoshome/bible";
 import { api, getToken } from "../lib/api";
+import { humanizeStatus } from "../lib/status";
 import { decryptJson, encryptJson } from "../lib/note-crypto";
 
 type AnnotationRow = {
@@ -447,11 +448,11 @@ export function BibleReader() {
           <button type="button" className="btn" onClick={() => void saveNote()}>
             {t("reader.saveNote")}
           </button>
-          {noteMsg && <p className="muted">{noteMsg}</p>}
+          {noteMsg && <p className="muted">{humanizeStatus(t, noteMsg)}</p>}
         </div>
       )}
 
-      {error && <p className="muted">{error}</p>}
+      {error && <p className="muted">{humanizeStatus(t, error)}</p>}
 
       <div className={dualPane ? "reader-dual" : undefined}>
         <ChapterPane
