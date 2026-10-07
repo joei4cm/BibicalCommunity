@@ -49,6 +49,16 @@ import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
 import { KOUGO_GEN_1 } from "./packs/kougo-gen1.js";
 import { CUVS_PSALM_23 } from "./packs/cuvs-ps23.js";
 import { KOUGO_PSALM_23 } from "./packs/kougo-ps23.js";
+import { WEB_ROM_8 } from "./packs/web-rom8.js";
+import { KJV_ROM_8 } from "./packs/kjv-rom8.js";
+import { ASV_ROM_8 } from "./packs/asv-rom8.js";
+import { CUVS_ROM_8 } from "./packs/cuvs-rom8.js";
+import { KOUGO_ROM_8 } from "./packs/kougo-rom8.js";
+import { WEB_HEB_11 } from "./packs/web-heb11.js";
+import { KJV_HEB_11 } from "./packs/kjv-heb11.js";
+import { ASV_HEB_11 } from "./packs/asv-heb11.js";
+import { CUVS_HEB_11 } from "./packs/cuvs-heb11.js";
+import { KOUGO_HEB_11 } from "./packs/kougo-heb11.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -77,6 +87,12 @@ function normalizeBookKey(book: string): string | null {
   if (b === "ps" || b === "psalm" || b === "psalms" || book === "诗篇" || book === "詩篇") {
     return "ps";
   }
+  if (b === "rom" || b === "romans" || book === "罗马书" || book === "ローマ") {
+    return "rom";
+  }
+  if (b === "heb" || b === "hebrews" || book === "希伯来书" || book === "ヘブル") {
+    return "heb";
+  }
   return null;
 }
 
@@ -90,6 +106,10 @@ function canonicalBookId(key: string): string {
       return "Matt";
     case "ps":
       return "Ps";
+    case "rom":
+      return "Rom";
+    case "heb":
+      return "Heb";
     default:
       return key;
   }
@@ -105,18 +125,24 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     gen: { 1: WEB_GEN_1 },
     matt: { 5: WEB_MATT_5 },
     ps: { 23: WEB_PSALM_23 },
+    rom: { 8: WEB_ROM_8 },
+    heb: { 11: WEB_HEB_11 },
   },
   kjv: {
     john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
     gen: { 1: KJV_GEN_1 },
     matt: { 5: KJV_MATT_5 },
     ps: { 23: KJV_PSALM_23 },
+    rom: { 8: KJV_ROM_8 },
+    heb: { 11: KJV_HEB_11 },
   },
   asv: {
     john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
     gen: { 1: ASV_GEN_1 },
     matt: { 5: ASV_MATT_5 },
     ps: { 23: ASV_PSALM_23 },
+    rom: { 8: ASV_ROM_8 },
+    heb: { 11: ASV_HEB_11 },
   },
   "kougoyaku-pd": {
     john: { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
@@ -125,6 +151,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3 },
     gen: { 1: KOUGO_GEN_1 },
     ps: { 23: KOUGO_PSALM_23 },
+    rom: { 8: KOUGO_ROM_8 },
+    heb: { 11: KOUGO_HEB_11 },
   },
   cuvt: {
     john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
@@ -133,6 +161,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3 },
     gen: { 1: CUVS_GEN_1 },
     ps: { 23: CUVS_PSALM_23 },
+    rom: { 8: CUVS_ROM_8 },
+    heb: { 11: CUVS_HEB_11 },
   },
   rcuv: {
     john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3 },

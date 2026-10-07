@@ -88,6 +88,18 @@ put_chapter "bible/asv/Gen.1.json" '{"book":"Gen","chapter":1,"verses":[{"verse"
 put_chapter "bible/asv/Matt.5.json" '{"book":"Matt","chapter":5,"verses":[{"verse":3,"text":"Blessed are the poor in spirit: for theirs is the kingdom of heaven."},{"verse":5,"text":"Blessed are the meek: for they shall inherit the earth."}]}'
 put_chapter "bible/asv/Ps.23.json" '{"book":"Ps","chapter":23,"verses":[{"verse":1,"text":"Jehovah is my shepherd; I shall not want."},{"verse":2,"text":"He maketh me to lie down in green pastures; He leadeth me beside still waters."}]}'
 
+# Multi-book NT dual-pane scaffolds (Rom.8 / Heb.11) — short license-safe samples
+put_chapter "bible/web/Rom.8.json" '{"book":"Rom","chapter":8,"verses":[{"verse":1,"text":"There is therefore now no condemnation to those who are in Christ Jesus, who don'\''t walk according to the flesh, but according to the Spirit."},{"verse":28,"text":"We know that all things work together for good for those who love God, for those who are called according to his purpose."},{"verse":31,"text":"What then shall we say about these things? If God is for us, who can be against us?"}]}'
+put_chapter "bible/kjv/Rom.8.json" '{"book":"Rom","chapter":8,"verses":[{"verse":1,"text":"There is therefore now no condemnation to them which are in Christ Jesus, who walk not after the flesh, but after the Spirit."},{"verse":28,"text":"And we know that all things work together for good to them that love God, to them who are the called according to his purpose."},{"verse":31,"text":"What shall we then say to these things? If God be for us, who can be against us?"}]}'
+put_chapter "bible/asv/Rom.8.json" '{"book":"Rom","chapter":8,"verses":[{"verse":1,"text":"There is therefore now no condemnation to them that are in Christ Jesus."},{"verse":28,"text":"And we know that to them that love God all things work together for good, even to them that are called according to his purpose."},{"verse":31,"text":"What then shall we say to these things? If God is for us, who is against us?"}]}'
+put_chapter "bible/cuvs/Rom.8.json" '{"book":"Rom","chapter":8,"verses":[{"verse":1,"text":"（样例）如今，那些在基督耶稣里的就不定罪了。"},{"verse":28,"text":"（样例）我们晓得万事都互相效力，叫爱神的人得益处，就是按他旨意被召的人。"},{"verse":31,"text":"（样例）既是这样，还有什么说的呢？神若帮助我们，谁能敌挡我们呢？"}]}'
+put_chapter "bible/kougo/Rom.8.json" '{"book":"Rom","chapter":8,"verses":[{"verse":1,"text":"（見本）こういうわけで、今やキリスト・イエスにある者は罪に定められることがない。"},{"verse":28,"text":"（見本）神を愛する人々、すなわち、神のご計画に従って召された人々にとっては、神がすべてのことを働かせて益としてくださることを、わたしたちは知っている。"},{"verse":31,"text":"（見本）それでは、これらのことについて、わたしたちは何と言おうか。神がわたしたちの味方であるなら、だれがわたしたちに敵対できるだろうか。"}]}'
+put_chapter "bible/web/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"Now faith is assurance of things hoped for, proof of things not seen."},{"verse":2,"text":"For by this, the elders obtained approval."},{"verse":6,"text":"Without faith it is impossible to be well pleasing to him, for he who comes to God must believe that he exists, and that he is a rewarder of those who seek him."}]}'
+put_chapter "bible/kjv/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"Now faith is the substance of things hoped for, the evidence of things not seen."},{"verse":2,"text":"For by it the elders obtained a good report."},{"verse":6,"text":"But without faith it is impossible to please him: for he that cometh to God must believe that he is, and that he is a rewarder of them that diligently seek him."}]}'
+put_chapter "bible/asv/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"Now faith is assurance of things hoped for, a conviction of things not seen."},{"verse":2,"text":"For therein the elders had witness borne to them."},{"verse":6,"text":"And without faith it is impossible to be well-pleasing unto him; for he that cometh to God must believe that he is, and that he is a rewarder of them that seek after him."}]}'
+put_chapter "bible/cuvs/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"（样例）信就是所望之事的实底，是未见之事的确据。"},{"verse":2,"text":"（样例）古人在这信上得了美好的证据。"},{"verse":6,"text":"（样例）人非有信，就不能得神的喜悦；因为到神面前来的人必须信有神，且信他赏赐那寻求他的人。"}]}'
+put_chapter "bible/kougo/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"（見本）信仰とは、望んでいる事がらを確信し、まだ見ていない事実を確認することである。"},{"verse":2,"text":"（見本）昔の人たちは、この信仰のゆえに神に認められた。"},{"verse":6,"text":"（見本）信仰がなくては、神に喜ばれることはできない。神に来る者は、神のいますことと、ご自分を求める者に報いてくださる方であることを、信じなければならない。"}]}'
+
 echo "Multi-book scaffolds:"
 curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
 curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
@@ -103,4 +115,16 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gen.1" -H "$AUTH" | grep 
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.23" -H "$AUTH" | grep -qE '样例|牧者'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.23" -H "$AUTH" | grep -qE '見本|牧者'
 echo "MULTI_BOOK_SCAFFOLD_OK"
+echo "Multi-book NT scaffolds:"
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rom.8" -H "$AUTH" | grep -qiE 'no condemnation|work together for good'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Rom.8" -H "$AUTH" | grep -qiE 'no condemnation|If God be for us'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Rom.8" -H "$AUTH" | grep -qiE 'no condemnation|work together for good'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Heb.11" -H "$AUTH" | grep -qiE 'faith is assurance|hoped for'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Heb.11" -H "$AUTH" | grep -qiE 'substance of things hoped for|impossible to please'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Heb.11" -H "$AUTH" | grep -qiE 'assurance of things hoped for|conviction'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rom.8" -H "$AUTH" | grep -qE '样例|不定罪'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rom.8" -H "$AUTH" | grep -qE '見本|罪に定められることがない'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Heb.11" -H "$AUTH" | grep -qE '样例|信就是|实底'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Heb.11" -H "$AUTH" | grep -qE '見本|信仰とは'
+echo "MULTI_BOOK_NT_OK"
 echo SEED_R2_OK

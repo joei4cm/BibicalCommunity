@@ -65,6 +65,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gen.1" | grep -qE '見本
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.23" | grep -qE '样例|牧者'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.23" | grep -qE '見本|牧者'
 echo "MULTI_BOOK_SCAFFOLD_OK"
+echo "== multi-book NT scaffolds Rom.8 / Heb.11 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rom.8" | grep -qiE 'no condemnation|work together for good'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Rom.8" | grep -qiE 'no condemnation|If God be for us'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Rom.8" | grep -qiE 'no condemnation|work together for good'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Heb.11" | grep -qiE 'faith is assurance|hoped for'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Heb.11" | grep -qiE 'substance of things hoped for|impossible to please'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Heb.11" | grep -qiE 'assurance of things hoped for|conviction'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rom.8" | grep -qE '样例|不定罪'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rom.8" | grep -qE '見本|罪に定められることがない'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Heb.11" | grep -qE '样例|信就是|实底'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Heb.11" | grep -qE '見本|信仰とは'
+echo "MULTI_BOOK_NT_OK"
 echo "== chapter CUVS John.1 (zh) =="
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
 echo "$CUVS" | head -c 160; echo

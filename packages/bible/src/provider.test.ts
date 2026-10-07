@@ -345,3 +345,62 @@ test("loadChapter returns zh/ja Genesis.1 scaffolds", async () => {
   assert.ok(!("external" in kougo));
   assert.match(kougo.verses[0]?.text ?? "", /見本|創造|はじめに/);
 });
+
+test("loadChapter returns PD Romans.8 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Rom", chapter: 8 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Rom");
+  assert.equal(web.chapter, 8);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /no condemnation/i);
+  assert.match(web.verses.find((v) => v.verse === 28)?.text ?? "", /work together for good/i);
+
+  const kjv = await loadChapter("kjv", { book: "Romans", chapter: 8 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Rom");
+  assert.match(kjv.verses.find((v) => v.verse === 31)?.text ?? "", /If God be for us/i);
+
+  const asv = await loadChapter("asv", { book: "rom", chapter: 8 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 39)?.text ?? "", /love of God/i);
+});
+
+test("loadChapter returns PD Hebrews.11 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Heb", chapter: 11 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Heb");
+  assert.equal(web.chapter, 11);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /faith is assurance|hoped for/i);
+
+  const kjv = await loadChapter("kjv", { book: "Hebrews", chapter: 11 });
+  assert.ok(!("external" in kjv));
+  assert.match(kjv.verses[0]?.text ?? "", /substance of things hoped for/i);
+  assert.match(kjv.verses.find((v) => v.verse === 6)?.text ?? "", /impossible to please/i);
+
+  const asv = await loadChapter("asv", { book: "heb", chapter: 11 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses[0]?.text ?? "", /assurance of things hoped for/i);
+});
+
+test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => {
+  const cuvsRom = await loadChapter("cuvs", { book: "Rom", chapter: 8 });
+  assert.ok(!("external" in cuvsRom));
+  assert.equal(cuvsRom.book, "Rom");
+  assert.ok(cuvsRom.verses.length >= 3 && cuvsRom.verses.length <= 5);
+  assert.match(cuvsRom.verses[0]?.text ?? "", /样例|不定罪/);
+
+  const kougoRom = await loadChapter("kougo", { book: "Romans", chapter: 8 });
+  assert.ok(!("external" in kougoRom));
+  assert.match(kougoRom.verses[0]?.text ?? "", /見本|罪に定められることがない/);
+
+  const cuvsHeb = await loadChapter("cuvs", { book: "Heb", chapter: 11 });
+  assert.ok(!("external" in cuvsHeb));
+  assert.equal(cuvsHeb.book, "Heb");
+  assert.match(cuvsHeb.verses[0]?.text ?? "", /样例|信就是|实底/);
+
+  const kougoHeb = await loadChapter("kougo", { book: "Hebrews", chapter: 11 });
+  assert.ok(!("external" in kougoHeb));
+  assert.match(kougoHeb.verses[0]?.text ?? "", /見本|信仰とは/);
+});
