@@ -73,3 +73,28 @@ export function sampleCuvsJohn1(): R2ChapterJson {
     ],
   };
 }
+
+/** Traditional CUV scaffold for R2 seeding demos. */
+export function sampleCuvtJohn1(): R2ChapterJson {
+  return {
+    book: "John",
+    chapter: 1,
+    verses: [
+      { verse: 1, text: "太初有道，道與神同在，道就是神。" },
+      { verse: 2, text: "這道太初與神同在。" },
+      { verse: 14, text: "道成了肉身，住在我們中間，充充滿滿地有恩典有真理。" },
+    ],
+  };
+}
+
+/** Japanese colloquial-style scaffold for R2 seeding demos. */
+export function sampleKougoJohn1(): R2ChapterJson {
+  return {
+    book: "John",
+    chapter: 1,
+    verses: [
+      { verse: 1, text: "初めに言があった。言は神と共にあった。言は神であった。" },
+      { verse: 14, text: "そして言は肉体となり、わたしたちのうちに宿った。" },
+    ],
+  };
+}

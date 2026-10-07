@@ -49,6 +49,36 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     available: true,
   },
   {
+    id: "niv",
+    abbreviation: "NIV",
+    name: { "zh-CN": "新国际译本", en: "New International Version", ja: "NIV" },
+    language: "en",
+    license: "external",
+    provider: "external",
+    externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NIV",
+    available: true,
+  },
+  {
+    id: "esv",
+    abbreviation: "ESV",
+    name: { "zh-CN": "英语标准译本", en: "English Standard Version", ja: "ESV" },
+    language: "en",
+    license: "external",
+    provider: "external",
+    externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=ESV",
+    available: true,
+  },
+  {
+    id: "nlt",
+    abbreviation: "NLT",
+    name: { "zh-CN": "新当代译本", en: "New Living Translation", ja: "NLT" },
+    language: "en",
+    license: "external",
+    provider: "external",
+    externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NLT",
+    available: true,
+  },
+  {
     id: "cuvs",
     abbreviation: "和合本",
     name: { "zh-CN": "和合本（简体）", en: "Chinese Union Version (Simplified)", ja: "和合本（簡体）" },
@@ -65,7 +95,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: false,
+    available: true,
   },
   {
     id: "rcuv",
@@ -74,7 +104,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: false,
+    available: true,
   },
   {
     id: "ccb",
@@ -83,7 +113,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: false,
+    available: true,
   },
   {
     id: "lzz",
@@ -92,7 +122,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: false,
+    available: true,
   },
   {
     id: "endao",
@@ -123,7 +153,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "licensed",
     provider: "r2",
-    available: false,
+    available: true,
   },
   {
     id: "kougoyaku-pd",
@@ -151,7 +181,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "licensed",
     provider: "r2",
-    available: false,
+    available: true,
   },
 ];
 

@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { THEME_IDS, type PrivacySettings, type ThemeId } from "@logoshome/shared";
+import {
+  THEME_IDS,
+  normalizeLocale,
+  type PrivacySettings,
+  type ThemeId,
+} from "@logoshome/shared";
 import {
   generateIdentityKeyPair,
   generateOneTimePrekeys,
@@ -129,10 +134,7 @@ export function MePage() {
   }, []);
 
   function apiLocale(): "zh-CN" | "en" | "ja" {
-    const lng = i18n.language || "zh-CN";
-    if (lng.startsWith("zh")) return "zh-CN";
-    if (lng.startsWith("ja")) return "ja";
-    return "en";
+    return normalizeLocale(i18n.language || "zh-CN");
   }
 
   async function register() {

@@ -58,3 +58,29 @@ test("local PD translations are marked available", () => {
     assert.equal(meta.provider, "local");
   }
 });
+
+test("mainstream licensed zh/ja translations are catalogued available", () => {
+  for (const id of ["cuvs", "cuvt", "rcuv", "ccb", "lzz", "kougo", "shinkaiyaku", "shinKyoudou"]) {
+    const meta = getTranslation(id);
+    assert.ok(meta, `missing translation ${id}`);
+    assert.equal(meta.available, true);
+  }
+});
+
+test("NIV/ESV/NLT are external deep-links", async () => {
+  for (const id of ["niv", "esv", "nlt"]) {
+    const meta = getTranslation(id);
+    assert.ok(meta);
+    assert.equal(meta.provider, "external");
+    const result = await loadChapter(id, { book: "John", chapter: 1 });
+    assert.ok("external" in result && result.external);
+    assert.match(result.url, /biblegateway|NIV|ESV|NLT/i);
+  }
+});
+
+test("loadChapter returns kougo scaffold John.1", async () => {
+  const result = await loadChapter("kougo", { book: "John", chapter: 1 });
+  assert.ok(!("external" in result));
+  assert.ok(result.verses.length > 0);
+  assert.match(result.verses[0]?.text ?? "", /初めに言があった/);
+});

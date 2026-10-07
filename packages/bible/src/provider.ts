@@ -6,6 +6,8 @@ import { ASV_JOHN_1 } from "./sample-asv-john1.js";
 import { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
 import { WEB_JOHN_3 } from "./packs/web-john3.js";
 import { WEB_PSALM_23 } from "./sample-web-ps23.js";
+import { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
+import { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -31,7 +33,8 @@ const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: s
   kjv: { 1: KJV_JOHN_1 },
   asv: { 1: ASV_JOHN_1 },
   "kougoyaku-pd": { 1: BUNGO_JOHN_1 },
-  kougo: { 1: BUNGO_JOHN_1 },
+  kougo: { 1: KOUGO_JOHN_1 },
+  cuvt: { 1: CUVT_JOHN_1 },
 };
 
 export async function loadChapter(
@@ -52,6 +55,20 @@ export async function loadChapter(
     return { external: true, url, meta };
   }
 
+  // Local PD / scaffold samples (John chapters for dual-pane / offline reading)
+  if (isJohn(ref.book)) {
+    const verses = LOCAL_JOHN_SAMPLES[meta.id]?.[ref.chapter];
+    if (verses) {
+      return {
+        translationId: meta.id,
+        book: "John",
+        chapter: ref.chapter,
+        verses,
+        source: "local",
+      };
+    }
+  }
+
   if (meta.provider === "r2") {
     // R2 corpus is loaded by the API Worker (MEDIA binding). Package-level
     // callers get a stub until they fetch via /v1/bible/chapter.
@@ -65,20 +82,6 @@ export async function loadChapter(
       verses: [],
       source: "r2",
     };
-  }
-
-  // Local PD samples (John chapters for dual-pane / scaffold reading)
-  if (isJohn(ref.book)) {
-    const verses = LOCAL_JOHN_SAMPLES[meta.id]?.[ref.chapter];
-    if (verses) {
-      return {
-        translationId: meta.id,
-        book: "John",
-        chapter: ref.chapter,
-        verses,
-        source: "local",
-      };
-    }
   }
 
   if (

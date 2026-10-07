@@ -1,6 +1,20 @@
 import { z } from "zod";
+import type { LocaleCode } from "./ids.js";
 
-export const localeSchema = z.enum(["zh-CN", "en", "ja"]);
+/** Map BCP-47 / short tags (zh, zh-TW, en-US, ja-JP) onto product locales. */
+export function normalizeLocale(raw: unknown): LocaleCode {
+  if (typeof raw !== "string" || !raw.trim()) return "zh-CN";
+  const lng = raw.trim().toLowerCase();
+  if (lng.startsWith("zh")) return "zh-CN";
+  if (lng.startsWith("ja")) return "ja";
+  if (lng.startsWith("en")) return "en";
+  return "zh-CN";
+}
+
+export const localeSchema = z.preprocess(
+  (v) => (v === undefined || v === null || v === "" ? "zh-CN" : normalizeLocale(v)),
+  z.enum(["zh-CN", "en", "ja"]),
+);
 export const themeSchema = z.enum(["day", "sepia", "night", "highContrast"]);
 
 export const privacySettingsSchema = z.object({
