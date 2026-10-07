@@ -50,6 +50,7 @@ export default function HomeChurchScreen() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [joinSlug, setJoinSlug] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -167,6 +168,33 @@ export default function HomeChurchScreen() {
     }
   }
 
+  async function joinBySlug() {
+    if (!joinSlug.trim()) return;
+    setBusy(true);
+    try {
+      await hydrateToken();
+      if (!getToken()) {
+        setNote("login_required");
+        return;
+      }
+      const joined = await api<{ churchId: string; alreadyMember?: boolean }>(
+        "/v1/home/churches/join",
+        {
+          method: "POST",
+          body: JSON.stringify({ slug: joinSlug.trim().toLowerCase() }),
+        },
+      );
+      setJoinSlug("");
+      setNote(joined.alreadyMember ? "already_member" : "joined_church");
+      await refresh();
+      setSelectedId(joined.churchId);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.home")}</Text>
@@ -175,6 +203,23 @@ export default function HomeChurchScreen() {
       </Pressable>
       {note && <Text style={styles.muted}>{humanizeStatus(locale, note)}</Text>}
       {!ready && <Text style={styles.muted}>…</Text>}
+
+      <Text style={styles.section}>{t(locale, "home.joinChurch")}</Text>
+      <TextInput
+        style={styles.input}
+        value={joinSlug}
+        onChangeText={setJoinSlug}
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder={t(locale, "home.joinSlug")}
+      />
+      <Pressable
+        style={[styles.btn, busy && styles.btnDisabled]}
+        disabled={busy}
+        onPress={() => void joinBySlug()}
+      >
+        <Text style={styles.btnText}>{t(locale, "home.joinChurch")}</Text>
+      </Pressable>
 
       <Text style={styles.section}>{t(locale, "me.churches")}</Text>
       <View style={styles.list}>

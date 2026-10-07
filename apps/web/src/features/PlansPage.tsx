@@ -19,13 +19,15 @@ type Plan = {
 };
 
 type PublicPlan = { id: string; title: string; description?: string | null };
+type PlanDay = { day: number; ref: string; title?: string; note?: string };
+
 type Subscription = {
   id?: string;
   subscriptionId?: string;
   planId: string;
   title?: string;
   progressDay: number;
-  days?: unknown[];
+  days?: PlanDay[];
 };
 
 type PlanVisibility = "private" | "church" | "public";
@@ -45,12 +47,24 @@ export function PlansPage() {
   const [subscribeId, setSubscribeId] = useState("");
   const [publicPlans, setPublicPlans] = useState<PublicPlan[] | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
+  const [activeSubPlanId, setActiveSubPlanId] = useState<string | null>(null);
+  const [materialId, setMaterialId] = useState("morning-examen");
   const progress = devotionProgress(step);
 
   const lang = i18n.language.startsWith("zh") ? "zh" : i18n.language.startsWith("ja") ? "ja" : "en";
   const studyMaterials = useMemo(() => listStudyMaterials({ language: lang }), [lang]);
   const devotionMaterials = useMemo(() => listDevotionMaterials(), []);
   const localeKey = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
+  const activeSub =
+    (subscriptions ?? []).find((s) => s.planId === activeSubPlanId) ?? (subscriptions ?? [])[0] ?? null;
+  const activeMaterial =
+    devotionMaterials.find((m) => m.id === materialId) ?? devotionMaterials[0] ?? null;
+  const todayDayNum = activeSub ? (activeSub.progressDay ?? 0) + 1 : null;
+  const todayDay =
+    activeSub && todayDayNum != null
+      ? (activeSub.days ?? []).find((d) => d.day === todayDayNum) ?? null
+      : null;
+  const stepGuide = activeMaterial?.steps ?? DEVOTION_STEPS;
 
   const selected = plans.find((p) => p.id === selectedId) ?? null;
 
@@ -353,12 +367,47 @@ export function PlansPage() {
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.devotion")}</h2>
+        {(subscriptions ?? []).length > 0 && (
+          <div className="field">
+            <label>{t("plans.devotionPlan")}</label>
+            <select
+              value={activeSub?.planId ?? ""}
+              onChange={(e) => setActiveSubPlanId(e.target.value)}
+            >
+              {(subscriptions ?? []).map((s) => (
+                <option key={s.planId} value={s.planId}>
+                  {s.title ?? s.planId}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="field">
+          <label>{t("plans.devotionMaterial")}</label>
+          <select value={activeMaterial?.id ?? ""} onChange={(e) => setMaterialId(e.target.value)}>
+            {devotionMaterials.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title[localeKey] ?? m.title.en}
+              </option>
+            ))}
+          </select>
+        </div>
+        {todayDay && (
+          <p className="muted">
+            {t("plans.todayReading")}: <strong>{todayDay.ref}</strong>
+            {todayDay.title ? ` · ${todayDay.title}` : ""}
+            {step === "read" ? ` · ${t("devotion.read")}` : ""}
+          </p>
+        )}
+        {activeMaterial && (
+          <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
+        )}
         <p className="muted">
           {progress.index + 1} / {progress.total}
           {progress.done ? " · done" : ""}
         </p>
         <div className="step-track" role="list">
-          {DEVOTION_STEPS.map((s, i) => {
+          {stepGuide.map((s, i) => {
             const state = i < progress.index ? "done" : i === progress.index ? "current" : "todo";
             return (
               <button
@@ -381,6 +430,15 @@ export function PlansPage() {
           <button type="button" className="btn ghost" onClick={resetSteps}>
             Reset
           </button>
+          {todayDay && activeSub && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => void advancePlanDay(activeSub.planId, activeSub.progressDay)}
+            >
+              {t("plans.advanceDay")}
+            </button>
+          )}
         </div>
       </div>
 

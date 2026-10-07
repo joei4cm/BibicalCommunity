@@ -98,16 +98,19 @@ homeRoutes.post("/churches", async (c) => {
   );
 });
 
-/** Join an existing church as member; hostile churches force privacy floors. */
-homeRoutes.post("/churches/:id/join", async (c) => {
-  const churchId = c.req.param("id");
-  const db = drizzle(c.env.DB, { schema });
-  const userId = c.get("userId");
-  const church = (
-    await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
-  )[0];
-  if (!church) return c.json({ error: "not_found" }, 404);
-
+async function joinChurch(
+  db: ReturnType<typeof drizzle<typeof schema>>,
+  userId: string,
+  church: typeof schema.churches.$inferSelect,
+): Promise<{
+  id: string;
+  churchId: string;
+  role: string;
+  alreadyMember: boolean;
+  name: string;
+  slug: string;
+}> {
+  const churchId = church.id;
   const existing = (
     await db
       .select()
@@ -119,7 +122,14 @@ homeRoutes.post("/churches/:id/join", async (c) => {
     if (church.securityMode === "hostile") {
       await applyHostilePrivacyFloors(db, userId);
     }
-    return c.json({ id: existing.id, churchId, role: existing.role, alreadyMember: true });
+    return {
+      id: existing.id,
+      churchId,
+      role: existing.role,
+      alreadyMember: true,
+      name: church.name,
+      slug: church.slug,
+    };
   }
 
   const memberId = createId("cmbr");
@@ -137,7 +147,46 @@ homeRoutes.post("/churches/:id/join", async (c) => {
     await applyHostilePrivacyFloors(db, userId);
   }
 
-  return c.json({ id: memberId, churchId, role: "member", alreadyMember: false }, 201);
+  return {
+    id: memberId,
+    churchId,
+    role: "member",
+    alreadyMember: false,
+    name: church.name,
+    slug: church.slug,
+  };
+}
+
+const joinBySlugSchema = z.object({
+  slug: z
+    .string()
+    .min(2)
+    .max(64)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
+
+/** Join by public slug (preferred client path). */
+homeRoutes.post("/churches/join", async (c) => {
+  const body = joinBySlugSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.slug, body.slug)).limit(1)
+  )[0];
+  if (!church) return c.json({ error: "not_found" }, 404);
+  const result = await joinChurch(db, c.get("userId"), church);
+  return c.json(result, result.alreadyMember ? 200 : 201);
+});
+
+/** Join an existing church as member; hostile churches force privacy floors. */
+homeRoutes.post("/churches/:id/join", async (c) => {
+  const churchId = c.req.param("id");
+  const db = drizzle(c.env.DB, { schema });
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
+  )[0];
+  if (!church) return c.json({ error: "not_found" }, 404);
+  const result = await joinChurch(db, c.get("userId"), church);
+  return c.json(result, result.alreadyMember ? 200 : 201);
 });
 
 /** Admin-only: switch church security mode. Hostile applies floors to all members. */

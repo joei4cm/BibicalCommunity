@@ -77,6 +77,26 @@ echo "$ROSTER" | grep -q '"uid"'
 CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH2" "$BASE/v1/home/${CHURCH_ID}/members")
 test "$CODE" = "403"
 echo "HOME_MEMBERS_OK"
+echo "== home join by slug =="
+# Register a third user and join via public slug
+H3="homeslug$(date +%s)"
+REG3=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
+  -d "{\"handle\":\"$H3\",\"password\":\"$PASS\",\"nickname\":\"SlugJoin\",\"locale\":\"en\"}")
+TOKEN3=$(echo "$REG3" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+test -n "$TOKEN3"
+JOIN_SLUG=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN3" -H 'content-type: application/json' \
+  -d "{\"slug\":\"$SLUG\"}" \
+  "$BASE/v1/home/churches/join")
+echo "$JOIN_SLUG" | head -c 200; echo
+echo "$JOIN_SLUG" | grep -q "\"churchId\":\"$CHURCH_ID\""
+echo "$JOIN_SLUG" | grep -q '"role":"member"'
+echo "$JOIN_SLUG" | grep -q "\"slug\":\"$SLUG\""
+# Idempotent re-join
+JOIN_AGAIN=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN3" -H 'content-type: application/json' \
+  -d "{\"slug\":\"$SLUG\"}" \
+  "$BASE/v1/home/churches/join")
+echo "$JOIN_AGAIN" | grep -q '"alreadyMember":true'
+echo "HOME_JOIN_SLUG_OK"
 
 echo "== home patch security → hostile =="
 SEC=$(curl -sf -X PATCH -H "$AUTH" -H 'content-type: application/json' \

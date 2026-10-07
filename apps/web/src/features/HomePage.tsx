@@ -50,6 +50,7 @@ export function HomePage() {
   const [note, setNote] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [joinSlug, setJoinSlug] = useState("");
   const [securityMode, setSecurityMode] = useState<SecurityMode>("standard");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -132,6 +133,31 @@ export function HomePage() {
       setSecurityMode("standard");
       setSelectedChurchId(created.id);
       await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function joinBySlug() {
+    if (!getToken() || !joinSlug.trim()) {
+      setNote("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const joined = await api<{ churchId: string; alreadyMember?: boolean }>(
+        "/v1/home/churches/join",
+        {
+          method: "POST",
+          body: JSON.stringify({ slug: joinSlug.trim().toLowerCase() }),
+        },
+      );
+      setJoinSlug("");
+      setNote(joined.alreadyMember ? "already_member" : "joined_church");
+      await refresh();
+      setSelectedChurchId(joined.churchId);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -314,6 +340,19 @@ export function HomePage() {
         </div>
         <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
           {t("home.createChurch")}
+        </button>
+
+        <h3 style={{ marginTop: "1.25rem" }}>{t("home.joinChurch")}</h3>
+        <div className="field">
+          <label>{t("home.joinSlug")}</label>
+          <input
+            value={joinSlug}
+            onChange={(e) => setJoinSlug(e.target.value)}
+            placeholder="my-church"
+          />
+        </div>
+        <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
+          {t("home.joinChurch")}
         </button>
       </div>
 

@@ -19,6 +19,8 @@ const need = [
   "nav.bible","nav.plans","nav.home","nav.me","landing.theme",
   "security.wipe","security.deviceKeys","chat.archive","chat.screenShare",
   "reader.external.endao","reader.external.weread","plans.create","home.forum",
+  "home.joinChurch","home.joinSlug","home.membersPending","plans.advanceDay",
+  "plans.devotionPlan","plans.todayReading","me.pendingVerify",
 ];
 let fail = 0;
 for (const loc of ["zh-CN","en","ja"]) {
@@ -28,8 +30,18 @@ for (const loc of ["zh-CN","en","ja"]) {
     if (!c[k]) { console.error("MISSING", loc, k); fail++; }
   }
 }
+const zh = Object.keys(catalogs["zh-CN"] || {}).sort();
+const en = Object.keys(catalogs.en || {}).sort();
+const ja = Object.keys(catalogs.ja || {}).sort();
+const all = new Set([...zh, ...en, ...ja]);
+for (const k of all) {
+  for (const [loc, keys] of [["zh-CN", zh], ["en", en], ["ja", ja]]) {
+    if (!keys.includes(k)) { console.error("PARITY_MISSING", loc, k); fail++; }
+  }
+}
 if (fail) process.exit(1);
-console.log("I18N_KEYS_OK");
+console.log("I18N_KEYS_OK count=" + zh.length);
+console.log("I18N_PARITY_OK");
 '
 
 echo "== PWA gate =="
