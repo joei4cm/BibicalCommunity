@@ -1,10 +1,19 @@
 # Deploy runbook
 
-Short path from zero to production for LogosHome API (Workers + D1 + R2) and web (Pages).
+Short path from zero to production for LogosHome API (Workers + D1 + R2 + CallRoom DO) and web (Pages).
+
+API-focused readiness notes (dry-run / blockers): [`apps/api/DEPLOY.md`](../apps/api/DEPLOY.md).
+
+## 0. Preflight (local, non-destructive)
+
+```bash
+bash scripts/deploy-check.sh
+# Expect: DEPLOY_CHECK_OK
+```
 
 ## 1. Prerequisites
 
-- Cloudflare account with Workers, D1, R2, Pages enabled
+- Cloudflare account with Workers, D1, R2, Durable Objects, Pages enabled
 - `pnpm` + Node 20+
 - Copy `.env.example` → `.env` for local; production secrets go via Wrangler / Pages, not git
 
@@ -29,7 +38,7 @@ pnpm wrangler d1 migrations apply logoshome --remote -c wrangler.production.toml
 # Local smoke: pnpm db:migrate:local
 ```
 
-## 4. Secrets
+## 4. Secrets & session model
 
 ```bash
 cd apps/api
@@ -40,7 +49,11 @@ pnpm wrangler secret put TURN_SECRET -c wrangler.production.toml
 
 Generate long random values (≥32 chars for `KEK_MASTER`). Never commit them.
 
-Optional non-secret vars (`ENDAO_SSO_ENABLED`, `WEREAD_SSO_ENABLED`, `TURN_URIS`) live under `[vars]` in the production toml.
+**Sessions / JWT:** Auth uses opaque Bearer session tokens hashed in D1 (`sessions.token_hash`). There is **no** `JWT_SECRET` (or similar) to configure. Identity hashing uses `HANDLE_PEPPER`; field encryption uses `KEK_MASTER`.
+
+**Bindings (must exist in production toml):** `DB` (D1), `MEDIA` (R2), `CALL_ROOM` → `CallRoomDO`.
+
+Non-secret `[vars]`: `ENDAO_SSO_ENABLED`, `WEREAD_SSO_ENABLED`, `PARTNER_SSO_MOCK` (must be `"false"` in production), `TURN_URIS`. Keep partner SSO flags false until real OAuth client credentials and token exchange are wired.
 
 ## 5. Deploy API Worker
 
@@ -87,8 +100,12 @@ Point the app’s API base at the production Worker (env / `app.json` extra). Lo
 
 ## Checklist
 
+- [ ] `bash scripts/deploy-check.sh` → `DEPLOY_CHECK_OK`
+- [ ] Placeholders replaced (`account_id`, `database_id`)
 - [ ] D1 migrations applied remote
-- [ ] `HANDLE_PEPPER`, `KEK_MASTER`, `TURN_SECRET` set
+- [ ] `HANDLE_PEPPER`, `KEK_MASTER`, `TURN_SECRET` set (no JWT secret)
+- [ ] `PARTNER_SSO_MOCK=false`; SSO flags off until partners ready
+- [ ] Bindings live: `DB`, `MEDIA`, `CALL_ROOM`
 - [ ] Worker `/health` OK
 - [ ] R2 sample / licensed chapters seeded
 - [ ] Pages build has correct `VITE_API_BASE`

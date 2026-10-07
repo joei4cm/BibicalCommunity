@@ -1,9 +1,31 @@
-# Production example — copy values from Cloudflare dashboard, then:
+# LogosHome API — Cloudflare production config (Workers + D1 + R2 + CallRoom DO)
+#
+# Deploy:
 #   wrangler deploy -c wrangler.production.toml
-# Do not commit real IDs/secrets. Put secrets with:
+# Migrate:
+#   wrangler d1 migrations apply logoshome --remote -c wrangler.production.toml
+# Preflight (no network / no secrets required):
+#   bash scripts/deploy-check.sh
+#
+# Do not commit real IDs or secret values. Replace YOUR_* placeholders below.
+
+# ── Required secrets (wrangler secret put NAME -c wrangler.production.toml) ──
+#   HANDLE_PEPPER   — HMAC pepper for handle/email hashing (auth identity)
+#   KEK_MASTER      — AES master key for field-level encryption (≥32 chars)
+#   TURN_SECRET     — ephemeral TURN HMAC secret (calls / WebRTC)
+# Session tokens are opaque bearers hashed in D1 (no separate JWT secret).
+# Partner SSO (恩道 / 微读): keep ENDAO_SSO_ENABLED / WEREAD_SSO_ENABLED false
+# until real OAuth client_id + token exchange are configured; never enable
+# PARTNER_SSO_MOCK in production.
+#
 #   wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
 #   wrangler secret put KEK_MASTER -c wrangler.production.toml
 #   wrangler secret put TURN_SECRET -c wrangler.production.toml
+
+# ── Required bindings (declared below) ──────────────────────────────────────
+#   DB         — D1 database (logoshome)
+#   MEDIA      — R2 bucket (bible chapter JSON + media)
+#   CALL_ROOM  — Durable Object namespace → CallRoomDO (WebRTC signaling)
 
 name = "logoshome-api"
 main = "src/index.ts"
@@ -43,7 +65,10 @@ crons = ["*/5 * * * *"]
 [vars]
 APP_NAME = "LogosHome"
 ENVIRONMENT = "production"
+# Partner SSO feature flags — leave false until real IdP credentials exist.
 ENDAO_SSO_ENABLED = "false"
 WEREAD_SSO_ENABLED = "false"
+# Must be false in production (mock IdP must never be reachable live).
+PARTNER_SSO_MOCK = "false"
 # TURN_URIS is non-secret; TURN_SECRET must be a wrangler secret.
 TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
