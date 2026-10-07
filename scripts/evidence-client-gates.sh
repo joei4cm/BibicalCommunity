@@ -39,4 +39,12 @@ rg -q 'short_name: "圣言家"' apps/web/vite.config.ts
 rg -q 'THEME_IDS' apps/web/src/features/MePage.tsx apps/web/src/features/LandingPage.tsx
 echo "PWA_THEME_OK"
 
+echo "== PWA production build artifacts =="
+(cd apps/web && pnpm exec vite build >/tmp/logoshome-vite-build.log)
+test -f apps/web/dist/manifest.webmanifest
+test -f apps/web/dist/sw.js
+test -f apps/web/dist/registerSW.js
+rg -q '圣言家|LogosHome' apps/web/dist/manifest.webmanifest
+echo "PWA_BUILD_OK"
+
 echo "CLIENT_GATES_OK"

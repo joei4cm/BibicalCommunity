@@ -173,6 +173,42 @@ partnerRoutes.get("/mock-authorize", (c) => {
   return c.redirect(target.toString(), 302);
 });
 
+/**
+ * Dev-only OAuth token endpoint stand-in.
+ * Point ENDAO_OAUTH_TOKEN_URL / WEREAD_OAUTH_TOKEN_URL here for local exchange E2E.
+ * Never enable in production (PARTNER_SSO_MOCK must be false; omit this path from live IdPs).
+ */
+partnerRoutes.post("/mock-token", async (c) => {
+  if (!useMockIdp(c.env)) return c.json({ error: "mock_disabled" }, 404);
+  const contentType = c.req.header("content-type") ?? "";
+  let clientId = "";
+  let clientSecret = "";
+  let code = "";
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    const form = await c.req.parseBody();
+    clientId = String(form.client_id ?? "");
+    clientSecret = String(form.client_secret ?? "");
+    code = String(form.code ?? "");
+  } else {
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, string>;
+    clientId = String(body.client_id ?? "");
+    clientSecret = String(body.client_secret ?? "");
+    code = String(body.code ?? "");
+  }
+  const known =
+    (clientId === c.env.ENDAO_OAUTH_CLIENT_ID && clientSecret === c.env.ENDAO_OAUTH_CLIENT_SECRET) ||
+    (clientId === c.env.WEREAD_OAUTH_CLIENT_ID && clientSecret === c.env.WEREAD_OAUTH_CLIENT_SECRET);
+  if (!known || !code) {
+    return c.json({ error: "invalid_client" }, 401);
+  }
+  return c.json({
+    access_token: `mock_access_${randomToken(8)}`,
+    token_type: "Bearer",
+    expires_in: 3600,
+    scope: "bible.read",
+  });
+});
+
 /** OAuth callback — mock closed loop locally; production attempts token exchange when secrets set. */
 partnerRoutes.get("/:id/callback", async (c) => {
   const id = c.req.param("id");

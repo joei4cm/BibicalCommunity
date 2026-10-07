@@ -31,9 +31,14 @@ ENVIRONMENT = "development"
 ENDAO_SSO_ENABLED = "true"
 WEREAD_SSO_ENABLED = "true"
 PARTNER_SSO_MOCK = "true"
-# Real OAuth vars unused while PARTNER_SSO_MOCK=true; set for production-like start:
-# ENDAO_OAUTH_CLIENT_ID = "dev-endao-client"
-# WEREAD_OAUTH_CLIENT_ID = "dev-weread-client"
-# PARTNER_OAUTH_REDIRECT_BASE = "http://127.0.0.1:8787"
+# Local-only OAuth fixtures so callback can exercise token exchange against /v1/partners/mock-token.
+# Production must use wrangler secret put + real partner token URLs (see wrangler.production.toml).
+ENDAO_OAUTH_CLIENT_ID = "dev-endao-client"
+ENDAO_OAUTH_CLIENT_SECRET = "dev-endao-secret"
+WEREAD_OAUTH_CLIENT_ID = "dev-weread-client"
+WEREAD_OAUTH_CLIENT_SECRET = "dev-weread-secret"
+PARTNER_OAUTH_REDIRECT_BASE = "http://127.0.0.1:8787"
+ENDAO_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
+WEREAD_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
 TURN_SECRET = "dev-turn-secret"
 TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"

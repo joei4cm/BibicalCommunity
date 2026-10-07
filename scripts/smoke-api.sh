@@ -104,6 +104,38 @@ PLAN=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
 echo "$PLAN" | head -c 120; echo
 echo "$PLAN" | grep -q '"id":"plan_'
 echo "PLAN_CREATE_OK"
+PLAN_ID=$(echo "$PLAN" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+echo "== plans CSV import + subscribe + progress =="
+CSV_BODY=$'day,ref,title,note\n1,John.1,Word,Begin\n2,Gen.1,Create,Dawn\n3,Ps.23,Shepherd,Rest'
+CSV_IMP=$(curl -sf -X POST -H "$AUTH" \
+  -F "title=CSV灵修计划" \
+  -F "csv=$CSV_BODY" \
+  "$BASE/v1/plans/import-csv")
+echo "$CSV_IMP" | head -c 160; echo
+echo "$CSV_IMP" | grep -q '"id":"plan_'
+CSV_ID=$(echo "$CSV_IMP" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+test -n "$CSV_ID"
+# Make plan public then subscribe as second user
+curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"title":"公开晨更","description":"public smoke","visibility":"public","days":[{"day":1,"ref":"John.1","title":"Start"}]}' \
+  "$BASE/v1/plans" >/dev/null
+H_SUB="plansub$(date +%s)"
+REG_SUB=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
+  -d "{\"handle\":\"$H_SUB\",\"password\":\"$PASS\",\"nickname\":\"Sub\",\"locale\":\"zh\"}")
+TOKEN_SUB=$(echo "$REG_SUB" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+PUB=$(curl -sf -H "Authorization: Bearer $TOKEN_SUB" "$BASE/v1/plans/public")
+echo "$PUB" | grep -q '"visibility":"public"'
+PUB_ID=$(echo "$PUB" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);const p=(j.plans||[]).find(x=>x.title&&x.title.includes("公开"));if(!p)throw new Error("no public plan");process.stdout.write(p.id)})')
+SUB=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' -d '{}' \
+  "$BASE/v1/plans/$PUB_ID/subscribe")
+echo "$SUB" | head -c 160; echo
+echo "$SUB" | grep -q '"id":"psub_'
+PROG=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
+  -d '{"day":1}' "$BASE/v1/plans/$PUB_ID/progress")
+echo "$PROG" | grep -q '"ok":true'
+echo "$PROG" | grep -q '"progressDay":1'
+echo "PLAN_CSV_SUBSCRIBE_OK"
+test -n "$PLAN_ID"
 echo "== turn credentials =="
 curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' -d '{}' \
   "$BASE/v1/calls/turn-credentials" | head -c 200; echo
