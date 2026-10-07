@@ -84,17 +84,30 @@ curl -sf "$BASE/v1/partners/status" | head -c 200; echo
 echo "== partner SSO mock closed loop =="
 SSO_STATUS=$(curl -sf "$BASE/v1/partners/status")
 echo "$SSO_STATUS" | grep -q '"endao":{"ssoEnabled":true'
+echo "$SSO_STATUS" | grep -q '"weread":{"ssoEnabled":true'
 echo "SSO_STATUS_OK"
 SSO_START=$(curl -sf "$BASE/v1/partners/endao/start?ref=John.1")
 echo "$SSO_START" | head -c 240; echo
 echo "$SSO_START" | grep -q 'mock-authorize'
 echo "$SSO_START" | grep -q '"mockIdp":true'
 echo "SSO_START_OK"
+WEREAD_START=$(curl -sf "$BASE/v1/partners/weread/start?ref=John.1")
+echo "$WEREAD_START" | head -c 240; echo
+echo "$WEREAD_START" | grep -q 'mock-authorize'
+echo "$WEREAD_START" | grep -q '"mockIdp":true'
+echo "$WEREAD_START" | grep -q '"partner":"weread"'
+echo "WEREAD_SSO_START_OK"
 SSO_LOOP=$(curl -sfL "$BASE/v1/partners/endao/start?ref=John.1&redirect=1")
 echo "$SSO_LOOP" | head -c 240; echo
 echo "$SSO_LOOP" | grep -q '"ok":true'
 echo "$SSO_LOOP" | grep -q '"mock":true'
 echo "SSO_LOOP_OK"
+WEREAD_LOOP=$(curl -sfL "$BASE/v1/partners/weread/start?ref=John.1&redirect=1")
+echo "$WEREAD_LOOP" | head -c 240; echo
+echo "$WEREAD_LOOP" | grep -q '"ok":true'
+echo "$WEREAD_LOOP" | grep -q '"mock":true'
+echo "$WEREAD_LOOP" | grep -q '"partner":"weread"'
+echo "WEREAD_SSO_LOOP_OK"
 echo "== disappearing message tombstone =="
 H2="smokepeer$(date +%s)"
 REG2=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
@@ -197,7 +210,8 @@ bash "$SCRIPT_DIR/smoke-keys.sh" "$BASE"
 
 echo "== church home paths =="
 export TOKEN TOKEN2 PEER CID BASE
-bash "$SCRIPT_DIR/smoke-home.sh" "$BASE"
+# Call/screen signaling runs below; skip duplicate when home is nested here.
+SMOKE_SKIP_CALL_SIGNALING=1 bash "$SCRIPT_DIR/smoke-home.sh" "$BASE"
 
 echo "== study materials + home externalMediaUrl =="
 bash "$SCRIPT_DIR/smoke-study-embed.sh" "$BASE"

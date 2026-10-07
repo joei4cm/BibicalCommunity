@@ -100,6 +100,15 @@ echo "$ARCH" | head -c 200; echo
 echo "$ARCH" | grep -q '"archived":true'
 echo "HOME_ARCHIVE_OK"
 
+# Call/screen signaling lives in smoke-api.sh; when home runs standalone, still prove DO fan-out.
+if [[ "${SMOKE_HOME_CALLS:-1}" == "1" ]] && [[ "${SMOKE_SKIP_CALL_SIGNALING:-}" != "1" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -f "$SCRIPT_DIR/smoke-call-signaling.mjs" ]]; then
+    echo "== call + screen signaling fan-out (from smoke-home) =="
+    node "$SCRIPT_DIR/smoke-call-signaling.mjs" "$BASE"
+  fi
+fi
+
 echo "== hostile church privacy floors =="
 HSLUG="hostile-$(date +%s)"
 HCH=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
