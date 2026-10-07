@@ -7,15 +7,15 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | # | Requirement | Evidence (authoritative) | Status |
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + crypto gate | PARTIAL — PWA build PASS; physical device WebCrypto E2E OPEN |
-| 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt; `ANNOTATIONS_SMOKE_OK` | PARTIAL — core PASS; multi-color polish OPEN |
+| 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; `ANNOTATIONS_SMOKE_OK` | PARTIAL — core+colors PASS; denser typography themes OPEN |
 | 3 | Translations zh/en/ja mainstream | 22-id registry; John + Gen/Matt/Ps + Rom.8/Heb.11 + Isa.53/Acts.2; `MULTI_BOOK_SCAFFOLD_OK` / `MULTI_BOOK_NT_OK` / `MULTI_BOOK_OTNT_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token` | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** (CSV import, public subscribe, progress) | PARTIAL — API smoke PASS; deeper devotion UX OPEN |
-| 7 | Church Home forums / embeds | `HOME_SMOKE_OK` | PARTIAL |
+| 7 | Church Home forums / embeds | `HOME_SMOKE_OK`; mobile forum + externalMediaUrl compose | PARTIAL — API+mobile compose PASS |
 | 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` | PARTIAL — P-256 PASS; Curve25519 OPEN |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK` | PARTIAL — signaling PASS; live picker OPEN |
-| 10 | Me profile / privacy / search / verify / wipe | Me UI + `HOME_WIPE_OK` | PARTIAL |
+| 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK` (profile/search/privacy/theme); `HOME_VERIFY_OK` / `HOME_WIPE_OK` | PARTIAL — API smoke PASS; deeper verify UX OPEN |
 | 11 | Encrypted storage | session-aes + note-crypto | PARTIAL |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `PWA_THEME_OK` | PARTIAL — keys/themes PASS; full copy audit OPEN |
@@ -25,7 +25,8 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 ## Smoke tokens
 
 ```bash
-bash scripts/smoke-api.sh            # SMOKE_OK, PLAN_CSV_SUBSCRIBE_OK, MULTI_BOOK_*, SSO_*, …
+bash scripts/smoke-api.sh            # SMOKE_OK, PLAN_CSV_SUBSCRIBE_OK, ME_SMOKE_OK, MULTI_BOOK_*, SSO_*, …
+bash scripts/smoke-me.sh             # ME_PROFILE_OK / ME_SEARCH_OK / ME_PRIVACY_HIDE_OK
 bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-token)
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N/PWA_BUILD_OK → CLIENT_GATES_OK
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh

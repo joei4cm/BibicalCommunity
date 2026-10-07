@@ -38,6 +38,7 @@ export default function HomeChurchScreen() {
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -97,10 +98,14 @@ export default function HomeChurchScreen() {
           board: "general",
           title: title.trim(),
           body: body.trim(),
+          ...(mediaUrl.trim()
+            ? { externalMediaUrl: mediaUrl.trim() }
+            : {}),
         }),
       });
       setTitle("");
       setBody("");
+      setMediaUrl("");
       setNote("saved");
       await loadPosts(selectedId);
     } catch (e) {
@@ -166,6 +171,14 @@ export default function HomeChurchScreen() {
             multiline
             placeholder={t(locale, "home.postBody")}
             textAlignVertical="top"
+          />
+          <TextInput
+            style={styles.input}
+            value={mediaUrl}
+            onChangeText={setMediaUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder={t(locale, "home.mediaUrl")}
           />
           <Pressable
             style={[styles.btn, busy && styles.btnDisabled]}

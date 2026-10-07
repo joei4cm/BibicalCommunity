@@ -250,13 +250,12 @@ export default function BibleScreen() {
     }
   }
 
-  async function addHighlight() {
+  async function addHighlight(color: string) {
     setAnnBusy(true);
     setAnnMsg(null);
     try {
       if (!(await requireAuth())) return;
       const verse = selectedVerse ?? 1;
-      const color = "amber";
       const { ciphertext, iv } = await encryptJson({ kind: "highlight", color }, "highlight");
       await api("/v1/annotations", {
         method: "POST",
@@ -465,13 +464,29 @@ export default function BibleScreen() {
             >
               <Text style={styles.btnGhostText}>{t(locale, "reader.bookmark")}</Text>
             </Pressable>
-            <Pressable
-              style={[styles.btn, styles.btnGhost, annBusy && styles.btnDisabled]}
-              disabled={annBusy}
-              onPress={() => void addHighlight()}
-            >
-              <Text style={styles.btnGhostText}>{t(locale, "reader.highlight")}</Text>
-            </Pressable>
+          </View>
+          <Text style={styles.label}>{t(locale, "reader.highlight")}</Text>
+          <View style={styles.annActions}>
+            {(
+              [
+                { id: "amber", value: "#f5d76e" },
+                { id: "mint", value: "#a8e6cf" },
+                { id: "rose", value: "#f8b4c4" },
+                { id: "sky", value: "#a8d8ea" },
+              ] as const
+            ).map((c) => (
+              <Pressable
+                key={c.id}
+                style={[
+                  styles.swatch,
+                  { backgroundColor: c.value },
+                  annBusy && styles.btnDisabled,
+                ]}
+                disabled={annBusy}
+                onPress={() => void addHighlight(c.id)}
+                accessibilityLabel={`${t(locale, "reader.highlight")} ${c.id}`}
+              />
+            ))}
           </View>
           {selectedVerse != null && (
             <>
@@ -593,6 +608,14 @@ const styles = StyleSheet.create({
   },
   annItem: { flex: 1, color: "#5a6a68", fontSize: 13 },
   btnDelete: { marginRight: 0, paddingVertical: 6, paddingHorizontal: 10 },
+  swatch: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#cfc7b6",
+  },
   studyItem: { marginTop: 10 },
   studyTitle: { color: "#0f6b5c", fontWeight: "600", fontSize: 16 },
 });
