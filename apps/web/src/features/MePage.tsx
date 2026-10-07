@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { THEME_IDS, type PrivacySettings, type ThemeId } from "@logoshome/shared";
+import {
+  generateIdentityKeyPair,
+  generateOneTimePrekeys,
+  generateSignedPrekey,
+} from "@logoshome/crypto";
 import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
+import { wipeLocalClientState } from "../lib/local-wipe";
 
 type MeChurch = {
   churchId: string;
@@ -22,6 +28,20 @@ type MeProfile = {
 };
 
 type SearchHit = { id: string; uid: string; nickname: string | null };
+
+type PendingWipe = {
+  id: string;
+  deviceId: string | null;
+  reasonCode: string;
+  expiresAt: number;
+};
+
+/**
+ * Device private material in localStorage under `lh.device.priv`.
+ * NOT production-secure storage — use platform secure enclave / IndexedDB
+ * wrapped keys before shipping E2EE.
+ */
+const DEVICE_PRIV_KEY = "lh.device.priv";
 
 const DEFAULT_PRIVACY: PrivacySettings = {
   discoverableByHandle: true,
@@ -45,6 +65,11 @@ export function MePage() {
   const [searchQ, setSearchQ] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [pendingWipes, setPendingWipes] = useState<PendingWipe[]>([]);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [hasDeviceKey, setHasDeviceKey] = useState(
+    () => typeof localStorage !== "undefined" && !!localStorage.getItem(DEVICE_PRIV_KEY),
+  );
 
   async function refresh() {
     if (!getToken()) return;
@@ -56,12 +81,48 @@ export function MePage() {
     if (me.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...me.privacy });
   }
 
+  async function checkPendingWipe() {
+    if (!getToken()) return;
+    try {
+      const res = await api<{ commands: PendingWipe[] }>("/v1/admin/wipe/pending");
+      setPendingWipes(res.commands);
+      if (res.commands.length > 0) {
+        await applyRemoteWipe(res.commands);
+      }
+    } catch {
+      /* not logged in or network */
+    }
+  }
+
+  async function applyRemoteWipe(commands: PendingWipe[]) {
+    // Capture token before local wipe clears `lh.*` so we can still ack.
+    const token = getToken();
+    await wipeLocalClientState();
+    setProfile(null);
+    setHasDeviceKey(false);
+    setPendingWipes([]);
+    setMsg("wiped");
+    if (!token) return;
+    const base = import.meta.env.VITE_API_BASE ?? "";
+    for (const cmd of commands) {
+      try {
+        await fetch(`${base}/v1/admin/wipe/${cmd.id}/ack`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        });
+      } catch {
+        /* ack best-effort after local wipe */
+      }
+    }
+  }
+
   useEffect(() => {
     void refresh().catch(() => undefined);
+    void checkPendingWipe();
   }, []);
 
   async function register() {
-    const res = await api<{ token: string }>("/v1/auth/register", {
+    const res = await api<{ token: string; deviceId: string }>("/v1/auth/register", {
       method: "POST",
       body: JSON.stringify({
         handle,
@@ -71,18 +132,21 @@ export function MePage() {
       }),
     });
     setToken(res.token);
+    localStorage.setItem("lh.deviceId", res.deviceId);
     setMsg("registered");
     await refresh();
   }
 
   async function login() {
-    const res = await api<{ token: string }>("/v1/auth/login", {
+    const res = await api<{ token: string; deviceId: string }>("/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({ handleOrEmail: handle, password, platform: "web" }),
     });
     setToken(res.token);
+    localStorage.setItem("lh.deviceId", res.deviceId);
     setMsg("logged_in");
     await refresh();
+    await checkPendingWipe();
   }
 
   async function saveProfile() {
@@ -124,6 +188,60 @@ export function MePage() {
     setSearchResults(res.results);
   }
 
+  async function registerDeviceKeys() {
+    if (!getToken()) {
+      setMsg("login_required");
+      return;
+    }
+    setKeyBusy(true);
+    try {
+      const identity = await generateIdentityKeyPair();
+      const signedPrekey = await generateSignedPrekey(identity, 1);
+      const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
+      const registrationId = Math.floor(Math.random() * 16380) + 1;
+
+      // Private material — localStorage is NOT production-secure storage.
+      localStorage.setItem(
+        DEVICE_PRIV_KEY,
+        JSON.stringify({
+          identity,
+          signedPrekey,
+          oneTimePrekeys,
+          registrationId,
+          createdAt: Date.now(),
+        }),
+      );
+
+      await api("/v1/keys/bundle", {
+        method: "PUT",
+        body: JSON.stringify({
+          identityKeyPub: JSON.stringify(identity.publicKey),
+          signedPrekeyPub: JSON.stringify(signedPrekey.publicKey),
+          signedPrekeySig: signedPrekey.signature,
+          signedPrekeyId: signedPrekey.id,
+          registrationId,
+        }),
+      });
+
+      await api("/v1/keys/prekeys", {
+        method: "PUT",
+        body: JSON.stringify({
+          prekeys: oneTimePrekeys.map((pk) => ({
+            id: pk.id,
+            pub: JSON.stringify(pk.publicKey),
+          })),
+        }),
+      });
+
+      setHasDeviceKey(true);
+      setMsg("keys_uploaded");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "keys_failed");
+    } finally {
+      setKeyBusy(false);
+    }
+  }
+
   async function selfWipe() {
     if (!getToken() || !profile?.id) {
       setMsg("login_required");
@@ -134,8 +252,10 @@ export function MePage() {
       method: "POST",
       body: JSON.stringify({ userId: profile.id, reasonCode: "self" }),
     });
+    await wipeLocalClientState();
     setToken(null);
     setProfile(null);
+    setHasDeviceKey(false);
     setMsg("wiped");
   }
 
@@ -152,6 +272,13 @@ export function MePage() {
   return (
     <section className="fade-up">
       <h1 className="brand">{t("nav.me")}</h1>
+
+      {pendingWipes.length > 0 && (
+        <div className="panel" role="alert" style={{ borderColor: "var(--danger, #b33)" }}>
+          <p>{t("security.wipePending")}</p>
+        </div>
+      )}
+
       <div className="panel">
         <div className="field">
           <label>Handle / UID login</label>
@@ -305,6 +432,22 @@ export function MePage() {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("security.deviceKeys")}</h2>
+        <p className="muted">{t("security.deviceKeysHint")}</p>
+        <p className="muted">
+          {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+        </p>
+        <button
+          type="button"
+          className="btn"
+          disabled={keyBusy}
+          onClick={() => void registerDeviceKeys()}
+        >
+          {t("security.uploadKeys")}
+        </button>
       </div>
 
       <div className="panel">

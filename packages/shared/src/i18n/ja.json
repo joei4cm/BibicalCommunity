@@ -89,6 +89,12 @@
   "security.wipe": "リモート消去",
   "security.wipeHint": "このアカウントのデータを消去してログアウトします。",
   "security.wipeConfirm": "このアカウントを消去しますか？元に戻せません。",
+  "security.wipePending": "リモート消去を受信しました。端末データを消去中…",
+  "security.deviceKeys": "端末キー",
+  "security.deviceKeysHint": "公開鍵バンドルを生成してアップロードします。秘密鍵は localStorage（lh.device.priv）に保存 — 本番向けの安全な保管ではありません。",
+  "security.deviceKeysPresent": "このブラウザに端末秘密鍵があります。",
+  "security.deviceKeysMissing": "端末キーはまだ登録されていません。",
+  "security.uploadKeys": "暗号アイデンティティをアップロード",
   "auth.login": "ログイン",
   "auth.register": "登録"
 }

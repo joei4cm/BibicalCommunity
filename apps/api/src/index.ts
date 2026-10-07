@@ -11,6 +11,8 @@ import { chatRoutes } from "./routes/chat";
 import { adminRoutes } from "./routes/admin";
 import { mediaRoutes } from "./routes/media";
 import { keysRoutes } from "./routes/keys";
+import { callRoutes } from "./routes/calls";
+import { partnerRoutes } from "./routes/partners";
 import { CallRoomDO } from "./durable/CallRoomDO";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -42,6 +44,8 @@ app.route("/v1/chat", chatRoutes);
 app.route("/v1/admin", adminRoutes);
 app.route("/v1/media", mediaRoutes);
 app.route("/v1/keys", keysRoutes);
+app.route("/v1/calls", callRoutes);
+app.route("/v1/partners", partnerRoutes);
 
 async function scheduled(_event: ScheduledEvent, env: Env) {
   await env.DB.prepare(

@@ -89,6 +89,12 @@
   "security.wipe": "远程抹除",
   "security.wipeHint": "将抹除本账号数据并退出登录。",
   "security.wipeConfirm": "确认抹除本账号？此操作不可撤销。",
+  "security.wipePending": "收到远程抹除指令，正在清除本机数据…",
+  "security.deviceKeys": "设备密钥",
+  "security.deviceKeysHint": "生成并上传公钥包。私钥存于 localStorage（lh.device.priv）— 非生产级安全存储。",
+  "security.deviceKeysPresent": "本机已有设备私钥。",
+  "security.deviceKeysMissing": "尚未注册设备密钥。",
+  "security.uploadKeys": "上传加密身份",
   "auth.login": "登录",
   "auth.register": "注册"
 }

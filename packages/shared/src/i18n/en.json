@@ -89,6 +89,12 @@
   "security.wipe": "Remote wipe",
   "security.wipeHint": "Wipe this account’s data and sign out.",
   "security.wipeConfirm": "Wipe this account? This cannot be undone.",
+  "security.wipePending": "Remote wipe pending — clearing local data…",
+  "security.deviceKeys": "Device keys",
+  "security.deviceKeysHint": "Generate and upload your public key bundle. Private keys are stored in localStorage (lh.device.priv) — not production-secure storage.",
+  "security.deviceKeysPresent": "Device private key is present on this browser.",
+  "security.deviceKeysMissing": "No device keys registered yet.",
+  "security.uploadKeys": "Upload crypto identity",
   "auth.login": "Log in",
   "auth.register": "Sign up"
 }
