@@ -81,8 +81,37 @@ export default function MeScreen() {
     if (me.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...me.privacy });
   }
 
+  async function checkPendingWipe() {
+    await hydrateToken();
+    if (!getApiBase() || !getToken()) return;
+    try {
+      const res = await api<{ commands: { id: string }[] }>("/v1/admin/wipe/pending");
+      if (!res.commands?.length) return;
+      const token = getToken();
+      await clearLocalStorage();
+      await setToken(null);
+      setProfile(null);
+      setMsg("wiped");
+      if (!token) return;
+      const base = getApiBase();
+      for (const cmd of res.commands) {
+        try {
+          await fetch(`${base}/v1/admin/wipe/${cmd.id}/ack`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          });
+        } catch {
+          /* best-effort ack */
+        }
+      }
+    } catch {
+      /* not logged in */
+    }
+  }
+
   useEffect(() => {
     void refresh().catch(() => undefined);
+    void checkPendingWipe();
   }, []);
 
   async function register() {
@@ -121,6 +150,7 @@ export default function MeScreen() {
       await setToken(res.token);
       setMsg("logged_in");
       await refresh();
+      await checkPendingWipe();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     }

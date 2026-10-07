@@ -43,13 +43,25 @@ H2="smokepeer$(date +%s)"
 REG2=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
   -d "{\"handle\":\"$H2\",\"password\":\"$PASS\",\"nickname\":\"Peer\",\"locale\":\"en\"}")
 PEER=$(echo "$REG2" | sed -n 's/.*"userId":"\([^"]*\)".*/\1/p')
+TOKEN2=$(echo "$REG2" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
 CONVO=$(curl -sf -X POST "$BASE/v1/chat/conversations" -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"kind\":\"dm\",\"memberIds\":[\"$PEER\"],\"disappearingTtlSec\":1}")
 CID=$(echo "$CONVO" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+LIST=$(curl -sf "$BASE/v1/chat/conversations" -H "$AUTH")
+echo "$LIST" | grep -q "peerUserIds"
+echo "PEER_IDS_OK"
 curl -sf -X POST "$BASE/v1/chat/conversations/$CID/messages" -H "$AUTH" -H 'content-type: application/json' \
   -d '{"ratchetHeader":"dGVzdA==","ciphertext":"Y3Q=","contentType":"msg"}' >/dev/null
 sleep 2
 AFTER=$(curl -sf "$BASE/v1/chat/conversations/$CID/messages" -H "$AUTH")
 echo "$AFTER" | grep -q '"messages":\[\]'
 echo "TTL_TOMBSTONE_OK"
+echo "== call create + turn =="
+CALL=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"conversationId\":\"$CID\"}" "$BASE/v1/chat/calls")
+echo "$CALL" | head -c 200; echo
+echo "$CALL" | grep -q "signalingPath"
+echo "CALL_SIGNAL_OK"
+echo "== peer key bundle list =="
+curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
 echo "SMOKE_OK"

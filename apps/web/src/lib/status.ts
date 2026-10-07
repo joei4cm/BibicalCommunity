@@ -14,6 +14,7 @@ export function humanizeStatus(
     entitlement_ok: "reader.entitlementOk",
     handle_taken: "auth.handleTaken",
     invalid_credentials: "auth.badLogin",
+    chat_degraded_no_peer_keys: "chat.degradedNoPeerKeys",
   };
   const key = map[code];
   return key ? t(key) : code;

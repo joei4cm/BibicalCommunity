@@ -293,7 +293,11 @@ export function MePage() {
       await api("/v1/keys/bundle", {
         method: "PUT",
         body: JSON.stringify({
-          identityKeyPub: JSON.stringify(identity.publicKey),
+          // Include signing pub so peers can verify signed prekeys during X3DH.
+          identityKeyPub: JSON.stringify({
+            ecdh: identity.publicKey,
+            signing: identity.signingPublicKey,
+          }),
           signedPrekeyPub: JSON.stringify(signedPrekey.publicKey),
           signedPrekeySig: signedPrekey.signature,
           signedPrekeyId: signedPrekey.id,

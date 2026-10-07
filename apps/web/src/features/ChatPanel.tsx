@@ -18,6 +18,8 @@ type Conversation = {
   disappearingTtlSec: number | null;
   createdBy: string;
   createdAt: number;
+  memberIds?: string[];
+  peerUserIds?: string[];
   membership: { id: string; role: string; archived: boolean };
 };
 
@@ -97,6 +99,15 @@ export function ChatPanel() {
     setPlaintexts(decoded);
   }, []);
 
+  const peerFor = useCallback(
+    (conversationId: string | null) => {
+      if (!conversationId) return null;
+      const c = conversations.find((x) => x.id === conversationId);
+      return c?.peerUserIds?.[0] ?? null;
+    },
+    [conversations],
+  );
+
   const loadFavorites = useCallback(async () => {
     if (!getToken()) return;
     try {
@@ -160,7 +171,7 @@ export function ChatPanel() {
     setBusy(true);
     try {
       const text = draft.trim();
-      const enc = await encryptChatMessage(selectedId, text);
+      const enc = await encryptChatMessage(selectedId, text, peerFor(selectedId));
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;
@@ -174,6 +185,9 @@ export function ChatPanel() {
         }),
       });
       localStorage.setItem(`lh.msg.${res.id}`, text);
+      if (enc.mode === "degraded") {
+        setNote("chat_degraded_no_peer_keys");
+      }
       setDraft("");
       await loadMessages(selectedId);
     } catch (e) {

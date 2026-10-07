@@ -66,6 +66,10 @@ chatRoutes.get("/conversations", async (c) => {
         .limit(1)
     )[0];
     if (!convo) continue;
+    const members = await db
+      .select()
+      .from(schema.conversationMembers)
+      .where(eq(schema.conversationMembers.conversationId, convo.id));
     conversations.push({
       id: convo.id,
       kind: convo.kind,
@@ -73,6 +77,8 @@ chatRoutes.get("/conversations", async (c) => {
       disappearingTtlSec: convo.disappearingTtlSec,
       createdBy: convo.createdBy,
       createdAt: convo.createdAt,
+      memberIds: members.map((row) => row.userId),
+      peerUserIds: members.map((row) => row.userId).filter((id) => id !== userId),
       membership: {
         id: m.id,
         role: m.role,

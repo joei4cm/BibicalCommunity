@@ -10,7 +10,9 @@ import {
 } from "react-native";
 import {
   buildPartnerAuthUrl,
+  getBook,
   isPartnerId,
+  listBooks,
   listStudyMaterials,
   listTranslations,
   WEB_JOHN_1,
@@ -50,7 +52,10 @@ function isExternalChapter(data: ChapterResponse): data is ExternalChapter {
 export default function BibleScreen() {
   const { locale } = useLocale();
   const translations = listTranslations();
+  const books = useMemo(() => listBooks(), []);
   const [translationId, setTranslationId] = useState("web");
+  const [bookId, setBookId] = useState("John");
+  const [chapterNum, setChapterNum] = useState(1);
   const [verses, setVerses] = useState(WEB_JOHN_1);
   const [chapterLabel, setChapterLabel] = useState("John 1");
   const [external, setExternal] = useState<ExternalChapter | null>(null);
@@ -58,10 +63,17 @@ export default function BibleScreen() {
   const [error, setError] = useState<string | null>(null);
   const apiBase = getApiBase();
   const studyLang = bookLocaleKey(locale);
+  const bookNameLocale = studyLang;
   const studyMaterials = useMemo(
     () => listStudyMaterials({ language: studyLang }),
     [studyLang],
   );
+  const currentBook = getBook(bookId) ?? books.find((b) => b.id === "John") ?? books[0];
+  const chapterOptions = useMemo(
+    () => Array.from({ length: currentBook?.chapters ?? 1 }, (_, i) => i + 1),
+    [currentBook?.chapters],
+  );
+  const ref = `${bookId}.${chapterNum}`;
 
   useEffect(() => {
     if (!apiBase) {
@@ -77,7 +89,7 @@ export default function BibleScreen() {
     void (async () => {
       try {
         const data = await api<ChapterResponse>(
-          `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent("John.1")}`,
+          `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
         );
         if (cancelled) return;
         if (isExternalChapter(data)) {
@@ -106,7 +118,7 @@ export default function BibleScreen() {
     return () => {
       cancelled = true;
     };
-  }, [apiBase, translationId, locale]);
+  }, [apiBase, translationId, ref, locale]);
 
   function openExternalPartner() {
     if (!external) return;
@@ -144,6 +156,45 @@ export default function BibleScreen() {
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
                 {tr.name[locale] ?? tr.abbreviation}
               </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <Text style={styles.label}>{t(locale, "reader.book")}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
+        {books
+          .filter((b) => b.testament === "nt")
+          .map((b) => {
+            const active = b.id === bookId;
+            return (
+              <Pressable
+                key={b.id}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => {
+                  setBookId(b.id);
+                  setChapterNum(1);
+                }}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {b.name[bookNameLocale]}
+                </Text>
+              </Pressable>
+            );
+          })}
+      </ScrollView>
+
+      <Text style={styles.label}>{t(locale, "reader.chapter")}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
+        {chapterOptions.slice(0, 28).map((n) => {
+          const active = n === chapterNum;
+          return (
+            <Pressable
+              key={n}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setChapterNum(n)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{n}</Text>
             </Pressable>
           );
         })}
