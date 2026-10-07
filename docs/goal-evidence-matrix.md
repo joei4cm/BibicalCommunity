@@ -16,7 +16,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK`; `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; mobile TTL+archive | PARTIAL — P-256+TTL+archive PASS; Curve25519 OPEN |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK` | PARTIAL — signaling PASS; live picker OPEN |
 | 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK`; `HOME_VERIFY_OK` / `HOME_MEMBERS_OK` / `HOME_WIPE_OK`; Me church name + pending badge; web+mobile roster verify | PARTIAL — verify roster UX PASS; join-by-slug UX OPEN |
-| 11 | Encrypted storage | `STORAGE_SMOKE_OK` (session-aes + note envelope + field-crypto + annotation opaque) | PARTIAL — roundtrip PASS; device keystore E2E OPEN |
+| 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv` (expo-secure-store → AsyncStorage fallback) for note/session/device keys | PARTIAL — roundtrip+SecureStore path PASS; physical device E2E OPEN |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `PWA_THEME_OK` | PARTIAL — keys/themes PASS; full copy audit OPEN |
 | 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK`; `DEPLOY_DRY_RUN_OK` | PARTIAL — preflight+dry-run PASS; live account OPEN |

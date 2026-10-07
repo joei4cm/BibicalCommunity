@@ -44,7 +44,7 @@ const TTL_OPTIONS = [
 /**
  * Mobile chat: AES-GCM session payloads via @logoshome/crypto session-aes.
  * Full Double Ratchet / X3DH remains richest on web ChatPanel; mobile stores
- * per-conversation key material in AsyncStorage for local decrypt.
+ * per-conversation key material via secure-kv (SecureStore → AsyncStorage).
  */
 export default function MessagesScreen() {
   const { locale } = useLocale();

@@ -19,7 +19,9 @@ import {
 import { api, getApiBase, getToken, hydrateToken, setToken } from "../../src/api";
 import { ensureBase64Globals, hasWebCrypto } from "../../src/crypto-polyfill";
 import { normalizeApiLocale, useLocale } from "../../src/locale";
+import { NOTE_KEY_STORAGE } from "../../src/note-crypto";
 import { humanizeStatus } from "../../src/status";
+import { KNOWN_SECRET_KEYS, kvGet, kvSet, wipeSecureSecrets } from "../../src/secure-kv";
 import {
   loadTheme,
   saveTheme,
@@ -71,6 +73,7 @@ type MeProfile = {
 type SearchHit = { id: string; uid: string; nickname: string | null };
 
 async function clearLocalStorage(): Promise<void> {
+  await wipeSecureSecrets([...KNOWN_SECRET_KEYS, NOTE_KEY_STORAGE]);
   const keys = await AsyncStorage.getAllKeys();
   const lhKeys = keys.filter((k) => k.startsWith("lh."));
   await Promise.all(lhKeys.map((k) => AsyncStorage.removeItem(k)));
@@ -139,7 +142,7 @@ export default function MeScreen() {
     void (async () => {
       const stored = await loadTheme();
       setThemeState(stored);
-      const priv = await AsyncStorage.getItem(DEVICE_PRIV_KEY);
+      const { value: priv } = await kvGet(DEVICE_PRIV_KEY);
       setHasDeviceKey(Boolean(priv));
       await refresh().catch(() => undefined);
       await checkPendingWipe();
@@ -250,7 +253,7 @@ export default function MeScreen() {
       const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
       const registrationId = Math.floor(Math.random() * 16380) + 1;
 
-      await AsyncStorage.setItem(
+      await kvSet(
         DEVICE_PRIV_KEY,
         JSON.stringify({
           identity,

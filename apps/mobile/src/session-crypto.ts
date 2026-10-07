@@ -1,18 +1,18 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   decryptSessionPayload,
   deriveSessionKey,
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { ensureBase64Globals, getRandomValues, hasWebCrypto } from "./crypto-polyfill";
+import { kvGet, kvSet } from "./secure-kv";
 
-const SESSION_MATERIAL_PREFIX = "lh.session.material.";
+export const SESSION_MATERIAL_PREFIX = "lh.session.material.";
 
 ensureBase64Globals();
 
 async function materialForConversation(conversationId: string): Promise<string> {
   const key = `${SESSION_MATERIAL_PREFIX}${conversationId}`;
-  const existing = await AsyncStorage.getItem(key);
+  const { value: existing } = await kvGet(key);
   if (existing) return existing;
   // Deterministic-enough local material for MVP pairwise AES; replace with
   // X3DH shared secret once mobile Double Ratchet matches web ChatPanel.
@@ -20,7 +20,7 @@ async function materialForConversation(conversationId: string): Promise<string> 
   let hex = "";
   for (const b of bytes) hex += b.toString(16).padStart(2, "0");
   const material = `mobile-session:${conversationId}:${hex}`;
-  await AsyncStorage.setItem(key, material);
+  await kvSet(key, material);
   return material;
 }
 

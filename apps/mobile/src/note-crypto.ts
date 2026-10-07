@@ -1,8 +1,7 @@
 /**
  * Client-side AES-GCM note key for Bible annotations (parity with web note-crypto).
- * Key JWK lives in AsyncStorage; ciphertext never leaves the device unencrypted.
+ * Key JWK prefers expo-secure-store; falls back to AsyncStorage.
  */
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   decryptJson as decryptJsonRaw,
   encryptJson as encryptJsonRaw,
@@ -10,8 +9,9 @@ import {
   importNoteKey,
 } from "@logoshome/crypto";
 import { ensureBase64Globals, hasWebCrypto } from "./crypto-polyfill";
+import { kvDelete, kvGet, kvSet } from "./secure-kv";
 
-const NOTE_KEY_STORAGE = "lh.noteKey.jwk";
+export const NOTE_KEY_STORAGE = "lh.noteKey.jwk";
 
 ensureBase64Globals();
 
@@ -25,18 +25,18 @@ export async function loadOrCreateNoteKey(): Promise<NoteKey> {
   if (!hasWebCrypto()) {
     throw new Error("webcrypto_unavailable");
   }
-  const raw = await AsyncStorage.getItem(NOTE_KEY_STORAGE);
+  const { value: raw } = await kvGet(NOTE_KEY_STORAGE);
   if (raw) {
     try {
       const jwk = JSON.parse(raw) as Parameters<typeof importNoteKey>[0];
       cachedKey = await importNoteKey(jwk);
       return cachedKey;
     } catch {
-      await AsyncStorage.removeItem(NOTE_KEY_STORAGE);
+      await kvDelete(NOTE_KEY_STORAGE);
     }
   }
   const { key, jwk } = await generateAndExportNoteKey();
-  await AsyncStorage.setItem(NOTE_KEY_STORAGE, JSON.stringify(jwk));
+  await kvSet(NOTE_KEY_STORAGE, JSON.stringify(jwk));
   cachedKey = key;
   return key;
 }
