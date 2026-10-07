@@ -328,6 +328,11 @@ select {
   font-weight: 600;
 }
 
+.badge-hostile {
+  color: var(--lh-danger);
+  font-weight: 600;
+}
+
 .media-embed {
   margin-top: 0.65rem;
   position: relative;

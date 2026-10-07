@@ -2,10 +2,14 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { createId, forumPostSchema } from "@logoshome/shared";
+import { createId, forumPostSchema, securityModeSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
+import {
+  applyHostilePrivacyFloors,
+  applyHostilePrivacyFloorsToChurch,
+} from "../services/hostile-privacy";
 
 export const homeRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 homeRoutes.use("*", requireAuth);
@@ -17,20 +21,28 @@ const seedChurchSchema = z.object({
     .min(2)
     .max(64)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  securityMode: securityModeSchema.optional().default("standard"),
+});
+
+const patchSecuritySchema = z.object({
+  securityMode: securityModeSchema,
 });
 
 homeRoutes.get("/churches", async (c) => {
   const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
   const memberships = await db
     .select()
     .from(schema.churchMembers)
-    .where(eq(schema.churchMembers.userId, c.get("userId")));
+    .where(eq(schema.churchMembers.userId, userId));
   const churches = [];
+  let inHostile = false;
   for (const m of memberships) {
     const church = (
       await db.select().from(schema.churches).where(eq(schema.churches.id, m.churchId)).limit(1)
     )[0];
     if (church) {
+      if (church.securityMode === "hostile") inHostile = true;
       churches.push({
         ...church,
         role: m.role,
@@ -38,6 +50,10 @@ homeRoutes.get("/churches", async (c) => {
         groups: JSON.parse(m.groupIdsJson || "[]"),
       });
     }
+  }
+  // Re-enforce hostile privacy floors for members of any hostile church.
+  if (inHostile) {
+    await applyHostilePrivacyFloors(db, userId);
   }
   return c.json({ churches });
 });
@@ -54,11 +70,12 @@ homeRoutes.post("/churches", async (c) => {
   const churchId = createId("church");
   const memberId = createId("cmbr");
   const now = Date.now();
+  const securityMode = body.securityMode ?? "standard";
   await db.insert(schema.churches).values({
     id: churchId,
     name: body.name,
     slug: body.slug,
-    securityMode: "standard",
+    securityMode,
     createdAt: now,
   });
   await db.insert(schema.churchMembers).values({
@@ -71,7 +88,91 @@ homeRoutes.post("/churches", async (c) => {
     createdAt: now,
   });
 
-  return c.json({ id: churchId, name: body.name, slug: body.slug, role: "admin" }, 201);
+  if (securityMode === "hostile") {
+    await applyHostilePrivacyFloors(db, c.get("userId"));
+  }
+
+  return c.json(
+    { id: churchId, name: body.name, slug: body.slug, role: "admin", securityMode },
+    201,
+  );
+});
+
+/** Join an existing church as member; hostile churches force privacy floors. */
+homeRoutes.post("/churches/:id/join", async (c) => {
+  const churchId = c.req.param("id");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
+  )[0];
+  if (!church) return c.json({ error: "not_found" }, 404);
+
+  const existing = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(and(eq(schema.churchMembers.churchId, churchId), eq(schema.churchMembers.userId, userId)))
+      .limit(1)
+  )[0];
+  if (existing) {
+    if (church.securityMode === "hostile") {
+      await applyHostilePrivacyFloors(db, userId);
+    }
+    return c.json({ id: existing.id, churchId, role: existing.role, alreadyMember: true });
+  }
+
+  const memberId = createId("cmbr");
+  await db.insert(schema.churchMembers).values({
+    id: memberId,
+    churchId,
+    userId,
+    role: "member",
+    verified: false,
+    groupIdsJson: "[]",
+    createdAt: Date.now(),
+  });
+
+  if (church.securityMode === "hostile") {
+    await applyHostilePrivacyFloors(db, userId);
+  }
+
+  return c.json({ id: memberId, churchId, role: "member", alreadyMember: false }, 201);
+});
+
+/** Admin-only: switch church security mode. Hostile applies floors to all members. */
+homeRoutes.patch("/churches/:id/security", async (c) => {
+  const churchId = c.req.param("id");
+  const body = patchSecuritySchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const actor = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(eq(schema.churchMembers.churchId, churchId), eq(schema.churchMembers.userId, c.get("userId"))),
+      )
+      .limit(1)
+  )[0];
+  if (!actor || (actor.role !== "admin" && actor.role !== "security_officer")) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
+  )[0];
+  if (!church) return c.json({ error: "not_found" }, 404);
+
+  await db
+    .update(schema.churches)
+    .set({ securityMode: body.securityMode })
+    .where(eq(schema.churches.id, churchId));
+
+  if (body.securityMode === "hostile") {
+    await applyHostilePrivacyFloorsToChurch(db, churchId);
+  }
+
+  return c.json({ id: churchId, securityMode: body.securityMode });
 });
 
 homeRoutes.get("/:churchId/posts", async (c) => {
@@ -218,6 +319,13 @@ homeRoutes.post("/members/verify", async (c) => {
     .update(schema.churchMembers)
     .set({ verified: true })
     .where(eq(schema.churchMembers.id, target.id));
+
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.id, body.churchId)).limit(1)
+  )[0];
+  if (church?.securityMode === "hostile") {
+    await applyHostilePrivacyFloors(db, body.userId);
+  }
 
   return c.json({ ok: true, churchId: body.churchId, userId: body.userId, verified: true });
 });

@@ -1,0 +1,5 @@
+# Optional Cloudflare Pages project stub.
+# Prefer dashboard build settings or see pages.md.
+name = "logoshome-web"
+compatibility_date = "2025-10-01"
+pages_build_output_dir = "dist"

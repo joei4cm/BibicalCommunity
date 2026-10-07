@@ -67,8 +67,14 @@ export function MePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [pendingWipes, setPendingWipes] = useState<PendingWipe[]>([]);
   const [keyBusy, setKeyBusy] = useState(false);
+  const [wipeUserId, setWipeUserId] = useState("");
+  const [wipeDeviceId, setWipeDeviceId] = useState("");
   const [hasDeviceKey, setHasDeviceKey] = useState(
     () => typeof localStorage !== "undefined" && !!localStorage.getItem(DEVICE_PRIV_KEY),
+  );
+
+  const isChurchAdmin = profile?.churches?.some(
+    (c) => c.role === "admin" || c.role === "security_officer",
   );
 
   async function refresh() {
@@ -257,6 +263,26 @@ export function MePage() {
     setProfile(null);
     setHasDeviceKey(false);
     setMsg("wiped");
+  }
+
+  async function adminWipe() {
+    if (!getToken() || !wipeUserId.trim()) {
+      setMsg("login_required");
+      return;
+    }
+    if (!window.confirm(t("security.adminWipeConfirm"))) return;
+    const payload: Record<string, string> = {
+      userId: wipeUserId.trim(),
+      reasonCode: "admin",
+    };
+    if (wipeDeviceId.trim()) payload.deviceId = wipeDeviceId.trim();
+    await api("/v1/admin/wipe", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    setWipeUserId("");
+    setWipeDeviceId("");
+    setMsg("admin_wipe_issued");
   }
 
   function setLocale(lng: string) {
@@ -457,6 +483,32 @@ export function MePage() {
           {t("security.wipe")}
         </button>
       </div>
+
+      {isChurchAdmin && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
+          <p className="muted">{t("security.adminWipeHint")}</p>
+          <div className="field">
+            <label>{t("security.adminWipeUserId")}</label>
+            <input
+              value={wipeUserId}
+              onChange={(e) => setWipeUserId(e.target.value)}
+              placeholder="usr_…"
+            />
+          </div>
+          <div className="field">
+            <label>{t("security.adminWipeDeviceId")}</label>
+            <input
+              value={wipeDeviceId}
+              onChange={(e) => setWipeDeviceId(e.target.value)}
+              placeholder="dev_… (optional)"
+            />
+          </div>
+          <button type="button" className="btn danger" onClick={() => void adminWipe()}>
+            {t("security.adminWipe")}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

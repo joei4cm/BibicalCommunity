@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { SecurityMode } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
 import { ChatPanel } from "./ChatPanel";
 import { ExternalMedia } from "./media";
@@ -10,6 +11,7 @@ type Church = {
   slug?: string;
   role: string;
   verified: boolean;
+  securityMode?: SecurityMode;
   groups?: string[];
 };
 
@@ -40,16 +42,20 @@ export function HomePage() {
   const [note, setNote] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [securityMode, setSecurityMode] = useState<SecurityMode>("standard");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [verifyUserId, setVerifyUserId] = useState("");
   const [groupName, setGroupName] = useState("");
+  const [wipeUserId, setWipeUserId] = useState("");
+  const [wipeDeviceId, setWipeDeviceId] = useState("");
 
   const selectedChurch = churches.find((c) => c.id === selectedChurchId) ?? null;
   const canAdmin = selectedChurch ? isChurchAdmin(selectedChurch.role) : false;
   const membershipGroups = selectedChurch?.groups ?? [];
+  const isAnyAdmin = churches.some((c) => isChurchAdmin(c.role));
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -90,12 +96,64 @@ export function HomePage() {
     try {
       const created = await api<{ id: string }>("/v1/home/churches", {
         method: "POST",
-        body: JSON.stringify({ name: name.trim(), slug: slug.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          slug: slug.trim(),
+          securityMode,
+        }),
       });
       setName("");
       setSlug("");
+      setSecurityMode("standard");
       setSelectedChurchId(created.id);
       await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function switchSecurityMode(mode: SecurityMode) {
+    if (!getToken() || !selectedChurchId || !canAdmin) {
+      setNote("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api(`/v1/home/churches/${encodeURIComponent(selectedChurchId)}/security`, {
+        method: "PATCH",
+        body: JSON.stringify({ securityMode: mode }),
+      });
+      setNote(mode === "hostile" ? "hostile_enabled" : "standard_enabled");
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function adminWipe() {
+    if (!getToken() || !wipeUserId.trim()) {
+      setNote("login_required");
+      return;
+    }
+    if (!window.confirm(t("security.adminWipeConfirm"))) return;
+    setBusy(true);
+    try {
+      const payload: Record<string, string> = {
+        userId: wipeUserId.trim(),
+        reasonCode: "admin",
+      };
+      if (wipeDeviceId.trim()) payload.deviceId = wipeDeviceId.trim();
+      await api("/v1/admin/wipe", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setWipeUserId("");
+      setWipeDeviceId("");
+      setNote("admin_wipe_issued");
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -192,6 +250,11 @@ export function HomePage() {
                 {c.role}
                 {c.slug ? ` · ${c.slug}` : ""}
                 {c.verified ? ` · ${t("me.verified")}` : ""}
+                {c.securityMode === "hostile" ? (
+                  <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
+                ) : (
+                  <span> · {t("home.securityMode.standardBadge")}</span>
+                )}
               </div>
             </li>
           ))}
@@ -212,10 +275,49 @@ export function HomePage() {
             placeholder="my-church"
           />
         </div>
+        <div className="field">
+          <label>{t("home.securityMode")}</label>
+          <select
+            value={securityMode}
+            onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
+          >
+            <option value="standard">{t("home.securityMode.standard")}</option>
+            <option value="hostile">{t("home.securityMode.hostile")}</option>
+          </select>
+        </div>
         <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
           {t("home.createChurch")}
         </button>
       </div>
+
+      {selectedChurchId && canAdmin && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("home.securityMode")}</h2>
+          <p className="muted">
+            {selectedChurch?.securityMode === "hostile"
+              ? t("home.securityMode.hostileHint")
+              : t("home.securityMode.standardHint")}
+          </p>
+          <div className="toolbar">
+            <button
+              type="button"
+              className={`btn ghost${selectedChurch?.securityMode === "standard" ? " active-toggle" : ""}`}
+              disabled={busy || selectedChurch?.securityMode === "standard"}
+              onClick={() => void switchSecurityMode("standard")}
+            >
+              {t("home.securityMode.standard")}
+            </button>
+            <button
+              type="button"
+              className={`btn ghost${selectedChurch?.securityMode === "hostile" ? " active-toggle" : ""}`}
+              disabled={busy || selectedChurch?.securityMode === "hostile"}
+              onClick={() => void switchSecurityMode("hostile")}
+            >
+              {t("home.securityMode.hostile")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {selectedChurchId && (
         <div className="panel">
@@ -257,6 +359,32 @@ export function HomePage() {
           </div>
           <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
             {t("home.createGroup")}
+          </button>
+        </div>
+      )}
+
+      {isAnyAdmin && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
+          <p className="muted">{t("security.adminWipeHint")}</p>
+          <div className="field">
+            <label>{t("security.adminWipeUserId")}</label>
+            <input
+              value={wipeUserId}
+              onChange={(e) => setWipeUserId(e.target.value)}
+              placeholder="usr_…"
+            />
+          </div>
+          <div className="field">
+            <label>{t("security.adminWipeDeviceId")}</label>
+            <input
+              value={wipeDeviceId}
+              onChange={(e) => setWipeDeviceId(e.target.value)}
+              placeholder="dev_… (optional)"
+            />
+          </div>
+          <button type="button" className="btn danger" disabled={busy} onClick={() => void adminWipe()}>
+            {t("security.adminWipe")}
           </button>
         </div>
       )}

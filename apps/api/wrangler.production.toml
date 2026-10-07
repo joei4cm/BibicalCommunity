@@ -1,0 +1,49 @@
+# Production example — copy values from Cloudflare dashboard, then:
+#   wrangler deploy -c wrangler.production.toml
+# Do not commit real IDs/secrets. Put secrets with:
+#   wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
+#   wrangler secret put KEK_MASTER -c wrangler.production.toml
+#   wrangler secret put TURN_SECRET -c wrangler.production.toml
+
+name = "logoshome-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "logoshome"
+# Replace with the UUID from: wrangler d1 create logoshome
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+# Replace with production bucket name from: wrangler r2 bucket create logoshome-media
+bucket_name = "logoshome-media"
+
+# Optional custom domain / zone routes (uncomment and fill):
+# [[routes]]
+# pattern = "api.example.com/*"
+# zone_name = "example.com"
+
+[durable_objects]
+bindings = [
+  { name = "CALL_ROOM", class_name = "CallRoomDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["CallRoomDO"]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+APP_NAME = "LogosHome"
+ENVIRONMENT = "production"
+ENDAO_SSO_ENABLED = "false"
+WEREAD_SSO_ENABLED = "false"
+# TURN_URIS is non-secret; TURN_SECRET must be a wrangler secret.
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"

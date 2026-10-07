@@ -13,6 +13,17 @@ export const privacySettingsSchema = z.object({
   shareLastActive: z.boolean().default(false),
 });
 
+/** Church deployment security posture. */
+export const securityModeSchema = z.enum(["standard", "hostile"]);
+
+/** Forced privacy floors for members of a hostile-mode church. */
+export const HOSTILE_PRIVACY_FLOORS = {
+  discoverableByHandle: false,
+  discoverableByUid: false,
+  showInChurchDirectory: false,
+  allowMessageRequests: "admin-approved",
+} as const satisfies Partial<z.infer<typeof privacySettingsSchema>>;
+
 export const registerSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(10).max(128),
@@ -88,6 +99,7 @@ export const wipeCommandSchema = z.object({
 });
 
 export type PrivacySettings = z.infer<typeof privacySettingsSchema>;
+export type SecurityMode = z.infer<typeof securityModeSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
