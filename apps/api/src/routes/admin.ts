@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { eq, inArray } from "drizzle-orm";
+import { z } from "zod";
 import { createId, wipeCommandSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
@@ -8,6 +9,51 @@ import { requireAuth, type AuthVars } from "../middleware/auth";
 import { randomToken, sha256Hex } from "../services/crypto";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
+
+/**
+ * Ack is intentionally unauthenticated: wipe deletes sessions immediately,
+ * so clients must confirm with the one-time wipeToken from the wipe response
+ * (or a still-valid Bearer session if present).
+ */
+adminRoutes.post("/wipe/:id/ack", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const id = c.req.param("id");
+  const cmd = (
+    await db.select().from(schema.wipeCommands).where(eq(schema.wipeCommands.id, id)).limit(1)
+  )[0];
+  if (!cmd) return c.json({ error: "not_found" }, 404);
+
+  let authorized = false;
+  const header = c.req.header("authorization");
+  if (header?.startsWith("Bearer ")) {
+    const tokenHash = await sha256Hex(header.slice(7));
+    const session = (
+      await db.select().from(schema.sessions).where(eq(schema.sessions.tokenHash, tokenHash)).limit(1)
+    )[0];
+    if (session && session.userId === cmd.userId && session.expiresAt >= Date.now()) {
+      authorized = true;
+    }
+  }
+
+  if (!authorized) {
+    let body: { wipeToken?: string } = {};
+    try {
+      body = z.object({ wipeToken: z.string().optional() }).parse(await c.req.json());
+    } catch {
+      body = {};
+    }
+    if (body.wipeToken) {
+      const hash = await sha256Hex(body.wipeToken);
+      if (hash === cmd.tokenHash) authorized = true;
+    }
+  }
+
+  if (!authorized) return c.json({ error: "unauthorized" }, 401);
+
+  await db.update(schema.wipeCommands).set({ status: "completed" }).where(eq(schema.wipeCommands.id, id));
+  return c.json({ ok: true });
+});
+
 adminRoutes.use("*", requireAuth);
 
 adminRoutes.post("/wipe", async (c) => {
@@ -68,20 +114,13 @@ adminRoutes.get("/wipe/pending", async (c) => {
     .from(schema.wipeCommands)
     .where(eq(schema.wipeCommands.userId, c.get("userId")));
   return c.json({
-    commands: rows.filter((r) => r.status === "pending").map((r) => ({
-      id: r.id,
-      deviceId: r.deviceId,
-      reasonCode: r.reasonCode,
-      expiresAt: r.expiresAt,
-    })),
+    commands: rows
+      .filter((r) => r.status === "pending")
+      .map((r) => ({
+        id: r.id,
+        deviceId: r.deviceId,
+        reasonCode: r.reasonCode,
+        expiresAt: r.expiresAt,
+      })),
   });
-});
-
-adminRoutes.post("/wipe/:id/ack", async (c) => {
-  const db = drizzle(c.env.DB, { schema });
-  await db
-    .update(schema.wipeCommands)
-    .set({ status: "completed" })
-    .where(eq(schema.wipeCommands.id, c.req.param("id")));
-  return c.json({ ok: true });
 });

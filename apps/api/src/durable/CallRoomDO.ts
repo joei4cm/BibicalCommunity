@@ -1,6 +1,8 @@
 /**
  * WebRTC signaling Durable Object — SDP/ICE fan-out only. No media.
  */
+import { isCallSignalType } from "@logoshome/shared";
+
 export class CallRoomDO implements DurableObject {
   private sessions = new Map<WebSocket, { userId: string }>();
 
@@ -37,8 +39,7 @@ export class CallRoomDO implements DurableObject {
       return;
     }
     // Allow only signaling message types (incl. screen-share SDP)
-    const allowed = ["offer", "answer", "ice", "hangup", "screen", "screen-offer", "screen-answer"];
-    if (!payload.type || !allowed.includes(payload.type)) {
+    if (!isCallSignalType(payload.type)) {
       ws.send(JSON.stringify({ type: "error", error: "invalid_type" }));
       return;
     }

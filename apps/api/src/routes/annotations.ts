@@ -45,3 +45,16 @@ annotationRoutes.post("/", async (c) => {
   });
   return c.json({ id }, 201);
 });
+
+annotationRoutes.delete("/:id", async (c) => {
+  const id = c.req.param("id");
+  const db = drizzle(c.env.DB, { schema });
+  const deleted = await db
+    .delete(schema.annotations)
+    .where(and(eq(schema.annotations.id, id), eq(schema.annotations.userId, c.get("userId"))))
+    .returning({ id: schema.annotations.id });
+  if (deleted.length === 0) {
+    return c.json({ error: "not_found" }, 404);
+  }
+  return c.json({ ok: true, id });
+});

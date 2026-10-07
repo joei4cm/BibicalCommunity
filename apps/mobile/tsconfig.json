@@ -7,5 +7,6 @@
     "skipLibCheck": true,
     "types": ["react"]
   },
-  "include": ["app", "src", "src/env.d.ts"]
+  "include": ["app", "src", "src/env.d.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }

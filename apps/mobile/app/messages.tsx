@@ -11,15 +11,19 @@ import {
 import { useRouter } from "expo-router";
 import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../src/api";
+import { ensureBase64Globals } from "../src/crypto-polyfill";
 import { useLocale } from "../src/locale";
+import { decryptMobileMessage, encryptMobileMessage } from "../src/session-crypto";
 import { humanizeStatus } from "../src/status";
+
+ensureBase64Globals();
 
 type Conversation = {
   id: string;
   kind: string;
   title: string | null;
   disappearingTtlSec: number | null;
-  archived?: boolean;
+  membership: { id: string; role: string; archived: boolean };
 };
 
 type ChatMessage = {
@@ -30,31 +34,17 @@ type ChatMessage = {
   expiresAt: number | null;
 };
 
-function utf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  const btoaFn = globalThis.btoa?.bind(globalThis);
-  if (btoaFn) return btoaFn(binary);
-  // Fallback without btoa (some RN runtimes)
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i] ?? 0;
-    const b = bytes[i + 1];
-    const c = bytes[i + 2];
-    out += chars[a >> 2];
-    out += chars[((a & 3) << 4) | ((b ?? 0) >> 4)];
-    out += b === undefined ? "=" : chars[(((b ?? 0) & 15) << 2) | ((c ?? 0) >> 6)];
-    out += c === undefined ? "=" : chars[(c ?? 0) & 63];
-  }
-  return out;
-}
+const TTL_OPTIONS = [
+  { labelKey: "chat.ttlOff" as const, value: null as number | null },
+  { labelKey: "chat.ttl1h" as const, value: 3600 },
+  { labelKey: "chat.ttl1d" as const, value: 86400 },
+  { labelKey: "chat.ttl7d" as const, value: 604800 },
+];
 
 /**
- * Mobile chat: lists conversations and posts ciphertext payloads.
- * Full Double Ratchet UX remains richest on web ChatPanel; mobile stores
- * plaintext locally keyed by message id for display after send.
+ * Mobile chat: AES-GCM session payloads via @logoshome/crypto session-aes.
+ * Full Double Ratchet / X3DH remains richest on web ChatPanel; mobile stores
+ * per-conversation key material via secure-kv (SecureStore → AsyncStorage).
  */
 export default function MessagesScreen() {
   const { locale } = useLocale();
@@ -67,6 +57,9 @@ export default function MessagesScreen() {
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
   const refresh = useCallback(async () => {
     await hydrateToken();
@@ -79,9 +72,13 @@ export default function MessagesScreen() {
       return;
     }
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
-    setConversations(res.conversations.filter((c) => !c.archived));
+    setConversations(
+      res.conversations.filter((c) =>
+        showArchived ? c.membership.archived : !c.membership.archived,
+      ),
+    );
     setNote(null);
-  }, []);
+  }, [showArchived]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const res = await api<{ messages: ChatMessage[] }>(
@@ -92,10 +89,11 @@ export default function MessagesScreen() {
     setMessages(live);
     const decoded: Record<string, string> = {};
     for (const m of live) {
-      decoded[m.id] = plaintexts[m.id] ?? "[ciphertext]";
+      const pt = await decryptMobileMessage(conversationId, m.ratchetHeader, m.ciphertext);
+      decoded[m.id] = pt ?? "[ciphertext]";
     }
     setPlaintexts((prev) => ({ ...prev, ...decoded }));
-  }, [plaintexts]);
+  }, []);
 
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
@@ -107,7 +105,7 @@ export default function MessagesScreen() {
       return;
     }
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps -- avoid load loop on plaintexts
+  }, [selectedId, loadMessages]);
 
   async function createDm() {
     setBusy(true);
@@ -139,20 +137,51 @@ export default function MessagesScreen() {
     }
   }
 
+  async function patchTtl(ttl: number | null) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/chat/conversations/${selectedId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ disappearingTtlSec: ttl }),
+      });
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function archiveConversation(archived: boolean) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/chat/conversations/${selectedId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ archived }),
+      });
+      if (archived) setSelectedId(null);
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function send() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
     try {
-      // Mobile posts opaque ciphertext; ratchet UX is denser on web.
       const text = draft.trim();
-      const payload = {
-        ratchetHeader: utf8ToBase64(`mobile:${selectedId}`),
-        ciphertext: utf8ToBase64(text),
-        contentType: "msg" as const,
-      };
+      const payload = await encryptMobileMessage(selectedId, text);
+      const expiresAt = selected?.disappearingTtlSec
+        ? Date.now() + selected.disappearingTtlSec * 1000
+        : undefined;
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, contentType: "msg", expiresAt }),
       });
       setPlaintexts((p) => ({ ...p, [res.id]: text }));
       setDraft("");
@@ -191,6 +220,15 @@ export default function MessagesScreen() {
       </Pressable>
 
       <Text style={styles.section}>{t(locale, "home.messages")}</Text>
+      <Pressable
+        style={[styles.ttlChip, showArchived && styles.ttlChipActive, { marginBottom: 10 }]}
+        onPress={() => setShowArchived((v) => !v)}
+      >
+        <Text style={[styles.ttlChipText, showArchived && styles.ttlChipTextActive]}>
+          {t(locale, "chat.archive")}
+          {showArchived ? " ✓" : ""}
+        </Text>
+      </Pressable>
       {conversations.length === 0 && <Text style={styles.muted}>{t(locale, "chat.empty")}</Text>}
       {conversations.map((c) => (
         <Pressable
@@ -199,17 +237,51 @@ export default function MessagesScreen() {
           onPress={() => setSelectedId(c.id)}
         >
           <Text style={styles.itemTitle}>{c.title ?? c.kind}</Text>
-          <Text style={styles.muted}>{c.id}</Text>
+          <Text style={styles.muted}>
+            {c.id}
+            {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
+            {c.membership.archived ? " · archived" : ""}
+          </Text>
         </Pressable>
       ))}
 
       {selectedId && (
         <View style={styles.thread}>
+          <Pressable
+            style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled, { marginBottom: 12 }]}
+            disabled={busy}
+            onPress={() => void archiveConversation(!selected?.membership.archived)}
+          >
+            <Text style={styles.btnGhostText}>
+              {selected?.membership.archived ? "Unarchive" : t(locale, "chat.archive")}
+            </Text>
+          </Pressable>
+          <Text style={styles.label}>{t(locale, "chat.disappearing")}</Text>
+          <View style={styles.ttlRow}>
+            {TTL_OPTIONS.map((opt) => {
+              const active = (selected?.disappearingTtlSec ?? null) === opt.value;
+              return (
+                <Pressable
+                  key={String(opt.value)}
+                  style={[styles.ttlChip, active && styles.ttlChipActive, busy && styles.btnDisabled]}
+                  disabled={busy}
+                  onPress={() => void patchTtl(opt.value)}
+                >
+                  <Text style={[styles.ttlChipText, active && styles.ttlChipTextActive]}>
+                    {t(locale, opt.labelKey)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           {busy && <ActivityIndicator color="#0f6b5c" />}
           {messages.map((m) => (
             <View key={m.id} style={styles.bubble}>
               <Text style={styles.body}>{plaintexts[m.id] ?? "[ciphertext]"}</Text>
-              <Text style={styles.muted}>{new Date(m.createdAt).toLocaleString()}</Text>
+              <Text style={styles.muted}>
+                {new Date(m.createdAt).toLocaleString()}
+                {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
+              </Text>
             </View>
           ))}
           <TextInput
@@ -239,7 +311,18 @@ const styles = StyleSheet.create({
   backText: { color: "#0f6b5c", fontWeight: "600", fontSize: 15 },
   title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
   section: { marginTop: 20, marginBottom: 8, fontSize: 16, fontWeight: "600", color: "#1c2b2a" },
+  label: { fontSize: 13, fontWeight: "600", color: "#5a6a68", marginBottom: 8 },
   muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
+  ttlRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 12, gap: 8 },
+  ttlChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#e8e2d4",
+  },
+  ttlChipActive: { backgroundColor: "#0f6b5c" },
+  ttlChipText: { color: "#1c2b2a", fontWeight: "600", fontSize: 13 },
+  ttlChipTextActive: { color: "#fff" },
   input: {
     borderWidth: 1,
     borderColor: "#cfc6b4",
@@ -258,6 +341,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignSelf: "flex-start",
   },
+  btnGhost: {
+    backgroundColor: "#e8e2d4",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  btnGhostText: { color: "#1c2b2a", fontWeight: "600" },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "600" },
   item: {

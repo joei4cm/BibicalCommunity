@@ -18,6 +18,8 @@ import { humanizeStatus } from "../lib/status";
 
 type MeChurch = {
   churchId: string;
+  name?: string | null;
+  slug?: string | null;
   role: string;
   verified: boolean;
   groups: string[];
@@ -330,10 +332,20 @@ export function MePage() {
       return;
     }
     if (!window.confirm(t("security.wipeConfirm"))) return;
-    await api("/v1/admin/wipe", {
+    const wipeRes = await api<{ id: string; wipeToken: string }>("/v1/admin/wipe", {
       method: "POST",
       body: JSON.stringify({ userId: profile.id, reasonCode: "self" }),
     });
+    // Session is revoked server-side; ack with one-time wipeToken (no Bearer).
+    try {
+      await fetch(`/v1/admin/wipe/${wipeRes.id}/ack`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wipeToken: wipeRes.wipeToken }),
+      });
+    } catch {
+      /* best-effort ack */
+    }
     await wipeLocalClientState();
     setToken(null);
     setProfile(null);
@@ -550,12 +562,15 @@ export function MePage() {
           {!profile?.churches?.length && <li className="muted">—</li>}
           {(profile?.churches ?? []).map((c) => (
             <li key={c.churchId}>
-              <strong>{c.churchId}</strong>
+              <strong>{c.name ?? c.churchId}</strong>
               <div className="muted">
                 {c.role}
+                {c.slug ? ` · ${c.slug}` : ""}
                 {c.verified ? (
                   <span className="badge-verified"> · {t("me.verified")}</span>
-                ) : null}
+                ) : (
+                  <span> · {t("me.pendingVerify")}</span>
+                )}
               </div>
             </li>
           ))}

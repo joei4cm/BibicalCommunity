@@ -26,6 +26,13 @@ type PlanRow = {
   dayCount?: number;
 };
 
+type Subscription = {
+  subscriptionId?: string;
+  planId: string;
+  title?: string;
+  progressDay: number;
+};
+
 export default function PlansScreen() {
   const { locale } = useLocale();
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
@@ -34,6 +41,7 @@ export default function PlansScreen() {
   const [busy, setBusy] = useState(false);
   const [mine, setMine] = useState<PlanRow[]>([]);
   const [publicPlans, setPublicPlans] = useState<PlanRow[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const progress = devotionProgress(step);
   const apiConfigured = Boolean(getApiBase());
 
@@ -42,6 +50,7 @@ export default function PlansScreen() {
     if (!getApiBase() || !getToken()) {
       setMine([]);
       setPublicPlans([]);
+      setSubscriptions([]);
       return;
     }
     try {
@@ -55,6 +64,12 @@ export default function PlansScreen() {
       setPublicPlans(pub.plans ?? []);
     } catch {
       setPublicPlans([]);
+    }
+    try {
+      const subs = await api<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+      setSubscriptions(subs.subscriptions ?? []);
+    } catch {
+      setSubscriptions([]);
     }
   }, []);
 
@@ -117,6 +132,29 @@ export default function PlansScreen() {
     }
   }
 
+  async function advancePlanDay(planId: string, currentDay: number) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await hydrateToken();
+      if (!getToken()) {
+        setMessage("login_required");
+        return;
+      }
+      const next = currentDay + 1;
+      await api(`/v1/plans/${planId}/progress`, {
+        method: "POST",
+        body: JSON.stringify({ day: next }),
+      });
+      setMessage(`progress:day ${next}`);
+      await refreshLists();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.plans")}</Text>
@@ -141,6 +179,24 @@ export default function PlansScreen() {
             onPress={() => void subscribe(p.id)}
           >
             <Text style={styles.btnText}>{t(locale, "plans.subscribe")}</Text>
+          </Pressable>
+        </View>
+      ))}
+
+      <Text style={styles.section}>{t(locale, "plans.subscriptions")}</Text>
+      {subscriptions.length === 0 && <Text style={styles.muted}>—</Text>}
+      {subscriptions.map((s) => (
+        <View key={s.subscriptionId ?? s.planId} style={styles.card}>
+          <Text style={styles.cardTitle}>{s.title ?? s.planId}</Text>
+          <Text style={styles.muted}>
+            {s.planId} · day {s.progressDay}
+          </Text>
+          <Pressable
+            style={[styles.btn, { marginTop: 8 }, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void advancePlanDay(s.planId, s.progressDay)}
+          >
+            <Text style={styles.btnText}>{t(locale, "plans.advanceDay")}</Text>
           </Pressable>
         </View>
       ))}

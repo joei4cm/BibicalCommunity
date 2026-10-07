@@ -19,11 +19,26 @@ type Plan = {
 };
 
 type PublicPlan = { id: string; title: string; description?: string | null };
-type Subscription = { id: string; planId: string; progressDay: number };
+type PlanDay = { day: number; ref: string; title?: string; note?: string };
+
+type Subscription = {
+  id?: string;
+  subscriptionId?: string;
+  planId: string;
+  title?: string;
+  progressDay: number;
+  days?: PlanDay[];
+};
+
+type PlanVisibility = "private" | "church" | "public";
 
 export function PlansPage() {
   const { t, i18n } = useTranslation();
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createVisibility, setCreateVisibility] = useState<PlanVisibility>("private");
+  const [createDaysText, setCreateDaysText] = useState("1,John.1,Begin\n2,John.2,Wedding");
   const [message, setMessage] = useState<string | null>(null);
   const [step, setStep] = useState<DevotionStep>("pause");
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -32,12 +47,24 @@ export function PlansPage() {
   const [subscribeId, setSubscribeId] = useState("");
   const [publicPlans, setPublicPlans] = useState<PublicPlan[] | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
+  const [activeSubPlanId, setActiveSubPlanId] = useState<string | null>(null);
+  const [materialId, setMaterialId] = useState("morning-examen");
   const progress = devotionProgress(step);
 
   const lang = i18n.language.startsWith("zh") ? "zh" : i18n.language.startsWith("ja") ? "ja" : "en";
   const studyMaterials = useMemo(() => listStudyMaterials({ language: lang }), [lang]);
   const devotionMaterials = useMemo(() => listDevotionMaterials(), []);
   const localeKey = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
+  const activeSub =
+    (subscriptions ?? []).find((s) => s.planId === activeSubPlanId) ?? (subscriptions ?? [])[0] ?? null;
+  const activeMaterial =
+    devotionMaterials.find((m) => m.id === materialId) ?? devotionMaterials[0] ?? null;
+  const todayDayNum = activeSub ? (activeSub.progressDay ?? 0) + 1 : null;
+  const todayDay =
+    activeSub && todayDayNum != null
+      ? (activeSub.days ?? []).find((d) => d.day === todayDayNum) ?? null
+      : null;
+  const stepGuide = activeMaterial?.steps ?? DEVOTION_STEPS;
 
   const selected = plans.find((p) => p.id === selectedId) ?? null;
 
@@ -76,6 +103,43 @@ export function PlansPage() {
     setSelectedId(id);
     const plan = plans.find((p) => p.id === id);
     if (plan) setDaysJson(JSON.stringify(plan.days, null, 2));
+  }
+
+  async function createPlan() {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    const title = createTitle.trim();
+    if (!title) {
+      setMessage("title_required");
+      return;
+    }
+    let days: ReturnType<typeof parsePlanCsv>;
+    try {
+      days = parsePlanCsv(`day,ref,title,note\n${createDaysText}`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "invalid_days");
+      return;
+    }
+    if (days.length === 0) {
+      setMessage("days_required");
+      return;
+    }
+    const res = await api<{ id: string }>("/v1/plans", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        description: createDescription.trim() || undefined,
+        visibility: createVisibility,
+        days,
+      }),
+    });
+    setMessage(`created:${res.id} (${days.length} days)`);
+    setCreateTitle("");
+    setCreateDescription("");
+    await refreshPlans();
+    setSelectedId(res.id);
   }
 
   async function importCsv() {
@@ -130,6 +194,23 @@ export function PlansPage() {
     });
     setMessage(`subscribed:${res.id}`);
     setSubscribeId("");
+    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+    setSubscriptions(subs?.subscriptions ?? null);
+  }
+
+  async function advancePlanDay(planId: string, currentDay: number) {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    const next = currentDay + 1;
+    await api(`/v1/plans/${encodeURIComponent(planId)}/progress`, {
+      method: "POST",
+      body: JSON.stringify({ day: next }),
+    });
+    setMessage(`progress:${planId}:day ${next}`);
+    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+    setSubscriptions(subs?.subscriptions ?? null);
   }
 
   function advance() {
@@ -145,9 +226,54 @@ export function PlansPage() {
     <section className="fade-up">
       <h1 className="brand">{t("nav.plans")}</h1>
 
+      <div className="panel" data-testid="plans-create-panel">
+        <h2 style={{ marginTop: 0 }}>{t("plans.create")}</h2>
+        {message && <p className="muted">{humanizeStatus(t, message)}</p>}
+        <div className="field">
+          <label htmlFor="plan-title">{t("plans.title")}</label>
+          <input
+            id="plan-title"
+            data-testid="plans-create-title"
+            value={createTitle}
+            onChange={(e) => setCreateTitle(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="plan-description">{t("plans.description")}</label>
+          <input
+            id="plan-description"
+            value={createDescription}
+            onChange={(e) => setCreateDescription(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="plan-visibility">{t("plans.visibility")}</label>
+          <select
+            id="plan-visibility"
+            value={createVisibility}
+            onChange={(e) => setCreateVisibility(e.target.value as PlanVisibility)}
+          >
+            <option value="private">{t("plans.visibilityPrivate")}</option>
+            <option value="church">{t("plans.visibilityChurch")}</option>
+            <option value="public">{t("plans.visibilityPublic")}</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="plan-days">{t("plans.daysHint")}</label>
+          <textarea
+            id="plan-days"
+            rows={4}
+            value={createDaysText}
+            onChange={(e) => setCreateDaysText(e.target.value)}
+          />
+        </div>
+        <button type="button" className="btn" data-testid="plans-create-submit" onClick={() => void createPlan()}>
+          {t("plans.create")}
+        </button>
+      </div>
+
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.owned")}</h2>
-        {message && <p className="muted">{humanizeStatus(t, message)}</p>}
         <ul className="list">
           {plans.length === 0 && <li className="muted">—</li>}
           {plans.map((p) => (
@@ -211,9 +337,18 @@ export function PlansPage() {
           <ul className="list">
             {subscriptions.length === 0 && <li className="muted">—</li>}
             {subscriptions.map((s) => (
-              <li key={s.id}>
-                {s.planId}
-                <div className="muted">day {s.progressDay}</div>
+              <li key={s.subscriptionId ?? s.id ?? s.planId}>
+                <strong>{s.title ?? s.planId}</strong>
+                <div className="muted">
+                  {s.planId} · day {s.progressDay}
+                </div>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => void advancePlanDay(s.planId, s.progressDay)}
+                >
+                  {t("plans.advanceDay")}
+                </button>
               </li>
             ))}
           </ul>
@@ -232,12 +367,47 @@ export function PlansPage() {
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.devotion")}</h2>
+        {(subscriptions ?? []).length > 0 && (
+          <div className="field">
+            <label>{t("plans.devotionPlan")}</label>
+            <select
+              value={activeSub?.planId ?? ""}
+              onChange={(e) => setActiveSubPlanId(e.target.value)}
+            >
+              {(subscriptions ?? []).map((s) => (
+                <option key={s.planId} value={s.planId}>
+                  {s.title ?? s.planId}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="field">
+          <label>{t("plans.devotionMaterial")}</label>
+          <select value={activeMaterial?.id ?? ""} onChange={(e) => setMaterialId(e.target.value)}>
+            {devotionMaterials.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title[localeKey] ?? m.title.en}
+              </option>
+            ))}
+          </select>
+        </div>
+        {todayDay && (
+          <p className="muted">
+            {t("plans.todayReading")}: <strong>{todayDay.ref}</strong>
+            {todayDay.title ? ` · ${todayDay.title}` : ""}
+            {step === "read" ? ` · ${t("devotion.read")}` : ""}
+          </p>
+        )}
+        {activeMaterial && (
+          <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
+        )}
         <p className="muted">
           {progress.index + 1} / {progress.total}
           {progress.done ? " · done" : ""}
         </p>
         <div className="step-track" role="list">
-          {DEVOTION_STEPS.map((s, i) => {
+          {stepGuide.map((s, i) => {
             const state = i < progress.index ? "done" : i === progress.index ? "current" : "todo";
             return (
               <button
@@ -260,6 +430,15 @@ export function PlansPage() {
           <button type="button" className="btn ghost" onClick={resetSteps}>
             Reset
           </button>
+          {todayDay && activeSub && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => void advancePlanDay(activeSub.planId, activeSub.progressDay)}
+            >
+              {t("plans.advanceDay")}
+            </button>
+          )}
         </div>
       </div>
 

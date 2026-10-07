@@ -40,7 +40,7 @@ type ChapterPayload =
       verses: { verse: number; text: string }[];
       source: string;
     }
-  | { external: true; url: string; meta: TranslationMeta };
+  | { external: true; url: string; meta: TranslationMeta; sso?: boolean };
 
 const HIGHLIGHT_COLORS = [
   { id: "amber", value: "#f5d76e" },
@@ -55,8 +55,13 @@ function bookLocaleKey(lang: string): "zh" | "en" | "ja" {
   return "en";
 }
 
+function partnerSsoEnabled(chapter: { url: string; sso?: boolean }): boolean {
+  return Boolean(chapter.sso) || chapter.url.includes("sso=1");
+}
+
 function ChapterPane({
   chapter,
+  verseRef,
   fontSize,
   lineHeight,
   fontFamily,
@@ -67,6 +72,7 @@ function ChapterPane({
   highlightByVerse,
 }: {
   chapter: ChapterPayload | null;
+  verseRef: string;
   fontSize: number;
   lineHeight: number;
   fontFamily: string;
@@ -82,14 +88,21 @@ function ChapterPane({
     const href =
       partner && isPartnerId(partner)
         ? buildPartnerAuthUrl(partner, {
-            ref: `${chapter.meta.id}`,
-            ssoEnabled: Boolean((chapter as { sso?: boolean }).sso),
+            ref: verseRef,
+            ssoEnabled: partnerSsoEnabled(chapter),
           })
         : chapter.url;
     return (
-      <div className="panel">
+      <div className="panel" data-testid="reader-external">
         <p>{chapter.meta.name[locale]}</p>
-        <a className="btn" href={href} target="_blank" rel="noreferrer">
+        <a
+          className="btn"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="reader-external-link"
+          data-sso={partnerSsoEnabled(chapter) ? "1" : "0"}
+        >
           {chapter.meta.ssoFlag === "endao" ? t("reader.external.endao") : t("reader.external.weread")}
         </a>
       </div>
@@ -142,6 +155,21 @@ export function BibleReader() {
   const [fontSize, setFontSize] = useState(1.15);
   const [lineHeight, setLineHeight] = useState(1.75);
   const [serif, setSerif] = useState(true);
+  const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
+
+  const TYPO_PRESETS = {
+    compact: { fontSize: 1.0, lineHeight: 1.35, serif: false },
+    comfortable: { fontSize: 1.15, lineHeight: 1.75, serif: true },
+    spacious: { fontSize: 1.35, lineHeight: 2.1, serif: true },
+  } as const;
+
+  function applyPreset(id: keyof typeof TYPO_PRESETS) {
+    const p = TYPO_PRESETS[id];
+    setPreset(id);
+    setFontSize(p.fontSize);
+    setLineHeight(p.lineHeight);
+    setSerif(p.serif);
+  }
   const [noteText, setNoteText] = useState("");
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
@@ -405,6 +433,24 @@ export function BibleReader() {
       <div className="panel typography-panel">
         <h2 style={{ marginTop: 0 }}>{t("reader.typography")}</h2>
         <div className="toolbar">
+          {(
+            [
+              ["compact", "reader.presetCompact"],
+              ["comfortable", "reader.presetComfortable"],
+              ["spacious", "reader.presetSpacious"],
+            ] as const
+          ).map(([id, key]) => (
+            <button
+              key={id}
+              type="button"
+              className={`btn ghost${preset === id ? " active-toggle" : ""}`}
+              onClick={() => applyPreset(id)}
+            >
+              {t(key)}
+            </button>
+          ))}
+        </div>
+        <div className="toolbar">
           <button type="button" className="btn ghost" onClick={() => setFontSize((s) => Math.min(1.8, s + 0.1))}>
             A+
           </button>
@@ -497,6 +543,7 @@ export function BibleReader() {
       <div className={dualPane ? "reader-dual" : undefined}>
         <ChapterPane
           chapter={chapter}
+          verseRef={ref}
           fontSize={fontSize}
           lineHeight={lineHeight}
           fontFamily={readerFont}
@@ -509,6 +556,7 @@ export function BibleReader() {
         {dualPane && (
           <ChapterPane
             chapter={secondChapter}
+            verseRef={ref}
             fontSize={fontSize}
             lineHeight={lineHeight}
             fontFamily={readerFont}

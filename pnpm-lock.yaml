@@ -54,6 +54,9 @@ importers:
       '@logoshome/bible':
         specifier: workspace:*
         version: link:../../packages/bible
+      '@logoshome/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@logoshome/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -69,6 +72,9 @@ importers:
       expo-router:
         specifier: ~5.0.7
         version: 5.0.7(88d2f6d47acc2343c639c7c974e17063)
+      expo-secure-store:
+        specifier: ^57.0.4
+        version: 57.0.4(expo@53.0.27(@babel/core@7.29.7)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))
       expo-status-bar:
         specifier: ~2.2.3
         version: 2.2.3(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
@@ -88,6 +94,9 @@ importers:
       '@types/react':
         specifier: ~19.0.14
         version: 19.0.14
+      tsx:
+        specifier: ^4.20.3
+        version: 4.23.15
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -134,6 +143,9 @@ importers:
       playwright:
         specifier: 1.49.1
         version: 1.49.1
+      tsx:
+        specifier: ^4.20.3
+        version: 4.23.15
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -3152,6 +3164,11 @@ packages:
         optional: true
       react-native-reanimated:
         optional: true
+
+  expo-secure-store@57.0.4:
+    resolution: {integrity: sha512-7zBA1RThURTXdP4w65kBzZNbcSsfArqVd+p+ETAnPRWXO8J296Qd0YaCVyRpJ0HSwlCnGdvOnqO+NgSreHsOhA==}
+    peerDependencies:
+      expo: '*'
 
   expo-status-bar@2.2.3:
     resolution: {integrity: sha512-+c8R3AESBoduunxTJ8353SqKAKpxL6DvcD8VKBuh81zzJyUUbfB4CVjr1GufSJEKsMzNPXZU+HJwXx7Xh7lx8Q==}
@@ -8241,6 +8258,10 @@ snapshots:
       - react
       - react-native
       - supports-color
+
+  expo-secure-store@57.0.4(expo@53.0.27(@babel/core@7.29.7)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)):
+    dependencies:
+      expo: 53.0.27(@babel/core@7.29.7)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
 
   expo-status-bar@2.2.3(react-native@0.79.3(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
     dependencies:

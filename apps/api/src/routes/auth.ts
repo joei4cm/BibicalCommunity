@@ -12,7 +12,13 @@ import { requireAuth } from "../middleware/auth";
 export const authRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
 authRoutes.post("/register", async (c) => {
-  const body = registerSchema.parse(await c.req.json());
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid_json" }, 400);
+  }
+  const body = registerSchema.parse(raw);
   const pepper = c.env.HANDLE_PEPPER ?? "dev-handle-pepper";
   const handleHash = await hmacHex(pepper, body.handle.toLowerCase());
   const emailHash = body.email ? await hmacHex(pepper, body.email.toLowerCase()) : null;

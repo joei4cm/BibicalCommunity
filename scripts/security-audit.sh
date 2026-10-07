@@ -26,7 +26,7 @@ check_absent 'pushNotification.*ciphertext|preview:.*plaintext' "no plaintext pu
 check_absent 'mnemonic|recoveryPhrase' "no recovery mnemonic server fields (scan)"
 
 # Ensure CallRoom does not accept arbitrary types that could smuggle media
-if rg -n 'allowed = \[' apps/api/src/durable/CallRoomDO.ts | grep -q .; then
+if rg -n 'isCallSignalType|CALL_SIGNAL_TYPES' apps/api/src/durable/CallRoomDO.ts packages/shared/src/call-signaling.ts | grep -q .; then
   echo "OK: CallRoom allowlist present"
 else
   echo "FAIL: CallRoom signaling allowlist missing"

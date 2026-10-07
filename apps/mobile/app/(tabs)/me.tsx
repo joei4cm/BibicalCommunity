@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -11,15 +11,35 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { t, type LocaleCode, type PrivacySettings } from "@logoshome/shared";
+import {
+  generateIdentityKeyPair,
+  generateOneTimePrekeys,
+  generateSignedPrekey,
+} from "@logoshome/crypto";
 import { api, getApiBase, getToken, hydrateToken, setToken } from "../../src/api";
+import { ensureBase64Globals, hasWebCrypto } from "../../src/crypto-polyfill";
 import { normalizeApiLocale, useLocale } from "../../src/locale";
+import { NOTE_KEY_STORAGE } from "../../src/note-crypto";
 import { humanizeStatus } from "../../src/status";
+import { KNOWN_SECRET_KEYS, kvGet, kvSet, wipeSecureSecrets } from "../../src/secure-kv";
+import {
+  loadTheme,
+  saveTheme,
+  themePalette,
+  THEME_IDS,
+  type ThemeId,
+  type ThemePalette,
+} from "../../src/theme";
+
+ensureBase64Globals();
 
 const LOCALES: { id: LocaleCode; label: string }[] = [
   { id: "zh-CN", label: "中文" },
   { id: "en", label: "English" },
   { id: "ja", label: "日本語" },
 ];
+
+const DEVICE_PRIV_KEY = "lh.device.priv";
 
 const DEFAULT_PRIVACY: PrivacySettings = {
   discoverableByHandle: true,
@@ -33,6 +53,8 @@ const DEFAULT_PRIVACY: PrivacySettings = {
 
 type MeChurch = {
   churchId: string;
+  name?: string | null;
+  slug?: string | null;
   role: string;
   verified: boolean;
   groups: string[];
@@ -51,6 +73,7 @@ type MeProfile = {
 type SearchHit = { id: string; uid: string; nickname: string | null };
 
 async function clearLocalStorage(): Promise<void> {
+  await wipeSecureSecrets([...KNOWN_SECRET_KEYS, NOTE_KEY_STORAGE]);
   const keys = await AsyncStorage.getAllKeys();
   const lhKeys = keys.filter((k) => k.startsWith("lh."));
   await Promise.all(lhKeys.map((k) => AsyncStorage.removeItem(k)));
@@ -69,6 +92,11 @@ export default function MeScreen() {
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [hasDeviceKey, setHasDeviceKey] = useState(false);
+  const [theme, setThemeState] = useState<ThemeId>("day");
+  const palette = useMemo(() => themePalette(theme), [theme]);
+  const styles = useMemo(() => makeStyles(palette), [palette]);
 
   async function refresh() {
     await hydrateToken();
@@ -91,6 +119,7 @@ export default function MeScreen() {
       await clearLocalStorage();
       await setToken(null);
       setProfile(null);
+      setHasDeviceKey(false);
       setMsg("wiped");
       if (!token) return;
       const base = getApiBase();
@@ -110,8 +139,14 @@ export default function MeScreen() {
   }
 
   useEffect(() => {
-    void refresh().catch(() => undefined);
-    void checkPendingWipe();
+    void (async () => {
+      const stored = await loadTheme();
+      setThemeState(stored);
+      const { value: priv } = await kvGet(DEVICE_PRIV_KEY);
+      setHasDeviceKey(Boolean(priv));
+      await refresh().catch(() => undefined);
+      await checkPendingWipe();
+    })();
   }, []);
 
   async function register() {
@@ -169,6 +204,7 @@ export default function MeScreen() {
           nickname: nickname || undefined,
           signature,
           legalName,
+          theme,
           privacy: {
             discoverableByHandle: privacy.discoverableByHandle,
             discoverableByUid: privacy.discoverableByUid,
@@ -183,6 +219,81 @@ export default function MeScreen() {
       setMsg(e instanceof Error ? e.message : "error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function changeTheme(next: ThemeId) {
+    setThemeState(next);
+    await saveTheme(next);
+    if (getToken()) {
+      try {
+        await api("/v1/me", {
+          method: "PATCH",
+          body: JSON.stringify({ theme: next }),
+        });
+      } catch {
+        /* local theme still applied */
+      }
+    }
+  }
+
+  async function uploadDeviceKeys() {
+    if (!getApiBase() || !getToken()) {
+      setMsg("login_required");
+      return;
+    }
+    if (!hasWebCrypto()) {
+      setMsg("webcrypto_unavailable");
+      return;
+    }
+    setKeyBusy(true);
+    try {
+      const identity = await generateIdentityKeyPair();
+      const signedPrekey = await generateSignedPrekey(identity, 1);
+      const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
+      const registrationId = Math.floor(Math.random() * 16380) + 1;
+
+      await kvSet(
+        DEVICE_PRIV_KEY,
+        JSON.stringify({
+          identity,
+          signedPrekey,
+          oneTimePrekeys,
+          registrationId,
+          createdAt: Date.now(),
+        }),
+      );
+
+      await api("/v1/keys/bundle", {
+        method: "PUT",
+        body: JSON.stringify({
+          identityKeyPub: JSON.stringify({
+            ecdh: identity.publicKey,
+            signing: identity.signingPublicKey,
+          }),
+          signedPrekeyPub: JSON.stringify(signedPrekey.publicKey),
+          signedPrekeySig: signedPrekey.signature,
+          signedPrekeyId: signedPrekey.id,
+          registrationId,
+        }),
+      });
+
+      await api("/v1/keys/prekeys", {
+        method: "PUT",
+        body: JSON.stringify({
+          prekeys: oneTimePrekeys.map((pk) => ({
+            id: pk.id,
+            pub: JSON.stringify(pk.publicKey),
+          })),
+        }),
+      });
+
+      setHasDeviceKey(true);
+      setMsg("keys_uploaded");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "keys_failed");
+    } finally {
+      setKeyBusy(false);
     }
   }
 
@@ -224,13 +335,23 @@ export default function MeScreen() {
     }
     setBusy(true);
     try {
-      await api("/v1/admin/wipe", {
+      const wipeRes = await api<{ id: string; wipeToken: string }>("/v1/admin/wipe", {
         method: "POST",
         body: JSON.stringify({ userId: profile.id, reasonCode: "self" }),
       });
+      try {
+        await fetch(`${getApiBase()}/v1/admin/wipe/${wipeRes.id}/ack`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wipeToken: wipeRes.wipeToken }),
+        });
+      } catch {
+        /* best-effort ack after session revoke */
+      }
       await clearLocalStorage();
       await setToken(null);
       setProfile(null);
+      setHasDeviceKey(false);
       setMsg("wiped");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
@@ -300,7 +421,7 @@ export default function MeScreen() {
         <Switch
           value={privacy.discoverableByHandle}
           onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByHandle: v }))}
-          trackColor={{ true: "#0f6b5c" }}
+          trackColor={{ true: palette.accent }}
         />
       </View>
       <View style={styles.toggleRow}>
@@ -308,7 +429,7 @@ export default function MeScreen() {
         <Switch
           value={privacy.discoverableByUid}
           onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByUid: v }))}
-          trackColor={{ true: "#0f6b5c" }}
+          trackColor={{ true: palette.accent }}
         />
       </View>
       <View style={styles.toggleRow}>
@@ -316,7 +437,7 @@ export default function MeScreen() {
         <Switch
           value={privacy.showInChurchDirectory}
           onValueChange={(v) => setPrivacy((p) => ({ ...p, showInChurchDirectory: v }))}
-          trackColor={{ true: "#0f6b5c" }}
+          trackColor={{ true: palette.accent }}
         />
       </View>
       <Pressable
@@ -326,6 +447,22 @@ export default function MeScreen() {
       >
         <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
       </Pressable>
+
+      <Text style={styles.label}>{t(locale, "landing.theme")}</Text>
+      <View style={styles.row}>
+        {THEME_IDS.map((id) => {
+          const active = id === theme;
+          return (
+            <Pressable
+              key={id}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => void changeTheme(id)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{id}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Text style={styles.label}>Language</Text>
       <View style={styles.row}>
@@ -343,16 +480,32 @@ export default function MeScreen() {
         })}
       </View>
 
+      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "security.deviceKeys")}</Text>
+      <Text style={styles.muted}>{t(locale, "security.deviceKeysHint")}</Text>
+      <Text style={styles.muted}>
+        {hasDeviceKey ? t(locale, "security.deviceKeysPresent") : t(locale, "security.deviceKeysMissing")}
+      </Text>
+      <Pressable
+        style={[styles.btn, { marginTop: 12 }, keyBusy && styles.btnDisabled]}
+        disabled={keyBusy}
+        onPress={() => void uploadDeviceKeys()}
+      >
+        <Text style={styles.btnText}>{t(locale, "security.uploadKeys")}</Text>
+      </Pressable>
+
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.churches")}</Text>
       {!profile?.churches?.length ? (
         <Text style={styles.muted}>—</Text>
       ) : (
         profile.churches.map((c) => (
           <View key={c.churchId} style={styles.listItem}>
-            <Text style={styles.strong}>{c.churchId}</Text>
+            <Text style={styles.strong}>{c.name ?? c.churchId}</Text>
             <Text style={styles.muted}>
               {c.role}
-              {c.verified ? ` · ${t(locale, "me.verified")}` : ""}
+              {c.slug ? ` · ${c.slug}` : ""}
+              {c.verified
+                ? ` · ${t(locale, "me.verified")}`
+                : ` · ${t(locale, "me.pendingVerify")}`}
             </Text>
           </View>
         ))
@@ -390,54 +543,56 @@ export default function MeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f3efe6" },
-  content: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
-  section: { fontSize: 18, fontWeight: "600", color: "#1c2b2a" },
-  label: { marginTop: 14, marginBottom: 6, fontSize: 13, fontWeight: "600", color: "#5a6a68" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#cfc6b4",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
-    color: "#1c2b2a",
-    fontSize: 16,
-  },
-  textarea: { minHeight: 72 },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 12,
-    gap: 12,
-  },
-  toggleLabel: { flex: 1, color: "#1c2b2a", fontSize: 15 },
-  btn: {
-    backgroundColor: "#0f6b5c",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnGhost: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#0f6b5c" },
-  btnDanger: { backgroundColor: "#9b2c2c" },
-  btnText: { color: "#fff", fontWeight: "600" },
-  btnGhostText: { color: "#0f6b5c" },
-  body: { marginTop: 16, color: "#1c2b2a", fontSize: 16 },
-  strong: { fontWeight: "700", color: "#1c2b2a" },
-  muted: { marginTop: 12, color: "#5a6a68", lineHeight: 22 },
-  listItem: { marginTop: 10 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: "#e8e2d4",
-  },
-  chipActive: { backgroundColor: "#0f6b5c" },
-  chipText: { color: "#1c2b2a", fontWeight: "600" },
-  chipTextActive: { color: "#fff" },
-});
+function makeStyles(p: ThemePalette) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: p.bg },
+    content: { padding: 20, paddingBottom: 40 },
+    title: { fontSize: 28, fontWeight: "700", color: p.text },
+    section: { fontSize: 18, fontWeight: "600", color: p.text },
+    label: { marginTop: 14, marginBottom: 6, fontSize: 13, fontWeight: "600", color: p.muted },
+    input: {
+      borderWidth: 1,
+      borderColor: p.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: p.surface,
+      color: p.text,
+      fontSize: 16,
+    },
+    textarea: { minHeight: 72 },
+    row: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
+    toggleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 12,
+      gap: 12,
+    },
+    toggleLabel: { flex: 1, color: p.text, fontSize: 15 },
+    btn: {
+      backgroundColor: p.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+    },
+    btnDisabled: { opacity: 0.6 },
+    btnGhost: { backgroundColor: "transparent", borderWidth: 1, borderColor: p.accent },
+    btnDanger: { backgroundColor: p.danger },
+    btnText: { color: p.id === "highContrast" ? "#000" : "#fff", fontWeight: "600" },
+    btnGhostText: { color: p.accent },
+    body: { marginTop: 16, color: p.text, fontSize: 16 },
+    strong: { fontWeight: "700", color: p.text },
+    muted: { marginTop: 12, color: p.muted, lineHeight: 22 },
+    listItem: { marginTop: 10 },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: p.chip,
+    },
+    chipActive: { backgroundColor: p.accent },
+    chipText: { color: p.text, fontWeight: "600" },
+    chipTextActive: { color: p.id === "highContrast" ? "#000" : "#fff" },
+  });
+}

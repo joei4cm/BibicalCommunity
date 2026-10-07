@@ -303,7 +303,9 @@ export function ChatPanel() {
     if (!callRef.current) return;
     try {
       await startScreenShare(callRef.current.pc);
-      setCallNote((prev) => `${prev ?? ""} · screen-share-on`);
+      // Signal screen renegotiation over DO (getDisplayMedia itself is browser-gated).
+      await callRef.current.sendScreenOffer();
+      setCallNote((prev) => `${prev ?? ""} · screen-share-on · screen-offer`);
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "screen_share_failed");
     }
@@ -312,6 +314,7 @@ export function ChatPanel() {
   async function endScreen() {
     if (!callRef.current) return;
     await stopScreenShare(callRef.current.pc, callRef.current.localStream);
+    callRef.current.sendScreenStop();
     setCallNote((prev) => `${prev ?? ""} · screen-share-off`);
   }
 
