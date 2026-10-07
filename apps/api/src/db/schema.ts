@@ -200,3 +200,40 @@ export const wipeCommands = sqliteTable("wipe_commands", {
   issuedAt: integer("issued_at", { mode: "number" }).notNull(),
   expiresAt: integer("expires_at", { mode: "number" }).notNull(),
 });
+
+export const translationEntitlements = sqliteTable(
+  "translation_entitlements",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    translationId: text("translation_id").notNull(),
+    grantedAt: integer("granted_at", { mode: "number" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "number" }),
+  },
+  (t) => [
+    index("translation_entitlements_user_idx").on(t.userId),
+    index("translation_entitlements_user_translation_uidx").on(t.userId, t.translationId),
+  ],
+);
+
+export const oneTimePrekeys = sqliteTable(
+  "one_time_prekeys",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    deviceId: text("device_id")
+      .notNull()
+      .references(() => devices.id),
+    prekeyId: integer("prekey_id").notNull(),
+    prekeyPub: text("prekey_pub").notNull(),
+    consumedAt: integer("consumed_at", { mode: "number" }),
+  },
+  (t) => [
+    index("one_time_prekeys_user_device_idx").on(t.userId, t.deviceId),
+    index("one_time_prekeys_unused_idx").on(t.deviceId, t.consumedAt),
+  ],
+);

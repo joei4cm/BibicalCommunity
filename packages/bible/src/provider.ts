@@ -35,8 +35,19 @@ export async function loadChapter(
     return { external: true, url, meta };
   }
 
-  if (meta.provider === "r2" && !meta.available) {
-    throw new Error(`Translation ${translationId} not provisioned in R2 yet`);
+  if (meta.provider === "r2") {
+    // R2 corpus is loaded by the API Worker (MEDIA binding). Package-level
+    // callers get a stub until they fetch via /v1/bible/chapter.
+    if (!meta.available) {
+      throw new Error(`Translation ${translationId} not provisioned in R2 yet`);
+    }
+    return {
+      translationId: meta.id,
+      book: ref.book,
+      chapter: ref.chapter,
+      verses: [],
+      source: "r2",
+    };
   }
 
   // Local PD sample scaffold

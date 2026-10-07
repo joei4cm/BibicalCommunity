@@ -55,7 +55,8 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: false,
+    /** Served via R2 path when chapter JSON is present (UI may attempt load). */
+    available: true,
   },
   {
     id: "cuvt",
@@ -140,7 +141,8 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "licensed",
     provider: "r2",
-    available: false,
+    /** Served via R2 path when chapter JSON is present (UI may attempt load). */
+    available: true,
   },
   {
     id: "shinKyoudou",
