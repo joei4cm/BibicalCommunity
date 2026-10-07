@@ -51,6 +51,8 @@ const DEFAULT_PRIVACY: PrivacySettings = {
 
 type MeChurch = {
   churchId: string;
+  name?: string | null;
+  slug?: string | null;
   role: string;
   verified: boolean;
   groups: string[];
@@ -494,10 +496,13 @@ export default function MeScreen() {
       ) : (
         profile.churches.map((c) => (
           <View key={c.churchId} style={styles.listItem}>
-            <Text style={styles.strong}>{c.churchId}</Text>
+            <Text style={styles.strong}>{c.name ?? c.churchId}</Text>
             <Text style={styles.muted}>
               {c.role}
-              {c.verified ? ` · ${t(locale, "me.verified")}` : ""}
+              {c.slug ? ` · ${c.slug}` : ""}
+              {c.verified
+                ? ` · ${t(locale, "me.verified")}`
+                : ` · ${t(locale, "me.pendingVerify")}`}
             </Text>
           </View>
         ))

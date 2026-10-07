@@ -18,6 +18,8 @@ import { humanizeStatus } from "../lib/status";
 
 type MeChurch = {
   churchId: string;
+  name?: string | null;
+  slug?: string | null;
   role: string;
   verified: boolean;
   groups: string[];
@@ -560,12 +562,15 @@ export function MePage() {
           {!profile?.churches?.length && <li className="muted">—</li>}
           {(profile?.churches ?? []).map((c) => (
             <li key={c.churchId}>
-              <strong>{c.churchId}</strong>
+              <strong>{c.name ?? c.churchId}</strong>
               <div className="muted">
                 {c.role}
+                {c.slug ? ` · ${c.slug}` : ""}
                 {c.verified ? (
                   <span className="badge-verified"> · {t("me.verified")}</span>
-                ) : null}
+                ) : (
+                  <span> · {t("me.pendingVerify")}</span>
+                )}
               </div>
             </li>
           ))}

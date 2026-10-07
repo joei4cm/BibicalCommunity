@@ -67,6 +67,16 @@ CHLIST=$(curl -sf -H "$AUTH2" "$BASE/v1/home/churches")
 echo "$CHLIST" | grep -q "$CHURCH_ID"
 echo "$CHLIST" | grep -q '"verified":true'
 echo "HOME_VERIFY_OK"
+echo "== home members roster (admin) =="
+ROSTER=$(curl -sf -H "$AUTH" "$BASE/v1/home/${CHURCH_ID}/members")
+echo "$ROSTER" | head -c 240; echo
+echo "$ROSTER" | grep -q "\"userId\":\"$PEER\""
+echo "$ROSTER" | grep -q '"verified":true'
+echo "$ROSTER" | grep -q '"uid"'
+# Non-admin peer cannot list roster
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH2" "$BASE/v1/home/${CHURCH_ID}/members")
+test "$CODE" = "403"
+echo "HOME_MEMBERS_OK"
 
 echo "== home patch security → hostile =="
 SEC=$(curl -sf -X PATCH -H "$AUTH" -H 'content-type: application/json' \

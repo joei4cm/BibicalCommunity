@@ -19,7 +19,14 @@ type Plan = {
 };
 
 type PublicPlan = { id: string; title: string; description?: string | null };
-type Subscription = { id: string; planId: string; progressDay: number };
+type Subscription = {
+  id?: string;
+  subscriptionId?: string;
+  planId: string;
+  title?: string;
+  progressDay: number;
+  days?: unknown[];
+};
 
 type PlanVisibility = "private" | "church" | "public";
 
@@ -173,6 +180,23 @@ export function PlansPage() {
     });
     setMessage(`subscribed:${res.id}`);
     setSubscribeId("");
+    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+    setSubscriptions(subs?.subscriptions ?? null);
+  }
+
+  async function advancePlanDay(planId: string, currentDay: number) {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    const next = currentDay + 1;
+    await api(`/v1/plans/${encodeURIComponent(planId)}/progress`, {
+      method: "POST",
+      body: JSON.stringify({ day: next }),
+    });
+    setMessage(`progress:${planId}:day ${next}`);
+    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+    setSubscriptions(subs?.subscriptions ?? null);
   }
 
   function advance() {
@@ -299,9 +323,18 @@ export function PlansPage() {
           <ul className="list">
             {subscriptions.length === 0 && <li className="muted">—</li>}
             {subscriptions.map((s) => (
-              <li key={s.id}>
-                {s.planId}
-                <div className="muted">day {s.progressDay}</div>
+              <li key={s.subscriptionId ?? s.id ?? s.planId}>
+                <strong>{s.title ?? s.planId}</strong>
+                <div className="muted">
+                  {s.planId} · day {s.progressDay}
+                </div>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => void advancePlanDay(s.planId, s.progressDay)}
+                >
+                  {t("plans.advanceDay")}
+                </button>
               </li>
             ))}
           </ul>

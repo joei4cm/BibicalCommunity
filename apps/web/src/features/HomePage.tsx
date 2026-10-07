@@ -32,6 +32,13 @@ type ForumPost = {
   createdAt: number;
 };
 
+type ChurchMember = {
+  userId: string;
+  uid: string | null;
+  role: string;
+  verified: boolean;
+};
+
 const BOARDS: Board[] = ["notice", "general", "group"];
 
 export function HomePage() {
@@ -49,6 +56,7 @@ export function HomePage() {
   const [mediaUrl, setMediaUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [verifyUserId, setVerifyUserId] = useState("");
+  const [members, setMembers] = useState<ChurchMember[]>([]);
   const [groupName, setGroupName] = useState("");
   const [wipeUserId, setWipeUserId] = useState("");
   const [wipeDeviceId, setWipeDeviceId] = useState("");
@@ -57,6 +65,7 @@ export function HomePage() {
   const canAdmin = selectedChurch ? isChurchAdmin(selectedChurch.role) : false;
   const membershipGroups = selectedChurch?.groups ?? [];
   const isAnyAdmin = churches.some((c) => isChurchAdmin(c.role));
+  const pendingMembers = members.filter((m) => !m.verified);
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -80,6 +89,17 @@ export function HomePage() {
     setPosts(r.posts);
   }, [selectedChurchId, board]);
 
+  const loadMembers = useCallback(async () => {
+    if (!getToken() || !selectedChurchId || !canAdmin) {
+      setMembers([]);
+      return;
+    }
+    const r = await api<{ members: ChurchMember[] }>(
+      `/v1/home/${encodeURIComponent(selectedChurchId)}/members`,
+    );
+    setMembers(r.members ?? []);
+  }, [selectedChurchId, canAdmin]);
+
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [refresh]);
@@ -87,6 +107,10 @@ export function HomePage() {
   useEffect(() => {
     void loadPosts().catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [loadPosts]);
+
+  useEffect(() => {
+    void loadMembers().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [loadMembers]);
 
   async function createChurch() {
     if (!getToken()) {
@@ -191,8 +215,9 @@ export function HomePage() {
     }
   }
 
-  async function verifyMember() {
-    if (!getToken() || !selectedChurchId || !verifyUserId.trim()) {
+  async function verifyMember(userId?: string) {
+    const target = (userId ?? verifyUserId).trim();
+    if (!getToken() || !selectedChurchId || !target) {
       setNote("login_required");
       return;
     }
@@ -200,11 +225,12 @@ export function HomePage() {
     try {
       await api("/v1/home/members/verify", {
         method: "POST",
-        body: JSON.stringify({ churchId: selectedChurchId, userId: verifyUserId.trim() }),
+        body: JSON.stringify({ churchId: selectedChurchId, userId: target }),
       });
       setVerifyUserId("");
       setNote("member_verified");
       await refresh();
+      await loadMembers();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -337,7 +363,27 @@ export function HomePage() {
       {selectedChurchId && canAdmin && (
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>{t("home.verifyMember")}</h2>
-          <div className="field">
+          <p className="muted">{t("home.membersPending")}</p>
+          <ul className="list">
+            {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
+            {pendingMembers.map((m) => (
+              <li key={m.userId}>
+                <strong>{m.uid ?? m.userId}</strong>
+                <div className="muted">
+                  {m.role} · {m.userId}
+                </div>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy}
+                  onClick={() => void verifyMember(m.userId)}
+                >
+                  {t("home.verify")}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="field" style={{ marginTop: "1rem" }}>
             <label>{t("home.verifyUserId")}</label>
             <input
               value={verifyUserId}

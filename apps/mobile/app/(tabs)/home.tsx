@@ -21,6 +21,13 @@ type Church = {
   verified: boolean;
 };
 
+type ChurchMember = {
+  userId: string;
+  uid: string | null;
+  role: string;
+  verified: boolean;
+};
+
 type ForumPost = {
   id: string;
   board: string;
@@ -29,6 +36,10 @@ type ForumPost = {
   externalMediaUrl?: string | null;
   createdAt: number;
 };
+
+function isChurchAdmin(role: string): boolean {
+  return role === "admin" || role === "security_officer";
+}
 
 export default function HomeChurchScreen() {
   const { locale } = useLocale();
@@ -42,6 +53,11 @@ export default function HomeChurchScreen() {
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [members, setMembers] = useState<ChurchMember[]>([]);
+
+  const selectedChurch = churches.find((c) => c.id === selectedId) ?? null;
+  const canAdmin = selectedChurch ? isChurchAdmin(selectedChurch.role) : false;
+  const pendingMembers = members.filter((m) => !m.verified);
 
   const refresh = useCallback(async () => {
     await hydrateToken();
@@ -68,6 +84,13 @@ export default function HomeChurchScreen() {
     setPosts(r.posts ?? []);
   }, []);
 
+  const loadMembers = useCallback(async (churchId: string) => {
+    const r = await api<{ members: ChurchMember[] }>(
+      `/v1/home/${encodeURIComponent(churchId)}/members`,
+    );
+    setMembers(r.members ?? []);
+  }, []);
+
   useEffect(() => {
     void refresh()
       .catch((e) => setNote(e instanceof Error ? e.message : "error"))
@@ -77,10 +100,16 @@ export default function HomeChurchScreen() {
   useEffect(() => {
     if (!selectedId || !getToken()) {
       setPosts([]);
+      setMembers([]);
       return;
     }
     void loadPosts(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [selectedId, loadPosts]);
+    if (canAdmin) {
+      void loadMembers(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    } else {
+      setMembers([]);
+    }
+  }, [selectedId, loadPosts, loadMembers, canAdmin]);
 
   async function createPost() {
     if (!selectedId || !title.trim() || !body.trim()) return;
@@ -115,6 +144,29 @@ export default function HomeChurchScreen() {
     }
   }
 
+  async function verifyMember(userId: string) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await hydrateToken();
+      if (!getToken()) {
+        setNote("login_required");
+        return;
+      }
+      await api("/v1/home/members/verify", {
+        method: "POST",
+        body: JSON.stringify({ churchId: selectedId, userId }),
+      });
+      setNote("member_verified");
+      await loadMembers(selectedId);
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.home")}</Text>
@@ -139,11 +191,38 @@ export default function HomeChurchScreen() {
             <Text style={styles.muted}>
               {c.role}
               {c.slug ? ` · ${c.slug}` : ""}
-              {c.verified ? ` · ${t(locale, "me.verified")}` : ""}
+              {c.verified
+                ? ` · ${t(locale, "me.verified")}`
+                : ` · ${t(locale, "me.pendingVerify")}`}
             </Text>
           </Pressable>
         ))}
       </View>
+
+      {selectedId && canAdmin && (
+        <View>
+          <Text style={styles.section}>{t(locale, "home.verifyMember")}</Text>
+          <Text style={styles.muted}>{t(locale, "home.membersPending")}</Text>
+          {pendingMembers.length === 0 && (
+            <Text style={styles.muted}>{t(locale, "home.membersNonePending")}</Text>
+          )}
+          {pendingMembers.map((m) => (
+            <View key={m.userId} style={styles.item}>
+              <Text style={styles.itemTitle}>{m.uid ?? m.userId}</Text>
+              <Text style={styles.muted}>
+                {m.role} · {m.userId}
+              </Text>
+              <Pressable
+                style={[styles.btn, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={() => void verifyMember(m.userId)}
+              >
+                <Text style={styles.btnText}>{t(locale, "home.verify")}</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
 
       <Text style={styles.section}>{t(locale, "home.forum")}</Text>
       {posts.length === 0 && <Text style={styles.muted}>—</Text>}

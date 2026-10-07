@@ -24,6 +24,21 @@ meRoutes.get("/", async (c) => {
     .from(schema.churchMembers)
     .where(eq(schema.churchMembers.userId, user.id));
 
+  const churches = [];
+  for (const m of memberships) {
+    const church = (
+      await db.select().from(schema.churches).where(eq(schema.churches.id, m.churchId)).limit(1)
+    )[0];
+    churches.push({
+      churchId: m.churchId,
+      name: church?.name ?? null,
+      slug: church?.slug ?? null,
+      role: m.role,
+      verified: m.verified,
+      groups: JSON.parse(m.groupIdsJson || "[]"),
+    });
+  }
+
   return c.json({
     id: user.id,
     uid: user.uid,
@@ -33,12 +48,7 @@ meRoutes.get("/", async (c) => {
     nickname: await openField(c.env, userId, "nickname", user.nicknameCt),
     legalName: await openField(c.env, userId, "legalName", user.legalNameCt),
     signature: await openField(c.env, userId, "signature", user.signatureCt),
-    churches: memberships.map((m) => ({
-      churchId: m.churchId,
-      role: m.role,
-      verified: m.verified,
-      groups: JSON.parse(m.groupIdsJson || "[]"),
-    })),
+    churches,
   });
 });
 

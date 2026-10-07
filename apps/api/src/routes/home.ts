@@ -277,6 +277,46 @@ homeRoutes.post("/groups", async (c) => {
   return c.json({ id, churchId: body.churchId, name: body.name }, 201);
 });
 
+/** Admin roster: list church members for verify UX (no raw paste required). */
+homeRoutes.get("/:churchId/members", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  const actor = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(
+          eq(schema.churchMembers.churchId, churchId),
+          eq(schema.churchMembers.userId, c.get("userId")),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!actor || (actor.role !== "admin" && actor.role !== "security_officer")) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const rows = await db
+    .select()
+    .from(schema.churchMembers)
+    .where(eq(schema.churchMembers.churchId, churchId));
+
+  const members = [];
+  for (const m of rows) {
+    const user = (
+      await db.select().from(schema.users).where(eq(schema.users.id, m.userId)).limit(1)
+    )[0];
+    members.push({
+      userId: m.userId,
+      uid: user?.uid ?? null,
+      role: m.role,
+      verified: m.verified,
+    });
+  }
+  return c.json({ churchId, members });
+});
+
 const verifyMemberSchema = z.object({
   churchId: z.string().min(1),
   userId: z.string().min(1),
