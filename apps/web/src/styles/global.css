@@ -87,6 +87,16 @@ select {
   color: var(--lh-ink-muted);
 }
 
+.auth-status {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--lh-accent) 35%, var(--lh-border));
+  background: color-mix(in srgb, var(--lh-accent-soft) 70%, var(--lh-bg-elevated));
+  color: var(--lh-ink);
+  font-weight: 600;
+}
+
 .panel {
   margin-top: 1rem;
   padding: 1rem 1.1rem;

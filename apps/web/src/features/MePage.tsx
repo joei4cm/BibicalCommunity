@@ -73,6 +73,7 @@ export function MePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [pendingWipes, setPendingWipes] = useState<PendingWipe[]>([]);
   const [keyBusy, setKeyBusy] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
   const [wipeUserId, setWipeUserId] = useState("");
   const [wipeDeviceId, setWipeDeviceId] = useState("");
   const [hasDeviceKey, setHasDeviceKey] = useState(
@@ -137,21 +138,36 @@ export function MePage() {
     return normalizeLocale(i18n.language || "zh-CN");
   }
 
+  /** Prefer live DOM FormData so automation/autofill works even if React state lags. */
+  function readAuthForm(): { handle: string; password: string; nickname: string } {
+    const form = document.getElementById("lh-auth-form") as HTMLFormElement | null;
+    const fd = form ? new FormData(form) : null;
+    const h = String(fd?.get("handle") ?? handle).trim();
+    const p = String(fd?.get("password") ?? password);
+    const n = String(fd?.get("nickname") ?? nickname).trim();
+    return { handle: h, password: p, nickname: n };
+  }
+
   async function register() {
     setMsg(null);
+    setAuthBusy(true);
     try {
-      if (!handle.trim() || password.length < 10) {
+      const fields = readAuthForm();
+      setHandle(fields.handle);
+      setPassword(fields.password);
+      if (fields.nickname) setNickname(fields.nickname);
+      if (!fields.handle || fields.password.length < 10) {
         setMsg("auth.invalidCredentials");
         return;
       }
-      const nick = (nickname || handle).trim();
+      const nick = (fields.nickname || fields.handle).trim();
       const res = await api<{ token: string; deviceId: string; uid: string; userId: string }>(
         "/v1/auth/register",
         {
           method: "POST",
           body: JSON.stringify({
-            handle: handle.trim(),
-            password,
+            handle: fields.handle,
+            password: fields.password,
             nickname: nick,
             locale: apiLocale(),
           }),
@@ -159,6 +175,7 @@ export function MePage() {
       );
       setToken(res.token);
       localStorage.setItem("lh.deviceId", res.deviceId);
+      localStorage.setItem("lh.uid", res.uid);
       // Full optimistic profile — partial objects crash render on profile.churches.map.
       setProfile({
         id: res.userId,
@@ -178,15 +195,25 @@ export function MePage() {
       }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAuthBusy(false);
     }
   }
 
   async function login() {
     setMsg(null);
+    setAuthBusy(true);
     try {
+      const fields = readAuthForm();
+      setHandle(fields.handle);
+      setPassword(fields.password);
       const res = await api<{ token: string; deviceId: string }>("/v1/auth/login", {
         method: "POST",
-        body: JSON.stringify({ handleOrEmail: handle.trim(), password, platform: "web" }),
+        body: JSON.stringify({
+          handleOrEmail: fields.handle,
+          password: fields.password,
+          platform: "web",
+        }),
       });
       setToken(res.token);
       localStorage.setItem("lh.deviceId", res.deviceId);
@@ -195,6 +222,8 @@ export function MePage() {
       await checkPendingWipe();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAuthBusy(false);
     }
   }
 
@@ -348,8 +377,21 @@ export function MePage() {
         </div>
       )}
 
-      <div className="panel">
+      <div className="panel" data-testid="me-auth-panel">
+        {(profile?.uid || msg) && (
+          <p className="auth-status" role="status" data-testid="me-auth-status">
+            {profile?.uid ? (
+              <>
+                UID: <strong data-testid="me-uid">{profile.uid}</strong>
+                {msg ? ` · ${humanizeStatus(t, msg)}` : null}
+              </>
+            ) : (
+              humanizeStatus(t, msg)
+            )}
+          </p>
+        )}
         <form
+          id="lh-auth-form"
           onSubmit={(e) => {
             e.preventDefault();
             void login();
@@ -361,8 +403,10 @@ export function MePage() {
               id="lh-handle"
               name="handle"
               autoComplete="username"
+              data-testid="me-handle"
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
+              onInput={(e) => setHandle((e.target as HTMLInputElement).value)}
             />
           </div>
           <div className="field">
@@ -372,8 +416,10 @@ export function MePage() {
               name="password"
               type="password"
               autoComplete="current-password"
+              data-testid="me-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
             />
           </div>
           <div className="field">
@@ -382,25 +428,27 @@ export function MePage() {
               id="lh-nickname-auth"
               name="nickname"
               autoComplete="nickname"
+              data-testid="me-nickname"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
+              onInput={(e) => setNickname((e.target as HTMLInputElement).value)}
             />
           </div>
           <div className="toolbar">
-            <button type="button" className="btn" onClick={() => void register()}>
-              {t("auth.register")}
+            <button
+              type="button"
+              className="btn"
+              data-testid="me-register"
+              disabled={authBusy}
+              onClick={() => void register()}
+            >
+              {authBusy ? "…" : t("auth.register")}
             </button>
-            <button type="submit" className="btn ghost">
+            <button type="submit" className="btn ghost" data-testid="me-login" disabled={authBusy}>
               {t("auth.login")}
             </button>
           </div>
         </form>
-        {profile?.uid && (
-          <p>
-            UID: <strong>{profile.uid}</strong>
-          </p>
-        )}
-        {msg && <p className="muted">{humanizeStatus(t, msg)}</p>}
       </div>
 
       <div className="panel">
