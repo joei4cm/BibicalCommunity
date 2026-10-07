@@ -23,7 +23,7 @@ type Conversation = {
   kind: string;
   title: string | null;
   disappearingTtlSec: number | null;
-  archived?: boolean;
+  membership: { id: string; role: string; archived: boolean };
 };
 
 type ChatMessage = {
@@ -57,6 +57,7 @@ export default function MessagesScreen() {
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
@@ -71,9 +72,13 @@ export default function MessagesScreen() {
       return;
     }
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
-    setConversations(res.conversations.filter((c) => !c.archived));
+    setConversations(
+      res.conversations.filter((c) =>
+        showArchived ? c.membership.archived : !c.membership.archived,
+      ),
+    );
     setNote(null);
-  }, []);
+  }, [showArchived]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const res = await api<{ messages: ChatMessage[] }>(
@@ -148,6 +153,23 @@ export default function MessagesScreen() {
     }
   }
 
+  async function archiveConversation(archived: boolean) {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/chat/conversations/${selectedId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ archived }),
+      });
+      if (archived) setSelectedId(null);
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function send() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
@@ -198,6 +220,15 @@ export default function MessagesScreen() {
       </Pressable>
 
       <Text style={styles.section}>{t(locale, "home.messages")}</Text>
+      <Pressable
+        style={[styles.ttlChip, showArchived && styles.ttlChipActive, { marginBottom: 10 }]}
+        onPress={() => setShowArchived((v) => !v)}
+      >
+        <Text style={[styles.ttlChipText, showArchived && styles.ttlChipTextActive]}>
+          {t(locale, "chat.archive")}
+          {showArchived ? " ✓" : ""}
+        </Text>
+      </Pressable>
       {conversations.length === 0 && <Text style={styles.muted}>{t(locale, "chat.empty")}</Text>}
       {conversations.map((c) => (
         <Pressable
@@ -209,12 +240,22 @@ export default function MessagesScreen() {
           <Text style={styles.muted}>
             {c.id}
             {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
+            {c.membership.archived ? " · archived" : ""}
           </Text>
         </Pressable>
       ))}
 
       {selectedId && (
         <View style={styles.thread}>
+          <Pressable
+            style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled, { marginBottom: 12 }]}
+            disabled={busy}
+            onPress={() => void archiveConversation(!selected?.membership.archived)}
+          >
+            <Text style={styles.btnGhostText}>
+              {selected?.membership.archived ? "Unarchive" : t(locale, "chat.archive")}
+            </Text>
+          </Pressable>
           <Text style={styles.label}>{t(locale, "chat.disappearing")}</Text>
           <View style={styles.ttlRow}>
             {TTL_OPTIONS.map((opt) => {
@@ -300,6 +341,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignSelf: "flex-start",
   },
+  btnGhost: {
+    backgroundColor: "#e8e2d4",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  btnGhostText: { color: "#1c2b2a", fontWeight: "600" },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "600" },
   item: {

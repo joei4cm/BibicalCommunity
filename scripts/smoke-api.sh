@@ -223,6 +223,20 @@ sleep 2
 AFTER=$(curl -sf "$BASE/v1/chat/conversations/$CID/messages" -H "$AUTH")
 echo "$AFTER" | grep -q '"messages":\[\]'
 echo "TTL_TOMBSTONE_OK"
+echo "== conversation archive toggle =="
+curl -sf -X PATCH -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"archived":true}' "$BASE/v1/chat/conversations/$CID" | grep -q '"archived":true'
+ARCH_LIST=$(curl -sf "$BASE/v1/chat/conversations" -H "$AUTH")
+echo "$ARCH_LIST" | node -e '
+const j=JSON.parse(require("fs").readFileSync(0,"utf8"));
+const id=process.argv[1];
+const c=(j.conversations||[]).find((x)=>x.id===id);
+if(!c||!c.membership||c.membership.archived!==true) throw new Error("expected archived");
+console.log("ARCHIVE_OK");
+' "$CID"
+curl -sf -X PATCH -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"archived":false}' "$BASE/v1/chat/conversations/$CID" | grep -q '"archived":false'
+echo "UNARCHIVE_OK"
 echo "== call create + turn =="
 CALL=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"conversationId\":\"$CID\"}" "$BASE/v1/chat/calls")

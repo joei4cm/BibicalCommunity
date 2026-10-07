@@ -13,7 +13,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token` | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** (CSV import, public subscribe, progress) | PARTIAL — API smoke PASS; deeper devotion UX OPEN |
 | 7 | Church Home forums / embeds | `HOME_SMOKE_OK`; mobile forum + externalMediaUrl compose | PARTIAL — API+mobile compose PASS |
-| 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK`; `TTL_TOMBSTONE_OK`; mobile TTL chips + expiresAt send | PARTIAL — P-256+TTL PASS; Curve25519 OPEN |
+| 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK`; `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; mobile TTL+archive | PARTIAL — P-256+TTL+archive PASS; Curve25519 OPEN |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK` | PARTIAL — signaling PASS; live picker OPEN |
 | 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK` (profile/search/privacy/theme); `HOME_VERIFY_OK` / `HOME_WIPE_OK` | PARTIAL — API smoke PASS; deeper verify UX OPEN |
 | 11 | Encrypted storage | `STORAGE_SMOKE_OK` (session-aes + note envelope + field-crypto + annotation opaque) | PARTIAL — roundtrip PASS; device keystore E2E OPEN |
