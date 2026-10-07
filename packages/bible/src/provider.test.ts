@@ -80,6 +80,19 @@ test("loadChapter returns verses for kjv John.3 (includes 3:16)", async () => {
   );
 });
 
+test("loadChapter returns verses for asv John.3 (includes 3:16)", async () => {
+  const result = await loadChapter("asv", { book: "John", chapter: 3 });
+  assert.ok(!("external" in result));
+  assert.equal(result.source, "local");
+  assert.equal(result.chapter, 3);
+  assert.ok(result.verses.length > 0);
+  assert.match(result.verses[0]?.text ?? "", /Nicodemus/);
+  assert.match(
+    result.verses.find((v) => v.verse === 16)?.text ?? "",
+    /believeth on him/,
+  );
+});
+
 test("loadChapter returns verses for kougoyaku-pd John.1", async () => {
   const result = await loadChapter("kougoyaku-pd", { book: "John", chapter: 1 });
   assert.ok(!("external" in result));
