@@ -15,8 +15,9 @@ export type SignalingMessage =
   | { type: "answer"; sdp: string }
   | { type: "ice"; candidate: RTCIceCandidateInit | null }
   | { type: "hangup" }
-  | { type: "screen" };
-
+  | { type: "screen" }
+  | { type: "screen-offer"; sdp: string }
+  | { type: "screen-answer"; sdp: string };
 export type PeerCallbacks = {
   onLocalDescription?: (desc: RTCSessionDescriptionInit) => void;
   onIceCandidate?: (candidate: RTCIceCandidate | null) => void;
@@ -131,4 +132,35 @@ export function openSignalingChannel(
     }
   }
   return createMockSignalingChannel();
+}
+
+/** Capture display surface and replace/add video sender for screen share. */
+export async function startScreenShare(pc: RTCPeerConnection): Promise<MediaStream> {
+  const display = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: false,
+  });
+  const track = display.getVideoTracks()[0];
+  if (!track) throw new Error("no_display_track");
+
+  const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+  if (sender) {
+    await sender.replaceTrack(track);
+  } else {
+    pc.addTrack(track, display);
+  }
+
+  track.addEventListener("ended", () => {
+    /* caller may re-attach camera */
+  });
+  return display;
+}
+
+export async function stopScreenShare(
+  pc: RTCPeerConnection,
+  cameraStream?: MediaStream | null,
+): Promise<void> {
+  const cameraTrack = cameraStream?.getVideoTracks()[0] ?? null;
+  const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+  if (sender) await sender.replaceTrack(cameraTrack);
 }

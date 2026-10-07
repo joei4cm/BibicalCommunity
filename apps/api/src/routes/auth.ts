@@ -5,6 +5,7 @@ import { createId, loginSchema, registerSchema, privacySettingsSchema } from "@l
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { hashPassword, hmacHex, randomToken, sha256Hex, verifyPassword } from "../services/crypto";
+import { sealField } from "../services/field-crypto";
 import type { AuthVars } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
 
@@ -34,7 +35,7 @@ authRoutes.post("/register", async (c) => {
     handleHash,
     emailHash,
     passwordHash,
-    nicknameCt: body.nickname,
+    nicknameCt: await sealField(c.env, userId, "nickname", body.nickname),
     locale: body.locale,
     theme: "day",
     privacyJson: JSON.stringify(privacy),

@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DevSignalStub } from "@logoshome/crypto";
+import {
+  deriveSessionKey,
+  decryptSessionPayload,
+  encryptSessionPayload,
+} from "@logoshome/crypto";
 import { api, getToken } from "../lib/api";
-import { openSignalingChannel } from "../lib/webrtc";
+import {
+  attachLocalMedia,
+  createOffer,
+  createPeerConnection,
+  openSignalingChannel,
+  startScreenShare,
+  stopScreenShare,
+} from "../lib/webrtc";
 
 type Conversation = {
   id: string;
@@ -31,13 +42,16 @@ const TTL_OPTIONS = [
   { labelKey: "chat.ttl7d", value: 604800 },
 ];
 
-const stub = new DevSignalStub();
+async function sessionKeyFor(conversationId: string) {
+  return deriveSessionKey(`lh-convo:${conversationId}`);
+}
 
 export function ChatPanel() {
   const { t } = useTranslation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
   const [kind, setKind] = useState<"dm" | "group">("dm");
   const [title, setTitle] = useState("");
   const [memberIds, setMemberIds] = useState("");
@@ -45,6 +59,9 @@ export function ChatPanel() {
   const [note, setNote] = useState<string | null>(null);
   const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
   const selected = useMemo(
     () => conversations.find((c) => c.id === selectedId) ?? null,
@@ -66,22 +83,39 @@ export function ChatPanel() {
       `/v1/chat/conversations/${conversationId}/messages`,
     );
     setMessages(res.messages);
+    const key = await sessionKeyFor(conversationId);
+    const decoded: Record<string, string> = {};
+    for (const m of res.messages) {
+      try {
+        decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
+      } catch {
+        decoded[m.id] = "[ciphertext]";
+      }
+    }
+    setPlaintexts(decoded);
+  }, []);
+
+  const loadFavorites = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      const res = await api<{ favorites: { id: string; messageId: string }[] }>("/v1/chat/favorites");
+      setFavorites(res.favorites);
+    } catch {
+      /* endpoint may be unavailable in older deploys */
+    }
   }, []);
 
   useEffect(() => {
-    void refreshConversations().catch((e) =>
-      setNote(e instanceof Error ? e.message : "error"),
-    );
-  }, [refreshConversations]);
+    void refreshConversations().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void loadFavorites();
+  }, [refreshConversations, loadFavorites]);
 
   useEffect(() => {
     if (!selectedId) {
       setMessages([]);
       return;
     }
-    void loadMessages(selectedId).catch((e) =>
-      setNote(e instanceof Error ? e.message : "error"),
-    );
+    void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
   async function createConversation() {
@@ -123,24 +157,18 @@ export function ChatPanel() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
     try {
-      const session = await stub.establishSession("dev-local", {
-        identityKeyPub: "peer",
-        signedPrekeyPub: "spk",
-        signedPrekeySig: "sig",
-        signedPrekeyId: 1,
-        registrationId: 1,
-      });
+      const key = await sessionKeyFor(selectedId);
+      const enc = await encryptSessionPayload(key, draft.trim());
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;
-      const enc = await stub.encrypt(session, draft.trim(), expiresAt);
       await api(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
         body: JSON.stringify({
           ratchetHeader: enc.ratchetHeader,
           ciphertext: enc.ciphertext,
-          contentType: enc.contentType,
-          expiresAt: enc.expiresAt,
+          contentType: "msg",
+          expiresAt,
         }),
       });
       setDraft("");
@@ -150,6 +178,21 @@ export function ChatPanel() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function favoriteMessage(m: ChatMessage) {
+    const text = plaintexts[m.id] ?? "";
+    const key = await sessionKeyFor(selectedId ?? "fav");
+    const enc = await encryptSessionPayload(key, text, "fav");
+    await api("/v1/chat/favorites", {
+      method: "POST",
+      body: JSON.stringify({
+        messageId: m.id,
+        ciphertext: enc.ciphertext,
+        iv: enc.ratchetHeader,
+      }),
+    });
+    await loadFavorites();
   }
 
   async function patchTtl(ttl: number | null) {
@@ -168,6 +211,15 @@ export function ChatPanel() {
     }
   }
 
+  async function archiveConversation(archived: boolean) {
+    if (!selectedId) return;
+    await api(`/v1/chat/conversations/${selectedId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ archived }),
+    });
+    await refreshConversations();
+  }
+
   async function startCall() {
     if (!selectedId) return;
     setBusy(true);
@@ -181,16 +233,17 @@ export function ChatPanel() {
         method: "POST",
         body: JSON.stringify({ conversationId: selectedId }),
       });
-      // Dev: no absolute WS URL from the API response; use mock EventTarget channel.
+      const pc = createPeerConnection();
+      pcRef.current = pc;
+      localStreamRef.current = await attachLocalMedia(pc, { audio: true, video: true });
+      await createOffer(pc);
       const channel = openSignalingChannel(null);
       setCallNote(
         `${t("chat.callStarted")}: ${res.callId} · ${res.signalingPath}` +
           (res.note ? ` · ${res.note}` : "") +
           ` · signaling=${channel instanceof WebSocket ? "ws" : "mock"}`,
       );
-      if (!(channel instanceof WebSocket)) {
-        channel.close();
-      }
+      if (!(channel instanceof WebSocket)) channel.close();
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -198,11 +251,30 @@ export function ChatPanel() {
     }
   }
 
+  async function shareScreen() {
+    if (!pcRef.current) {
+      await startCall();
+    }
+    if (!pcRef.current) return;
+    try {
+      await startScreenShare(pcRef.current);
+      setCallNote((prev) => `${prev ?? ""} · screen-share-on`);
+    } catch (e) {
+      setCallNote(e instanceof Error ? e.message : "screen_share_failed");
+    }
+  }
+
+  async function endScreen() {
+    if (!pcRef.current) return;
+    await stopScreenShare(pcRef.current, localStreamRef.current);
+    setCallNote((prev) => `${prev ?? ""} · screen-share-off`);
+  }
+
   return (
     <div className="panel">
       <h2 style={{ marginTop: 0 }}>{t("home.messages")}</h2>
       <p className="muted">
-        E2EE DM / groups · {t("chat.disappearing")} · {t("chat.call")}
+        AES-GCM session crypto · {t("chat.disappearing")} · {t("chat.call")}
       </p>
       {note && <p className="muted">{note}</p>}
 
@@ -247,12 +319,19 @@ export function ChatPanel() {
               <div className="muted">
                 {c.id}
                 {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
+                {c.membership.archived ? " · archived" : ""}
                 {selectedId === c.id ? ` · ${t("chat.selected")}` : ""}
               </div>
             </button>
           </li>
         ))}
       </ul>
+
+      {favorites.length > 0 && (
+        <p className="muted">
+          {t("chat.favorites")}: {favorites.length}
+        </p>
+      )}
 
       {selected && (
         <>
@@ -278,8 +357,18 @@ export function ChatPanel() {
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void startCall()}>
               {t("chat.call")}
             </button>
-            <button type="button" className="btn ghost" disabled>
+            <button type="button" className="btn ghost" disabled={busy} onClick={() => void shareScreen()}>
               {t("chat.screenShare")}
+            </button>
+            <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
+              Stop share
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => void archiveConversation(!selected.membership.archived)}
+            >
+              {selected.membership.archived ? "Unarchive" : t("chat.archive")}
             </button>
           </div>
           {callNote && <p className="muted">{callNote}</p>}
@@ -288,11 +377,14 @@ export function ChatPanel() {
             {messages.length === 0 && <li className="muted">{t("chat.noMessages")}</li>}
             {messages.map((m) => (
               <li key={m.id}>
-                <code className="muted">{m.ciphertext.slice(0, 48)}…</code>
+                <div>{plaintexts[m.id] ?? "…"}</div>
                 <div className="muted">
                   {new Date(m.createdAt).toLocaleString()}
                   {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
                 </div>
+                <button type="button" className="btn ghost" onClick={() => void favoriteMessage(m)}>
+                  {t("chat.favorite")}
+                </button>
               </li>
             ))}
           </ul>

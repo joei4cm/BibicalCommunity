@@ -5,14 +5,17 @@ import { profileUpdateSchema, type PrivacySettings } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
+import { openField, sealField } from "../services/field-crypto";
+
 export const meRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
 meRoutes.use("*", requireAuth);
 
 meRoutes.get("/", async (c) => {
   const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
   const user = (
-    await db.select().from(schema.users).where(eq(schema.users.id, c.get("userId"))).limit(1)
+    await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1)
   )[0];
   if (!user) return c.json({ error: "not_found" }, 404);
 
@@ -27,9 +30,9 @@ meRoutes.get("/", async (c) => {
     locale: user.locale,
     theme: user.theme,
     privacy: JSON.parse(user.privacyJson),
-    nickname: user.nicknameCt,
-    legalName: user.legalNameCt,
-    signature: user.signatureCt,
+    nickname: await openField(c.env, userId, "nickname", user.nicknameCt),
+    legalName: await openField(c.env, userId, "legalName", user.legalNameCt),
+    signature: await openField(c.env, userId, "signature", user.signatureCt),
     churches: memberships.map((m) => ({
       churchId: m.churchId,
       role: m.role,
@@ -53,7 +56,6 @@ meRoutes.get("/search", async (c) => {
   )[0];
 
   if (!candidate || candidate.tombstoned) {
-    // Handle discovery stub: plaintext handles are not stored (only HMAC hashes).
     return c.json({ results: [] });
   }
 
@@ -73,7 +75,7 @@ meRoutes.get("/search", async (c) => {
       {
         id: candidate.id,
         uid: candidate.uid,
-        nickname: candidate.nicknameCt,
+        nickname: await openField(c.env, candidate.id, "nickname", candidate.nicknameCt),
       },
     ],
   });
@@ -82,19 +84,26 @@ meRoutes.get("/search", async (c) => {
 meRoutes.patch("/", async (c) => {
   const body = profileUpdateSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
   const patch: Partial<typeof schema.users.$inferInsert> = {};
   if (body.locale) patch.locale = body.locale;
   if (body.theme) patch.theme = body.theme;
-  if (body.nickname !== undefined) patch.nicknameCt = body.nickname;
-  if (body.legalName !== undefined) patch.legalNameCt = body.legalName;
-  if (body.signature !== undefined) patch.signatureCt = body.signature;
+  if (body.nickname !== undefined) {
+    patch.nicknameCt = await sealField(c.env, userId, "nickname", body.nickname);
+  }
+  if (body.legalName !== undefined) {
+    patch.legalNameCt = await sealField(c.env, userId, "legalName", body.legalName);
+  }
+  if (body.signature !== undefined) {
+    patch.signatureCt = await sealField(c.env, userId, "signature", body.signature);
+  }
   if (body.privacy) {
     const user = (
-      await db.select().from(schema.users).where(eq(schema.users.id, c.get("userId"))).limit(1)
+      await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1)
     )[0];
     const current = user ? JSON.parse(user.privacyJson) : {};
     patch.privacyJson = JSON.stringify({ ...current, ...body.privacy });
   }
-  await db.update(schema.users).set(patch).where(eq(schema.users.id, c.get("userId")));
+  await db.update(schema.users).set(patch).where(eq(schema.users.id, userId));
   return c.json({ ok: true });
 });

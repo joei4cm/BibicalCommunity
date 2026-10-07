@@ -2,16 +2,17 @@
 
 All features are in scope. Delivery is phased so each phase ships a usable vertical slice.
 
-## Phase 0 — Foundation (this sprint)
+## Phase 0 — Foundation (landed)
 
 - Monorepo: api / web / mobile / shared / bible / crypto / ui
 - Architecture + security docs
-- D1 schema (users, devices, churches, annotations meta, plans, forum, messages ciphertext, wipe)
-- Auth sessions + profile stubs
-- Reader shell with PD English sample + translation registry (zh/en/ja)
-- i18n + theme tokens
-- Wrangler config + README
-- E2EE + WebRTC **interfaces** and signaling stub
+- D1 schema (+ groups, favorites, media)
+- Auth sessions, field-encrypted profile, privacy search, church verify
+- Reader: book/chapter, dual-pane, typography, notes/highlights, study panel, Endao/WeRead
+- Plans: CSV, edit, subscribe, public/subscriptions, devotion steps + open materials
+- Home: churches, boards, embeds, ChatPanel (AES-GCM session crypto, TTL, archive, favorites)
+- Calls: DO signaling + screen-share helpers; R2 media proxy
+- Expo tabs parity; i18n zh/en/ja; themes; CI
 
 ## Phase 1 — Reader product
 

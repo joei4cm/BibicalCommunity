@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
+import { listDevotionMaterials, listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
 import {
   DEVOTION_STEPS,
@@ -35,6 +35,8 @@ export function PlansPage() {
 
   const lang = i18n.language.startsWith("zh") ? "zh" : i18n.language.startsWith("ja") ? "ja" : "en";
   const studyMaterials = useMemo(() => listStudyMaterials({ language: lang }), [lang]);
+  const devotionMaterials = useMemo(() => listDevotionMaterials(), []);
+  const localeKey = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
 
   const selected = plans.find((p) => p.id === selectedId) ?? null;
 
@@ -263,6 +265,13 @@ export function PlansPage() {
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>{t("plans.materials")}</h2>
         <ul className="list">
+          {devotionMaterials.map((m) => (
+            <li key={m.id}>
+              <strong>{m.title[localeKey] ?? m.title.en}</strong>
+              <div className="muted">{m.body[localeKey] ?? m.body.en}</div>
+              <div className="muted">{m.license}</div>
+            </li>
+          ))}
           {studyMaterials.map((m) => (
             <li key={m.id}>
               <a href={m.url} target="_blank" rel="noreferrer">

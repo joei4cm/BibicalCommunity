@@ -5,3 +5,4 @@ export * from "./csv-plans.js";
 export * from "./books.js";
 export * from "./study.js";
 export { WEB_JOHN_1 } from "./sample-web-john1.js";
+export { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";

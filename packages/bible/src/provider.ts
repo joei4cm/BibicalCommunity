@@ -1,6 +1,7 @@
 import { buildExternalUrl, getTranslation, type TranslationMeta } from "./translations.js";
 import { formatRef, type VerseRef } from "./refs.js";
 import { WEB_JOHN_1 } from "./sample-web-john1.js";
+import { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -45,6 +46,20 @@ export async function loadChapter(
       book: "John",
       chapter: 1,
       verses: WEB_JOHN_1,
+      source: "local",
+    };
+  }
+
+  if (
+    (meta.id === "kougoyaku-pd" || meta.id === "kougo") &&
+    (ref.book.toLowerCase() === "john" || ref.book === "ヨハネ") &&
+    ref.chapter === 1
+  ) {
+    return {
+      translationId: meta.id,
+      book: "John",
+      chapter: 1,
+      verses: BUNGO_JOHN_1,
       source: "local",
     };
   }
