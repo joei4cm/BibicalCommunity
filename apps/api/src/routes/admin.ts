@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createId, wipeCommandSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
@@ -41,6 +41,22 @@ adminRoutes.post("/wipe", async (c) => {
   // Server-side destruction of ciphertext courier data
   await db.update(schema.users).set({ tombstoned: true }).where(eq(schema.users.id, body.userId));
   await db.delete(schema.sessions).where(eq(schema.sessions.userId, body.userId));
+
+  // Tombstone messages in conversations the wiped user belongs to
+  const convoMemberships = await db
+    .select({ conversationId: schema.conversationMembers.conversationId })
+    .from(schema.conversationMembers)
+    .where(eq(schema.conversationMembers.userId, body.userId));
+  const conversationIds = convoMemberships.map((m) => m.conversationId);
+  if (conversationIds.length > 0) {
+    await db
+      .update(schema.messages)
+      .set({ tombstoned: true, ciphertext: "", ratchetHeader: "" })
+      .where(inArray(schema.messages.conversationId, conversationIds));
+  }
+
+  // Revoke all devices for the wiped user
+  await db.update(schema.devices).set({ revoked: true }).where(eq(schema.devices.userId, body.userId));
 
   return c.json({ id, wipeToken: token, status: "pending" }, 201);
 });

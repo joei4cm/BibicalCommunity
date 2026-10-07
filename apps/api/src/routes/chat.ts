@@ -48,6 +48,102 @@ chatRoutes.post("/conversations", async (c) => {
   return c.json({ id }, 201);
 });
 
+chatRoutes.get("/conversations", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const memberships = await db
+    .select()
+    .from(schema.conversationMembers)
+    .where(eq(schema.conversationMembers.userId, userId));
+
+  const conversations = [];
+  for (const m of memberships) {
+    const convo = (
+      await db
+        .select()
+        .from(schema.conversations)
+        .where(eq(schema.conversations.id, m.conversationId))
+        .limit(1)
+    )[0];
+    if (!convo) continue;
+    conversations.push({
+      id: convo.id,
+      kind: convo.kind,
+      title: convo.title,
+      disappearingTtlSec: convo.disappearingTtlSec,
+      createdBy: convo.createdBy,
+      createdAt: convo.createdAt,
+      membership: {
+        id: m.id,
+        role: m.role,
+        archived: m.archived,
+      },
+    });
+  }
+  return c.json({ conversations });
+});
+
+const patchConvoSchema = z.object({
+  disappearingTtlSec: z.number().int().positive().nullable().optional(),
+  archived: z.boolean().optional(),
+});
+
+chatRoutes.patch("/conversations/:id", async (c) => {
+  const body = patchConvoSchema.parse(await c.req.json());
+  const conversationId = c.req.param("id");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+
+  const member = (
+    await db
+      .select()
+      .from(schema.conversationMembers)
+      .where(
+        and(
+          eq(schema.conversationMembers.conversationId, conversationId),
+          eq(schema.conversationMembers.userId, userId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!member) return c.json({ error: "forbidden" }, 403);
+  if (member.role !== "owner") return c.json({ error: "forbidden" }, 403);
+
+  if (body.disappearingTtlSec !== undefined) {
+    await db
+      .update(schema.conversations)
+      .set({ disappearingTtlSec: body.disappearingTtlSec })
+      .where(eq(schema.conversations.id, conversationId));
+  }
+  if (body.archived !== undefined) {
+    await db
+      .update(schema.conversationMembers)
+      .set({ archived: body.archived })
+      .where(eq(schema.conversationMembers.id, member.id));
+  }
+
+  const convo = (
+    await db.select().from(schema.conversations).where(eq(schema.conversations.id, conversationId)).limit(1)
+  )[0];
+  const updatedMember = (
+    await db
+      .select()
+      .from(schema.conversationMembers)
+      .where(eq(schema.conversationMembers.id, member.id))
+      .limit(1)
+  )[0];
+
+  return c.json({
+    id: conversationId,
+    disappearingTtlSec: convo?.disappearingTtlSec ?? null,
+    membership: {
+      id: updatedMember?.id ?? member.id,
+      role: updatedMember?.role ?? member.role,
+      archived: updatedMember?.archived ?? member.archived,
+    },
+  });
+});
+
 chatRoutes.post("/conversations/:id/messages", async (c) => {
   const body = sendMessageSchema.parse(await c.req.json());
   const conversationId = c.req.param("id");

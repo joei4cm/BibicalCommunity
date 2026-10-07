@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
-import { profileUpdateSchema } from "@logoshome/shared";
+import { profileUpdateSchema, type PrivacySettings } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
@@ -35,6 +35,46 @@ meRoutes.get("/", async (c) => {
       verified: m.verified,
       groups: JSON.parse(m.groupIdsJson || "[]"),
     })),
+  });
+});
+
+/**
+ * Privacy-scoped discovery. UID lookup respects discoverableByUid.
+ * Handle search returns empty because only handleHash is stored server-side.
+ */
+meRoutes.get("/search", async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  if (!q) return c.json({ results: [] });
+
+  const db = drizzle(c.env.DB, { schema });
+  const candidate = (
+    await db.select().from(schema.users).where(eq(schema.users.uid, q.toUpperCase())).limit(1)
+  )[0];
+
+  if (!candidate || candidate.tombstoned) {
+    // Handle discovery stub: plaintext handles are not stored (only HMAC hashes).
+    return c.json({ results: [] });
+  }
+
+  let privacy: PrivacySettings;
+  try {
+    privacy = JSON.parse(candidate.privacyJson) as PrivacySettings;
+  } catch {
+    return c.json({ results: [] });
+  }
+
+  if (!privacy.discoverableByUid) {
+    return c.json({ results: [] });
+  }
+
+  return c.json({
+    results: [
+      {
+        id: candidate.id,
+        uid: candidate.uid,
+        nickname: candidate.nicknameCt,
+      },
+    ],
   });
 });
 
