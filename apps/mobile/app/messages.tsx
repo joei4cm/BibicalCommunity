@@ -30,6 +30,27 @@ type ChatMessage = {
   expiresAt: number | null;
 };
 
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const btoaFn = globalThis.btoa?.bind(globalThis);
+  if (btoaFn) return btoaFn(binary);
+  // Fallback without btoa (some RN runtimes)
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i] ?? 0;
+    const b = bytes[i + 1];
+    const c = bytes[i + 2];
+    out += chars[a >> 2];
+    out += chars[((a & 3) << 4) | ((b ?? 0) >> 4)];
+    out += b === undefined ? "=" : chars[(((b ?? 0) & 15) << 2) | ((c ?? 0) >> 6)];
+    out += c === undefined ? "=" : chars[(c ?? 0) & 63];
+  }
+  return out;
+}
+
 /**
  * Mobile chat: lists conversations and posts ciphertext payloads.
  * Full Double Ratchet UX remains richest on web ChatPanel; mobile stores
@@ -125,8 +146,8 @@ export default function MessagesScreen() {
       // Mobile posts opaque ciphertext; ratchet UX is denser on web.
       const text = draft.trim();
       const payload = {
-        ratchetHeader: btoa(`mobile:${selectedId}`),
-        ciphertext: btoa(unescape(encodeURIComponent(text))),
+        ratchetHeader: utf8ToBase64(`mobile:${selectedId}`),
+        ciphertext: utf8ToBase64(text),
         contentType: "msg" as const,
       };
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {

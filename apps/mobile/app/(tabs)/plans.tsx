@@ -121,7 +121,7 @@ export default function PlansScreen() {
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.plans")}</Text>
 
-      <Text style={styles.section}>{t(locale, "plans.mine")}</Text>
+      <Text style={styles.section}>{t(locale, "plans.owned")}</Text>
       {mine.length === 0 && <Text style={styles.muted}>—</Text>}
       {mine.map((p) => (
         <View key={p.id} style={styles.card}>
