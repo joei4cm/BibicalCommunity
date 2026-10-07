@@ -42,6 +42,20 @@ curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' -d '{}' \
   "$BASE/v1/calls/turn-credentials" | head -c 200; echo
 echo "== partners status =="
 curl -sf "$BASE/v1/partners/status" | head -c 200; echo
+echo "== partner SSO mock closed loop =="
+SSO_STATUS=$(curl -sf "$BASE/v1/partners/status")
+echo "$SSO_STATUS" | grep -q '"endao":{"ssoEnabled":true'
+echo "SSO_STATUS_OK"
+SSO_START=$(curl -sf "$BASE/v1/partners/endao/start?ref=John.1")
+echo "$SSO_START" | head -c 240; echo
+echo "$SSO_START" | grep -q 'mock-authorize'
+echo "$SSO_START" | grep -q '"mockIdp":true'
+echo "SSO_START_OK"
+SSO_LOOP=$(curl -sfL "$BASE/v1/partners/endao/start?ref=John.1&redirect=1")
+echo "$SSO_LOOP" | head -c 240; echo
+echo "$SSO_LOOP" | grep -q '"ok":true'
+echo "$SSO_LOOP" | grep -q '"mock":true'
+echo "SSO_LOOP_OK"
 echo "== disappearing message tombstone =="
 H2="smokepeer$(date +%s)"
 REG2=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
@@ -66,6 +80,29 @@ CALL=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
 echo "$CALL" | head -c 200; echo
 echo "$CALL" | grep -q "signalingPath"
 echo "CALL_SIGNAL_OK"
+echo "== call websocket joined =="
+CALL_ID=$(echo "$CALL" | sed -n 's/.*"callId":"\([^"]*\)".*/\1/p')
+test -n "$CALL_ID"
+WS_HOST="${BASE#http://}"
+WS_HOST="${WS_HOST#https://}"
+WS_URL="ws://${WS_HOST}/v1/calls/${CALL_ID}/ws?token=${TOKEN}&conversationId=${CID}"
+node --input-type=module -e '
+const url = process.argv[1];
+const ws = new WebSocket(url);
+const timer = setTimeout(() => { console.error("CALL_WS_TIMEOUT"); process.exit(1); }, 8000);
+ws.addEventListener("message", (ev) => {
+  let msg;
+  try { msg = JSON.parse(String(ev.data)); } catch { return; }
+  if (msg && msg.type === "joined") {
+    clearTimeout(timer);
+    console.log("CALL_WS_OK");
+    ws.close();
+    process.exit(0);
+  }
+});
+ws.addEventListener("error", () => { clearTimeout(timer); console.error("CALL_WS_ERROR"); process.exit(1); });
+ws.addEventListener("close", () => { clearTimeout(timer); console.error("CALL_WS_CLOSED"); process.exit(1); });
+' "$WS_URL"
 echo "== peer key bundle list =="
 curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
 echo "SMOKE_OK"
