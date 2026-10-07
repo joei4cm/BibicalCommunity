@@ -7,10 +7,10 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | # | Requirement | Evidence (authoritative) | Status |
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web`, `apps/mobile`; typecheck | PARTIAL — apps present; device WebCrypto E2E OPEN |
-| 2 | Bible highlights / bookmarks / notes / typography | Web BibleReader; mobile bible annotate; `ANNOTATIONS_SMOKE_OK` | PARTIAL — API+web+mobile create/list PASS; typography polish OPEN |
+| 2 | Bible highlights / bookmarks / notes / typography | Web BibleReader; mobile annotate + A+/A−; `ANNOTATIONS_SMOKE_OK` | PARTIAL — API+web+mobile PASS; deeper typography themes OPEN |
 | 3 | Translations zh/en/ja mainstream | 22-id registry; John.1–3 scaffolds; `JOHN2_MULTILANG_OK` / `JOHN3_ZHJA_OK` / `JOHN3_R2_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS (smoke) |
-| 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; `PARTNER_OAUTH_URL_OK` | PARTIAL — mock + URL wiring PASS; real IdP token exchange OPEN |
+| 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; `PARTNER_OAUTH_URL_OK`; `PARTNER_TOKEN_EXCHANGE_SHAPE_OK` + unit exchange with mocked token URL | PARTIAL — mock + exchange seam PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + Playwright | PARTIAL |
 | 7 | Church Home forums / embeds | `HOME_SMOKE_OK` | PARTIAL |
 | 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` | PARTIAL — P-256 PASS; Curve25519 libsignal OPEN |
