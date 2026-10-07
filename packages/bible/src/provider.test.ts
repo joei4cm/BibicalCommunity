@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { loadChapter } from "./provider.js";
-import { getTranslation } from "./translations.js";
+import { getTranslation, listTranslations } from "./translations.js";
 
 test("loadChapter returns verses for web John.1", async () => {
   const result = await loadChapter("web", { book: "John", chapter: 1 });
@@ -118,15 +118,36 @@ test("mainstream licensed zh/ja translations are catalogued available", () => {
   }
 });
 
-test("NIV/ESV/NLT are external deep-links", async () => {
-  for (const id of ["niv", "esv", "nlt"]) {
+test("NIV/ESV/NLT/NASB/CSB/NRSV are external deep-links", async () => {
+  for (const id of ["niv", "esv", "nlt", "nasb", "csb", "nrsv"]) {
     const meta = getTranslation(id);
     assert.ok(meta);
     assert.equal(meta.provider, "external");
     const result = await loadChapter(id, { book: "John", chapter: 1 });
     assert.ok("external" in result && result.external);
-    assert.match(result.url, /biblegateway|NIV|ESV|NLT/i);
+    assert.match(result.url, /biblegateway|bible\.com|NIV|ESV|NLT|NASB|CSB|NRSV/i);
   }
+});
+
+test("zh/ja external mainstream (sigao, living-ja) deep-link", async () => {
+  for (const id of ["sigao", "living-ja"]) {
+    const meta = getTranslation(id);
+    assert.ok(meta, `missing ${id}`);
+    assert.equal(meta.provider, "external");
+    const result = await loadChapter(id, { book: "John", chapter: 1 });
+    assert.ok("external" in result && result.external);
+    assert.ok(result.url.length > 8);
+  }
+});
+
+test("registry covers zh/en/ja mainstream sets", () => {
+  const byLang = { zh: 0, en: 0, ja: 0 };
+  for (const t of listTranslations({ availableOnly: true })) {
+    byLang[t.language] += 1;
+  }
+  assert.ok(byLang.zh >= 7, `zh count ${byLang.zh}`);
+  assert.ok(byLang.en >= 7, `en count ${byLang.en}`);
+  assert.ok(byLang.ja >= 4, `ja count ${byLang.ja}`);
 });
 
 test("loadChapter returns kougo scaffold John.1", async () => {
