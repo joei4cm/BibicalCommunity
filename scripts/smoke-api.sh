@@ -184,4 +184,10 @@ process.exit(0);
 
 echo "== peer key bundle list =="
 curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
+
+echo "== church home paths =="
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TOKEN TOKEN2 PEER CID BASE
+bash "$SCRIPT_DIR/smoke-home.sh" "$BASE"
+
 echo "SMOKE_OK"
