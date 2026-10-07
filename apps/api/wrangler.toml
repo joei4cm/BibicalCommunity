@@ -28,8 +28,8 @@ crons = ["*/5 * * * *"]
 [vars]
 APP_NAME = "LogosHome"
 ENVIRONMENT = "development"
-ENDAO_SSO_ENABLED = "false"
-WEREAD_SSO_ENABLED = "false"
+ENDAO_SSO_ENABLED = "true"
+WEREAD_SSO_ENABLED = "true"
 PARTNER_SSO_MOCK = "true"
 TURN_SECRET = "dev-turn-secret"
 TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
