@@ -22,11 +22,18 @@ echo "== chapter WEB John.2 =="
 J2=$(curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.2")
 echo "$J2" | head -c 160; echo
 echo "$J2" | grep -q 'wedding in Cana'
-echo "== chapter CUVS/KJV/ASV/kougo John.2 =="
+echo "== chapter mainstream John.2 scaffolds =="
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.2" | grep -qE '迦拿|娶亲'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.2" | grep -qE '迦拿|娶親'
+curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.2" | grep -qE '迦拿|娶亲'
+curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.2" | grep -qE '迦拿|婚宴'
+curl -sf "$BASE/v1/bible/chapter?translation=lzz&ref=John.2" | grep -qE '迦拿|婚筵'
 curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.2" | grep -qi 'Cana'
 curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.2" | grep -qi 'Cana'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.2" | grep -q 'カナ'
+curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.2" | grep -q 'カナ'
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.2" | grep -q 'カナ'
+curl -sf "$BASE/v1/bible/chapter?translation=kougoyaku-pd&ref=John.2" | grep -qE 'カナ|婚筵'
 echo "JOHN2_MULTILANG_OK"
 echo "== chapter ASV John.3 =="
 A3=$(curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3")

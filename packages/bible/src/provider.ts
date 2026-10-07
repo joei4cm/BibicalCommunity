@@ -21,6 +21,13 @@ import { LZZ_JOHN_1 } from "./packs/lzz-john1.js";
 import { KOUGO_JOHN_2 } from "./packs/kougo-john2.js";
 import { KJV_JOHN_2 } from "./packs/kjv-john2.js";
 import { ASV_JOHN_2 } from "./packs/asv-john2.js";
+import { CUVT_JOHN_2 } from "./packs/cuvt-john2.js";
+import { RCUV_JOHN_2 } from "./packs/rcuv-john2.js";
+import { CCB_JOHN_2 } from "./packs/ccb-john2.js";
+import { LZZ_JOHN_2 } from "./packs/lzz-john2.js";
+import { SHINKAIYAKU_JOHN_2 } from "./packs/shinkaiyaku-john2.js";
+import { SHIN_KYOUDOU_JOHN_2 } from "./packs/shin-kyoudou-john2.js";
+import { KOUGOYAKU_PD_JOHN_2 } from "./packs/kougoyaku-pd-john2.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -45,15 +52,15 @@ const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: s
   web: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3 },
   kjv: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
   asv: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
-  "kougoyaku-pd": { 1: BUNGO_JOHN_1 },
+  "kougoyaku-pd": { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2 },
   kougo: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2 },
-  cuvt: { 1: CUVT_JOHN_1 },
+  cuvt: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2 },
   cuvs: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2 },
-  rcuv: { 1: RCUV_JOHN_1 },
-  shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1 },
-  shinKyoudou: { 1: SHIN_KYOUDOU_JOHN_1 },
-  ccb: { 1: CCB_JOHN_1 },
-  lzz: { 1: LZZ_JOHN_1 },
+  rcuv: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2 },
+  shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2 },
+  shinKyoudou: { 1: SHIN_KYOUDOU_JOHN_1, 2: SHIN_KYOUDOU_JOHN_2 },
+  ccb: { 1: CCB_JOHN_1, 2: CCB_JOHN_2 },
+  lzz: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2 },
 };
 
 export type ExternalChapterPayload = {
