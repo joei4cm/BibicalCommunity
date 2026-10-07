@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Linking,
+  TextInput,
 } from "react-native";
 import {
   buildPartnerAuthUrl,
@@ -19,8 +20,10 @@ import {
   type TranslationMeta,
 } from "@logoshome/bible";
 import { t } from "@logoshome/shared";
-import { api, getApiBase } from "../../src/api";
+import { api, getApiBase, getToken, hydrateToken } from "../../src/api";
 import { useLocale } from "../../src/locale";
+import { encryptJson } from "../../src/note-crypto";
+import { humanizeStatus } from "../../src/status";
 
 type ChapterPayload = {
   translationId: string;
@@ -38,6 +41,15 @@ type ExternalChapter = {
 };
 
 type ChapterResponse = ChapterPayload | ExternalChapter;
+
+type AnnotationRow = {
+  id: string;
+  kind: string;
+  book: string;
+  chapter: number;
+  verseStart: number | null;
+  color: string | null;
+};
 
 function bookLocaleKey(lang: string): "zh" | "en" | "ja" {
   if (lang.startsWith("zh")) return "zh";
@@ -61,6 +73,12 @@ export default function BibleScreen() {
   const [external, setExternal] = useState<ExternalChapter | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [annMsg, setAnnMsg] = useState<string | null>(null);
+  const [annBusy, setAnnBusy] = useState(false);
+  const [annotations, setAnnotations] = useState<AnnotationRow[]>([]);
+  const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const apiBase = getApiBase();
   const studyLang = bookLocaleKey(locale);
   const bookNameLocale = studyLang;
@@ -74,6 +92,47 @@ export default function BibleScreen() {
     [currentBook?.chapters],
   );
   const ref = `${bookId}.${chapterNum}`;
+
+  const refreshAnnotations = useCallback(async () => {
+    await hydrateToken();
+    if (!getApiBase() || !getToken()) {
+      setAnnotations([]);
+      setHighlightByVerse({});
+      return;
+    }
+    try {
+      const res = await api<{ annotations: AnnotationRow[] }>(
+        `/v1/annotations?translation=${encodeURIComponent(translationId)}`,
+      );
+      const rows = res.annotations ?? [];
+      setAnnotations(rows);
+      const colorMap: Record<string, string> = {
+        amber: "#f5d76e",
+        mint: "#a8e6cf",
+        rose: "#f8b4c4",
+        sky: "#a8d8ea",
+      };
+      const highlights: Record<number, string> = {};
+      for (const row of rows) {
+        if (
+          row.kind === "highlight" &&
+          row.book === bookId &&
+          row.chapter === chapterNum &&
+          row.verseStart != null
+        ) {
+          const raw = row.color ?? "amber";
+          highlights[row.verseStart] = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
+        }
+      }
+      setHighlightByVerse(highlights);
+    } catch {
+      setAnnotations([]);
+    }
+  }, [translationId, bookId, chapterNum]);
+
+  useEffect(() => {
+    void refreshAnnotations();
+  }, [refreshAnnotations]);
 
   useEffect(() => {
     if (!apiBase) {
@@ -133,10 +192,113 @@ export default function BibleScreen() {
     void Linking.openURL(href);
   }
 
+  async function requireAuth(): Promise<boolean> {
+    await hydrateToken();
+    if (!getApiBase()) {
+      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      return false;
+    }
+    if (!getToken()) {
+      setAnnMsg("login_required");
+      return false;
+    }
+    return true;
+  }
+
+  async function addBookmark() {
+    setAnnBusy(true);
+    setAnnMsg(null);
+    try {
+      if (!(await requireAuth())) return;
+      const verse = selectedVerse ?? 1;
+      const { ciphertext, iv } = await encryptJson({ kind: "bookmark" }, "bookmark");
+      await api("/v1/annotations", {
+        method: "POST",
+        body: JSON.stringify({
+          translationId,
+          ref: { book: bookId, chapter: chapterNum, verseStart: verse },
+          kind: "bookmark",
+          ciphertext,
+          iv,
+        }),
+      });
+      setAnnMsg("saved");
+      await refreshAnnotations();
+    } catch (e) {
+      setAnnMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAnnBusy(false);
+    }
+  }
+
+  async function addHighlight() {
+    setAnnBusy(true);
+    setAnnMsg(null);
+    try {
+      if (!(await requireAuth())) return;
+      const verse = selectedVerse ?? 1;
+      const color = "amber";
+      const { ciphertext, iv } = await encryptJson({ kind: "highlight", color }, "highlight");
+      await api("/v1/annotations", {
+        method: "POST",
+        body: JSON.stringify({
+          translationId,
+          ref: { book: bookId, chapter: chapterNum, verseStart: verse, verseEnd: verse },
+          kind: "highlight",
+          color,
+          ciphertext,
+          iv,
+        }),
+      });
+      setAnnMsg("saved");
+      await refreshAnnotations();
+    } catch (e) {
+      setAnnMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAnnBusy(false);
+    }
+  }
+
+  async function saveNote() {
+    setAnnBusy(true);
+    setAnnMsg(null);
+    try {
+      if (!(await requireAuth())) return;
+      if (selectedVerse == null || !noteText.trim()) return;
+      const { ciphertext, iv } = await encryptJson({ text: noteText.trim() }, "note");
+      await api("/v1/annotations", {
+        method: "POST",
+        body: JSON.stringify({
+          translationId,
+          ref: {
+            book: bookId,
+            chapter: chapterNum,
+            verseStart: selectedVerse,
+            verseEnd: selectedVerse,
+          },
+          kind: "note",
+          ciphertext,
+          iv,
+        }),
+      });
+      setNoteText("");
+      setAnnMsg("saved");
+      await refreshAnnotations();
+    } catch (e) {
+      setAnnMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAnnBusy(false);
+    }
+  }
+
   const externalLabel =
     external?.meta.ssoFlag === "endao"
       ? t(locale, "reader.external.endao")
       : t(locale, "reader.external.weread");
+
+  const chapterAnnotations = annotations.filter(
+    (a) => a.book === bookId && a.chapter === chapterNum,
+  );
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
@@ -174,6 +336,7 @@ export default function BibleScreen() {
                 onPress={() => {
                   setBookId(b.id);
                   setChapterNum(1);
+                  setSelectedVerse(null);
                 }}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -192,7 +355,10 @@ export default function BibleScreen() {
             <Pressable
               key={n}
               style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setChapterNum(n)}
+              onPress={() => {
+                setChapterNum(n);
+                setSelectedVerse(null);
+              }}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{n}</Text>
             </Pressable>
@@ -212,12 +378,84 @@ export default function BibleScreen() {
           </Pressable>
         </View>
       ) : (
-        verses.map((v) => (
-          <Text key={v.verse} style={styles.verse}>
-            <Text style={styles.num}>{v.verse} </Text>
-            {v.text}
+        verses.map((v) => {
+          const selected = selectedVerse === v.verse;
+          const hl = highlightByVerse[v.verse];
+          return (
+            <Pressable
+              key={v.verse}
+              onPress={() => setSelectedVerse(v.verse)}
+              style={[
+                styles.verseRow,
+                selected && styles.verseSelected,
+                hl ? { backgroundColor: hl } : null,
+              ]}
+            >
+              <Text style={styles.verse}>
+                <Text style={styles.num}>{v.verse} </Text>
+                {v.text}
+              </Text>
+            </Pressable>
+          );
+        })
+      )}
+
+      {!external && (
+        <View style={styles.annBlock}>
+          <Text style={styles.section}>{t(locale, "reader.notesPanel")}</Text>
+          <Text style={styles.muted}>
+            {selectedVerse != null
+              ? `${bookId} ${chapterNum}:${selectedVerse}`
+              : t(locale, "reader.note")}
           </Text>
-        ))
+          <View style={styles.annActions}>
+            <Pressable
+              style={[styles.btn, styles.btnGhost, annBusy && styles.btnDisabled]}
+              disabled={annBusy}
+              onPress={() => void addBookmark()}
+            >
+              <Text style={styles.btnGhostText}>{t(locale, "reader.bookmark")}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnGhost, annBusy && styles.btnDisabled]}
+              disabled={annBusy}
+              onPress={() => void addHighlight()}
+            >
+              <Text style={styles.btnGhostText}>{t(locale, "reader.highlight")}</Text>
+            </Pressable>
+          </View>
+          {selectedVerse != null && (
+            <>
+              <TextInput
+                style={styles.noteInput}
+                multiline
+                value={noteText}
+                onChangeText={setNoteText}
+                placeholder={t(locale, "reader.note")}
+                placeholderTextColor="#8a9a98"
+              />
+              <Pressable
+                style={[styles.btn, { marginTop: 8 }, annBusy && styles.btnDisabled]}
+                disabled={annBusy || !noteText.trim()}
+                onPress={() => void saveNote()}
+              >
+                <Text style={styles.btnText}>{t(locale, "reader.saveNote")}</Text>
+              </Pressable>
+            </>
+          )}
+          {annMsg && (
+            <Text style={styles.annStatus}>{humanizeStatus(locale, annMsg) ?? annMsg}</Text>
+          )}
+          {chapterAnnotations.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              {chapterAnnotations.map((a) => (
+                <Text key={a.id} style={styles.annItem}>
+                  {a.kind} · {a.book} {a.chapter}:{a.verseStart ?? "?"}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
       )}
 
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "reader.study")}</Text>
@@ -251,7 +489,9 @@ const styles = StyleSheet.create({
   chipTextActive: { color: "#fff" },
   chapter: { marginVertical: 12, color: "#0f6b5c", fontWeight: "600" },
   error: { color: "#a33", marginBottom: 8 },
-  verse: { fontSize: 18, lineHeight: 30, marginBottom: 12, color: "#1c2b2a" },
+  verseRow: { marginBottom: 4, borderRadius: 4, paddingHorizontal: 4 },
+  verseSelected: { backgroundColor: "#dceee9" },
+  verse: { fontSize: 18, lineHeight: 30, marginBottom: 8, color: "#1c2b2a" },
   num: { color: "#0f6b5c", fontSize: 12 },
   externalBlock: { marginBottom: 12 },
   btn: {
@@ -261,7 +501,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignSelf: "flex-start",
   },
+  btnGhost: {
+    backgroundColor: "#e8e2d4",
+    marginRight: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  btnGhostText: { color: "#1c2b2a", fontWeight: "600" },
+  btnDisabled: { opacity: 0.5 },
   btnText: { color: "#fff", fontWeight: "600" },
+  annBlock: { marginTop: 20 },
+  annActions: { flexDirection: "row", flexWrap: "wrap", marginBottom: 8 },
+  noteInput: {
+    minHeight: 72,
+    borderWidth: 1,
+    borderColor: "#cfc7b6",
+    borderRadius: 8,
+    padding: 10,
+    color: "#1c2b2a",
+    backgroundColor: "#fff",
+    textAlignVertical: "top",
+  },
+  annStatus: { marginTop: 8, color: "#0f6b5c", fontWeight: "600" },
+  annItem: { color: "#5a6a68", marginTop: 4, fontSize: 13 },
   studyItem: { marginTop: 10 },
   studyTitle: { color: "#0f6b5c", fontWeight: "600", fontSize: 16 },
 });
