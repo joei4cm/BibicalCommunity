@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@logoshome/shared": ["../../packages/shared/src/index.ts"],
+      "@logoshome/bible": ["../../packages/bible/src/index.ts"],
+      "@logoshome/crypto": ["../../packages/crypto/src/index.ts"],
+      "@logoshome/ui": ["../../packages/ui/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

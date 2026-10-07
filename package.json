@@ -1,0 +1,31 @@
+{
+  "name": "logoshome",
+  "private": true,
+  "version": "0.1.0",
+  "description": "圣言家 LogosHome — Bible reading, devotion, and secure church community",
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:api": "pnpm --filter @logoshome/api dev",
+    "dev:web": "pnpm --filter @logoshome/web dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @logoshome/api db:generate",
+    "db:migrate:local": "pnpm --filter @logoshome/api db:migrate:local",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
+  }
+}

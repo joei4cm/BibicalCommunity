@@ -1,0 +1,16 @@
+node_modules
+dist
+.turbo
+.wrangler
+.dev.vars
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+apps/mobile/.expo
+apps/mobile/android
+apps/mobile/ios
+coverage
+*.log
+.pnpm-store

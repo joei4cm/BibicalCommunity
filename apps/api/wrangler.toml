@@ -1,0 +1,32 @@
+name = "logoshome-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "logoshome"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "logoshome-media"
+
+[durable_objects]
+bindings = [
+  { name = "CALL_ROOM", class_name = "CallRoomDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["CallRoomDO"]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+APP_NAME = "LogosHome"
+ENVIRONMENT = "development"
+ENDAO_SSO_ENABLED = "false"
+WEREAD_SSO_ENABLED = "false"
