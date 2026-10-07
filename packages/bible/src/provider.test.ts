@@ -404,3 +404,62 @@ test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => 
   assert.ok(!("external" in kougoHeb));
   assert.match(kougoHeb.verses[0]?.text ?? "", /見本|信仰とは/);
 });
+
+test("loadChapter returns PD Isaiah.53 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Isa", chapter: 53 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Isa");
+  assert.equal(web.chapter, 53);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /believed our message|Yahweh's arm/i);
+  assert.match(web.verses.find((v) => v.verse === 5)?.text ?? "", /pierced for our transgressions|wounds we are healed/i);
+
+  const kjv = await loadChapter("kjv", { book: "Isaiah", chapter: 53 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Isa");
+  assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /wounded for our transgressions|stripes we are healed/i);
+
+  const asv = await loadChapter("asv", { book: "isa", chapter: 53 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 6)?.text ?? "", /sheep have gone astray|iniquity of us all/i);
+});
+
+test("loadChapter returns PD Acts.2 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Acts", chapter: 2 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Acts");
+  assert.equal(web.chapter, 2);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /Pentecost/i);
+  assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Holy Spirit|other languages/i);
+
+  const kjv = await loadChapter("kjv", { book: "Acts", chapter: 2 });
+  assert.ok(!("external" in kjv));
+  assert.match(kjv.verses.find((v) => v.verse === 38)?.text ?? "", /Repent.*baptized|Holy Ghost/i);
+
+  const asv = await loadChapter("asv", { book: "acts", chapter: 2 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /rushing of a mighty wind/i);
+});
+
+test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
+  const cuvsIsa = await loadChapter("cuvs", { book: "Isa", chapter: 53 });
+  assert.ok(!("external" in cuvsIsa));
+  assert.equal(cuvsIsa.book, "Isa");
+  assert.ok(cuvsIsa.verses.length >= 3 && cuvsIsa.verses.length <= 5);
+  assert.match(cuvsIsa.verses[0]?.text ?? "", /样例|我们所传的|膀臂/);
+
+  const kougoIsa = await loadChapter("kougo", { book: "Isaiah", chapter: 53 });
+  assert.ok(!("external" in kougoIsa));
+  assert.match(kougoIsa.verses[0]?.text ?? "", /見本|信じ得たか|主の腕/);
+
+  const cuvsActs = await loadChapter("cuvs", { book: "Acts", chapter: 2 });
+  assert.ok(!("external" in cuvsActs));
+  assert.equal(cuvsActs.book, "Acts");
+  assert.match(cuvsActs.verses[0]?.text ?? "", /样例|五旬节/);
+
+  const kougoActs = await loadChapter("kougo", { book: "Acts", chapter: 2 });
+  assert.ok(!("external" in kougoActs));
+  assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
+});

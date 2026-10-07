@@ -77,6 +77,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rom.8" | grep -qE '見本
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Heb.11" | grep -qE '样例|信就是|实底'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Heb.11" | grep -qE '見本|信仰とは'
 echo "MULTI_BOOK_NT_OK"
+echo "== multi-book OT/NT scaffolds Isa.53 / Acts.2 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Isa.53" | grep -qiE 'believed our message|pierced for our transgressions|wounds we are healed'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Isa.53" | grep -qiE 'believed our report|wounded for our transgressions|stripes we are healed'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Isa.53" | grep -qiE 'believed our message|wounded for our transgressions|sheep have gone astray'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Acts.2" | grep -qiE 'Pentecost|Holy Spirit'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Acts.2" | grep -qiE 'Pentecost|Holy Ghost|Repent'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Acts.2" | grep -qiE 'Pentecost|Holy Spirit|mighty wind'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Isa.53" | grep -qE '样例|我们所传的|鞭伤'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Isa.53" | grep -qE '見本|信じ得たか|主の腕'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Acts.2" | grep -qE '样例|五旬节'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Acts.2" | grep -qE '見本|五旬節'
+echo "MULTI_BOOK_OTNT_OK"
 echo "== chapter CUVS John.1 (zh) =="
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
 echo "$CUVS" | head -c 160; echo
@@ -293,5 +305,8 @@ node "$SCRIPT_DIR/smoke-call-signaling.mjs" "$BASE"
 
 echo "== annotations CRUD (highlight + bookmark + note) =="
 bash "$SCRIPT_DIR/smoke-annotations.sh" "$BASE"
+
+echo "== me profile / privacy / search =="
+bash "$SCRIPT_DIR/smoke-me.sh" "$BASE"
 
 echo "SMOKE_OK"

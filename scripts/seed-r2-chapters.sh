@@ -100,6 +100,18 @@ put_chapter "bible/asv/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"vers
 put_chapter "bible/cuvs/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"（样例）信就是所望之事的实底，是未见之事的确据。"},{"verse":2,"text":"（样例）古人在这信上得了美好的证据。"},{"verse":6,"text":"（样例）人非有信，就不能得神的喜悦；因为到神面前来的人必须信有神，且信他赏赐那寻求他的人。"}]}'
 put_chapter "bible/kougo/Heb.11.json" '{"book":"Heb","chapter":11,"verses":[{"verse":1,"text":"（見本）信仰とは、望んでいる事がらを確信し、まだ見ていない事実を確認することである。"},{"verse":2,"text":"（見本）昔の人たちは、この信仰のゆえに神に認められた。"},{"verse":6,"text":"（見本）信仰がなくては、神に喜ばれることはできない。神に来る者は、神のいますことと、ご自分を求める者に報いてくださる方であることを、信じなければならない。"}]}'
 
+# Multi-book OT/NT dual-pane scaffolds (Isa.53 / Acts.2) — short license-safe samples
+put_chapter "bible/web/Isa.53.json" '{"book":"Isa","chapter":53,"verses":[{"verse":1,"text":"Who has believed our message? To whom has Yahweh'\''s arm been revealed?"},{"verse":5,"text":"But he was pierced for our transgressions. He was crushed for our iniquities. The punishment that brought our peace was on him; and by his wounds we are healed."},{"verse":6,"text":"All we like sheep have gone astray. Everyone has turned to his own way; and Yahweh has laid on him the iniquity of us all."}]}'
+put_chapter "bible/kjv/Isa.53.json" '{"book":"Isa","chapter":53,"verses":[{"verse":1,"text":"Who hath believed our report? and to whom is the arm of the LORD revealed?"},{"verse":5,"text":"But he was wounded for our transgressions, he was bruised for our iniquities: the chastisement of our peace was upon him; and with his stripes we are healed."},{"verse":6,"text":"All we like sheep have gone astray; we have turned every one to his own way; and the LORD hath laid on him the iniquity of us all."}]}'
+put_chapter "bible/asv/Isa.53.json" '{"book":"Isa","chapter":53,"verses":[{"verse":1,"text":"Who hath believed our message? and to whom hath the arm of Jehovah been revealed?"},{"verse":5,"text":"But he was wounded for our transgressions, he was bruised for our iniquities; the chastisement of our peace was upon him; and with his stripes we are healed."},{"verse":6,"text":"All we like sheep have gone astray; we have turned every one to his own way; and Jehovah hath laid on him the iniquity of us all."}]}'
+put_chapter "bible/cuvs/Isa.53.json" '{"book":"Isa","chapter":53,"verses":[{"verse":1,"text":"（样例）我们所传的有谁信呢？耶和华的膀臂向谁显露呢？"},{"verse":5,"text":"（样例）哪知他为我们的过犯受害，为我们的罪孽压伤。因他受的刑罚，我们得平安；因他受的鞭伤，我们得医治。"},{"verse":6,"text":"（样例）我们都如羊走迷，各人偏行己路，耶和华使我们众人的罪孽都归在他身上。"}]}'
+put_chapter "bible/kougo/Isa.53.json" '{"book":"Isa","chapter":53,"verses":[{"verse":1,"text":"（見本）だれがわれわれの聞いたことを信じ得たか。主の腕は、だれにあらわれたか。"},{"verse":5,"text":"（見本）しかし彼はわたしたちのとがのために傷つけられ、わたしたちの不義のために砕かれた。彼はみずから懲らしめをうけて、わたしたちに平安を与え、その打ち傷によって、わたしたちはいやされた。"},{"verse":6,"text":"（見本）わたしたちはみな羊のように迷って、おのおの自分の道に向かって行った。主はわたしたちすべての者の不義を、彼の上におかれた。"}]}'
+put_chapter "bible/web/Acts.2.json" '{"book":"Acts","chapter":2,"verses":[{"verse":1,"text":"Now when the day of Pentecost had come, they were all with one accord in one place."},{"verse":2,"text":"Suddenly there came from the sky a sound like the rushing of a mighty wind, and it filled all the house where they were sitting."},{"verse":4,"text":"They were all filled with the Holy Spirit and began to speak with other languages, as the Spirit gave them the ability to speak."}]}'
+put_chapter "bible/kjv/Acts.2.json" '{"book":"Acts","chapter":2,"verses":[{"verse":1,"text":"And when the day of Pentecost was fully come, they were all with one accord in one place."},{"verse":4,"text":"And they were all filled with the Holy Ghost, and began to speak with other tongues, as the Spirit gave them utterance."},{"verse":38,"text":"Then Peter said unto them, Repent, and be baptized every one of you in the name of Jesus Christ for the remission of sins, and ye shall receive the gift of the Holy Ghost."}]}'
+put_chapter "bible/asv/Acts.2.json" '{"book":"Acts","chapter":2,"verses":[{"verse":1,"text":"And when the day of Pentecost was now come, they were all together in one place."},{"verse":2,"text":"And suddenly there came from heaven a sound as of the rushing of a mighty wind, and it filled all the house where they were sitting."},{"verse":4,"text":"And they were all filled with the Holy Spirit, and began to speak with other tongues, as the Spirit gave them utterance."}]}'
+put_chapter "bible/cuvs/Acts.2.json" '{"book":"Acts","chapter":2,"verses":[{"verse":1,"text":"（样例）五旬节到了，门徒都聚集在一处。"},{"verse":2,"text":"（样例）忽然，从天上有响声下来，好像一阵大风吹过，充满了他们所坐的屋子；"},{"verse":4,"text":"（样例）他们就都被圣灵充满，按着圣灵所赐的口才说起别国的话来。"}]}'
+put_chapter "bible/kougo/Acts.2.json" '{"book":"Acts","chapter":2,"verses":[{"verse":1,"text":"（見本）五旬節の日がきて、みんなの者が一緒に集まっていると、"},{"verse":2,"text":"（見本）突然、激しい風が吹いてきたような音が天から起ってきて、一同がすわっていた家いっぱいに響きわたった。"},{"verse":4,"text":"（見本）すると、一同は聖霊に満たされ、御霊が語らせるままに、いろいろの他国の言葉で語り出した。"}]}'
+
 echo "Multi-book scaffolds:"
 curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
 curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
@@ -127,4 +139,16 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rom.8" -H "$AUTH" | grep 
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Heb.11" -H "$AUTH" | grep -qE '样例|信就是|实底'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Heb.11" -H "$AUTH" | grep -qE '見本|信仰とは'
 echo "MULTI_BOOK_NT_OK"
+echo "Multi-book OT/NT scaffolds:"
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Isa.53" -H "$AUTH" | grep -qiE 'believed our message|pierced for our transgressions|wounds we are healed'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Isa.53" -H "$AUTH" | grep -qiE 'believed our report|wounded for our transgressions|stripes we are healed'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Isa.53" -H "$AUTH" | grep -qiE 'believed our message|wounded for our transgressions|sheep have gone astray'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Acts.2" -H "$AUTH" | grep -qiE 'Pentecost|Holy Spirit'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Acts.2" -H "$AUTH" | grep -qiE 'Pentecost|Holy Ghost|Repent'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Acts.2" -H "$AUTH" | grep -qiE 'Pentecost|Holy Spirit|mighty wind'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Isa.53" -H "$AUTH" | grep -qE '样例|我们所传的|鞭伤'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Isa.53" -H "$AUTH" | grep -qE '見本|信じ得たか|主の腕'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Acts.2" -H "$AUTH" | grep -qE '样例|五旬节'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Acts.2" -H "$AUTH" | grep -qE '見本|五旬節'
+echo "MULTI_BOOK_OTNT_OK"
 echo SEED_R2_OK
