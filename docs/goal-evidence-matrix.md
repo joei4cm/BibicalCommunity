@@ -7,7 +7,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | # | Requirement | Evidence (authoritative) | Status |
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + crypto gate | PARTIAL — PWA build PASS; physical device WebCrypto E2E OPEN |
-| 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; mobile A±/serif/LH; `ANNOTATIONS_SMOKE_OK` | PARTIAL — core+colors+typography controls PASS; denser theme packs OPEN |
+| 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; `ANNOTATIONS_SMOKE_OK` | PARTIAL — core+colors+typography presets PASS; licensed theme skins OPEN |
 | 3 | Translations zh/en/ja mainstream | 22-id registry; John + Gen/Matt/Ps + Rom.8/Heb.11 + Isa.53/Acts.2 + Ps.1/Prov.3; `MULTI_BOOK_SCAFFOLD_OK` / `MULTI_BOOK_NT_OK` / `MULTI_BOOK_OTNT_OK` / `MULTI_BOOK_WISDOM_OK` | PARTIAL — catalog + scaffolds; full licensed corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token` | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |

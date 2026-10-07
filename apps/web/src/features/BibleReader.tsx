@@ -155,6 +155,21 @@ export function BibleReader() {
   const [fontSize, setFontSize] = useState(1.15);
   const [lineHeight, setLineHeight] = useState(1.75);
   const [serif, setSerif] = useState(true);
+  const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
+
+  const TYPO_PRESETS = {
+    compact: { fontSize: 1.0, lineHeight: 1.35, serif: false },
+    comfortable: { fontSize: 1.15, lineHeight: 1.75, serif: true },
+    spacious: { fontSize: 1.35, lineHeight: 2.1, serif: true },
+  } as const;
+
+  function applyPreset(id: keyof typeof TYPO_PRESETS) {
+    const p = TYPO_PRESETS[id];
+    setPreset(id);
+    setFontSize(p.fontSize);
+    setLineHeight(p.lineHeight);
+    setSerif(p.serif);
+  }
   const [noteText, setNoteText] = useState("");
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
@@ -417,6 +432,24 @@ export function BibleReader() {
 
       <div className="panel typography-panel">
         <h2 style={{ marginTop: 0 }}>{t("reader.typography")}</h2>
+        <div className="toolbar">
+          {(
+            [
+              ["compact", "reader.presetCompact"],
+              ["comfortable", "reader.presetComfortable"],
+              ["spacious", "reader.presetSpacious"],
+            ] as const
+          ).map(([id, key]) => (
+            <button
+              key={id}
+              type="button"
+              className={`btn ghost${preset === id ? " active-toggle" : ""}`}
+              onClick={() => applyPreset(id)}
+            >
+              {t(key)}
+            </button>
+          ))}
+        </div>
         <div className="toolbar">
           <button type="button" className="btn ghost" onClick={() => setFontSize((s) => Math.min(1.8, s + 0.1))}>
             A+

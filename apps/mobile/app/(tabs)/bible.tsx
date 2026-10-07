@@ -84,7 +84,21 @@ export default function BibleScreen() {
   const [fontSize, setFontSize] = useState(18);
   const [lineHeight, setLineHeight] = useState(1.65);
   const [serif, setSerif] = useState(true);
+  const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
+
+  function applyPreset(id: "compact" | "comfortable" | "spacious") {
+    const presets = {
+      compact: { fontSize: 15, lineHeight: 1.35, serif: false },
+      comfortable: { fontSize: 18, lineHeight: 1.65, serif: true },
+      spacious: { fontSize: 22, lineHeight: 2.0, serif: true },
+    } as const;
+    const p = presets[id];
+    setPreset(id);
+    setFontSize(p.fontSize);
+    setLineHeight(p.lineHeight);
+    setSerif(p.serif);
+  }
   const apiBase = getApiBase();
   const studyLang = bookLocaleKey(locale);
   const bookNameLocale = studyLang;
@@ -403,6 +417,25 @@ export default function BibleScreen() {
 
       <Text style={styles.chapter}>{chapterLabel}</Text>
       <Text style={styles.label}>{t(locale, "reader.typography")}</Text>
+      <View style={styles.annActions}>
+        {(
+          [
+            ["compact", "reader.presetCompact"],
+            ["comfortable", "reader.presetComfortable"],
+            ["spacious", "reader.presetSpacious"],
+          ] as const
+        ).map(([id, key]) => (
+          <Pressable
+            key={id}
+            style={[styles.btn, styles.btnGhost, preset === id && styles.chipActive]}
+            onPress={() => applyPreset(id)}
+          >
+            <Text style={[styles.btnGhostText, preset === id && styles.chipTextActive]}>
+              {t(locale, key)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.annActions}>
         <Pressable
           style={[styles.btn, styles.btnGhost]}
