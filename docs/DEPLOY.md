@@ -52,14 +52,15 @@ pnpm wrangler deploy -c wrangler.production.toml
 
 ## 6. Seed R2 sample Bible chapters
 
-See `apps/api/scripts/seed-r2-sample.md`. After API is up and you have an auth token:
+Automated local/prod-shaped seed (CUVS/CUVT/RCUV/CCB/LZZ + 口語訳/新改訳/新共同訳 John.1 scaffolds + entitlements):
 
 ```bash
-# Example: put sample CUVS John.1.json into MEDIA via /v1/media/put/...
-# Grant entitlements when ENVIRONMENT=production
+# Against wrangler dev or a deployed Worker origin
+bash scripts/seed-r2-chapters.sh https://api.example.com
+# Expect: SEED_R2_OK
 ```
 
-Repeat for each licensed translation chapter you ship.
+See also `apps/api/scripts/seed-r2-sample.md` for the MEDIA object key format. Licensed full corpora require entitlement grants and publisher contracts — samples are demos only.
 
 ## 7. Deploy web (Cloudflare Pages)
 
