@@ -190,4 +190,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export TOKEN TOKEN2 PEER CID BASE
 bash "$SCRIPT_DIR/smoke-home.sh" "$BASE"
 
+echo "== call + screen signaling fan-out =="
+node "$SCRIPT_DIR/smoke-call-signaling.mjs" "$BASE"
+
 echo "SMOKE_OK"
