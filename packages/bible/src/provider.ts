@@ -37,6 +37,18 @@ import { KOUGO_JOHN_3 } from "./packs/kougo-john3.js";
 import { SHINKAIYAKU_JOHN_3 } from "./packs/shinkaiyaku-john3.js";
 import { SHIN_KYOUDOU_JOHN_3 } from "./packs/shin-kyoudou-john3.js";
 import { KOUGOYAKU_PD_JOHN_3 } from "./packs/kougoyaku-pd-john3.js";
+import { WEB_GEN_1 } from "./packs/web-gen1.js";
+import { KJV_GEN_1 } from "./packs/kjv-gen1.js";
+import { ASV_GEN_1 } from "./packs/asv-gen1.js";
+import { WEB_MATT_5 } from "./packs/web-matt5.js";
+import { KJV_MATT_5 } from "./packs/kjv-matt5.js";
+import { ASV_MATT_5 } from "./packs/asv-matt5.js";
+import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
+import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
+import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
+import { KOUGO_GEN_1 } from "./packs/kougo-gen1.js";
+import { CUVS_PSALM_23 } from "./packs/cuvs-ps23.js";
+import { KOUGO_PSALM_23 } from "./packs/kougo-ps23.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -52,24 +64,91 @@ export interface PartnerSsoFlags {
   weread: boolean;
 }
 
-function isJohn(book: string): boolean {
-  const b = book.toLowerCase();
-  return b === "john" || book === "ヨハネ";
+type VerseRow = { verse: number; text: string };
+
+/** Normalize book aliases used by dual-pane / plans / smoke refs. */
+function normalizeBookKey(book: string): string | null {
+  const b = book.toLowerCase().replace(/\s+/g, "");
+  if (b === "john" || book === "ヨハネ") return "john";
+  if (b === "gen" || b === "genesis" || book === "创世记" || book === "創世記") return "gen";
+  if (b === "matt" || b === "matthew" || b === "mt" || book === "马太福音" || book === "マタイ") {
+    return "matt";
+  }
+  if (b === "ps" || b === "psalm" || b === "psalms" || book === "诗篇" || book === "詩篇") {
+    return "ps";
+  }
+  return null;
 }
 
-const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: string }[]>> = {
-  web: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3 },
-  kjv: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
-  asv: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
-  "kougoyaku-pd": { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
-  kougo: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3 },
-  cuvt: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
-  cuvs: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3 },
-  rcuv: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3 },
-  shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3 },
-  shinKyoudou: { 1: SHIN_KYOUDOU_JOHN_1, 2: SHIN_KYOUDOU_JOHN_2, 3: SHIN_KYOUDOU_JOHN_3 },
-  ccb: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3 },
-  lzz: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3 },
+function canonicalBookId(key: string): string {
+  switch (key) {
+    case "john":
+      return "John";
+    case "gen":
+      return "Gen";
+    case "matt":
+      return "Matt";
+    case "ps":
+      return "Ps";
+    default:
+      return key;
+  }
+}
+
+/**
+ * Local PD / scaffold chapter samples for dual-pane / offline reading.
+ * Keyed by translationId → bookKey → chapter → verses.
+ */
+const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> = {
+  web: {
+    john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3 },
+    gen: { 1: WEB_GEN_1 },
+    matt: { 5: WEB_MATT_5 },
+    ps: { 23: WEB_PSALM_23 },
+  },
+  kjv: {
+    john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
+    gen: { 1: KJV_GEN_1 },
+    matt: { 5: KJV_MATT_5 },
+    ps: { 23: KJV_PSALM_23 },
+  },
+  asv: {
+    john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
+    gen: { 1: ASV_GEN_1 },
+    matt: { 5: ASV_MATT_5 },
+    ps: { 23: ASV_PSALM_23 },
+  },
+  "kougoyaku-pd": {
+    john: { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
+  },
+  kougo: {
+    john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3 },
+    gen: { 1: KOUGO_GEN_1 },
+    ps: { 23: KOUGO_PSALM_23 },
+  },
+  cuvt: {
+    john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
+  },
+  cuvs: {
+    john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3 },
+    gen: { 1: CUVS_GEN_1 },
+    ps: { 23: CUVS_PSALM_23 },
+  },
+  rcuv: {
+    john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3 },
+  },
+  shinkaiyaku: {
+    john: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3 },
+  },
+  shinKyoudou: {
+    john: { 1: SHIN_KYOUDOU_JOHN_1, 2: SHIN_KYOUDOU_JOHN_2, 3: SHIN_KYOUDOU_JOHN_3 },
+  },
+  ccb: {
+    john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3 },
+  },
+  lzz: {
+    john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3 },
+  },
 };
 
 export type ExternalChapterPayload = {
@@ -98,13 +177,13 @@ export async function loadChapter(
     return { external: true, url, meta, sso: false as const };
   }
 
-  // Local PD / scaffold samples (John chapters for dual-pane / offline reading)
-  if (isJohn(ref.book)) {
-    const verses = LOCAL_JOHN_SAMPLES[meta.id]?.[ref.chapter];
+  const bookKey = normalizeBookKey(ref.book);
+  if (bookKey) {
+    const verses = LOCAL_SAMPLES[meta.id]?.[bookKey]?.[ref.chapter];
     if (verses) {
       return {
         translationId: meta.id,
-        book: "John",
+        book: canonicalBookId(bookKey),
         chapter: ref.chapter,
         verses,
         source: "local",
@@ -124,22 +203,6 @@ export async function loadChapter(
       chapter: ref.chapter,
       verses: [],
       source: "r2",
-    };
-  }
-
-  if (
-    meta.id === "web" &&
-    (ref.book.toLowerCase() === "ps" ||
-      ref.book.toLowerCase() === "psalm" ||
-      ref.book.toLowerCase() === "psalms") &&
-    ref.chapter === 23
-  ) {
-    return {
-      translationId: meta.id,
-      book: "Ps",
-      chapter: 23,
-      verses: WEB_PSALM_23,
-      source: "local",
     };
   }
 

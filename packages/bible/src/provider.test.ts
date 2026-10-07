@@ -272,3 +272,76 @@ test("partner external chapter marks sso when flags on", async () => {
   assert.equal(on.sso, true);
   assert.ok(on.url.includes("sso=1"));
 });
+
+test("loadChapter returns PD Genesis.1 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Gen", chapter: 1 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Gen");
+  assert.equal(web.chapter, 1);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses[0]?.text ?? "", /In the beginning.*God created/);
+
+  const kjv = await loadChapter("kjv", { book: "Genesis", chapter: 1 });
+  assert.ok(!("external" in kjv));
+  assert.match(kjv.verses[0]?.text ?? "", /In the beginning God created/);
+  assert.match(kjv.verses.find((v) => v.verse === 3)?.text ?? "", /Let there be light/);
+
+  const asv = await loadChapter("asv", { book: "Gen", chapter: 1 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses[0]?.text ?? "", /heavens and the earth|heaven and the earth/i);
+  assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /waste and void|Spirit of God/);
+});
+
+test("loadChapter returns PD Matthew.5 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Matt", chapter: 5 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Matt");
+  assert.equal(web.chapter, 5);
+  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.match(web.verses.find((v) => v.verse === 3)?.text ?? "", /poor in spirit/i);
+
+  const kjv = await loadChapter("kjv", { book: "Matthew", chapter: 5 });
+  assert.ok(!("external" in kjv));
+  assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /meek|inherit the earth/i);
+
+  const asv = await loadChapter("asv", { book: "Matt", chapter: 5 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses.find((v) => v.verse === 4)?.text ?? "", /mourn|comforted/i);
+});
+
+test("loadChapter returns Psalm.23 scaffolds (web/kjv/asv + zh/ja)", async () => {
+  const web = await loadChapter("web", { book: "Ps", chapter: 23 });
+  assert.ok(!("external" in web));
+  assert.equal(web.book, "Ps");
+  assert.match(web.verses[0]?.text ?? "", /shepherd/i);
+
+  const kjv = await loadChapter("kjv", { book: "Psalm", chapter: 23 });
+  assert.ok(!("external" in kjv));
+  assert.ok(kjv.verses.length >= 3 && kjv.verses.length <= 5);
+  assert.match(kjv.verses[0]?.text ?? "", /LORD is my shepherd/i);
+
+  const asv = await loadChapter("asv", { book: "Psalms", chapter: 23 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses[0]?.text ?? "", /Jehovah is my shepherd/i);
+
+  const cuvs = await loadChapter("cuvs", { book: "Ps", chapter: 23 });
+  assert.ok(!("external" in cuvs));
+  assert.match(cuvs.verses[0]?.text ?? "", /样例|牧者/);
+
+  const kougo = await loadChapter("kougo", { book: "Ps", chapter: 23 });
+  assert.ok(!("external" in kougo));
+  assert.match(kougo.verses[0]?.text ?? "", /見本|牧者/);
+});
+
+test("loadChapter returns zh/ja Genesis.1 scaffolds", async () => {
+  const cuvs = await loadChapter("cuvs", { book: "Gen", chapter: 1 });
+  assert.ok(!("external" in cuvs));
+  assert.equal(cuvs.book, "Gen");
+  assert.ok(cuvs.verses.length >= 3 && cuvs.verses.length <= 5);
+  assert.match(cuvs.verses[0]?.text ?? "", /样例|起初|创造/);
+
+  const kougo = await loadChapter("kougo", { book: "Gen", chapter: 1 });
+  assert.ok(!("external" in kougo));
+  assert.match(kougo.verses[0]?.text ?? "", /見本|創造|はじめに/);
+});

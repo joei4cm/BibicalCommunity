@@ -72,4 +72,35 @@ echo "JOHN2_R2_OK"
 echo "John.3 scaffolds:"
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.3" -H "$AUTH" | grep -qE '神爱世人|独生子'
 echo "JOHN3_R2_OK"
+
+# Multi-book dual-pane scaffolds (Gen.1 / Matt.5 / Ps.23) — short license-safe samples
+put_chapter "bible/cuvs/Gen.1.json" '{"book":"Gen","chapter":1,"verses":[{"verse":1,"text":"（样例）起初，神创造天地。"},{"verse":2,"text":"（样例）地是空虚混沌，渊面黑暗；神的灵运行在水面上。"},{"verse":3,"text":"（样例）神说：“要有光”，就有了光。"},{"verse":4,"text":"（样例）神看光是好的，就把光暗分开了。"}]}'
+put_chapter "bible/kougo/Gen.1.json" '{"book":"Gen","chapter":1,"verses":[{"verse":1,"text":"（見本）はじめに神は天と地とを創造された。"},{"verse":2,"text":"（見本）地は形なく、むなしく、やみが淵のおもてにあり、神の霊が水のおもてをおおっていた。"},{"verse":3,"text":"（見本）神は「光あれ」と言われた。すると光があった。"},{"verse":4,"text":"（見本）神はその光を見て、良しとされた。神は光とやみとを分けられた。"}]}'
+put_chapter "bible/cuvs/Ps.23.json" '{"book":"Ps","chapter":23,"verses":[{"verse":1,"text":"（样例）耶和华是我的牧者，我必不致缺乏。"},{"verse":2,"text":"（样例）他使我躺卧在青草地上，领我在可安歇的水边。"},{"verse":3,"text":"（样例）他使我的灵魂苏醒，为自己的名引导我走义路。"},{"verse":4,"text":"（样例）我虽然行过死荫的幽谷，也不怕遭害，因为你与我同在；你的杖，你的竿，都安慰我。"}]}'
+put_chapter "bible/kougo/Ps.23.json" '{"book":"Ps","chapter":23,"verses":[{"verse":1,"text":"（見本）主はわたしの牧者であって、わたしには乏しいことがない。"},{"verse":2,"text":"（見本）主はわたしを緑の牧場に伏させ、憩いの水のほとりに伴われる。"},{"verse":3,"text":"（見本）主はわたしの魂を生きかえらせ、御名のために正しい道に導かれる。"},{"verse":4,"text":"（見本）たといわたしは死の陰の谷を歩むとも、わざわいを恐れません。あなたがわたしと共におられるからです。"}]}'
+put_chapter "bible/web/Gen.1.json" '{"book":"Gen","chapter":1,"verses":[{"verse":1,"text":"In the beginning, God created the heavens and the earth."},{"verse":3,"text":"God said, \"Let there be light,\" and there was light."}]}'
+put_chapter "bible/web/Matt.5.json" '{"book":"Matt","chapter":5,"verses":[{"verse":1,"text":"Seeing the multitudes, he went up onto a mountain."},{"verse":3,"text":"Blessed are the poor in spirit, for theirs is the Kingdom of Heaven."},{"verse":5,"text":"Blessed are the gentle, for they shall inherit the earth."}]}'
+put_chapter "bible/web/Ps.23.json" '{"book":"Ps","chapter":23,"verses":[{"verse":1,"text":"Yahweh is my shepherd: I shall lack nothing."},{"verse":2,"text":"He makes me lie down in green pastures. He leads me beside still waters."},{"verse":4,"text":"Even though I walk through the valley of the shadow of death, I will fear no evil, for you are with me."}]}'
+put_chapter "bible/kjv/Gen.1.json" '{"book":"Gen","chapter":1,"verses":[{"verse":1,"text":"In the beginning God created the heaven and the earth."},{"verse":3,"text":"And God said, Let there be light: and there was light."}]}'
+put_chapter "bible/kjv/Matt.5.json" '{"book":"Matt","chapter":5,"verses":[{"verse":3,"text":"Blessed are the poor in spirit: for theirs is the kingdom of heaven."},{"verse":5,"text":"Blessed are the meek: for they shall inherit the earth."}]}'
+put_chapter "bible/kjv/Ps.23.json" '{"book":"Ps","chapter":23,"verses":[{"verse":1,"text":"The LORD is my shepherd; I shall not want."},{"verse":2,"text":"He maketh me to lie down in green pastures: he leadeth me beside the still waters."}]}'
+put_chapter "bible/asv/Gen.1.json" '{"book":"Gen","chapter":1,"verses":[{"verse":1,"text":"In the beginning God created the heavens and the earth."},{"verse":3,"text":"And God said, Let there be light: and there was light."}]}'
+put_chapter "bible/asv/Matt.5.json" '{"book":"Matt","chapter":5,"verses":[{"verse":3,"text":"Blessed are the poor in spirit: for theirs is the kingdom of heaven."},{"verse":5,"text":"Blessed are the meek: for they shall inherit the earth."}]}'
+put_chapter "bible/asv/Ps.23.json" '{"book":"Ps","chapter":23,"verses":[{"verse":1,"text":"Jehovah is my shepherd; I shall not want."},{"verse":2,"text":"He maketh me to lie down in green pastures; He leadeth me beside still waters."}]}'
+
+echo "Multi-book scaffolds:"
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Gen.1" -H "$AUTH" | grep -qiE 'beginning|created'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.5" -H "$AUTH" | grep -qiE 'poor in spirit|Blessed'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.5" -H "$AUTH" | grep -qiE 'poor in spirit|meek'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.5" -H "$AUTH" | grep -qiE 'poor in spirit|meek'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Ps.23" -H "$AUTH" | grep -qiE 'shepherd'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Ps.23" -H "$AUTH" | grep -qiE 'shepherd'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Ps.23" -H "$AUTH" | grep -qiE 'shepherd'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gen.1" -H "$AUTH" | grep -qE '样例|起初|创造'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gen.1" -H "$AUTH" | grep -qE '見本|創造|はじめに'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.23" -H "$AUTH" | grep -qE '样例|牧者'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.23" -H "$AUTH" | grep -qE '見本|牧者'
+echo "MULTI_BOOK_SCAFFOLD_OK"
 echo SEED_R2_OK

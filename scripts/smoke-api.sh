@@ -50,6 +50,21 @@ curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.3" | grep -qE 
 curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.3" | grep -qE 'ニコデモ|独り子'
 curl -sf "$BASE/v1/bible/chapter?translation=kougoyaku-pd&ref=John.3" | grep -qE 'ニコデモ|獨り子'
 echo "JOHN3_ZHJA_OK"
+echo "== multi-book scaffolds Gen.1 / Matt.5 / Ps.23 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gen.1" | grep -qiE 'beginning|created'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gen.1" | grep -qiE 'beginning|created'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Gen.1" | grep -qiE 'beginning|created'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.5" | grep -qiE 'poor in spirit|Blessed'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.5" | grep -qiE 'poor in spirit|meek'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.5" | grep -qiE 'poor in spirit|meek'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Ps.23" | grep -qiE 'shepherd'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Ps.23" | grep -qiE 'shepherd'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Ps.23" | grep -qiE 'shepherd'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gen.1" | grep -qE '样例|起初|创造'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gen.1" | grep -qE '見本|創造|はじめに'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.23" | grep -qE '样例|牧者'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.23" | grep -qE '見本|牧者'
+echo "MULTI_BOOK_SCAFFOLD_OK"
 echo "== chapter CUVS John.1 (zh) =="
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
 echo "$CUVS" | head -c 160; echo
