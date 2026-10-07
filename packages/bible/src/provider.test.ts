@@ -34,12 +34,50 @@ test("loadChapter returns verses for asv John.1", async () => {
   assert.match(result.verses.find((v) => v.verse === 5)?.text ?? "", /apprehended/);
 });
 
+test("loadChapter returns verses for web John.2 (wedding at Cana)", async () => {
+  const result = await loadChapter("web", { book: "John", chapter: 2 });
+  assert.ok(!("external" in result));
+  assert.equal(result.source, "local");
+  assert.equal(result.chapter, 2);
+  assert.ok(result.verses.length >= 11);
+  assert.equal(result.verses[0]?.verse, 1);
+  assert.match(result.verses[0]?.text ?? "", /wedding in Cana/);
+  assert.match(result.verses.find((v) => v.verse === 11)?.text ?? "", /beginning of his signs/);
+});
+
 test("loadChapter returns verses for web John.3 (chapter switch)", async () => {
   const result = await loadChapter("web", { book: "John", chapter: 3 });
   assert.ok(!("external" in result));
   assert.equal(result.chapter, 3);
   assert.ok(result.verses.length > 0);
   assert.match(result.verses.find((v) => v.verse === 16)?.text ?? "", /God so loved the world/);
+});
+
+test("loadChapter returns verses for web John.2", async () => {
+  const result = await loadChapter("web", { book: "John", chapter: 2 });
+  assert.ok(!("external" in result));
+  assert.equal(result.chapter, 2);
+  assert.ok(result.verses.length > 0);
+});
+
+test("loadChapter returns verses for kjv John.3", async () => {
+  const result = await loadChapter("kjv", { book: "John", chapter: 3 });
+  assert.ok(!("external" in result));
+  assert.equal(result.chapter, 3);
+  assert.match(result.verses.find((v) => v.verse === 16)?.text ?? "", /God so loved the world/);
+});
+
+test("loadChapter returns verses for kjv John.3 (includes 3:16)", async () => {
+  const result = await loadChapter("kjv", { book: "John", chapter: 3 });
+  assert.ok(!("external" in result));
+  assert.equal(result.source, "local");
+  assert.equal(result.chapter, 3);
+  assert.ok(result.verses.length > 0);
+  assert.match(result.verses[0]?.text ?? "", /Nicodemus/);
+  assert.match(
+    result.verses.find((v) => v.verse === 16)?.text ?? "",
+    /only begotten Son/,
+  );
 });
 
 test("loadChapter returns verses for kougoyaku-pd John.1", async () => {

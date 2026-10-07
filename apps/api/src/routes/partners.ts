@@ -11,6 +11,8 @@ import { randomToken } from "../services/crypto";
  * Partner SSO / deep-link adapters for 恩道 (Endao) and 微读 (WeRead).
  * Feature flags: ENDAO_SSO_ENABLED / WEREAD_SSO_ENABLED.
  *
+ * When a flag is false (default): UI and this route return deep-link handoff
+ * URLs only (verse ref). Do not start OAuth; clients must deep-link only.
  * When SSO is enabled without real partner credentials, `/mock-authorize`
  * provides a configurable local OAuth stand-in so the callback loop works in
  * development. Production must replace authorize URLs with real partner IdPs.

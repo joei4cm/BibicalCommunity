@@ -23,7 +23,7 @@ Inspired by 微读圣经 / 主内圣经:
 - Typography: font family, size, line height, margins; layout: single / dual translation
 - Translation picker (zh/en/ja mainstream list)
 - Study materials panel (open commentaries, cross-refs) when licensed/available
-- External: 恩道 / 微读书城 — gated by `ENDAO_SSO_ENABLED` / `WEREAD_SSO_ENABLED` (and mock IdP for local): **SSO on** → OAuth authorize URL (+ mock callback); **SSO off** → plain deep link with verse `ref` only (no fake cross-login)
+- External: 恩道 / 微读书城 — gated by `ENDAO_SSO_ENABLED` / `WEREAD_SSO_ENABLED` (and mock IdP for local): **SSO on** → OAuth authorize URL (+ mock callback); **SSO off (default)** → UI must **deep-link only** (plain verse-`ref` handoff; no OAuth / fake cross-login). Clients should read `/v1/partners/status` (or chapter SSO flags) before offering SSO UI.
 
 ## 2. Plans & Devotion
 

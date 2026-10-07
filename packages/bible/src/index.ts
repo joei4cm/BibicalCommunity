@@ -11,6 +11,8 @@ export { KJV_JOHN_1 } from "./sample-kjv-john1.js";
 export { ASV_JOHN_1 } from "./sample-asv-john1.js";
 export { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
 export { WEB_PSALM_23 } from "./sample-web-ps23.js";
+export { WEB_JOHN_2 } from "./packs/web-john2.js";
 export { WEB_JOHN_3 } from "./packs/web-john3.js";
+export { KJV_JOHN_3 } from "./packs/kjv-john3.js";
 export { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
 export { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
