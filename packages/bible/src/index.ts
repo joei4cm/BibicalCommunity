@@ -23,3 +23,7 @@ export { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
 export { SHIN_KYOUDOU_JOHN_1 } from "./packs/shin-kyoudou-john1.js";
 export { CCB_JOHN_1 } from "./packs/ccb-john1.js";
 export { LZZ_JOHN_1 } from "./packs/lzz-john1.js";
+export { CUVS_JOHN_2 } from "./packs/cuvs-john2.js";
+export { KOUGO_JOHN_2 } from "./packs/kougo-john2.js";
+export { KJV_JOHN_2 } from "./packs/kjv-john2.js";
+export { ASV_JOHN_2 } from "./packs/asv-john2.js";

@@ -22,6 +22,12 @@ echo "== chapter WEB John.2 =="
 J2=$(curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.2")
 echo "$J2" | head -c 160; echo
 echo "$J2" | grep -q 'wedding in Cana'
+echo "== chapter CUVS/KJV/ASV/kougo John.2 =="
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.2" | grep -qE '迦拿|娶亲'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.2" | grep -qi 'Cana'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.2" | grep -qi 'Cana'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.2" | grep -q 'カナ'
+echo "JOHN2_MULTILANG_OK"
 echo "== chapter ASV John.3 =="
 A3=$(curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3")
 echo "$A3" | head -c 160; echo

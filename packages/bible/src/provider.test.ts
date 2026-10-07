@@ -150,6 +150,24 @@ test("loadChapter returns lzz scaffold John.1", async () => {
   assert.match(result.verses[0]?.text ?? "", /起初有道|太初有道/);
 });
 
+test("loadChapter returns cuvs/kougo/kjv/asv John.2 scaffolds", async () => {
+  const cuvs = await loadChapter("cuvs", { book: "John", chapter: 2 });
+  assert.ok(!("external" in cuvs));
+  assert.match(cuvs.verses[0]?.text ?? "", /迦拿|娶亲/);
+
+  const kougo = await loadChapter("kougo", { book: "John", chapter: 2 });
+  assert.ok(!("external" in kougo));
+  assert.match(kougo.verses[0]?.text ?? "", /カナ|婚礼/);
+
+  const kjv = await loadChapter("kjv", { book: "John", chapter: 2 });
+  assert.ok(!("external" in kjv));
+  assert.match(kjv.verses[0]?.text ?? "", /Cana/i);
+
+  const asv = await loadChapter("asv", { book: "John", chapter: 2 });
+  assert.ok(!("external" in asv));
+  assert.match(asv.verses[0]?.text ?? "", /Cana/i);
+});
+
 test("partner external chapter marks sso when flags on", async () => {
   const off = await loadChapter("endao", { book: "John", chapter: 1 }, { endao: false, weread: false });
   assert.ok("external" in off && off.external);

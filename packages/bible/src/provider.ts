@@ -12,11 +12,15 @@ import { WEB_PSALM_23 } from "./sample-web-ps23.js";
 import { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
 import { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
 import { CUVS_JOHN_1 } from "./packs/cuvs-john1.js";
+import { CUVS_JOHN_2 } from "./packs/cuvs-john2.js";
 import { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
 import { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
 import { SHIN_KYOUDOU_JOHN_1 } from "./packs/shin-kyoudou-john1.js";
 import { CCB_JOHN_1 } from "./packs/ccb-john1.js";
 import { LZZ_JOHN_1 } from "./packs/lzz-john1.js";
+import { KOUGO_JOHN_2 } from "./packs/kougo-john2.js";
+import { KJV_JOHN_2 } from "./packs/kjv-john2.js";
+import { ASV_JOHN_2 } from "./packs/asv-john2.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -39,12 +43,12 @@ function isJohn(book: string): boolean {
 
 const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: string }[]>> = {
   web: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3 },
-  kjv: { 1: KJV_JOHN_1, 3: KJV_JOHN_3 },
-  asv: { 1: ASV_JOHN_1, 3: ASV_JOHN_3 },
+  kjv: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
+  asv: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
   "kougoyaku-pd": { 1: BUNGO_JOHN_1 },
-  kougo: { 1: KOUGO_JOHN_1 },
+  kougo: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2 },
   cuvt: { 1: CUVT_JOHN_1 },
-  cuvs: { 1: CUVS_JOHN_1 },
+  cuvs: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2 },
   rcuv: { 1: RCUV_JOHN_1 },
   shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1 },
   shinKyoudou: { 1: SHIN_KYOUDOU_JOHN_1 },

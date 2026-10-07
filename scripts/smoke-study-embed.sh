@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 # Study catalog (zh/en/ja) + Home post externalMediaUrl round-trip.
-# Can be called from smoke-api.sh (reuses TOKEN) or standalone against a live API.
+# Always registers a fresh user — parent smoke-home may have wiped TOKEN.
 set -euo pipefail
 BASE="${1:-${BASE:-http://127.0.0.1:8787}}"
 PASS="${SMOKE_PASS:-SmokeTestPass123!}"
 
-if [[ -z "${TOKEN:-}" ]]; then
-  HANDLE="studysmoke$(date +%s)"
-  REG=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
-    -d "{\"handle\":\"$HANDLE\",\"password\":\"$PASS\",\"nickname\":\"StudySmoke\",\"locale\":\"en\"}")
-  TOKEN=$(echo "$REG" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
-  test -n "$TOKEN"
-fi
+HANDLE="studysmoke$(date +%s)"
+REG=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
+  -d "{\"handle\":\"$HANDLE\",\"password\":\"$PASS\",\"nickname\":\"StudySmoke\",\"locale\":\"en\"}")
+TOKEN=$(echo "$REG" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+test -n "$TOKEN"
 AUTH="Authorization: Bearer $TOKEN"
 
 echo "== bible study materials zh/en/ja =="

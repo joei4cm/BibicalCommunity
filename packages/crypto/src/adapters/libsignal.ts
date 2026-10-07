@@ -41,8 +41,26 @@ export class LibsignalSignalClient implements SignalClient {
   }
 }
 
+export type SignalBackend = "webcrypto" | "libsignal";
+
+/**
+ * Resolve backend from explicit prefer, else `LOGOSHOME_SIGNAL_BACKEND`
+ * (`webcrypto` | `libsignal`) on `globalThis` or Node `process.env`.
+ * Defaults to webcrypto (portable P-256).
+ */
+export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
+  if (prefer) return prefer;
+  const g = globalThis as {
+    LOGOSHOME_SIGNAL_BACKEND?: string;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
+  if (env === "libsignal") return "libsignal";
+  return "webcrypto";
+}
+
 /** Factory used by apps to pick the active client. */
-export function createSignalClient(prefer: "webcrypto" | "libsignal" = "webcrypto"): SignalClient {
-  if (prefer === "libsignal") return new LibsignalSignalClient();
+export function createSignalClient(prefer?: SignalBackend): SignalClient {
+  if (resolveSignalBackend(prefer) === "libsignal") return new LibsignalSignalClient();
   return new WebCryptoSignalClient();
 }
