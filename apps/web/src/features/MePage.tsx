@@ -128,6 +128,13 @@ export function MePage() {
     void checkPendingWipe();
   }, []);
 
+  function apiLocale(): "zh-CN" | "en" | "ja" {
+    const lng = i18n.language || "zh-CN";
+    if (lng.startsWith("zh")) return "zh-CN";
+    if (lng.startsWith("ja")) return "ja";
+    return "en";
+  }
+
   async function register() {
     setMsg(null);
     try {
@@ -141,11 +148,12 @@ export function MePage() {
           handle: handle.trim(),
           password,
           nickname: (nickname || handle).trim(),
-          locale: i18n.language,
+          locale: apiLocale(),
         }),
       });
       setToken(res.token);
       localStorage.setItem("lh.deviceId", res.deviceId);
+      setProfile((p) => ({ ...(p ?? {}), uid: res.uid }));
       setMsg("registered");
       await refresh();
     } catch (e) {
