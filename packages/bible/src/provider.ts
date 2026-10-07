@@ -12,6 +12,8 @@ import { WEB_PSALM_23 } from "./sample-web-ps23.js";
 import { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
 import { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
 import { CUVS_JOHN_1 } from "./packs/cuvs-john1.js";
+import { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
+import { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -40,6 +42,8 @@ const LOCAL_JOHN_SAMPLES: Record<string, Record<number, { verse: number; text: s
   kougo: { 1: KOUGO_JOHN_1 },
   cuvt: { 1: CUVT_JOHN_1 },
   cuvs: { 1: CUVS_JOHN_1 },
+  rcuv: { 1: RCUV_JOHN_1 },
+  shinkaiyaku: { 1: SHINKAIYAKU_JOHN_1 },
 };
 
 export async function loadChapter(

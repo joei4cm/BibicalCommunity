@@ -18,3 +18,5 @@ export { ASV_JOHN_3 } from "./packs/asv-john3.js";
 export { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
 export { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
 export { CUVS_JOHN_1 } from "./packs/cuvs-john1.js";
+export { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
+export { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";

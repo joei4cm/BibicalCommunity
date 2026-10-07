@@ -34,6 +34,11 @@ echo "== chapter CUVT John.1 (zh) =="
 curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.1" | grep -q '太初有道'
 echo "== chapter kougo John.1 (ja) =="
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.1" | grep -q '初めに言があった'
+echo "== chapter RCUV John.1 (zh) =="
+curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.1" | grep -q '太初有道'
+echo "== chapter shinkaiyaku John.1 (ja) =="
+# Local scaffold or R2 sample seed both include 初めに…
+curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.1" | grep -qE '初めに(ことば|言)が'
 echo "== chapter NIV external =="
 curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
 echo "== partner mock authorize =="
@@ -130,6 +135,40 @@ ws.addEventListener("close", () => {
   process.exit(1);
 });
 ' "$WS_URL"
+echo "== call websocket offer fan-out =="
+WS_URL2="ws://${WS_HOST}/v1/calls/${CALL_ID}/ws?token=${TOKEN2}&conversationId=${CID}"
+node --input-type=module -e '
+const urlA = process.argv[1];
+const urlB = process.argv[2];
+function connect(url) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    const t = setTimeout(() => reject(new Error("timeout")), 8000);
+    ws.addEventListener("open", () => {});
+    ws.addEventListener("message", (ev) => {
+      let msg; try { msg = JSON.parse(String(ev.data)); } catch { return; }
+      if (msg.type === "joined") { clearTimeout(t); resolve({ ws, msg }); }
+    });
+    ws.addEventListener("error", () => { clearTimeout(t); reject(new Error("ws error")); });
+  });
+}
+const a = await connect(urlA);
+const b = await connect(urlB);
+const got = new Promise((resolve, reject) => {
+  const t = setTimeout(() => reject(new Error("no offer")), 8000);
+  b.ws.addEventListener("message", (ev) => {
+    let msg; try { msg = JSON.parse(String(ev.data)); } catch { return; }
+    if (msg.type === "offer") { clearTimeout(t); resolve(msg); }
+  });
+});
+a.ws.send(JSON.stringify({ type: "offer", sdp: "v=0-smoke" }));
+const offer = await got;
+if (!offer.sdp) throw new Error("missing sdp");
+console.log("CALL_WS_FANOUT_OK");
+a.ws.close(); b.ws.close();
+process.exit(0);
+' "$WS_URL" "$WS_URL2"
+
 echo "== peer key bundle list =="
 curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
 echo "SMOKE_OK"
