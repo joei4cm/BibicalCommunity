@@ -8,6 +8,12 @@ const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const mediaRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 mediaRoutes.use("*", requireAuth);
 
+function keyFromPath(pathname: string, marker: string): string {
+  const idx = pathname.indexOf(marker);
+  if (idx < 0) return "";
+  return decodeURIComponent(pathname.slice(idx + marker.length)).replace(/^\/+/, "");
+}
+
 /** Mint an object key and Worker-proxy PUT path (local R2 often skips S3 presign). */
 mediaRoutes.post("/upload-url", async (c) => {
   const userId = c.get("userId");
@@ -18,9 +24,9 @@ mediaRoutes.post("/upload-url", async (c) => {
   });
 });
 
+/** PUT /v1/media/put/<objectKey> — objectKey may contain slashes. */
 mediaRoutes.put("/put/*", async (c) => {
-  const splat = c.req.param("*");
-  const objectKey = Array.isArray(splat) ? splat.join("/") : (splat ?? "");
+  const objectKey = keyFromPath(new URL(c.req.url).pathname, "/v1/media/put/");
   if (!objectKey) return c.json({ error: "missing_key" }, 400);
 
   const contentLengthHeader = c.req.header("content-length");
@@ -49,8 +55,7 @@ mediaRoutes.put("/put/*", async (c) => {
 
 /** Stream private encrypted blob — still requires auth. */
 mediaRoutes.get("/*", async (c) => {
-  const splat = c.req.param("*");
-  const key = Array.isArray(splat) ? splat.join("/") : (splat ?? "");
+  const key = keyFromPath(new URL(c.req.url).pathname, "/v1/media/");
   if (!key || key === "upload-url" || key.startsWith("put/")) {
     return c.json({ error: "not_found" }, 404);
   }

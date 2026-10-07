@@ -256,19 +256,37 @@ export function ChatPanel() {
       } catch {
         /* STUN-only fallback */
       }
-      const callbacks: PeerCallbacks = {};
+      const token = getToken();
+      const proto = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = token
+        ? `${proto}://${window.location.host}${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(selectedId)}`
+        : null;
+      const channel = openSignalingChannel(wsUrl);
+      const sendSignal = (msg: object) => {
+        const raw = JSON.stringify(msg);
+        if (channel instanceof WebSocket && channel.readyState === WebSocket.OPEN) {
+          channel.send(raw);
+        } else if (!(channel instanceof WebSocket) && "send" in channel) {
+          (channel as { send: (m: never) => void }).send(msg as never);
+        }
+      };
+      const callbacks: PeerCallbacks = {
+        onLocalDescription: (desc) => {
+          if (desc.type === "offer") sendSignal({ type: "offer", sdp: desc.sdp });
+          if (desc.type === "answer") sendSignal({ type: "answer", sdp: desc.sdp });
+        },
+        onIceCandidate: (cand) => sendSignal({ type: "ice", candidate: cand?.toJSON() ?? null }),
+      };
       const pc = createPeerConnection(callbacks, { iceServers });
       pcRef.current = pc;
       localStreamRef.current = await attachLocalMedia(pc, { audio: true, video: true });
-      await createOffer(pc);
-      const channel = openSignalingChannel(null);
+      await createOffer(pc, callbacks);
       setCallNote(
         (prev) =>
           `${prev ? `${prev} · ` : ""}${t("chat.callStarted")}: ${res.callId} · ${res.signalingPath}` +
           (res.note ? ` · ${res.note}` : "") +
           ` · signaling=${channel instanceof WebSocket ? "ws" : "mock"}`,
       );
-      if (!(channel instanceof WebSocket)) channel.close();
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "error");
     } finally {
