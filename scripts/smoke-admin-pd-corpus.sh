@@ -39,10 +39,6 @@ test "$CODE" = "400"
 echo "ADMIN_PD_SEED_LICENSED_DENY_OK"
 
 echo "== seed WEB Gen + John (getbible → R2) =="
-BEFORE=$(curl -sf -H "$AUTH" "$BASE/v1/admin/corpus/pd-status/web")
-BEFORE_N=$(echo "$BEFORE" | sed -n 's/.*"objectCount":\([0-9]*\).*/\1/p')
-test -n "$BEFORE_N"
-
 GEN=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d '{"tid":"web","bookNr":1}' "$BASE/v1/admin/corpus/pd-seed")
 echo "$GEN" | grep -q '"book":"Gen"'
@@ -57,10 +53,13 @@ JOHN_N=$(echo "$JOHN" | sed -n 's/.*"chaptersPut":\([0-9]*\).*/\1/p')
 test "${JOHN_N:-0}" -ge 20
 echo "ADMIN_PD_SEED_BOOKS_OK gen=$GEN_N john=$JOHN_N"
 
-AFTER=$(curl -sf -H "$AUTH" "$BASE/v1/admin/corpus/pd-status/web")
-AFTER_N=$(echo "$AFTER" | sed -n 's/.*"objectCount":\([0-9]*\).*/\1/p')
-test "$AFTER_N" -gt "$BEFORE_N"
-echo "$AFTER" | grep -q '"sampleKeys"'
+# Status: at least Gen+John chapters present (local R2 may already hold full canon)
+STATUS_FILE=$(mktemp)
+curl -sf -H "$AUTH" "$BASE/v1/admin/corpus/pd-status/web" -o "$STATUS_FILE"
+grep -q '"sampleKeys"' "$STATUS_FILE"
+AFTER_N=$(node --input-type=module -e 'import { readFileSync } from "node:fs"; const j=JSON.parse(readFileSync(process.argv[1],"utf8")); if(!Number.isFinite(j.objectCount)) process.exit(2); console.log(j.objectCount);' "$STATUS_FILE")
+test "$AFTER_N" -ge 71
+rm -f "$STATUS_FILE"
 echo "ADMIN_PD_STATUS_OK objects=$AFTER_N"
 
 # Download pack must come from R2 with dense John.1
