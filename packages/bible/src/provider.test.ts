@@ -355,17 +355,23 @@ test("loadChapter returns PD Romans.8 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Rom");
   assert.equal(web.chapter, 8);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 21);
+  assert.equal(web.verses[0]?.verse, 1);
   assert.match(web.verses[0]?.text ?? "", /no condemnation/i);
+  assert.match(web.verses.find((v) => v.verse === 14)?.text ?? "", /led by the Spirit/i);
   assert.match(web.verses.find((v) => v.verse === 28)?.text ?? "", /work together for good/i);
 
   const kjv = await loadChapter("kjv", { book: "Romans", chapter: 8 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Rom");
+  assert.ok(kjv.verses.length >= 21);
+  assert.match(kjv.verses.find((v) => v.verse === 15)?.text ?? "", /Abba/i);
   assert.match(kjv.verses.find((v) => v.verse === 31)?.text ?? "", /If God be for us/i);
 
   const asv = await loadChapter("asv", { book: "rom", chapter: 8 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 21);
+  assert.match(asv.verses.find((v) => v.verse === 16)?.text ?? "", /children of God/i);
   assert.match(asv.verses.find((v) => v.verse === 39)?.text ?? "", /love of God/i);
 });
 
