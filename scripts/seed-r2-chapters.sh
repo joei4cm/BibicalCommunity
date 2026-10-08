@@ -295,7 +295,7 @@ curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.15" -H "$AUTH" | grep
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rev.21" -H "$AUTH" | grep -qE '見本|新しい天と新しい地'
 echo "MULTI_BOOK_APOCALYPTIC_OK"
 
-# Pack-driven key chapters for all licensed R2 tids (John.14/15, Matt.5/6, Gen.1, Ps.1/23, Prov.3, Rom.8/12, Heb.11, Isa.53, Acts.2, 1John.4)
+# Pack-driven key chapters for all licensed R2 tids (teaching + wisdom/prophecy + law/gospel dual-pane set)
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 echo "Building bible package for pack-driven R2 seed…"
 (cd "$ROOT" && pnpm --filter @logoshome/bible build >/dev/null)
