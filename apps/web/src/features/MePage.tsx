@@ -79,10 +79,49 @@ export function MePage() {
   const [wipeUserId, setWipeUserId] = useState("");
   const [wipeDeviceId, setWipeDeviceId] = useState("");
   const [hasDeviceKey, setHasDeviceKey] = useState(false);
+  const [devices, setDevices] = useState<
+    {
+      id: string;
+      platform: string;
+      name: string | null;
+      revoked: boolean;
+      createdAt: number;
+      hasIdentityKey: boolean;
+      isCurrent: boolean;
+    }[]
+  >([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
 
   useEffect(() => {
     void secureGet(DEVICE_PRIV_KEY).then((v) => setHasDeviceKey(!!v));
   }, []);
+
+  async function refreshDevices() {
+    if (!getToken()) {
+      setDevices([]);
+      setCurrentDeviceId(null);
+      return;
+    }
+    const res = await api<{
+      currentDeviceId: string;
+      devices: typeof devices;
+    }>("/v1/me/devices");
+    setCurrentDeviceId(res.currentDeviceId);
+    setDevices(res.devices);
+  }
+
+  async function revokeDevice(deviceId: string) {
+    setAuthBusy(true);
+    try {
+      await api(`/v1/me/devices/${encodeURIComponent(deviceId)}/revoke`, { method: "POST" });
+      await refreshDevices();
+      setMsg("device_revoked");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
 
   const isChurchAdmin = profile?.churches?.some(
     (c) => c.role === "admin" || c.role === "security_officer",
@@ -135,6 +174,7 @@ export function MePage() {
 
   useEffect(() => {
     void refresh().catch(() => undefined);
+    void refreshDevices().catch(() => undefined);
     void checkPendingWipe();
   }, []);
 
@@ -596,6 +636,35 @@ export function MePage() {
             <li key={r.id}>
               <strong>{r.uid}</strong>
               {r.nickname ? <div className="muted">{r.nickname}</div> : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>{t("me.devices")}</h2>
+        <p className="muted">{t("me.devicesHint")}</p>
+        <ul className="list">
+          {devices.length === 0 && <li className="muted">—</li>}
+          {devices.map((d) => (
+            <li key={d.id}>
+              <strong>{d.name || d.platform}</strong>
+              <div className="muted">
+                {d.id}
+                {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
+                {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
+                {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
+              </div>
+              {!d.revoked && !d.isCurrent && (
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={authBusy}
+                  onClick={() => void revokeDevice(d.id)}
+                >
+                  {t("me.deviceRevoke")}
+                </button>
+              )}
             </li>
           ))}
         </ul>

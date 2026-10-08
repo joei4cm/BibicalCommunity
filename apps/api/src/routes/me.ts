@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { profileUpdateSchema, type PrivacySettings } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
@@ -124,4 +124,52 @@ meRoutes.patch("/", async (c) => {
   }
   await db.update(schema.users).set(patch).where(eq(schema.users.id, userId));
   return c.json({ ok: true });
+});
+
+/** List this account's devices (for revoke UX). Recovery material stays client-only. */
+meRoutes.get("/devices", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const currentDeviceId = c.get("deviceId");
+  const rows = await db.select().from(schema.devices).where(eq(schema.devices.userId, userId));
+  return c.json({
+    currentDeviceId,
+    devices: rows.map((d) => ({
+      id: d.id,
+      platform: d.platform,
+      name: d.name,
+      revoked: d.revoked,
+      createdAt: d.createdAt,
+      hasIdentityKey: Boolean(d.identityKeyPub),
+      isCurrent: d.id === currentDeviceId,
+    })),
+  });
+});
+
+/** Revoke a device: mark revoked + delete its sessions (cannot revoke last current without wipe). */
+meRoutes.post("/devices/:deviceId/revoke", async (c) => {
+  const deviceId = c.req.param("deviceId");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const currentDeviceId = c.get("deviceId");
+
+  const device = (
+    await db
+      .select()
+      .from(schema.devices)
+      .where(and(eq(schema.devices.id, deviceId), eq(schema.devices.userId, userId)))
+      .limit(1)
+  )[0];
+  if (!device) return c.json({ error: "not_found" }, 404);
+  if (device.revoked) return c.json({ ok: true, alreadyRevoked: true, id: deviceId });
+
+  // Revoking the current device ends this session — allowed, but call out explicitly.
+  await db.update(schema.devices).set({ revoked: true }).where(eq(schema.devices.id, deviceId));
+  await db.delete(schema.sessions).where(eq(schema.sessions.deviceId, deviceId));
+
+  return c.json({
+    ok: true,
+    id: deviceId,
+    revokedCurrent: deviceId === currentDeviceId,
+  });
 });
