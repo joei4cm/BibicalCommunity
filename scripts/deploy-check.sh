@@ -132,7 +132,7 @@ else
   bad "no *.sql files under migrations/"
 fi
 
-for expected in 0001_init.sql 0002_groups_favorites.sql 0003_entitlements_prekeys.sql 0004_devotion_step.sql; do
+for expected in 0001_init.sql 0002_groups_favorites.sql 0003_entitlements_prekeys.sql 0004_devotion_step.sql 0005_platform_admin.sql; do
   if [[ -f "$MIG/$expected" ]]; then
     ok "migration $expected"
   else
@@ -144,6 +144,12 @@ if rg -q 'devotion_step' "$MIG/0004_devotion_step.sql"; then
   ok "0004 includes devotion_step column"
 else
   bad "0004_devotion_step.sql must define devotion_step"
+fi
+
+if rg -q 'platform_role' "$MIG/0005_platform_admin.sql"; then
+  ok "0005 includes platform_role column"
+else
+  bad "0005_platform_admin.sql must define platform_role"
 fi
 
 # ── Supporting docs / scripts ────────────────────────────────────────────────

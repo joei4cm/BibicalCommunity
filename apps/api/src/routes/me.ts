@@ -39,6 +39,11 @@ meRoutes.get("/", async (c) => {
     });
   }
 
+  const platformAdmin = user.platformRole === "platform_admin";
+  const canAccessAdminConsole =
+    platformAdmin ||
+    churches.some((ch) => ch.role === "admin" || ch.role === "security_officer");
+
   return c.json({
     id: user.id,
     uid: user.uid,
@@ -48,6 +53,9 @@ meRoutes.get("/", async (c) => {
     nickname: await openField(c.env, userId, "nickname", user.nicknameCt),
     legalName: await openField(c.env, userId, "legalName", user.legalNameCt),
     signature: await openField(c.env, userId, "signature", user.signatureCt),
+    platformRole: user.platformRole ?? null,
+    platformAdmin,
+    canAccessAdminConsole,
     churches,
   });
 });

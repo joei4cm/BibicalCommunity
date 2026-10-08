@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   THEME_IDS,
@@ -33,6 +34,8 @@ type MeProfile = {
   signature: string | null;
   privacy: PrivacySettings;
   churches: MeChurch[];
+  canAccessAdminConsole?: boolean;
+  platformAdmin?: boolean;
 };
 
 type SearchHit = { id: string; uid: string; nickname: string | null };
@@ -623,6 +626,16 @@ export function MePage() {
           {t("security.wipe")}
         </button>
       </div>
+
+      {(profile?.canAccessAdminConsole || isChurchAdmin) && (
+        <div className="panel" data-testid="me-admin-console-link">
+          <h2 style={{ marginTop: 0 }}>{t("admin.title")}</h2>
+          <p className="muted">{t("admin.openHint")}</p>
+          <Link className="btn" to="/app/admin" data-testid="me-open-admin">
+            {t("admin.open")}
+          </Link>
+        </div>
+      )}
 
       {isChurchAdmin && (
         <div className="panel">

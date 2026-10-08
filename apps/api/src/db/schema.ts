@@ -14,6 +14,8 @@ export const users = sqliteTable(
     locale: text("locale").notNull().default("zh-CN"),
     theme: text("theme").notNull().default("day"),
     privacyJson: text("privacy_json").notNull(),
+    /** null | "platform_admin" — global console access */
+    platformRole: text("platform_role"),
     createdAt: integer("created_at", { mode: "number" }).notNull(),
     tombstoned: integer("tombstoned", { mode: "boolean" }).notNull().default(false),
   },

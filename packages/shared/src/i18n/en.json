@@ -122,5 +122,8 @@
   "security.deviceKeysMissing": "No device keys registered yet.",
   "security.uploadKeys": "Upload crypto identity",
   "auth.login": "Log in",
-  "auth.register": "Sign up"
+  "auth.register": "Sign up",
+  "nav.admin": "Admin",
+  "admin.title": "Admin console",
+  "admin.open": "Open admin console"
 }

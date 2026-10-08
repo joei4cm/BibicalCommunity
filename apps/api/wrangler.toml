@@ -42,3 +42,5 @@ ENDAO_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
 WEREAD_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
 TURN_SECRET = "dev-turn-secret"
 TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
+# Local-only: promotes caller to platform_admin (never ship a real secret in [vars] for production).
+PLATFORM_ADMIN_BOOTSTRAP_SECRET = "dev-platform-admin-bootstrap"

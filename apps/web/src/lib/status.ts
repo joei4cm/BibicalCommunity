@@ -15,6 +15,9 @@ export function humanizeStatus(
     handle_taken: "auth.handleTaken",
     invalid_credentials: "auth.badLogin",
     chat_degraded_no_peer_keys: "chat.degradedNoPeerKeys",
+    admin_wipe_issued: "security.adminWipe",
+    "admin.forbidden": "admin.forbidden",
+    "admin.bootstrapOk": "admin.bootstrapOk",
   };
   const key = map[code];
   return key ? t(key) : code;

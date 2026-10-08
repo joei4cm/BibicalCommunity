@@ -4,6 +4,7 @@ import { BibleReader } from "./features/BibleReader";
 import { PlansPage } from "./features/PlansPage";
 import { HomePage } from "./features/HomePage";
 import { MePage } from "./features/MePage";
+import { AdminConsole } from "./features/AdminConsole";
 import { LandingPage } from "./features/LandingPage";
 
 function AppShell() {
@@ -14,6 +15,7 @@ function AppShell() {
           <Route index element={<BibleReader />} />
           <Route path="plans" element={<PlansPage />} />
           <Route path="home" element={<HomePage />} />
+          <Route path="admin" element={<AdminConsole />} />
           <Route path="me" element={<MePage />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>

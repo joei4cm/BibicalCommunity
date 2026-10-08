@@ -16,11 +16,12 @@ echo "== i18n key gate =="
 node --input-type=module -e '
 import { catalogs } from "./packages/shared/dist/index.js";
 const need = [
-  "nav.bible","nav.plans","nav.home","nav.me","landing.theme",
+  "nav.bible","nav.plans","nav.home","nav.admin","nav.me","landing.theme",
   "security.wipe","security.deviceKeys","chat.archive","chat.screenShare",
   "reader.external.endao","reader.external.weread","plans.create","home.forum",
   "home.joinChurch","home.joinSlug","home.membersPending","plans.advanceDay",
   "plans.devotionPlan","plans.todayReading","me.pendingVerify",
+  "admin.title","admin.sectionUsers","admin.sectionHomes","admin.sectionGroups","admin.sectionWipe",
 ];
 let fail = 0;
 for (const loc of ["zh-CN","en","ja"]) {
