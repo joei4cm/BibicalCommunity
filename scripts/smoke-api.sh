@@ -185,6 +185,17 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.28" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Eph.2" | grep -qE '样例|本乎恩|行善'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Eph.2" | grep -qE '見本|恵みにより|良い行い'
 echo "MULTI_BOOK_COMMISSION_GRACE_OK"
+echo "== multi-book love/path scaffolds John.14 / Rom.12 / 1John.4 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.14" | grep -qiE 'the way, the truth, and the life|Don.t let your heart be troubled|Peace I leave with you'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.14" | grep -qiE 'the way, the truth, and the life|Let not your heart be troubled|Peace I leave with you'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.14" | grep -qiE 'the way, and the truth, and the life|Let not your heart be troubled|Peace I leave with you'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rom.12" | grep -qiE 'living sacrifice|transformed by the renewing|overcome evil with good'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Rom.12" | grep -qiE 'living sacrifice|transformed by the renewing|overcome evil with good'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Rom.12" | grep -qiE 'living sacrifice|transformed by the renewing|overcome evil with good'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=1John.4" | grep -qiE 'God is love|first loved us|love one another'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=1John.4" | grep -qiE 'God is love|first loved us|love one another'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=1John.4" | grep -qiE 'God is love|first loved us|love one another'
+echo "MULTI_BOOK_LOVE_PATH_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
