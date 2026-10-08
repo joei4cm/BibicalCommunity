@@ -68,6 +68,14 @@ if curl -sf "$BASE/health" >/dev/null 2>&1; then
   test "$EXT" = "400"
   grep -q external_translation /tmp/corpus-esv.json
   echo "CORPUS_EXTERNAL_BLOCK_OK tid=esv"
+
+  # Boot defaults downloadable (R2 after fixture seed, else demo) — not TS densify
+  for tid in cuvs web shinKyoudou; do
+    BOOT_DL=$(curl -sf "$BASE/v1/bible/corpus-download/$tid")
+    echo "$BOOT_DL" | grep -q "\"translationId\":\"$tid\""
+    echo "$BOOT_DL" | grep -q '"chapters"'
+    echo "CORPUS_BOOT_DOWNLOAD_OK tid=$tid"
+  done
 else
   echo "CORPUS_CATALOG_SKIP (api not running at $BASE)"
   echo "CORPUS_DOWNLOAD_SKIP (api not running at $BASE)"
