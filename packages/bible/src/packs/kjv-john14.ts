@@ -1,4 +1,4 @@
-/** Public-domain: KJV John 14 (upper room vv.1–17 + peace 27). */
+/** Public-domain: KJV John 14 denser full upper-room chapter scaffold (vv.1–31). */
 export const KJV_JOHN_14: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -69,7 +69,59 @@ export const KJV_JOHN_14: { verse: number; text: string }[] = [
     text: "Even the Spirit of truth; whom the world cannot receive, because it seeth him not, neither knoweth him: but ye know him; for he dwelleth with you, and shall be in you.",
   },
   {
+    verse: 18,
+    text: "I will not leave you comfortless: I will come to you.",
+  },
+  {
+    verse: 19,
+    text: "Yet a little while, and the world seeth me no more; but ye see me: because I live, ye shall live also.",
+  },
+  {
+    verse: 20,
+    text: "At that day ye shall know that I am in my Father, and ye in me, and I in you.",
+  },
+  {
+    verse: 21,
+    text: "He that hath my commandments, and keepeth them, he it is that loveth me: and he that loveth me shall be loved of my Father, and I will love him, and will manifest myself to him.",
+  },
+  {
+    verse: 22,
+    text: "Judas saith unto him, not Iscariot, Lord, how is it that thou wilt manifest thyself unto us, and not unto the world?",
+  },
+  {
+    verse: 23,
+    text: "Jesus answered and said unto him, If a man love me, he will keep my words: and my Father will love him, and we will come unto him, and make our abode with him.",
+  },
+  {
+    verse: 24,
+    text: "He that loveth me not keepeth not my sayings: and the word which ye hear is not mine, but the Father's which sent me.",
+  },
+  {
+    verse: 25,
+    text: "These things have I spoken unto you, being yet present with you.",
+  },
+  {
+    verse: 26,
+    text: "But the Comforter, which is the Holy Ghost, whom the Father will send in my name, he shall teach you all things, and bring all things to your remembrance, whatsoever I have said unto you.",
+  },
+  {
     verse: 27,
     text: "Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled, neither let it be afraid.",
   },
+  {
+    verse: 28,
+    text: "Ye have heard how I said unto you, I go away, and come again unto you. If ye loved me, ye would rejoice, because I said, I go unto the Father: for my Father is greater than I.",
+  },
+  {
+    verse: 29,
+    text: "And now I have told you before it come to pass, that, when it is come to pass, ye might believe.",
+  },
+  {
+    verse: 30,
+    text: "Hereafter I will not talk much with you: for the prince of this world cometh, and hath nothing in me.",
+  },
+  {
+    verse: 31,
+    text: "But that the world may know that I love the Father; and as the Father gave me commandment, even so I do. Arise, let us go hence.",
+  }
 ];

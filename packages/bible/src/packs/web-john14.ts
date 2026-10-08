@@ -1,8 +1,8 @@
-/** Public-domain: WEB John 14 (upper room vv.1–17 + peace 27). */
+/** Public-domain: WEB John 14 denser full upper-room chapter scaffold (vv.1–31). */
 export const WEB_JOHN_14: { verse: number; text: string }[] = [
   {
     verse: 1,
-    text: '"Don\'t let your heart be troubled. Believe in God. Believe also in me.',
+    text: "Don't let your heart be troubled. Believe in God. Believe also in me.",
   },
   {
     verse: 2,
@@ -14,15 +14,15 @@ export const WEB_JOHN_14: { verse: number; text: string }[] = [
   },
   {
     verse: 4,
-    text: 'You know where I go, and you know the way."',
+    text: "You know where I go, and you know the way.",
   },
   {
     verse: 5,
-    text: 'Thomas said to him, "Lord, we don\'t know where you are going. How can we know the way?"',
+    text: "Thomas said to him, \"Lord, we don't know where you are going. How can we know the way?\"",
   },
   {
     verse: 6,
-    text: 'Jesus said to him, "I am the way, the truth, and the life. No one comes to the Father, except through me.',
+    text: "Jesus said to him, \"I am the way, the truth, and the life. No one comes to the Father, except through me.",
   },
   {
     verse: 7,
@@ -30,11 +30,11 @@ export const WEB_JOHN_14: { verse: number; text: string }[] = [
   },
   {
     verse: 8,
-    text: 'Philip said to him, "Lord, show us the Father, and that will be enough for us."',
+    text: "Philip said to him, \"Lord, show us the Father, and that will be enough for us.\"",
   },
   {
     verse: 9,
-    text: 'Jesus said to him, "Have I been with you such a long time, and do you not know me, Philip? He who has seen me has seen the Father. How do you say, \'Show us the Father?\'',
+    text: "Jesus said to him, \"Have I been with you such a long time, and do you not know me, Philip? He who has seen me has seen the Father. How do you say, 'Show us the Father?'",
   },
   {
     verse: 10,
@@ -66,10 +66,62 @@ export const WEB_JOHN_14: { verse: number; text: string }[] = [
   },
   {
     verse: 17,
-    text: 'the Spirit of truth, whom the world can\'t receive; for it doesn\'t see him and doesn\'t know him. You know him, for he lives with you and will be in you."',
+    text: "the Spirit of truth, whom the world can't receive; for it doesn't see him and doesn't know him. You know him, for he lives with you and will be in you.",
+  },
+  {
+    verse: 18,
+    text: "I will not leave you orphans. I will come to you.",
+  },
+  {
+    verse: 19,
+    text: "Yet a little while, and the world will see me no more; but you will see me. Because I live, you will live also.",
+  },
+  {
+    verse: 20,
+    text: "In that day you will know that I am in my Father, and you in me, and I in you.",
+  },
+  {
+    verse: 21,
+    text: "One who has my commandments and keeps them, that person is one who loves me. One who loves me will be loved by my Father, and I will love him, and will reveal myself to him.\"",
+  },
+  {
+    verse: 22,
+    text: "Judas (not Iscariot) said to him, \"Lord, what has happened that you are about to reveal yourself to us, and not to the world?\"",
+  },
+  {
+    verse: 23,
+    text: "Jesus answered him, \"If a man loves me, he will keep my word. My Father will love him, and we will come to him and make our home with him.",
+  },
+  {
+    verse: 24,
+    text: "He who doesn't love me doesn't keep my words. The word which you hear isn't mine, but the Father's who sent me.",
+  },
+  {
+    verse: 25,
+    text: "I have said these things to you while still living with you.",
+  },
+  {
+    verse: 26,
+    text: "But the Counselor, the Holy Spirit, whom the Father will send in my name, will teach you all things, and will remind you of all that I said to you.",
   },
   {
     verse: 27,
     text: "Peace I leave with you. My peace I give to you; not as the world gives, I give to you. Don't let your heart be troubled, neither let it be fearful.",
   },
+  {
+    verse: 28,
+    text: "You heard how I told you, 'I go away, and I come to you.' If you loved me, you would have rejoiced because I said 'I am going to my Father;' for the Father is greater than I.",
+  },
+  {
+    verse: 29,
+    text: "Now I have told you before it happens so that when it happens, you may believe.",
+  },
+  {
+    verse: 30,
+    text: "I will no more speak much with you, for the prince of the world comes, and he has nothing in me.",
+  },
+  {
+    verse: 31,
+    text: "But that the world may know that I love the Father, and as the Father commanded me, even so I do. Arise, let's go from here.\"",
+  }
 ];
