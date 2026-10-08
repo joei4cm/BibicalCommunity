@@ -68,3 +68,26 @@ export function createSignalClient(prefer?: SignalBackend): SignalClient {
   if (backend === "x25519") return new X25519SignalClient();
   return new WebCryptoSignalClient();
 }
+
+export type LibsignalPackageProbe = {
+  available: boolean;
+  packageName: string;
+  reason?: string;
+};
+
+/**
+ * Probe whether `@signalapp/libsignal-client` can be dynamically imported.
+ * Does not enable the production backend — `LibsignalSignalClient` stays
+ * fail-closed until an explicit adapter swap lands.
+ */
+export async function probeLibsignalPackage(
+  packageName = "@signalapp/libsignal-client",
+): Promise<LibsignalPackageProbe> {
+  try {
+    await import(/* @vite-ignore */ /* webpackIgnore: true */ packageName);
+    return { available: true, packageName };
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return { available: false, packageName, reason };
+  }
+}

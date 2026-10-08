@@ -20,7 +20,18 @@ if (byLang.en < 20) throw new Error("en scaffolds too few: " + byLang.en);
 if (byLang.zh < 10) throw new Error("zh scaffolds too few: " + byLang.zh);
 if (byLang.ja < 10) throw new Error("ja scaffolds too few: " + byLang.ja);
 
-const needRefs = ["John.15", "Rev.21", "Phil.4", "1Cor.13", "Matt.6", "Gal.5", "Jas.1", "Col.3"];
+const needRefs = [
+  "John.15",
+  "Rev.21",
+  "Phil.4",
+  "1Cor.13",
+  "Matt.6",
+  "Gal.5",
+  "Jas.1",
+  "Col.3",
+  "Matt.28",
+  "Eph.2",
+];
 for (const ref of needRefs) {
   if (!inv.some((r) => r.ref === ref && r.translationId === "web")) {
     throw new Error("missing web scaffold " + ref);

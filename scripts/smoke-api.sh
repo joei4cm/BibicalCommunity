@@ -173,6 +173,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Jas.1" | grep -qE '見本
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Col.3" | grep -qE '样例|上面的事|联络全德'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Col.3" | grep -qE '見本|上にあるもの|愛を加え'
 echo "MULTI_BOOK_WISDOM_NT_OK"
+echo "== multi-book commission/grace scaffolds Matt.28 / Eph.2 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.28" | grep -qiE 'All authority|make disciples|end of the age'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.28" | grep -qiE 'All power|teach all nations|end of the world'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.28" | grep -qiE 'All authority|make disciples|end of the world'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Eph.2" | grep -qiE 'by grace you have been saved|gift of God|good works'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Eph.2" | grep -qiE 'by grace are ye saved|gift of God|good works'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Eph.2" | grep -qiE 'by grace have ye been saved|gift of God|good works'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Matt.28" | grep -qE '样例|万民|同在'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.28" | grep -qE '見本|弟子|共にいる'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Eph.2" | grep -qE '样例|本乎恩|行善'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Eph.2" | grep -qE '見本|恵みにより|良い行い'
+echo "MULTI_BOOK_COMMISSION_GRACE_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")

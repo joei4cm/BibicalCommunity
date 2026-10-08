@@ -83,6 +83,16 @@ import { KJV_COL_3 } from "./packs/kjv-col3.js";
 import { ASV_COL_3 } from "./packs/asv-col3.js";
 import { CUVS_COL_3 } from "./packs/cuvs-col3.js";
 import { KOUGO_COL_3 } from "./packs/kougo-col3.js";
+import { WEB_EPH_2 } from "./packs/web-eph2.js";
+import { KJV_EPH_2 } from "./packs/kjv-eph2.js";
+import { ASV_EPH_2 } from "./packs/asv-eph2.js";
+import { CUVS_EPH_2 } from "./packs/cuvs-eph2.js";
+import { KOUGO_EPH_2 } from "./packs/kougo-eph2.js";
+import { WEB_MATT_28 } from "./packs/web-matt28.js";
+import { KJV_MATT_28 } from "./packs/kjv-matt28.js";
+import { ASV_MATT_28 } from "./packs/asv-matt28.js";
+import { CUVS_MATT_28 } from "./packs/cuvs-matt28.js";
+import { KOUGO_MATT_28 } from "./packs/kougo-matt28.js";
 import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
 import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
 import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
@@ -249,6 +259,14 @@ function normalizeBookKey(book: string): string | null {
   ) {
     return "col";
   }
+  if (
+    b === "eph" ||
+    b === "ephesians" ||
+    book === "以弗所书" ||
+    book === "エペソ"
+  ) {
+    return "eph";
+  }
   return null;
 }
 
@@ -292,6 +310,8 @@ function canonicalBookId(key: string): string {
       return "Jas";
     case "col":
       return "Col";
+    case "eph":
+      return "Eph";
     default:
       return key;
   }
@@ -305,13 +325,14 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   web: {
     john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3, 15: WEB_JOHN_15 },
     gen: { 1: WEB_GEN_1 },
-    matt: { 5: WEB_MATT_5, 6: WEB_MATT_6 },
+    matt: { 5: WEB_MATT_5, 6: WEB_MATT_6, 28: WEB_MATT_28 },
     gal: { 5: WEB_GAL_5 },
     phil: { 4: WEB_PHIL_4 },
     "1cor": { 13: WEB_1COR_13 },
     rev: { 21: WEB_REV_21 },
     jas: { 1: WEB_JAMES_1 },
     col: { 3: WEB_COL_3 },
+    eph: { 2: WEB_EPH_2 },
     ps: { 1: WEB_PSALM_1, 23: WEB_PSALM_23 },
     prov: { 3: WEB_PROV_3 },
     rom: { 8: WEB_ROM_8 },
@@ -326,13 +347,14 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   kjv: {
     john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3, 15: KJV_JOHN_15 },
     gen: { 1: KJV_GEN_1 },
-    matt: { 5: KJV_MATT_5, 6: KJV_MATT_6 },
+    matt: { 5: KJV_MATT_5, 6: KJV_MATT_6, 28: KJV_MATT_28 },
     gal: { 5: KJV_GAL_5 },
     phil: { 4: KJV_PHIL_4 },
     "1cor": { 13: KJV_1COR_13 },
     rev: { 21: KJV_REV_21 },
     jas: { 1: KJV_JAMES_1 },
     col: { 3: KJV_COL_3 },
+    eph: { 2: KJV_EPH_2 },
     ps: { 1: KJV_PSALM_1, 23: KJV_PSALM_23 },
     prov: { 3: KJV_PROV_3 },
     rom: { 8: KJV_ROM_8 },
@@ -347,13 +369,14 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   asv: {
     john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3, 15: ASV_JOHN_15 },
     gen: { 1: ASV_GEN_1 },
-    matt: { 5: ASV_MATT_5, 6: ASV_MATT_6 },
+    matt: { 5: ASV_MATT_5, 6: ASV_MATT_6, 28: ASV_MATT_28 },
     gal: { 5: ASV_GAL_5 },
     phil: { 4: ASV_PHIL_4 },
     "1cor": { 13: ASV_1COR_13 },
     rev: { 21: ASV_REV_21 },
     jas: { 1: ASV_JAMES_1 },
     col: { 3: ASV_COL_3 },
+    eph: { 2: ASV_EPH_2 },
     ps: { 1: ASV_PSALM_1, 23: ASV_PSALM_23 },
     prov: { 3: ASV_PROV_3 },
     rom: { 8: ASV_ROM_8 },
@@ -371,13 +394,14 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   kougo: {
     john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3, 15: KOUGO_JOHN_15 },
     gen: { 1: KOUGO_GEN_1 },
-    matt: { 6: KOUGO_MATT_6 },
+    matt: { 6: KOUGO_MATT_6, 28: KOUGO_MATT_28 },
     gal: { 5: KOUGO_GAL_5 },
     phil: { 4: KOUGO_PHIL_4 },
     "1cor": { 13: KOUGO_1COR_13 },
     rev: { 21: KOUGO_REV_21 },
     jas: { 1: KOUGO_JAMES_1 },
     col: { 3: KOUGO_COL_3 },
+    eph: { 2: KOUGO_EPH_2 },
     ps: { 1: KOUGO_PSALM_1, 23: KOUGO_PSALM_23 },
     prov: { 3: KOUGO_PROV_3 },
     rom: { 8: KOUGO_ROM_8 },
@@ -395,13 +419,14 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   cuvs: {
     john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 15: CUVS_JOHN_15 },
     gen: { 1: CUVS_GEN_1 },
-    matt: { 6: CUVS_MATT_6 },
+    matt: { 6: CUVS_MATT_6, 28: CUVS_MATT_28 },
     gal: { 5: CUVS_GAL_5 },
     phil: { 4: CUVS_PHIL_4 },
     "1cor": { 13: CUVS_1COR_13 },
     rev: { 21: CUVS_REV_21 },
     jas: { 1: CUVS_JAMES_1 },
     col: { 3: CUVS_COL_3 },
+    eph: { 2: CUVS_EPH_2 },
     ps: { 1: CUVS_PSALM_1, 23: CUVS_PSALM_23 },
     prov: { 3: CUVS_PROV_3 },
     rom: { 8: CUVS_ROM_8 },
