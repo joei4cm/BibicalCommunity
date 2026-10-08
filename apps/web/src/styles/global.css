@@ -137,40 +137,43 @@ select {
   border: 1px solid var(--lh-border);
 }
 
-/* —— Bible reader: morning atelier (WeDevote-shaped immersive folio) —— */
+/* —— Bible reader: dawn folio (quiet study light, open page) —— */
 .bible-reader {
-  --br-ink: #0d1412;
-  --br-muted: #5a6a64;
-  --br-line: rgba(14, 61, 54, 0.14);
-  --br-accent: #0e3d36;
-  --br-accent-soft: rgba(14, 61, 54, 0.1);
-  --br-paper: #eef2f0;
+  --br-ink: #18232b;
+  --br-muted: #5f6d78;
+  --br-line: rgba(28, 42, 50, 0.12);
+  --br-accent: #1c3d48;
+  --br-accent-soft: rgba(28, 61, 72, 0.09);
+  --br-glow: rgba(255, 248, 236, 0.72);
   --br-font-reader: "Noto Serif SC", "Literata", "Noto Serif JP", "Source Serif 4", serif;
+  --br-font-display: "Fraunces", "Noto Serif SC", "Literata", serif;
   --br-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
-  max-width: 42rem;
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 0.4rem 0.2rem 7.5rem;
+  padding: 0.55rem 0.15rem 7.75rem;
   color: var(--br-ink);
-  animation: bible-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: bible-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes bible-enter {
   from {
     opacity: 0;
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 
-/* Immersive cool paper page — one reading plane, not a card on sage */
+/* Full-bleed reading atmosphere — stone dawn, not muddy sage */
 body:has(.bible-reader) {
-  background-color: #e4ebe7;
+  background-color: #dfe4ea;
   background-image:
-    radial-gradient(ellipse 110% 70% at 50% -20%, rgba(255, 255, 255, 0.55), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 0% 100%, rgba(14, 61, 54, 0.05), transparent 50%),
-    radial-gradient(ellipse 60% 45% at 100% 80%, rgba(60, 80, 90, 0.05), transparent 48%),
-    linear-gradient(180deg, #d5e0db 0%, #e7eeea 32%, #eef3f0 70%, #f2f6f4 100%);
+    radial-gradient(ellipse 95% 55% at 50% -8%, var(--br-glow), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.07), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 96% 78%, rgba(120, 100, 70, 0.05), transparent 50%),
+    linear-gradient(185deg, #cfd7e0 0%, #e4e8ee 28%, #eef2f4 62%, #f7f5f1 100%);
 }
 
 body:has(.bible-reader)::before {
@@ -179,9 +182,9 @@ body:has(.bible-reader)::before {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.18;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
+  opacity: 0.11;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
 }
 
 body:has(.bible-reader)::after {
@@ -191,7 +194,7 @@ body:has(.bible-reader)::after {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(18, 40, 34, 0.045) 100%);
+    radial-gradient(ellipse 85% 65% at 50% 38%, transparent 52%, rgba(24, 35, 43, 0.04) 100%);
 }
 
 .app-shell:has(.bible-reader) {
@@ -200,15 +203,15 @@ body:has(.bible-reader)::after {
 }
 
 .app-main:has(.bible-reader) {
-  width: min(820px, 100%);
-  padding: 1.35rem 1.5rem 7.5rem;
+  width: min(760px, 100%);
+  padding: 1.5rem 1.35rem 7.75rem;
 }
 
-/* Reading tab bar: frosted glass, active = weight + rule (no pill) */
+/* Reading tab bar: soft glass, active = weight + hairline */
 body:has(.bible-reader) .tab-bar {
-  background: color-mix(in srgb, #e8eeeb 82%, transparent);
-  border-top: 1px solid rgba(14, 61, 54, 0.1);
-  backdrop-filter: blur(20px) saturate(1.15);
+  background: color-mix(in srgb, #f4f2ee 78%, transparent);
+  border-top: 1px solid rgba(28, 42, 50, 0.09);
+  backdrop-filter: blur(22px) saturate(1.1);
 }
 
 body:has(.bible-reader) .tab-bar a {
@@ -220,7 +223,7 @@ body:has(.bible-reader) .tab-bar a {
 }
 
 body:has(.bible-reader) .tab-bar a.active {
-  color: var(--br-accent, #0e3d36);
+  color: var(--br-accent, #1c3d48);
   background: transparent;
   transform: none;
   font-weight: 700;
@@ -229,12 +232,11 @@ body:has(.bible-reader) .tab-bar a.active {
 body:has(.bible-reader) .tab-bar a.active::after {
   content: "";
   position: absolute;
-  left: 28%;
-  right: 28%;
-  bottom: 0.2rem;
-  height: 2px;
-  background: var(--br-accent, #0e3d36);
-  border-radius: 1px;
+  left: 30%;
+  right: 30%;
+  bottom: 0.18rem;
+  height: 1.5px;
+  background: var(--br-accent, #1c3d48);
 }
 
 .sr-only {
@@ -251,61 +253,51 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .bible-reader-masthead {
   text-align: center;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
-/* Brand is the hero — passage must stay quieter */
+/* Brand imprint — hero signal without crushing the passage */
 .bible-reader-brand {
-  margin: 0;
-  font-family: var(--br-font-reader);
-  font-size: clamp(2.15rem, 7vw, 3rem);
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  text-indent: 0.28em;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  line-height: 1;
+  animation: bible-brand-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bible-reader-brand-zh {
+  font-family: var(--br-font-display);
+  font-size: clamp(2.35rem, 8vw, 3.35rem);
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
   color: var(--br-accent);
-  line-height: 1.02;
-  animation: bible-brand-in 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  font-optical-sizing: auto;
+}
+
+.bible-reader-brand-en {
+  font-family: var(--br-font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  text-transform: uppercase;
+  color: var(--br-muted);
 }
 
 @keyframes bible-brand-in {
   from {
     opacity: 0;
-    letter-spacing: 0.5em;
-    text-indent: 0.5em;
-    filter: blur(3px);
+    transform: translateY(6px);
+    filter: blur(2px);
   }
   to {
     opacity: 1;
-    letter-spacing: 0.28em;
-    text-indent: 0.28em;
+    transform: none;
     filter: none;
   }
-}
-
-.bible-reader-ornament {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  margin: 0.7rem auto 0.55rem;
-  max-width: 14rem;
-  animation: bible-controls-in 560ms 40ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.bible-reader-ornament::before,
-.bible-reader-ornament::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--br-line), transparent);
-}
-
-.bible-reader-ornament span {
-  width: 5px;
-  height: 5px;
-  border: 1px solid color-mix(in srgb, var(--br-accent) 55%, transparent);
-  transform: rotate(45deg);
-  flex-shrink: 0;
 }
 
 .bible-reader-translation {
@@ -319,13 +311,39 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .bible-reader-title {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.7rem;
   font-family: var(--br-font-reader);
-  font-size: clamp(1.05rem, 2.8vw, 1.28rem);
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  line-height: 1.3;
-  color: color-mix(in srgb, var(--br-ink) 72%, var(--br-muted));
+  font-size: clamp(1.2rem, 3.2vw, 1.45rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  color: var(--br-ink);
+  position: relative;
+  padding-bottom: 0.85rem;
+}
+
+.bible-reader-title::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 2.75rem;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, var(--br-accent), transparent);
+  opacity: 0.45;
+  animation: bible-rule-in 640ms 80ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bible-rule-in {
+  from {
+    opacity: 0;
+    width: 0.5rem;
+  }
+  to {
+    opacity: 0.45;
+    width: 2.75rem;
+  }
 }
 
 .bible-passage-controls {
@@ -334,13 +352,13 @@ body:has(.bible-reader) .tab-bar a.active::after {
   justify-content: center;
   align-items: center;
   gap: 0.05rem 0.05rem;
-  margin: 0 auto 0.95rem;
+  margin: 0.85rem auto 0.75rem;
   width: fit-content;
   max-width: 100%;
   padding: 0;
   background: transparent;
   border: 0;
-  animation: bible-controls-in 600ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: bible-controls-in 560ms 70ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes bible-controls-in {
@@ -405,8 +423,8 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .bible-chapter-nav--top {
-  margin-bottom: 1.35rem;
-  padding-top: 0;
+  margin-bottom: 1.6rem;
+  padding-top: 0.15rem;
 }
 
 .bible-chapter-nav--top .bible-nav-link {
@@ -479,23 +497,25 @@ body:has(.bible-reader) .tab-bar a.active::after {
   font-size: 0.9rem;
 }
 
-/* Prose sits on the page plane — no inset card / no floating panel */
+/* Prose on the page plane — no card chrome */
 .bible-folio {
   margin: 0;
-  padding: 0.55rem 0.2rem 1.1rem;
+  padding: 0.35rem 0.15rem 1.25rem;
   background: transparent;
   box-shadow: none;
   border-radius: 0;
   border: 0;
-  animation: bible-folio-in 680ms 50ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: bible-folio-in 640ms 40ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes bible-folio-in {
   from {
     opacity: 0;
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 
@@ -504,7 +524,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  padding: 0.1rem 0.05rem 0.25rem;
+  padding: 0.15rem 0.1rem 0.35rem;
   font-family: var(--br-font-reader);
   color: var(--br-ink);
   animation: none;
@@ -515,33 +535,34 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .bible-prose-body {
-  font-size: var(--reader-size, 1.34rem);
-  line-height: var(--reader-lh, 2.28);
+  font-size: var(--reader-size, 1.36rem);
+  line-height: var(--reader-lh, 2.22);
   text-align: start;
-  letter-spacing: 0.055em;
+  letter-spacing: 0.035em;
   word-break: break-word;
   font-weight: 400;
   font-optical-sizing: auto;
-  color: #101816;
+  color: #1a242c;
+  text-wrap: pretty;
 }
 
 .bible-prose .chapter-lead {
   display: inline-block;
-  font-family: var(--br-font-reader);
-  font-size: 3.55em;
+  font-family: var(--br-font-display);
+  font-size: 3.8em;
   font-weight: 700;
-  line-height: 0.74;
-  margin-right: 0.34rem;
-  margin-left: -0.08rem;
+  line-height: 0.72;
+  margin-right: 0.38rem;
+  margin-left: -0.06rem;
   color: var(--br-accent);
-  vertical-align: -0.24em;
-  animation: bible-dropcap 800ms 110ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  vertical-align: -0.26em;
+  animation: bible-dropcap 760ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes bible-dropcap {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.92);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -551,9 +572,9 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .verse-inline {
   cursor: pointer;
-  border-radius: 2px;
-  transition: background 160ms ease, box-shadow 160ms ease;
-  padding: 0.04em 0;
+  border-radius: 1px;
+  transition: background 150ms ease, box-shadow 150ms ease;
+  padding: 0.05em 0;
 }
 
 .verse-inline:hover {
@@ -561,56 +582,58 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .verse-inline.verse-selected {
-  background: rgba(14, 61, 54, 0.13);
-  box-shadow: inset 0 -2px 0 rgba(14, 61, 54, 0.22);
+  background: rgba(28, 61, 72, 0.11);
+  box-shadow: inset 0 -2px 0 rgba(28, 61, 72, 0.28);
   outline: none;
 }
 
 .verse-inline.verse-highlighted {
-  border-radius: 2px;
+  border-radius: 1px;
 }
 
 .bible-prose .verse-num {
-  margin-right: 0.14rem;
+  margin-right: 0.16rem;
   margin-left: 0.02rem;
   font-weight: 650;
-  font-size: 0.56em;
-  top: -0.52em;
-  color: color-mix(in srgb, var(--br-accent) 70%, var(--br-muted));
+  font-size: 0.52em;
+  top: -0.55em;
+  color: color-mix(in srgb, var(--br-accent) 55%, var(--br-muted));
   font-family: var(--br-font-ui);
   letter-spacing: 0;
 }
 
 .bible-chapter-nav--bottom {
-  margin-top: 1.5rem;
+  margin-top: 1.65rem;
   margin-bottom: 0;
-  padding-top: 1.05rem;
+  padding-top: 1.15rem;
   padding-bottom: 0;
   border-top: 1px solid var(--br-line);
 }
 
-/* WeDevote-style reading dock — floats clearly above tab bar */
+/* Floating reading dock — clear of tab bar, soft glass */
 .bible-reading-dock {
   position: fixed;
   left: 50%;
-  bottom: calc(5.1rem + env(safe-area-inset-bottom));
+  bottom: calc(5.15rem + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 45;
   display: flex;
   align-items: center;
-  gap: 0.1rem;
-  padding: 0.4rem 0.5rem;
-  background: color-mix(in srgb, #f7faf8 92%, transparent);
-  border: 1px solid rgba(14, 61, 54, 0.16);
-  backdrop-filter: blur(18px) saturate(1.15);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
-  animation: bible-dock-in 520ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  gap: 0.05rem;
+  padding: 0.35rem 0.4rem;
+  background: color-mix(in srgb, #faf8f4 90%, transparent);
+  border: 1px solid rgba(28, 42, 50, 0.12);
+  backdrop-filter: blur(20px) saturate(1.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 10px 28px rgba(24, 35, 43, 0.08);
+  animation: bible-dock-in 500ms 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes bible-dock-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(10px);
+    transform: translateX(-50%) translateY(12px);
   }
   to {
     opacity: 1;
@@ -624,23 +647,23 @@ body:has(.bible-reader) .tab-bar a.active::after {
   background: transparent;
   color: var(--br-accent);
   font-family: var(--br-font-ui);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
-  padding: 0.45rem 0.7rem;
+  letter-spacing: 0.03em;
+  padding: 0.48rem 0.78rem;
   cursor: pointer;
-  transition: color 150ms ease, background 150ms ease;
+  transition: color 140ms ease, background 140ms ease;
 }
 
 .bible-dock-btn:hover,
 .bible-dock-btn.is-on {
   color: var(--br-ink);
-  background: rgba(14, 61, 54, 0.08);
+  background: rgba(28, 61, 72, 0.08);
 }
 
 .bible-dock-sep {
   width: 1px;
-  height: 1rem;
+  height: 0.95rem;
   background: var(--br-line);
   flex-shrink: 0;
 }
@@ -809,22 +832,22 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 @media (max-width: 640px) {
   .app-main:has(.bible-reader) {
-    padding: 0.85rem 0.85rem 7.75rem;
+    padding: 1rem 0.95rem 7.9rem;
   }
 
   .bible-reader {
     padding-inline: 0;
-    padding-bottom: 6.25rem;
+    padding-bottom: 8.1rem;
   }
 
-  .bible-reader-brand {
-    letter-spacing: 0.2em;
-    text-indent: 0.2em;
+  .bible-reader-brand-zh {
+    letter-spacing: 0.1em;
+    text-indent: 0.1em;
   }
 
   .bible-folio {
     margin: 0;
-    padding: 0.35rem 0.1rem 0.9rem;
+    padding: 0.25rem 0.05rem 1rem;
   }
 
   .bible-passage-controls {
@@ -832,23 +855,20 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 
   .bible-prose-body {
-    font-size: var(--reader-size, 1.22rem);
-    line-height: var(--reader-lh, 2.05);
+    font-size: var(--reader-size, 1.24rem);
+    line-height: var(--reader-lh, 2.08);
+    letter-spacing: 0.025em;
   }
 
   .bible-prose .chapter-lead {
-    font-size: 2.9em;
+    font-size: 3.1em;
   }
 
   .bible-reading-dock {
-    bottom: calc(5.35rem + env(safe-area-inset-bottom));
-    width: calc(100% - 1.5rem);
+    bottom: calc(5.4rem + env(safe-area-inset-bottom));
+    width: calc(100% - 1.4rem);
     max-width: 22rem;
     justify-content: center;
-  }
-
-  .bible-reader {
-    padding-bottom: 8rem;
   }
 }
 

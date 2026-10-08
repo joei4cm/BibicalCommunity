@@ -194,8 +194,8 @@ export function BibleReader() {
   const [dualPane, setDualPane] = useState(false);
   const [bookId, setBookId] = useState(routeBookId);
   const [chapterNum, setChapterNum] = useState(routeChapter);
-  const [fontSize, setFontSize] = useState(1.28);
-  const [lineHeight, setLineHeight] = useState(2.05);
+  const [fontSize, setFontSize] = useState(1.34);
+  const [lineHeight, setLineHeight] = useState(2.18);
   const [serif, setSerif] = useState(true);
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
@@ -243,9 +243,9 @@ export function BibleReader() {
   );
 
   const TYPO_PRESETS = {
-    compact: { fontSize: 1.05, lineHeight: 1.55, serif: false },
-    comfortable: { fontSize: 1.28, lineHeight: 2.05, serif: true },
-    spacious: { fontSize: 1.42, lineHeight: 2.25, serif: true },
+    compact: { fontSize: 1.1, lineHeight: 1.7, serif: false },
+    comfortable: { fontSize: 1.34, lineHeight: 2.18, serif: true },
+    spacious: { fontSize: 1.48, lineHeight: 2.35, serif: true },
   } as const;
 
   function applyPreset(id: keyof typeof TYPO_PRESETS) {
@@ -684,14 +684,12 @@ export function BibleReader() {
 
   return (
     <section className="bible-reader" data-testid="bible-reader">
-      {/* One reading composition: brand → quiet passage → prose */}
+      {/* One reading composition: brand imprint → passage → open folio */}
       <header className="bible-reader-masthead">
         <p className="bible-reader-brand" aria-label="圣言家 LogosHome">
-          圣言家
+          <span className="bible-reader-brand-zh">圣言家</span>
+          <span className="bible-reader-brand-en">LogosHome</span>
         </p>
-        <div className="bible-reader-ornament" aria-hidden="true">
-          <span />
-        </div>
         <h1 className="bible-reader-title" data-testid="reader-passage-title">
           {passageTitle}
         </h1>
