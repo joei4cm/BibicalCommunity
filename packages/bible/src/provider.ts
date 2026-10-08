@@ -30,6 +30,9 @@ import { SHIN_KYOUDOU_JOHN_2 } from "./packs/shin-kyoudou-john2.js";
 import { KOUGOYAKU_PD_JOHN_2 } from "./packs/kougoyaku-pd-john2.js";
 import { CUVS_JOHN_3 } from "./packs/cuvs-john3.js";
 import { CUVT_JOHN_3 } from "./packs/cuvt-john3.js";
+import { CUVT_JOHN_14 } from "./packs/cuvt-john14.js";
+import { CUVS_MATT_5 } from "./packs/cuvs-matt5.js";
+import { KOUGO_MATT_5 } from "./packs/kougo-matt5.js";
 import { RCUV_JOHN_3 } from "./packs/rcuv-john3.js";
 import { CCB_JOHN_3 } from "./packs/ccb-john3.js";
 import { LZZ_JOHN_3 } from "./packs/lzz-john3.js";
@@ -430,7 +433,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3, 14: KOUGO_JOHN_14, 15: KOUGO_JOHN_15 },
     "1john": { 4: KOUGO_1JOHN_4 },
     gen: { 1: KOUGO_GEN_1 },
-    matt: { 6: KOUGO_MATT_6, 28: KOUGO_MATT_28 },
+    matt: { 5: KOUGO_MATT_5, 6: KOUGO_MATT_6, 28: KOUGO_MATT_28 },
     gal: { 5: KOUGO_GAL_5 },
     phil: { 4: KOUGO_PHIL_4 },
     "1cor": { 13: KOUGO_1COR_13 },
@@ -450,13 +453,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     deut: { 6: KOUGO_DEUT_6 },
   },
   cuvt: {
-    john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
+    john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3, 14: CUVT_JOHN_14 },
   },
   cuvs: {
     john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 14: CUVS_JOHN_14, 15: CUVS_JOHN_15 },
     "1john": { 4: CUVS_1JOHN_4 },
     gen: { 1: CUVS_GEN_1 },
-    matt: { 6: CUVS_MATT_6, 28: CUVS_MATT_28 },
+    matt: { 5: CUVS_MATT_5, 6: CUVS_MATT_6, 28: CUVS_MATT_28 },
     gal: { 5: CUVS_GAL_5 },
     phil: { 4: CUVS_PHIL_4 },
     "1cor": { 13: CUVS_1COR_13 },
