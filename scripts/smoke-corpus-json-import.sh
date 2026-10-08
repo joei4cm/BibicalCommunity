@@ -28,7 +28,7 @@ if (tids.length < 8) throw new Error("need >=8 fixture tids (boot + downloadable
 if (!tids.includes("cuvs") || !tids.includes("web") || !tids.includes("shinKyoudou")) {
   throw new Error("boot defaults must have fixtures");
 }
-for (const need of ["cuvt", "rcuv", "ccb", "lzz", "kougo", "shinkaiyaku"]) {
+for (const need of ["cuvt", "rcuv", "ccb", "lzz", "kougo", "shinkaiyaku", "kjv", "asv"]) {
   if (!tids.includes(need)) throw new Error("missing downloadable fixture tid=" + need);
 }
 
