@@ -294,4 +294,19 @@ curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rev.21" -H "$AUTH" | grep -
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.15" -H "$AUTH" | grep -qE '样例|真葡萄树'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rev.21" -H "$AUTH" | grep -qE '見本|新しい天と新しい地'
 echo "MULTI_BOOK_APOCALYPTIC_OK"
+
+# Pack-driven key chapters for all licensed R2 tids (John.14/15, Matt.5/6, Gen.1, Ps.23, Rom.8/12, 1John.4)
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+echo "Building bible package for pack-driven R2 seed…"
+(cd "$ROOT" && pnpm --filter @logoshome/bible build >/dev/null)
+echo "Seeding key chapters from local packs…"
+node "$ROOT/scripts/seed-r2-key-chapters-from-packs.mjs" "$BASE" "$TOKEN"
+for tid in cuvs cuvt rcuv ccb lzz kougo shinkaiyaku shinKyoudou; do
+  for ref in John.14 Matt.5 Rom.8; do
+    body=$(curl -sf "$BASE/v1/bible/chapter?translation=$tid&ref=$ref" -H "$AUTH")
+    echo "$body" | grep -q '"source":"r2"'
+    echo "KEY_CHAPTER_R2_OK tid=$tid ref=$ref"
+  done
+done
+echo "KEY_CHAPTER_R2_SEED_OK"
 echo SEED_R2_OK
