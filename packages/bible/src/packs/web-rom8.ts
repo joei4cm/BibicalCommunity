@@ -1,4 +1,4 @@
-/** Public-domain: WEB Romans 8 (Spirit life vv.1–17 + assurance 28/31/38–39). */
+/** Public-domain: WEB Romans 8 denser full Spirit/assurance chapter scaffold (vv.1–39). */
 export const WEB_ROM_8: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -58,7 +58,7 @@ export const WEB_ROM_8: { verse: number; text: string }[] = [
   },
   {
     verse: 15,
-    text: 'For you didn\'t receive the spirit of bondage again to fear, but you received the Spirit of adoption, by whom we cry, "Abba! Father!"',
+    text: "For you didn't receive the spirit of bondage again to fear, but you received the Spirit of adoption, by whom we cry, \"Abba! Father!\"",
   },
   {
     verse: 16,
@@ -69,12 +69,84 @@ export const WEB_ROM_8: { verse: number; text: string }[] = [
     text: "and if children, then heirs; heirs of God, and joint heirs with Christ; if indeed we suffer with him, that we may also be glorified with him.",
   },
   {
+    verse: 18,
+    text: "For I consider that the sufferings of this present time are not worthy to be compared with the glory which will be revealed toward us.",
+  },
+  {
+    verse: 19,
+    text: "For the creation waits with eager expectation for the children of God to be revealed.",
+  },
+  {
+    verse: 20,
+    text: "For the creation was subjected to vanity, not of its own will, but because of him who subjected it, in hope",
+  },
+  {
+    verse: 21,
+    text: "that the creation itself also will be delivered from the bondage of decay into the liberty of the glory of the children of God.",
+  },
+  {
+    verse: 22,
+    text: "For we know that the whole creation groans and travails in pain together until now.",
+  },
+  {
+    verse: 23,
+    text: "Not only so, but ourselves also, who have the first fruits of the Spirit, even we ourselves groan within ourselves, waiting for adoption, the redemption of our body.",
+  },
+  {
+    verse: 24,
+    text: "For we were saved in hope, but hope that is seen is not hope. For who hopes for that which he sees?",
+  },
+  {
+    verse: 25,
+    text: "But if we hope for that which we don't see, we wait for it with patience.",
+  },
+  {
+    verse: 26,
+    text: "In the same way, the Spirit also helps our weaknesses, for we don't know how to pray as we ought. But the Spirit himself makes intercession for us with groanings which can't be uttered.",
+  },
+  {
+    verse: 27,
+    text: "He who searches the hearts knows what is on the Spirit's mind, because he makes intercession for the saints according to God.",
+  },
+  {
     verse: 28,
     text: "We know that all things work together for good for those who love God, for those who are called according to his purpose.",
   },
   {
+    verse: 29,
+    text: "For whom he foreknew, he also predestined to be conformed to the image of his Son, that he might be the firstborn among many brothers.",
+  },
+  {
+    verse: 30,
+    text: "Whom he predestined, those he also called. Whom he called, those he also justified. Whom he justified, those he also glorified.",
+  },
+  {
     verse: 31,
     text: "What then shall we say about these things? If God is for us, who can be against us?",
+  },
+  {
+    verse: 32,
+    text: "He who didn't spare his own Son, but delivered him up for us all, how would he not also with him freely give us all things?",
+  },
+  {
+    verse: 33,
+    text: "Who could bring a charge against God's chosen ones? It is God who justifies.",
+  },
+  {
+    verse: 34,
+    text: "Who is he who condemns? It is Christ who died, yes rather, who was raised from the dead, who is at the right hand of God, who also makes intercession for us.",
+  },
+  {
+    verse: 35,
+    text: "Who shall separate us from the love of Christ? Could oppression, or anguish, or persecution, or famine, or nakedness, or peril, or sword?",
+  },
+  {
+    verse: 36,
+    text: "Even as it is written, \"For your sake we are killed all day long. We were accounted as sheep for the slaughter.\"",
+  },
+  {
+    verse: 37,
+    text: "No, in all these things, we are more than conquerors through him who loved us.",
   },
   {
     verse: 38,
