@@ -96,12 +96,16 @@ import { KOUGO_MATT_28 } from "./packs/kougo-matt28.js";
 import { WEB_JOHN_14 } from "./packs/web-john14.js";
 import { KJV_JOHN_14 } from "./packs/kjv-john14.js";
 import { ASV_JOHN_14 } from "./packs/asv-john14.js";
+import { CUVS_JOHN_14 } from "./packs/cuvs-john14.js";
+import { KOUGO_JOHN_14 } from "./packs/kougo-john14.js";
 import { WEB_ROM_12 } from "./packs/web-rom12.js";
 import { KJV_ROM_12 } from "./packs/kjv-rom12.js";
 import { ASV_ROM_12 } from "./packs/asv-rom12.js";
 import { WEB_1JOHN_4 } from "./packs/web-1john4.js";
 import { KJV_1JOHN_4 } from "./packs/kjv-1john4.js";
 import { ASV_1JOHN_4 } from "./packs/asv-1john4.js";
+import { CUVS_1JOHN_4 } from "./packs/cuvs-1john4.js";
+import { KOUGO_1JOHN_4 } from "./packs/kougo-1john4.js";
 import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
 import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
 import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
@@ -416,7 +420,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
   },
   kougo: {
-    john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3, 15: KOUGO_JOHN_15 },
+    john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3, 14: KOUGO_JOHN_14, 15: KOUGO_JOHN_15 },
+    "1john": { 4: KOUGO_1JOHN_4 },
     gen: { 1: KOUGO_GEN_1 },
     matt: { 6: KOUGO_MATT_6, 28: KOUGO_MATT_28 },
     gal: { 5: KOUGO_GAL_5 },
@@ -441,7 +446,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
   },
   cuvs: {
-    john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 15: CUVS_JOHN_15 },
+    john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 14: CUVS_JOHN_14, 15: CUVS_JOHN_15 },
+    "1john": { 4: CUVS_1JOHN_4 },
     gen: { 1: CUVS_GEN_1 },
     matt: { 6: CUVS_MATT_6, 28: CUVS_MATT_28 },
     gal: { 5: CUVS_GAL_5 },
