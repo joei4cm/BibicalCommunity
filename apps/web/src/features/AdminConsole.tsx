@@ -93,8 +93,29 @@ export function AdminConsole() {
   const [renameValue, setRenameValue] = useState("");
   const [churchName, setChurchName] = useState("");
   const [bootstrapSecret, setBootstrapSecret] = useState("");
+  const [churchFilter, setChurchFilter] = useState("");
 
   const selected = churches.find((c) => c.id === churchId) ?? null;
+  const filterQ = churchFilter.trim().toLowerCase();
+  const filteredChurches = filterQ
+    ? churches.filter(
+        (c) =>
+          c.name.toLowerCase().includes(filterQ) ||
+          c.slug.toLowerCase().includes(filterQ) ||
+          c.id.toLowerCase().includes(filterQ),
+      )
+    : churches;
+  /** Keep the select short unless the admin is actively filtering. */
+  const pickerChurches = (() => {
+    if (filterQ) {
+      if (filteredChurches.length > 0) return filteredChurches.slice(0, 40);
+      return selected ? [selected] : churches.slice(0, 1);
+    }
+    if (churches.length <= 8) return churches;
+    const head = selected ? [selected] : [];
+    const rest = churches.filter((c) => c.id !== selected?.id).slice(0, 7);
+    return [...head, ...rest];
+  })();
 
   const loadAccess = useCallback(async () => {
     if (!getToken()) {
@@ -402,6 +423,18 @@ export function AdminConsole() {
           <p className="muted">—</p>
         ) : (
           <>
+            {churches.length > 8 ? (
+              <div className="field">
+                <label htmlFor="admin-church-filter">{t("admin.selectHome")}</label>
+                <input
+                  id="admin-church-filter"
+                  data-testid="admin-church-filter"
+                  value={churchFilter}
+                  onChange={(e) => setChurchFilter(e.target.value)}
+                  placeholder={t("me.search")}
+                />
+              </div>
+            ) : null}
             <div className="field">
               <label htmlFor="admin-church-select">{t("admin.selectHome")}</label>
               <select
@@ -410,7 +443,7 @@ export function AdminConsole() {
                 value={churchId ?? ""}
                 onChange={(e) => setChurchId(e.target.value || null)}
               >
-                {churches.map((c) => (
+                {pickerChurches.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                     {c.securityMode === "hostile" ? ` (${t("home.securityMode.hostileBadge")})` : ""}
@@ -427,9 +460,9 @@ export function AdminConsole() {
                 ) : null}
               </p>
             ) : null}
-            {section === "homes" && churches.length > 1 ? (
+            {section === "homes" && pickerChurches.length > 1 ? (
               <ul className="list" data-testid="admin-church-list">
-                {churches.map((c) => (
+                {pickerChurches.slice(0, 40).map((c) => (
                   <li key={c.id}>
                     <button
                       type="button"
