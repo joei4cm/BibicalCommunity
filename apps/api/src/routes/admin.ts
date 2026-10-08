@@ -18,6 +18,7 @@ import {
   PD_SEED_TRANSLATION_IDS,
   seedPdBookToR2,
 } from "../services/pd-corpus-seed";
+import { countD1CorpusChapters, seedD1BootCorpus } from "../services/corpus-d1";
 import { securityModeSchema } from "@logoshome/shared";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -579,6 +580,45 @@ adminRoutes.get("/corpus/pd-status/:tid", async (c) => {
     /** Protestant canon ≈ 1189 chapters; allow small variance. */
     fullPackLikely: status.objectCount >= 1100,
     allowedTids: [...PD_SEED_TRANSLATION_IDS],
+  });
+});
+
+/**
+ * Seed boot corpora (cuvs+nasb demo packs) into D1 — for temporary Workers without R2.
+ * platform_admin only. Does not close CORPUS_LIVE_R2 (production still needs R2).
+ */
+adminRoutes.post("/corpus/d1-seed-boot", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.platformAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const result = await seedD1BootCorpus(db);
+  const counts: Record<string, number> = {};
+  for (const tid of result.tids) {
+    counts[tid] = await countD1CorpusChapters(db, tid);
+  }
+  return c.json({
+    ok: true,
+    source: "d1" as const,
+    ...result,
+    counts,
+    hint: "Preview fallback only; CORPUS_LIVE_R2_OK still requires production R2",
+  });
+});
+
+adminRoutes.get("/corpus/d1-status", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.platformAdmin) return c.json({ error: "forbidden" }, 403);
+  const tids = ["cuvs", "nasb", "web", "kjv", "asv"];
+  const counts: Record<string, number> = {};
+  for (const tid of tids) {
+    counts[tid] = await countD1CorpusChapters(db, tid);
+  }
+  return c.json({
+    source: "d1" as const,
+    counts,
+    mediaBound: Boolean(c.env.MEDIA),
   });
 });
 

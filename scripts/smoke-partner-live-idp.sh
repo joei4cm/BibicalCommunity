@@ -37,9 +37,12 @@ probe_host() {
 }
 
 HOST_OK=0
+# Default Endao hosts are currently NXDOMAIN globally — partner must set ENDAO_OAUTH_AUTHORIZE_BASE.
 probe_host ENDAO "https://oauth.edobible.com/authorize" && HOST_OK=$((HOST_OK + 1)) || true
-# Some CI DNS views miss oauth.edobible.com — also probe the public Bible host.
 probe_host ENDAO_WWW "https://www.edobible.com/" && HOST_OK=$((HOST_OK + 1)) || true
+if [[ "$HOST_OK" -eq 0 ]]; then
+  echo "PARTNER_ENDAO_DNS_OPEN reason=nxdomain_need_ENDAO_OAUTH_AUTHORIZE_BASE"
+fi
 probe_host WEREAD "https://open.weixin.qq.com/connect/oauth2/authorize" && HOST_OK=$((HOST_OK + 1)) || true
 if [[ "$HOST_OK" -ge 1 ]]; then
   echo "PARTNER_IDP_HOST_PROBE_OK hosts=$HOST_OK"

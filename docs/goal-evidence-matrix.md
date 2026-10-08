@@ -20,7 +20,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv`; **`DEVICE_NOTE_CRYPTO_OK`** / **`DEVICE_PRODUCT_CHAT_OK`** / **`DEVICE_WEBCRYPTO_GATE_OK`** / **`DEVICE_HANDSET_SHAPED_OK`** | PARTIAL — roundtrip+SecureStore+product chat+handset-shaped PASS; physical handset E2E OPEN |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `I18N_PARITY_OK` + `I18N_AUDIT_OK` + `I18N_NATIVE_COPY_OK` + `PWA_THEME_OK` + `READER_SKINS_OK` | PARTIAL — key parity + native differ-check PASS; human native QA OPEN |
-| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations `0004_devotion_step` + `0005_platform_admin` + `0006_forum_media_key`); `DEPLOY_DRY_RUN_OK`; **`LIVE_WORKERS_TEMPORARY_OK`** via `scripts/live-workers-temporary.sh` (preview Workers + D1, **no R2** / optional MEDIA); **`scripts/live-r2-bootstrap.sh`** → `CORPUS_LIVE_R2_OK` when CF secrets present else **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — preflight+dry-run+temp Worker PASS; production R2 credentials OPEN |
+| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations through `0007_corpus_d1_fallback`); `DEPLOY_DRY_RUN_OK`; **`LIVE_WORKERS_TEMPORARY_OK`** + **`LIVE_WORKERS_D1_CORPUS_OK`** (preview Workers+D1 corpus fallback when MEDIA unbound); **`scripts/live-r2-bootstrap.sh`** → `CORPUS_LIVE_R2_OK` when CF secrets present else **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — preflight+dry-run+temp Worker+D1 corpus PASS; production R2 credentials OPEN |
 | 15 | Hostile privacy floors / wipe | `HOME_HOSTILE_OK` + wipeToken; `ADMIN_REMOTE_WIPE_OK` + **`ADMIN_WIPE_R2_OK`** (R2 `media/{userId}/` delete + annotation ciphertext zero + cron expire); `SECURITY_AUDIT_OK` | PARTIAL — local wipe+R2 path PASS; live CF ops OPEN |
 
 ## Smoke tokens
@@ -54,6 +54,7 @@ bash scripts/smoke-product-chat-signal.sh # PRODUCT_CHAT_SIGNAL_OK (app product 
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK + DEVICE_PRODUCT_CHAT_OK (+ DEVICE_HANDSET_E2E_OPEN)
 bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_OPENE2EE_PRODUCT_OK + DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
 bash scripts/live-workers-temporary.sh # LIVE_WORKERS_TEMPORARY_OK (preview Worker+D1, no R2) + CORPUS_LIVE_R2_OPEN
+bash scripts/seed-d1-corpus-boot.sh    # LIVE_WORKERS_D1_CORPUS_OK (D1 fallback; not R2)
 bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
 bash scripts/smoke-goal-open-gates.sh  # GOAL_OPEN_GATES_OK + remaining OPEN token count
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh

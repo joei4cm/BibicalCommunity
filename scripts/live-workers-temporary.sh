@@ -119,6 +119,9 @@ echo "corpus_http=$CORPUS_HTTP"
 
 if [[ "$HTTP" == "200" ]]; then
   echo "LIVE_WORKERS_TEMPORARY_OK url=$WORKER_URL health=200 corpus_http=$CORPUS_HTTP media=optional"
+  # Best-effort D1 boot corpus seed (may hit preview bot challenge on /auth).
+  LIVE_API_BASE="$WORKER_URL" bash "$ROOT/scripts/seed-d1-corpus-boot.sh" "$WORKER_URL" \
+    | tee /tmp/d1-corpus-seed-temp.log || true
 else
   echo "LIVE_WORKERS_TEMPORARY_OPEN reason=health_failed http=$HTTP url=$WORKER_URL"
 fi

@@ -24,10 +24,13 @@ import {
 } from "@logoshome/bible";
 import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
-import { requireMedia } from "../media-binding";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { decideLicensedChapterAccess } from "../services/bible-entitlement";
+import {
+  getD1CorpusChapter,
+  listD1CorpusChaptersPage,
+} from "../services/corpus-d1";
 import { sha256Hex } from "../services/crypto";
 
 export const bibleRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -232,6 +235,30 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     });
   }
 
+  // When R2 MEDIA is missing or empty for this tid, serve D1-seeded chapters.
+  {
+    const db = drizzle(c.env.DB, { schema });
+    const page = await listD1CorpusChaptersPage(db, translationId, {
+      afterKey: after || undefined,
+      limit: pageLimit || undefined,
+    });
+    if (page.totalKeys > 0 || page.chapters.length > 0) {
+      return c.json({
+        translationId,
+        version: 1,
+        chapters: page.chapters,
+        source: "d1" as const,
+        scope,
+        packKind: "whole-bible" as const,
+        chapterCount: page.chapters.length,
+        totalChapterKeys: page.totalKeys,
+        done: page.done,
+        nextAfter: page.nextAfter,
+        hint: "D1 corpus fallback (preview / empty R2 prefix); CORPUS_LIVE_R2 still needs production R2",
+      });
+    }
+  }
+
   const demo = buildDemoDownloadPack(translationId);
   return c.json({
     ...parseDownloadPackPayload(buildDownloadPackPayloadJson(demo)),
@@ -318,29 +345,49 @@ bibleRoutes.get("/chapter", async (c) => {
       );
     }
 
-    const media = requireMedia(c);
-    if (media instanceof Response) return media;
-
     const key = r2ChapterObjectKey(translationId, ref.book, ref.chapter);
-    const obj = await media.get(key);
-    if (obj) {
-      let parsed;
-      try {
-        parsed = parseR2ChapterJson(await obj.text());
-      } catch {
-        return c.json({ error: "invalid_r2_chapter_json", key }, 500);
-      }
+    if (c.env.MEDIA) {
+      const media = c.env.MEDIA;
+      const obj = await media.get(key);
+      if (obj) {
+        let parsed;
+        try {
+          parsed = parseR2ChapterJson(await obj.text());
+        } catch {
+          return c.json({ error: "invalid_r2_chapter_json", key }, 500);
+        }
 
-      return c.json({
-        translationId,
-        book: parsed.book,
-        chapter: parsed.chapter,
-        verses: parsed.verses,
-        source: "r2" as const,
-      });
+        return c.json({
+          translationId,
+          book: parsed.book,
+          chapter: parsed.chapter,
+          verses: parsed.verses,
+          source: "r2" as const,
+        });
+      }
+    } else {
+      // Preview without R2: try D1 corpus fallback.
+      const db = drizzle(c.env.DB, { schema });
+      const d1ch = await getD1CorpusChapter(db, translationId, ref.book, ref.chapter);
+      if (d1ch) {
+        return c.json({
+          translationId,
+          book: d1ch.book,
+          chapter: d1ch.chapter,
+          verses: d1ch.verses,
+          source: "d1" as const,
+        });
+      }
+      return c.json(
+        {
+          error: "chapter_not_in_d1",
+          hint: "Seed D1 via POST /v1/admin/corpus/d1-seed-boot or scripts/seed-d1-corpus-boot.sh",
+        },
+        404,
+      );
     }
 
-    // No TypeScript verse fallback — corpora live in R2 / client local DB only.
+    // No TypeScript verse fallback — corpora live in R2 / D1 / client local DB only.
     return c.json(
       {
         error: "chapter_not_in_r2",
