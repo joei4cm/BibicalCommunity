@@ -79,6 +79,16 @@ put_and_verify cuvt Rom 12 "所以弟兄們，我以神的慈悲勸你們，將�
 put_and_verify kougo John 15 "わたしはまことのぶどうの木、わたしの父は栽培者である。"
 put_and_verify rcuv Rom 12 "所以弟兄们，我以神的慈悲劝你们，将身体献上，当作活祭"
 
+# Denser pastoral / wisdom / commission teaching-set refs (post #45/#46)
+put_and_verify cuvs Acts 2 "（样例）五旬节到了，门徒都聚集在一处。"
+put_and_verify kougo Ps 1 "（見本）悪しき者のはかりごとに歩まず、罪びとの道に立たず、あざける者の座にすわらぬ人はさいわいである。"
+put_and_verify rcuv Prov 3 "（样例）你要专心仰赖耶和华，不可倚靠自己的聪明，"
+put_and_verify ccb Matt 28 "（样例）所以，你们要去，使万民作我的门徒，奉父、子、圣灵的名给他们施洗。"
+put_and_verify lzz Eph 2 "（样例）因为你们得救是靠着恩典，藉着信；这并不是出于你们自己，乃是神的恩赐；"
+put_and_verify shinkaiyaku Col 3 "（見本）そして、これらすべての上に、愛を着けなさい。愛は結びの帯として完全なものです。"
+put_and_verify shinKyoudou Jas 1 "（見本）御言葉を実行する人になりなさい。自分を欺いて、ただ聞くだけの者であってはなりません。"
+put_and_verify cuvt Rev 21 "（樣例）我又看見一個新天新地，因為先前的天地已經過去了，海也不再有了。"
+
 # Pack catalog still lists licensed stubs for full-corpus entitlement path.
 CP=$(curl -sf "$BASE/v1/bible/corpus-packs?provider=r2")
 echo "$CP" | grep -q 'cuvs-r2'
