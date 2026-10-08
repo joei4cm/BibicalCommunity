@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Prove Signal backend resolve + libsignal fail-closed seam + package probe.
- * Production Curve25519 remains OPEN until @signalapp/libsignal-client is wired.
+ * Prove Signal backend resolve + libsignal fail-closed seam + native package probe.
+ * When @signalapp/libsignal-client loads on Node, also prove native roundtrip.
  */
 import {
   createSignalClient,
+  createSignalClientAsync,
   LibsignalNotConfiguredError,
   LibsignalSignalClient,
+  NativeLibsignalSignalClient,
   probeLibsignalPackage,
   resolveSignalBackend,
   WebCryptoSignalClient,
@@ -30,24 +32,37 @@ else globalThis.LOGOSHOME_SIGNAL_BACKEND = prev;
 const web = createSignalClient("webcrypto");
 if (!(web instanceof WebCryptoSignalClient)) throw new Error("expected WebCryptoSignalClient");
 
-const lib = createSignalClient("libsignal");
-if (!(lib instanceof LibsignalSignalClient)) throw new Error("expected LibsignalSignalClient");
-
+// Sync factory remains fail-closed stub (safe for Workers without native).
+const libSync = createSignalClient("libsignal");
+if (!(libSync instanceof LibsignalSignalClient)) throw new Error("expected LibsignalSignalClient stub");
 let threw = false;
 try {
-  await lib.generateIdentity();
+  await libSync.generateIdentity();
 } catch (e) {
   threw = e instanceof LibsignalNotConfiguredError;
 }
-if (!threw) throw new Error("libsignal must fail closed with LibsignalNotConfiguredError");
+if (!threw) throw new Error("sync libsignal factory must fail closed");
 
 const probe = await probeLibsignalPackage();
-if (probe.available) {
-  console.log("LIBSIGNAL_PACKAGE_PROBE_OK package=" + probe.packageName);
-} else {
-  // Expected in this tree until the production package is provisioned.
+if (!probe.available) {
   console.log("LIBSIGNAL_PACKAGE_PROBE_OPEN package=" + probe.packageName);
   console.log("LIBSIGNAL_PACKAGE_PROBE_REASON=" + (probe.reason ?? "unavailable").slice(0, 160));
+} else {
+  console.log("LIBSIGNAL_PACKAGE_PROBE_OK package=" + probe.packageName);
+  if (probe.nativeRoundtrip) {
+    console.log("LIBSIGNAL_NATIVE_ROUNDTRIP_OK");
+  } else {
+    console.log("LIBSIGNAL_NATIVE_ROUNDTRIP_OPEN reason=" + (probe.reason ?? "").slice(0, 160));
+  }
+}
+
+const libAsync = await createSignalClientAsync("libsignal");
+if (probe.available && probe.nativeRoundtrip) {
+  if (!(libAsync instanceof NativeLibsignalSignalClient)) {
+    throw new Error("expected NativeLibsignalSignalClient from async factory");
+  }
+} else if (!(libAsync instanceof LibsignalSignalClient)) {
+  throw new Error("expected fail-closed stub when native unavailable");
 }
 
 console.log("LIBSIGNAL_SEAM_FAIL_CLOSED_OK");

@@ -13,7 +13,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0 packs); advance-day; devotion binds plan day ref + material; step+material persisted | PARTIAL — client binding + persisted step + open devotion packs PASS; licensed third-party devotion packs OPEN |
 | 7 | Church Home forums / embeds | `HOME_SMOKE_OK`; `HOME_MEMBERS_OK`; **`HOME_JOIN_SLUG_OK`** join-by-slug | PARTIAL — compose+roster+join PASS |
-| 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` + **`LIBSIGNAL_PACKAGE_PROBE_OPEN`**; `CURVE25519_X25519_OK` / `KEYS_CURVE25519_OK` (WebCrypto X25519+Ed25519); `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; mobile TTL+archive | PARTIAL — P-256+X25519+TTL+archive+package probe PASS; production `@signalapp/libsignal-client` OPEN |
+| 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` + **`LIBSIGNAL_PACKAGE_PROBE_OK`** + **`LIBSIGNAL_NATIVE_ROUNDTRIP_OK`** (Node `@signalapp/libsignal-client`); `CURVE25519_X25519_OK` / `KEYS_CURVE25519_OK`; `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; mobile TTL+archive | PARTIAL — P-256+X25519+Node native libsignal PASS; Workers/browser still X25519/WebCrypto (no native addon) |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK`; `SCREEN_SHARE_GATE_OK` (secure-context + getDisplayMedia probe) | PARTIAL — signaling+capability gate PASS; live OS picker still user-gesture / device OPEN |
 | 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK`; `HOME_VERIFY_OK` / `HOME_MEMBERS_OK` / `HOME_JOIN_SLUG_OK` / `HOME_WIPE_OK`; roster verify + join-by-slug | PARTIAL — verify+join UX PASS |
 | 10b | Admin console (users / homes / groups / remote wipe) | `ADMIN_CONSOLE_OK` (`scripts/smoke-admin.sh`); platform bootstrap + church-scoped manage + admin remote wipe; Web `/app/admin` | PARTIAL — API+UI+smoke PASS; live CF admin ops OPEN |
@@ -44,7 +44,7 @@ RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh
 ## Explicitly not claimed
 
 - Full licensed Bible corpora in R2
-- Production `@signalapp/libsignal-client` (X25519 WebCrypto path is evidenced; not full Signal Protocol)
+- Production `@signalapp/libsignal-client` on Workers/browser (Node native PQXDH roundtrip evidenced; Workers/browser remain X25519/WebCrypto)
 - Live Endao/WeRead IdP (local mock-token only)
 - Browser `getDisplayMedia` picker without user gesture / insecure context
 - Live Cloudflare account deploy with real resource IDs

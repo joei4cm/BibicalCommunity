@@ -1,14 +1,21 @@
 /**
  * Production Curve25519 / libsignal adapter seam.
  *
- * WebCryptoSignalClient (P-256) ships for Workers/browser portability.
- * Swap this module in when you can load `@signalapp/libsignal-client` (or a
- * WASM build) on the target platform. Keep server as ciphertext courier only.
+ * WebCryptoSignalClient (P-256) and X25519SignalClient ship for Workers/browser
+ * portability. When `@signalapp/libsignal-client` native bindings load (Node),
+ * `createSignalClient("libsignal")` returns a real PQXDH client. Otherwise the
+ * adapter stays fail-closed.
  */
 
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "../signal-stub.js";
 import { WebCryptoSignalClient } from "../webcrypto-signal.js";
 import { X25519SignalClient } from "../x25519-signal.js";
+import {
+  NativeLibsignalSignalClient,
+  tryCreateNativeLibsignalClient,
+} from "./libsignal-native.js";
+
+export { NativeLibsignalSignalClient, tryCreateNativeLibsignalClient };
 
 export class LibsignalNotConfiguredError extends Error {
   constructor() {
@@ -61,10 +68,32 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   return "webcrypto";
 }
 
-/** Factory used by apps to pick the active client. */
+let nativeClientPromise: Promise<SignalClient | null> | null = null;
+
+function loadNativeLibsignal(): Promise<SignalClient | null> {
+  if (!nativeClientPromise) nativeClientPromise = tryCreateNativeLibsignalClient();
+  return nativeClientPromise;
+}
+
+/**
+ * Factory used by apps to pick the active client.
+ * For `libsignal`, prefers the native package when bindings load; otherwise
+ * returns the fail-closed stub (callers may await `createSignalClientAsync`).
+ */
 export function createSignalClient(prefer?: SignalBackend): SignalClient {
   const backend = resolveSignalBackend(prefer);
   if (backend === "libsignal") return new LibsignalSignalClient();
+  if (backend === "x25519") return new X25519SignalClient();
+  return new WebCryptoSignalClient();
+}
+
+/** Async factory — resolves native libsignal when available. */
+export async function createSignalClientAsync(prefer?: SignalBackend): Promise<SignalClient> {
+  const backend = resolveSignalBackend(prefer);
+  if (backend === "libsignal") {
+    const native = await loadNativeLibsignal();
+    return native ?? new LibsignalSignalClient();
+  }
   if (backend === "x25519") return new X25519SignalClient();
   return new WebCryptoSignalClient();
 }
@@ -73,21 +102,62 @@ export type LibsignalPackageProbe = {
   available: boolean;
   packageName: string;
   reason?: string;
+  nativeRoundtrip?: boolean;
 };
 
 /**
- * Probe whether `@signalapp/libsignal-client` can be dynamically imported.
- * Does not enable the production backend — `LibsignalSignalClient` stays
- * fail-closed until an explicit adapter swap lands.
+ * Probe whether `@signalapp/libsignal-client` can be loaded and (optionally)
+ * perform a native encrypt/decrypt roundtrip.
  */
 export async function probeLibsignalPackage(
   packageName = "@signalapp/libsignal-client",
 ): Promise<LibsignalPackageProbe> {
   try {
     await import(/* @vite-ignore */ /* webpackIgnore: true */ packageName);
-    return { available: true, packageName };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     return { available: false, packageName, reason };
+  }
+
+  const native = await loadNativeLibsignal();
+  if (!native) {
+    return {
+      available: true,
+      packageName,
+      reason: "package resolved but native client failed to initialize",
+      nativeRoundtrip: false,
+    };
+  }
+
+  try {
+    const a = await native.generateIdentity();
+    const b = await native.generateIdentity();
+    const aPriv = JSON.parse(a.privateState) as { userId: string; deviceId: number };
+    const bPriv = JSON.parse(b.privateState) as { userId: string; deviceId: number };
+    const session = await native.establishSession(a.privateState, b.publicBundle);
+    const responder: SecureSession = {
+      remoteUserId: aPriv.userId,
+      remoteDeviceId: String(aPriv.deviceId),
+      stateBlob: JSON.stringify({
+        v: 1,
+        local: bPriv,
+        remoteUserId: aPriv.userId,
+        remoteDeviceId: aPriv.deviceId,
+        role: "responder",
+        remoteIdentityPub: a.publicBundle.identityKeyPub,
+      }),
+    };
+    // Responder private blob must be full PrivateBlob from generateIdentity
+    const responderBlob = JSON.parse(responder.stateBlob) as { local: unknown };
+    responderBlob.local = JSON.parse(b.privateState);
+    responder.stateBlob = JSON.stringify(responderBlob);
+
+    const enc = await native.encrypt(session, "libsignal-probe");
+    const plain = await native.decrypt(responder, enc);
+    if (plain !== "libsignal-probe") throw new Error("roundtrip mismatch: " + plain);
+    return { available: true, packageName, nativeRoundtrip: true };
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return { available: true, packageName, reason, nativeRoundtrip: false };
   }
 }

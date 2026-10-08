@@ -10,6 +10,10 @@ export interface DevicePublicKeys {
   signedPrekeyId: number;
   oneTimePrekeyPub?: string;
   oneTimePrekeyId?: number;
+  /** PQXDH Kyber prekey (required for @signalapp/libsignal-client native path). */
+  kyberPrekeyPub?: string;
+  kyberPrekeySig?: string;
+  kyberPrekeyId?: number;
   registrationId: number;
 }
 
