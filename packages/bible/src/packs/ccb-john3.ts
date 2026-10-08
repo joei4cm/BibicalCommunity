@@ -1,4 +1,4 @@
-/** Chinese Contemporary Bible–style denser John 3 scaffold (Nicodemus vv.1–21; not a licensed corpus dump). */
+/** Chinese Contemporary Bible–style denser John 3 denser full Nicodemus / bridegroom chapter scaffold (vv.1–36). (not a licensed corpus dump). */
 export const CCB_JOHN_3: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -83,5 +83,65 @@ export const CCB_JOHN_3: { verse: number; text: string }[] = [
   {
     verse: 21,
     text: "（样例）但行真理的必来就光，要显明他所行的是靠上帝而行。",
+  },
+  {
+    verse: 22,
+    text: "（样例）这些事以后，耶稣和门徒到了犹太地，在那里居住，施洗。",
+  },
+  {
+    verse: 23,
+    text: "（样例）约翰在靠近撒冷的哀嫩也施洗；因为那里水多，众人都去受洗。",
+  },
+  {
+    verse: 24,
+    text: "（样例）那时约翰还没有下在监里。",
+  },
+  {
+    verse: 25,
+    text: "（样例）约翰的门徒和一个犹太人辩论洁净的礼，",
+  },
+  {
+    verse: 26,
+    text: "（样例）就来见约翰，说：「拉比，从前同你在约旦河外、你所见证的那位，现在施洗，众人都往他那里去了。」",
+  },
+  {
+    verse: 27,
+    text: "（样例）约翰说：「若不是从天上赐的，人就不能得什么。",
+  },
+  {
+    verse: 28,
+    text: "（样例）我曾说：『我不是基督，是奉差遣在他前面的』，你们自己可以给我作见证。",
+  },
+  {
+    verse: 29,
+    text: "（样例）娶新妇的就是新郎；新郎的朋友站着，听见新郎的声音就甚喜乐。故此，我这喜乐满足了。",
+  },
+  {
+    verse: 30,
+    text: "（样例）他必兴旺，我必衰微。」",
+  },
+  {
+    verse: 31,
+    text: "（样例）从天上来的是在万有之上；从地上来的是属乎地，他所说的也是属乎地。从天上来的是在万有之上。",
+  },
+  {
+    verse: 32,
+    text: "（样例）他将所见所闻的见证出来，只是没有人领受他的见证。",
+  },
+  {
+    verse: 33,
+    text: "（样例）那领受他见证的，就印上印，证明上帝是真的。",
+  },
+  {
+    verse: 34,
+    text: "（样例）上帝所差来的就说上帝的话，因为上帝赐圣灵给他是没有限量的。",
+  },
+  {
+    verse: 35,
+    text: "（样例）父爱子，已将万有交在他手里。",
+  },
+  {
+    verse: 36,
+    text: "（样例）信子的人有永生；不信子的人得不着永生，上帝的震怒常在他身上。」",
   },
 ];
