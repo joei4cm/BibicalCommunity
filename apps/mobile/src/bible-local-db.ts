@@ -152,3 +152,10 @@ export async function readLocalChapter(
 ): Promise<LocalChapterRecord | null> {
   return bibleLocalDb.getChapter(translationId, book, chapter);
 }
+
+/** Clear downloaded/boot corpus from AsyncStorage (remote / Me wipe). */
+export async function clearBibleLocalDb(): Promise<void> {
+  await bibleLocalDb.clear();
+  await AsyncStorage.removeItem(BOOT_FLAG);
+  await AsyncStorage.removeItem(INDEX_KEY);
+}

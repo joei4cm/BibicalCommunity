@@ -76,6 +76,18 @@ if curl -sf "$BASE/health" >/dev/null 2>&1; then
   echo "$DL" | grep -q '"source":"r2"'
   echo "$DL" | grep -q 'fixture'
   echo "CORPUS_DOWNLOAD_FROM_FIXTURE_OK"
+
+  WEB_DL=$(curl -sf "$BASE/v1/bible/corpus-download/web")
+  echo "$WEB_DL" | grep -q '"source":"r2"'
+  echo "$WEB_DL" | grep -q 'John'
+  echo "$WEB_DL" | grep -q 'Rom'
+  echo "$WEB_DL" | grep -q 'Matt'
+  echo "$WEB_DL" | grep -q 'Gen'
+  # Expect expanded teaching-set chapter count after fixture seed
+  COUNT=$(node -e 'const j=JSON.parse(process.argv[1]); if((j.chapterCount??j.chapters.length)<7) process.exit(2)' "$WEB_DL") || {
+    echo "expected web pack >=7 chapters after fixture expand"; exit 1
+  }
+  echo "CORPUS_WEB_TEACHING_PACK_OK"
 else
   echo "CORPUS_JSON_IMPORT_SKIP_LIVE (api not running at $BASE)"
 fi
