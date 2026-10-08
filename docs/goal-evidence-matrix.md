@@ -36,7 +36,7 @@ bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-tok
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
 bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK / DEVOTION_MATERIALS_OK
 bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (local + R2 licensed stubs)
-bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (local Worker put→get source=r2)
+bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (cuvs/cuvt/kougo put→get source=r2)
 bash scripts/smoke-translation-resolve.sh # TRANSLATION_RESOLVE_PATH_OK (every registry id)
 bash scripts/smoke-curve25519.sh       # CURVE25519_X25519_OK
 bash scripts/smoke-libsignal-workers.sh # LIBSIGNAL_NATIVE_NODE_OK + LIBSIGNAL_WORKERS_OPEN
