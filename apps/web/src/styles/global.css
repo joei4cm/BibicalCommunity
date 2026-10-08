@@ -288,6 +288,16 @@ select {
   color: var(--lh-accent);
 }
 
+.admin-section-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 0.5rem 0;
+  margin-bottom: 0.75rem;
+  background: color-mix(in srgb, var(--lh-bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+
 .highlight-colors {
   align-items: center;
 }
