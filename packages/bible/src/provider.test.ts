@@ -899,3 +899,37 @@ test("loadChapter returns zh/ja Matthew.5 Beatitudes scaffolds (cuvs/kougo)", as
   assert.match(kougo5.verses.find((v) => v.verse === 3)?.text ?? "", /心の貧しい|さいわい/);
   assert.match(kougo5.verses.find((v) => v.verse === 9)?.text ?? "", /平和|神の子/);
 });
+
+test("loadChapter returns expanded cuvt key-chapter scaffolds", async () => {
+  const matt5 = await loadChapter("cuvt", { book: "Matt", chapter: 5 });
+  assert.ok(!("external" in matt5));
+  assert.match(matt5.verses.find((v) => v.verse === 3)?.text ?? "", /虛心|有福|天國/);
+
+  const matt6 = await loadChapter("cuvt", { book: "Matt", chapter: 6 });
+  assert.ok(!("external" in matt6));
+  assert.match(matt6.verses.find((v) => v.verse === 9)?.text ?? "", /禱告|天上的父/);
+
+  const gen1 = await loadChapter("cuvt", { book: "Gen", chapter: 1 });
+  assert.ok(!("external" in gen1));
+  assert.match(gen1.verses.find((v) => v.verse === 1)?.text ?? "", /創造天地/);
+
+  const ps23 = await loadChapter("cuvt", { book: "Ps", chapter: 23 });
+  assert.ok(!("external" in ps23));
+  assert.match(ps23.verses.find((v) => v.verse === 1)?.text ?? "", /耶和華|牧者/);
+
+  const rom8 = await loadChapter("cuvt", { book: "Rom", chapter: 8 });
+  assert.ok(!("external" in rom8));
+  assert.match(rom8.verses.find((v) => v.verse === 28)?.text ?? "", /萬事|得益處/);
+
+  const rom12 = await loadChapter("cuvt", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in rom12));
+  assert.match(rom12.verses.find((v) => v.verse === 1)?.text ?? "", /活祭|聖潔/);
+
+  const jn15 = await loadChapter("cuvt", { book: "John", chapter: 15 });
+  assert.ok(!("external" in jn15));
+  assert.match(jn15.verses.find((v) => v.verse === 5)?.text ?? "", /葡萄樹|枝子/);
+
+  const jn4 = await loadChapter("cuvt", { book: "1John", chapter: 4 });
+  assert.ok(!("external" in jn4));
+  assert.match(jn4.verses.find((v) => v.verse === 8)?.text ?? "", /神就是愛/);
+});

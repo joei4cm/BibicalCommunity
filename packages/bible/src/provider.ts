@@ -31,6 +31,14 @@ import { KOUGOYAKU_PD_JOHN_2 } from "./packs/kougoyaku-pd-john2.js";
 import { CUVS_JOHN_3 } from "./packs/cuvs-john3.js";
 import { CUVT_JOHN_3 } from "./packs/cuvt-john3.js";
 import { CUVT_JOHN_14 } from "./packs/cuvt-john14.js";
+import { CUVT_JOHN_15 } from "./packs/cuvt-john15.js";
+import { CUVT_MATT_5 } from "./packs/cuvt-matt5.js";
+import { CUVT_MATT_6 } from "./packs/cuvt-matt6.js";
+import { CUVT_GEN_1 } from "./packs/cuvt-gen1.js";
+import { CUVT_PSALM_23 } from "./packs/cuvt-ps23.js";
+import { CUVT_ROM_8 } from "./packs/cuvt-rom8.js";
+import { CUVT_ROM_12 } from "./packs/cuvt-rom12.js";
+import { CUVT_1JOHN_4 } from "./packs/cuvt-1john4.js";
 import { CUVS_MATT_5 } from "./packs/cuvs-matt5.js";
 import { KOUGO_MATT_5 } from "./packs/kougo-matt5.js";
 import { RCUV_JOHN_3 } from "./packs/rcuv-john3.js";
@@ -453,7 +461,12 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     deut: { 6: KOUGO_DEUT_6 },
   },
   cuvt: {
-    john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3, 14: CUVT_JOHN_14 },
+    john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3, 14: CUVT_JOHN_14, 15: CUVT_JOHN_15 },
+    matt: { 5: CUVT_MATT_5, 6: CUVT_MATT_6 },
+    gen: { 1: CUVT_GEN_1 },
+    ps: { 23: CUVT_PSALM_23 },
+    rom: { 8: CUVT_ROM_8, 12: CUVT_ROM_12 },
+    "1john": { 4: CUVT_1JOHN_4 },
   },
   cuvs: {
     john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 14: CUVS_JOHN_14, 15: CUVS_JOHN_15 },
