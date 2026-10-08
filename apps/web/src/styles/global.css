@@ -147,9 +147,9 @@ select {
   --br-paper: #f7f4ee;
   --br-font-reader: "Literata", "Noto Serif SC", "Noto Serif JP", "Source Serif 4", serif;
   --br-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
-  max-width: 36.5rem;
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 0.5rem 0.15rem 3rem;
+  padding: 0.65rem 0.35rem 3rem;
   color: var(--br-ink);
   animation: bible-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -427,13 +427,19 @@ body:has(.bible-reader) .tab-bar a.active {
   font-size: 0.9rem;
 }
 
-/* Soft folio wash — open page, not a bordered card */
+/* Soft folio wash — open page plane (blends into atmosphere, not a floating card) */
 .bible-folio {
-  margin: 0 -0.35rem;
-  padding: 1.15rem 1rem 1.35rem;
+  margin: 0;
+  padding: 0.35rem 0.15rem 0.85rem;
   background:
-    linear-gradient(180deg, rgba(247, 244, 238, 0.92) 0%, rgba(250, 248, 243, 0.78) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    linear-gradient(
+      180deg,
+      rgba(247, 244, 238, 0.35) 0%,
+      rgba(250, 248, 243, 0.22) 55%,
+      transparent 100%
+    );
+  box-shadow: none;
+  border-radius: 0;
   animation: bible-folio-in 640ms 40ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -715,8 +721,12 @@ body:has(.bible-reader) .tab-bar a.active {
   }
 
   .bible-folio {
-    margin: 0 -0.2rem;
-    padding: 0.95rem 0.75rem 1.15rem;
+    margin: 0;
+    padding: 0.25rem 0.05rem 0.7rem;
+  }
+
+  .bible-passage-controls {
+    padding-inline: 0.45rem;
   }
 
   .bible-prose-body {
