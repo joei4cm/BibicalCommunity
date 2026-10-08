@@ -1,0 +1,10 @@
+{
+  "book": "Gen",
+  "chapter": 1,
+  "verses": [
+    { "verse": 1, "text": "（样例·fixture）起初，神创造天地。" },
+    { "verse": 3, "text": "（样例·fixture）神说：“要有光”，就有了光。" },
+    { "verse": 27, "text": "（样例·fixture）神就照着自己的形像造人，乃是照着他的形像造男造女。" },
+    { "verse": 31, "text": "（样例·fixture）神看着一切所造的都甚好。有晚上，有早晨，是第六日。" }
+  ]
+}

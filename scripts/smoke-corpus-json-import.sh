@@ -39,7 +39,22 @@ for (const tid of tids) {
   byTid[tid] = files.map((f) => parseCorpusFixtureChapter(readFileSync(join(FIX, tid, f), "utf8")));
   fileCount += files.length;
 }
-if (fileCount < 8) throw new Error("need >=8 fixture chapter files");
+if (fileCount < 20) throw new Error("need >=20 fixture chapter files, got " + fileCount);
+
+const teaching = ["John.1.json", "John.3.json", "John.14.json", "Ps.23.json", "Rom.8.json", "Matt.5.json", "Gen.1.json"];
+for (const tid of ["cuvs", "web", "shinKyoudou"]) {
+  const files = readdirSync(join(FIX, tid)).filter((f) => f.endsWith(".json"));
+  for (const need of teaching) {
+    if (!files.includes(need)) throw new Error("boot teaching parity missing " + tid + "/" + need);
+  }
+}
+for (const tid of ["kjv", "asv", "cuvt", "kougo"]) {
+  const files = readdirSync(join(FIX, tid)).filter((f) => f.endsWith(".json"));
+  for (const need of teaching) {
+    if (!files.includes(need)) throw new Error("download teaching parity missing " + tid + "/" + need);
+  }
+}
+console.log("CORPUS_BOOT_TEACHING_PARITY_OK");
 
 const probe = await probeCorpusJsonImport(byTid);
 if (!probe.ok) throw new Error("probeCorpusJsonImport failed " + JSON.stringify(probe));
@@ -77,16 +92,14 @@ if curl -sf "$BASE/health" >/dev/null 2>&1; then
   echo "$DL" | grep -q 'fixture'
   echo "CORPUS_DOWNLOAD_FROM_FIXTURE_OK"
 
-  WEB_DL=$(curl -sf "$BASE/v1/bible/corpus-download/web")
-  echo "$WEB_DL" | grep -q '"source":"r2"'
-  echo "$WEB_DL" | grep -q 'John'
-  echo "$WEB_DL" | grep -q 'Rom'
-  echo "$WEB_DL" | grep -q 'Matt'
-  echo "$WEB_DL" | grep -q 'Gen'
-  # Expect expanded teaching-set chapter count after fixture seed
-  COUNT=$(node -e 'const j=JSON.parse(process.argv[1]); if((j.chapterCount??j.chapters.length)<7) process.exit(2)' "$WEB_DL") || {
-    echo "expected web pack >=7 chapters after fixture expand"; exit 1
-  }
+  for tid in web cuvs shinKyoudou; do
+    DL_T=$(curl -sf "$BASE/v1/bible/corpus-download/$tid")
+    echo "$DL_T" | grep -q '"source":"r2"'
+    node -e 'const j=JSON.parse(process.argv[1]); if((j.chapterCount??j.chapters.length)<7) process.exit(2)' "$DL_T" || {
+      echo "expected $tid pack >=7 teaching chapters after fixture expand"; exit 1
+    }
+    echo "CORPUS_BOOT_TEACHING_PACK_OK tid=$tid"
+  done
   echo "CORPUS_WEB_TEACHING_PACK_OK"
 else
   echo "CORPUS_JSON_IMPORT_SKIP_LIVE (api not running at $BASE)"

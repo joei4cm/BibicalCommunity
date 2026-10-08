@@ -37,18 +37,20 @@ echo "== seed R2 from JSON fixtures (no TS packs) =="
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 (cd "$ROOT" && pnpm --filter @logoshome/bible build >/dev/null)
 node "$ROOT/scripts/seed-r2-from-json-fixtures.mjs" "$BASE" "$TOKEN"
-echo "== chapter WEB fixtures from R2 =="
-for ref in John.1 John.3 John.14 Ps.23 Rom.8 Matt.5 Gen.1; do
-  body=$(curl -sf "$BASE/v1/bible/chapter?translation=web&ref=$ref")
-  echo "$body" | grep -q '"source":"r2"'
-  echo "WEB_R2_OK $ref"
+echo "== chapter boot teaching-set fixtures from R2 =="
+for tid in web cuvs shinKyoudou; do
+  for ref in John.1 John.3 John.14 Ps.23 Rom.8 Matt.5 Gen.1; do
+    body=$(curl -sf "$BASE/v1/bible/chapter?translation=$tid&ref=$ref")
+    echo "$body" | grep -q '"source":"r2"'
+    echo "BOOT_TEACHING_R2_OK tid=$tid ref=$ref"
+  done
 done
-echo "== chapter boot-default fixtures from R2 =="
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1" | grep -qE '太初有道|fixture|样例'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.3" | grep -qE '神爱世人|独生子|fixture|样例'
-curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.1" | grep -qE '初めに|fixture|見本'
-curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=Ps.23" | grep -qE '牧者|羊飼い|fixture|見本'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rom.8" | grep -qE '不定罪|fixture|样例'
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.14" | grep -qE '道であり|真理|fixture|見本'
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=Gen.1" | grep -qE '創造|fixture|見本'
 echo "BOOT_DEFAULT_R2_OK"
+echo "BOOT_TEACHING_PARITY_OK"
 echo "== chapter downloadable PD fixtures =="
 curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.1" | grep -qiE 'beginning|Word|fixture'
 curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3" | grep -qiE 'God so loved|fixture'

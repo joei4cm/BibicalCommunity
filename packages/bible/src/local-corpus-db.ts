@@ -185,6 +185,23 @@ export class LocalCorpusDb {
  */
 export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "web", "shinKyoudou"] as const;
 
+/**
+ * Teaching-set chapter refs seeded for boot defaults (and PD download peers).
+ * Content lives in `fixtures/corpus/{tid}/` — never TypeScript packs.
+ */
+export const BOOT_TEACHING_CHAPTER_REFS = [
+  "John.1",
+  "John.3",
+  "John.14",
+  "Ps.23",
+  "Rom.8",
+  "Matt.5",
+  "Gen.1",
+] as const;
+
+/** Slim sample refs for downloadable peers that only ship a few fixtures. */
+export const DOWNLOAD_SAMPLE_CHAPTER_REFS = ["John.1", "John.3", "Ps.23"] as const;
+
 /** Extra licensed/PD ids users may download into the local DB (not bundled). */
 export const DOWNLOADABLE_TRANSLATION_IDS = [
   "cuvt",
@@ -197,6 +214,9 @@ export const DOWNLOADABLE_TRANSLATION_IDS = [
   "asv",
   "kougoyaku-pd",
 ] as const;
+
+/** Downloadable tids that advertise the full teaching-set refs (fixtures present). */
+const TEACHING_SET_DOWNLOAD_IDS = new Set(["kjv", "asv", "cuvt", "kougo"]);
 
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const packs: DownloadableCorpusPack[] = [];
@@ -213,12 +233,14 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       installMode = "external";
     }
 
-    const chapterRefs =
-      installMode === "external"
-        ? []
-        : installMode === "boot" && t.id === "web"
-          ? ["John.1", "John.3", "John.14", "Ps.23", "Rom.8", "Matt.5", "Gen.1"]
-          : ["John.1", "John.3", "Ps.23"];
+    let chapterRefs: string[] = [];
+    if (installMode === "boot") {
+      chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
+    } else if (installMode === "download") {
+      chapterRefs = TEACHING_SET_DOWNLOAD_IDS.has(t.id)
+        ? [...BOOT_TEACHING_CHAPTER_REFS]
+        : [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
+    }
 
     packs.push({
       translationId: t.id,
