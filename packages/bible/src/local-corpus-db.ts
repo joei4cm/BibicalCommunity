@@ -7,6 +7,7 @@
  * everything else is downloaded on demand.
  */
 
+import { listBooks } from "./books.js";
 import { r2ChapterObjectKey, type R2ChapterJson } from "./r2-format.js";
 import { getTranslation, listTranslations, type TranslationMeta } from "./translations.js";
 
@@ -203,8 +204,9 @@ export const BOOT_TEACHING_CHAPTER_REFS = [
 export const DOWNLOAD_SAMPLE_CHAPTER_REFS = ["John.1", "John.3", "Ps.23"] as const;
 
 /**
- * Denser public-domain chapter set (WEB / KJV / ASV) fetched into fixtures/corpus.
- * Still download→local DB — never TypeScript packs. Licensed zh/ja stay teaching-set only.
+ * Key-chapter public-domain sample set kept in-repo under fixtures/corpus.
+ * Full Protestant canon for WEB/KJV/ASV is seeded to R2 via
+ * `scripts/seed-r2-pd-full.mjs` — never TypeScript packs / never licensed dumps.
  */
 export const PD_DENSE_CHAPTER_REFS = [
   "Gen.1",
@@ -234,6 +236,15 @@ export const PD_DENSE_CHAPTER_REFS = [
   "1John.4",
   "Rev.21",
 ] as const;
+
+/** Full Protestant canon refs (for PD tids whose R2 prefix holds complete text). */
+export function listProtestantChapterRefs(): string[] {
+  const refs: string[] = [];
+  for (const b of listBooks()) {
+    for (let c = 1; c <= b.chapters; c += 1) refs.push(`${b.id}.${c}`);
+  }
+  return refs;
+}
 
 /** Extra licensed/PD ids users may download into the local DB (not bundled). */
 export const DOWNLOADABLE_TRANSLATION_IDS = [
@@ -280,7 +291,9 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
 
     let chapterRefs: string[] = [];
     if (PD_DENSE_IDS.has(t.id) && (installMode === "boot" || installMode === "download")) {
-      chapterRefs = [...PD_DENSE_CHAPTER_REFS];
+      // Advertise full canon: R2 holds complete PD after seed-r2-pd-full; in-repo
+      // fixtures remain a dense key-chapter subset for offline smoke.
+      chapterRefs = listProtestantChapterRefs();
     } else if (installMode === "boot") {
       chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
     } else if (installMode === "download") {

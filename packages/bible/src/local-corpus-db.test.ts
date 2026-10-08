@@ -5,10 +5,10 @@ import {
   BOOT_TEACHING_CHAPTER_REFS,
   LocalCorpusDb,
   MemoryLocalCorpusStore,
-  PD_DENSE_CHAPTER_REFS,
   buildDemoDownloadPack,
   buildDownloadPackPayloadJson,
   listDownloadableCorpusCatalog,
+  listProtestantChapterRefs,
   parseDownloadPackPayload,
   probeLocalCorpusPipeline,
 } from "./local-corpus-db.js";
@@ -27,7 +27,9 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   assert.ok(cuvs && shin && web);
   assert.deepEqual(cuvs.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS]);
   assert.deepEqual(shin.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS]);
-  assert.deepEqual(web.chapterRefs, [...PD_DENSE_CHAPTER_REFS]);
+  const fullRefs = listProtestantChapterRefs();
+  assert.ok(fullRefs.length >= 1100);
+  assert.deepEqual(web.chapterRefs, fullRefs);
   const esv = catalog.find((p) => p.translationId === "esv");
   assert.ok(esv);
   assert.equal(esv.installMode, "external");
@@ -43,7 +45,7 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   for (const tid of ["kjv", "asv"]) {
     const row = downloadable.find((p) => p.translationId === tid);
     assert.ok(row, tid);
-    assert.deepEqual(row.chapterRefs, [...PD_DENSE_CHAPTER_REFS], tid);
+    assert.deepEqual(row.chapterRefs, fullRefs, tid);
   }
 });
 
