@@ -803,6 +803,13 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   assert.ok(asv14.verses.length >= 18);
   assert.match(asv14.verses.find((v) => v.verse === 17)?.text ?? "", /Spirit of truth/i);
 
+  const cuvs14 = await loadChapter("cuvs", { book: "John", chapter: 14 });
+  assert.ok(!("external" in cuvs14));
+  assert.match(cuvs14.verses.find((v) => v.verse === 6)?.text ?? "", /道路|真理|生命/);
+  const kougo14 = await loadChapter("kougo", { book: "John", chapter: 14 });
+  assert.ok(!("external" in kougo14));
+  assert.match(kougo14.verses.find((v) => v.verse === 6)?.text ?? "", /道であり|真理|命である/);
+
   const rom12 = await loadChapter("kjv", { book: "Romans", chapter: 12 });
   assert.ok(!("external" in rom12));
   assert.equal(rom12.book, "Rom");
@@ -834,4 +841,11 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   assert.ok(!("external" in kjvJn4));
   assert.ok(kjvJn4.verses.length >= 15);
   assert.match(kjvJn4.verses.find((v) => v.verse === 21)?.text ?? "", /love his brother/i);
+
+  const cuvsJn4 = await loadChapter("cuvs", { book: "1John", chapter: 4 });
+  assert.ok(!("external" in cuvsJn4));
+  assert.match(cuvsJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神就是爱/);
+  const kougoJn4 = await loadChapter("kougo", { book: "1John", chapter: 4 });
+  assert.ok(!("external" in kougoJn4));
+  assert.match(kougoJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神は愛である/);
 });
