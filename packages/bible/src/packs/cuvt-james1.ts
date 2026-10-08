@@ -1,13 +1,47 @@
-/** Traditional Chinese Union–style James 1 scaffold (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser James 1 denser faith-and-doers scaffold (vv.2–5 + 12 + 17–22). (not a licensed corpus dump). */
 export const CUVT_JAMES_1: { verse: number; text: string }[] = [
-  { verse: 2, text: "（樣例）我的弟兄們，你們落在百般試煉中，都要以為大喜樂；" },
+  {
+    verse: 2,
+    text: "（樣例）我的弟兄們，你們落在百般試煉中，都要以為大喜樂；",
+  },
+  {
+    verse: 3,
+    text: "（樣例）因為知道你們的信心經過試驗，就生忍耐。",
+  },
+  {
+    verse: 4,
+    text: "（樣例）但忍耐也當成功，使你們成全、完備，毫無缺欠。",
+  },
   {
     verse: 5,
     text: "（樣例）你們中間若有缺少智慧的，應當求那厚賜與眾人、也不斥責人的神，主就必賜給他。",
   },
   {
+    verse: 12,
+    text: "（樣例）忍受試探的人是有福的，因為他經過試驗以後，必得生命的冠冕，這是主應許給那些愛他之人的。",
+  },
+  {
     verse: 17,
     text: "（樣例）各樣美善的恩賜和各樣全備的賞賜都是從上頭來的，從眾光之父那裏降下來的；在他並沒有改變，也沒有轉動的影兒。",
   },
-  { verse: 22, text: "（樣例）只是你們要行道，不要單單聽道，自己欺哄自己。" },
+  {
+    verse: 18,
+    text: "（樣例）他按自己的旨意，用真道生了我們，叫我們在他所造的萬物中好像初熟的果子。",
+  },
+  {
+    verse: 19,
+    text: "（樣例）我親愛的弟兄們，這是你們所知道的。但你們各人要快快地聽，慢慢地說，慢慢地動怒，",
+  },
+  {
+    verse: 20,
+    text: "（樣例）因為人的怒氣並不成就神的義。",
+  },
+  {
+    verse: 21,
+    text: "（樣例）所以，你們要脫去一切的污穢和盈餘的邪惡，存溫柔的心領受那所栽種的道，就是能救你們靈魂的道。",
+  },
+  {
+    verse: 22,
+    text: "（樣例）只是你們要行道，不要單單聽道，自己欺哄自己。",
+  },
 ];

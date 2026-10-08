@@ -594,14 +594,17 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const eph = await loadChapter(tid, { book: "Eph", chapter: 2 });
     assert.ok(!("external" in eph), tid);
+    assert.ok(eph.verses.length >= 10, tid);
     assert.match(eph.verses.find((v) => v.verse === 8)?.text ?? "", /样例|樣例|見本|本乎恩|恵み|信仰/);
 
     const col = await loadChapter(tid, { book: "Col", chapter: 3 });
     assert.ok(!("external" in col), tid);
+    assert.ok(col.verses.length >= 10, tid);
     assert.match(col.verses.find((v) => v.verse === 14)?.text ?? "", /样例|樣例|見本|爱心|愛心|愛を/);
 
     const jas = await loadChapter(tid, { book: "Jas", chapter: 1 });
     assert.ok(!("external" in jas), tid);
+    assert.ok(jas.verses.length >= 11, tid);
     assert.match(jas.verses.find((v) => v.verse === 22)?.text ?? "", /样例|樣例|見本|行道|実行/);
 
     const matt = await loadChapter(tid, { book: "Matt", chapter: 28 });
@@ -612,8 +615,79 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const rev = await loadChapter(tid, { book: "Rev", chapter: 21 });
     assert.ok(!("external" in rev), tid);
+    assert.ok(rev.verses.length >= 7, tid);
     assert.match(rev.verses[0]?.text ?? "", /样例|樣例|見本|新天|新しい天/);
   }
+});
+
+test("loadChapter returns PD Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds (web/kjv/asv)", async () => {
+  const eph = await loadChapter("web", { book: "Eph", chapter: 2 });
+  assert.ok(!("external" in eph));
+  assert.equal(eph.book, "Eph");
+  assert.ok(eph.verses.length >= 10);
+  assert.match(eph.verses.find((v) => v.verse === 8)?.text ?? "", /by grace.*saved through faith|gift of God/i);
+
+  const kjvEph = await loadChapter("kjv", { book: "Ephesians", chapter: 2 });
+  assert.ok(!("external" in kjvEph));
+  assert.ok(kjvEph.verses.length >= 10);
+  assert.match(kjvEph.verses.find((v) => v.verse === 8)?.text ?? "", /by grace.*saved through faith|gift of God/i);
+
+  const col = await loadChapter("web", { book: "Col", chapter: 3 });
+  assert.ok(!("external" in col));
+  assert.ok(col.verses.length >= 10);
+  assert.match(col.verses.find((v) => v.verse === 14)?.text ?? "", /walk in love|bond of perfection/i);
+
+  const jas = await loadChapter("web", { book: "Jas", chapter: 1 });
+  assert.ok(!("external" in jas));
+  assert.ok(jas.verses.length >= 11);
+  assert.match(jas.verses.find((v) => v.verse === 22)?.text ?? "", /doers of the word|not only hearers/i);
+
+  const asvJas = await loadChapter("asv", { book: "James", chapter: 1 });
+  assert.ok(!("external" in asvJas));
+  assert.ok(asvJas.verses.length >= 11);
+
+  const rev = await loadChapter("web", { book: "Rev", chapter: 21 });
+  assert.ok(!("external" in rev));
+  assert.ok(rev.verses.length >= 7);
+  assert.match(rev.verses[0]?.text ?? "", /new heaven and a new earth/i);
+  assert.match(rev.verses.find((v) => v.verse === 4)?.text ?? "", /wipe away every tear|Death will be no more/i);
+});
+
+test("loadChapter returns zh/ja Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds", async () => {
+  const cuvsEph = await loadChapter("cuvs", { book: "Eph", chapter: 2 });
+  assert.ok(!("external" in cuvsEph));
+  assert.ok(cuvsEph.verses.length >= 10);
+  assert.match(cuvsEph.verses.find((v) => v.verse === 8)?.text ?? "", /样例|本乎恩|因着信/);
+
+  const kougoEph = await loadChapter("kougo", { book: "Eph", chapter: 2 });
+  assert.ok(!("external" in kougoEph));
+  assert.ok(kougoEph.verses.length >= 10);
+  assert.match(kougoEph.verses.find((v) => v.verse === 8)?.text ?? "", /見本|恵み|信仰/);
+
+  const cuvsCol = await loadChapter("cuvs", { book: "Col", chapter: 3 });
+  assert.ok(!("external" in cuvsCol));
+  assert.ok(cuvsCol.verses.length >= 10);
+  assert.match(cuvsCol.verses.find((v) => v.verse === 14)?.text ?? "", /样例|爱心|联络全德/);
+
+  const cuvsJas = await loadChapter("cuvs", { book: "Jas", chapter: 1 });
+  assert.ok(!("external" in cuvsJas));
+  assert.ok(cuvsJas.verses.length >= 11);
+  assert.match(cuvsJas.verses.find((v) => v.verse === 22)?.text ?? "", /样例|行道|听道/);
+
+  const kougoJas = await loadChapter("kougo", { book: "James", chapter: 1 });
+  assert.ok(!("external" in kougoJas));
+  assert.ok(kougoJas.verses.length >= 11);
+  assert.match(kougoJas.verses.find((v) => v.verse === 22)?.text ?? "", /見本|実行|聞くだけ/);
+
+  const cuvsRev = await loadChapter("cuvs", { book: "Rev", chapter: 21 });
+  assert.ok(!("external" in cuvsRev));
+  assert.ok(cuvsRev.verses.length >= 7);
+  assert.match(cuvsRev.verses[0]?.text ?? "", /样例|新天新地/);
+
+  const kougoRev = await loadChapter("kougo", { book: "Revelation", chapter: 21 });
+  assert.ok(!("external" in kougoRev));
+  assert.ok(kougoRev.verses.length >= 7);
+  assert.match(kougoRev.verses[0]?.text ?? "", /見本|新しい天/);
 });
 
 test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaffolds", async () => {
