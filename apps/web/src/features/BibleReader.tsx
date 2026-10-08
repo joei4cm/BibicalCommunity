@@ -27,6 +27,7 @@ import {
 } from "../lib/reader-skins";
 import {
   bibleLocalDb,
+  densifyChapterVerses,
   ensureBootCorpusSeeded,
   installDownloadedPack,
   readLocalChapter,
@@ -307,6 +308,8 @@ export function BibleReader() {
     void refreshInstalledCorpus();
   }, [showCatalog, refreshInstalledCorpus]);
 
+  const [bootTick, setBootTick] = useState(0);
+
   useEffect(() => {
     void ensureBootCorpusSeeded(async (tid) => {
       try {
@@ -319,7 +322,7 @@ export function BibleReader() {
       } catch {
         return null;
       }
-    });
+    }).then(() => setBootTick((n) => n + 1));
   }, []);
 
   useEffect(() => {
@@ -330,11 +333,17 @@ export function BibleReader() {
         // Prefer client local DB (download/boot install) over network/TS scaffolds.
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local && !cancelled) {
+          const verses = densifyChapterVerses(
+            translationId,
+            local.book,
+            local.chapter,
+            local.verses,
+          );
           setChapter({
             translationId,
             book: local.book,
             chapter: local.chapter,
-            verses: local.verses,
+            verses,
             source: "local-db",
           });
           return;
@@ -342,7 +351,15 @@ export function BibleReader() {
         const data = await api<ChapterPayload>(
           `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
         );
-        if (!cancelled) setChapter(data);
+        if (cancelled) return;
+        if (data && "verses" in data && Array.isArray(data.verses)) {
+          setChapter({
+            ...data,
+            verses: densifyChapterVerses(translationId, bookId, chapterNum, data.verses),
+          });
+        } else {
+          setChapter(data);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "error");
       }
@@ -350,7 +367,7 @@ export function BibleReader() {
     return () => {
       cancelled = true;
     };
-  }, [translationId, ref, bookId, chapterNum]);
+  }, [translationId, ref, bookId, chapterNum, bootTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -747,7 +764,6 @@ export function BibleReader() {
             </select>
           </label>
         </div>
-        {renderChapterNav("reader", "top")}
       </header>
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
