@@ -1,4 +1,4 @@
-/** Public-domain sample: ASV Acts 2 (excerpt for dual-pane scaffold). */
+/** Public-domain: ASV Acts 2 denser Pentecost scaffold (vv.1–8 + 38). */
 export const ASV_ACTS_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -15,6 +15,22 @@ export const ASV_ACTS_2: { verse: number; text: string }[] = [
   {
     verse: 4,
     text: "And they were all filled with the Holy Spirit, and began to speak with other tongues, as the Spirit gave them utterance.",
+  },
+  {
+    verse: 5,
+    text: "Now there were dwelling at Jerusalem Jews, devout men, from every nation under heaven.",
+  },
+  {
+    verse: 6,
+    text: "And when this sound was heard, the multitude came together, and were confounded, because that every man heard them speaking in his own language.",
+  },
+  {
+    verse: 7,
+    text: "And they were all amazed and marvelled, saying, Behold, are not all these that speak Galilaeans?",
+  },
+  {
+    verse: 8,
+    text: "And how hear we, every man in our own language wherein we were born?",
   },
   {
     verse: 38,

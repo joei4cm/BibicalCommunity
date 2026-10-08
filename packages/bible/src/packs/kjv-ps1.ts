@@ -1,4 +1,4 @@
-/** Public-domain sample: KJV Psalm 1 (excerpt for dual-pane scaffold). */
+/** Public-domain: KJV Psalm 1 denser full scaffold (vv.1–6). */
 export const KJV_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -15,5 +15,13 @@ export const KJV_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 4,
     text: "The ungodly are not so: but are like the chaff which the wind driveth away.",
+  },
+  {
+    verse: 5,
+    text: "Therefore the ungodly shall not stand in the judgment, nor sinners in the congregation of the righteous.",
+  },
+  {
+    verse: 6,
+    text: "For the LORD knoweth the way of the righteous: but the way of the ungodly shall perish.",
   },
 ];

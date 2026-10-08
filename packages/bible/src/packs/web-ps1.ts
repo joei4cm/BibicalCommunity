@@ -1,4 +1,4 @@
-/** Public-domain sample: WEB Psalm 1 (excerpt for dual-pane scaffold). */
+/** Public-domain: WEB Psalm 1 denser full scaffold (vv.1–6). */
 export const WEB_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -15,5 +15,13 @@ export const WEB_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 4,
     text: "The wicked are not so, but are like the chaff which the wind drives away.",
+  },
+  {
+    verse: 5,
+    text: "Therefore the wicked shall not stand in the judgment, nor sinners in the congregation of the righteous.",
+  },
+  {
+    verse: 6,
+    text: "For Yahweh knows the way of the righteous, but the way of the wicked shall perish.",
   },
 ];
