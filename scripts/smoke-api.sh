@@ -161,6 +161,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.15" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rev.21" | grep -qE '样例|新天新地|擦去他们一切的眼泪'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rev.21" | grep -qE '見本|新しい天と新しい地|涙を全くぬぐい'
 echo "MULTI_BOOK_APOCALYPTIC_OK"
+echo "== multi-book wisdom-NT scaffolds Jas.1 / Col.3 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Jas.1" | grep -qiE 'Count it all joy|ask of God|doers of the word'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Jas.1" | grep -qiE 'count it all joy|ask of God|doers of the word'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Jas.1" | grep -qiE 'Count it all joy|ask of God|doers of the word'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Col.3" | grep -qiE 'things that are above|walk in love|word of Christ dwell'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Col.3" | grep -qiE 'things which are above|put on charity|word of Christ dwell'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Col.3" | grep -qiE 'things that are above|put on love|word of Christ dwell'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Jas.1" | grep -qE '样例|大喜乐|行道'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Jas.1" | grep -qE '見本|喜ばしい|実行する人'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Col.3" | grep -qE '样例|上面的事|联络全德'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Col.3" | grep -qE '見本|上にあるもの|愛を加え'
+echo "MULTI_BOOK_WISDOM_NT_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")

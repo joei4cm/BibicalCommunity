@@ -6,17 +6,17 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 
 | # | Requirement | Evidence (authoritative) | Status |
 |---|-------------|--------------------------|--------|
-| 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + crypto gate | PARTIAL — PWA build PASS; physical device WebCrypto E2E OPEN |
+| 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** (polyfill+note+session+x25519) | PARTIAL — PWA+automated WebCrypto gate PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins (parchment/paper/ink); `ANNOTATIONS_SMOKE_OK` / `READER_SKINS_OK` | PARTIAL — core+colors+typography+first-party skins PASS; licensed publisher theme packs OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; scaffolds through Phil.4/1Cor.13 + John.15/Rev.21; `MULTI_BOOK_*` + **`CORPUS_SCAFFOLD_INVENTORY_OK`** | PARTIAL — catalog + local scaffold inventory PASS; full licensed corpora OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; scaffolds through John.15/Rev.21 + Jas.1/Col.3; `MULTI_BOOK_*` + **`CORPUS_SCAFFOLD_INVENTORY_OK`** | PARTIAL — catalog + local scaffold inventory PASS; full licensed corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
-| 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token` | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
+| 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0 packs); advance-day; devotion binds plan day ref + material; step+material persisted | PARTIAL — client binding + persisted step + open devotion packs PASS; licensed third-party devotion packs OPEN |
 | 7 | Church Home forums / embeds | `HOME_SMOKE_OK`; `HOME_MEMBERS_OK`; **`HOME_JOIN_SLUG_OK`** join-by-slug | PARTIAL — compose+roster+join PASS |
 | 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK`; `CURVE25519_X25519_OK` / `KEYS_CURVE25519_OK` (WebCrypto X25519+Ed25519); `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; mobile TTL+archive | PARTIAL — P-256+X25519+TTL+archive PASS; production `@signalapp/libsignal-client` OPEN |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK`; `SCREEN_SHARE_GATE_OK` (secure-context + getDisplayMedia probe) | PARTIAL — signaling+capability gate PASS; live OS picker still user-gesture / device OPEN |
 | 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK`; `HOME_VERIFY_OK` / `HOME_MEMBERS_OK` / `HOME_JOIN_SLUG_OK` / `HOME_WIPE_OK`; roster verify + join-by-slug | PARTIAL — verify+join UX PASS |
-| 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv` (expo-secure-store → AsyncStorage fallback) for note/session/device keys | PARTIAL — roundtrip+SecureStore path PASS; physical device E2E OPEN |
+| 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv`; **`DEVICE_NOTE_CRYPTO_OK`** / **`DEVICE_WEBCRYPTO_GATE_OK`** | PARTIAL — roundtrip+SecureStore+automated WebCrypto PASS; physical handset E2E OPEN |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `I18N_PARITY_OK` + `I18N_AUDIT_OK` + `I18N_NATIVE_COPY_OK` + `PWA_THEME_OK` + `READER_SKINS_OK` | PARTIAL — key parity + native differ-check PASS; human native QA OPEN |
 | 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migration `0004_devotion_step`); `DEPLOY_DRY_RUN_OK` | PARTIAL — preflight+dry-run PASS; live account OPEN |
@@ -34,6 +34,8 @@ bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-tok
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
 bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK / DEVOTION_MATERIALS_OK
 bash scripts/smoke-curve25519.sh       # CURVE25519_X25519_OK
+bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK
+bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh
 ```
 
