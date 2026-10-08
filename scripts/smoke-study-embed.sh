@@ -25,6 +25,9 @@ done
 ALL=$(curl -sf "$BASE/v1/bible/study")
 echo "$ALL" | grep -q '"materials":\['
 echo "$ALL" | grep -q '"devotion":\['
+DEVOTION_COUNT=$(printf '%s' "$ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);process.stdout.write(String((j.devotion||[]).length))})')
+test "$DEVOTION_COUNT" -ge 5
+echo "DEVOTION_MATERIALS_API_OK count=$DEVOTION_COUNT"
 echo "STUDY_CATALOG_OK"
 
 echo "== home post with externalMediaUrl =="
