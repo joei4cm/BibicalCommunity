@@ -35,22 +35,21 @@ if [[ -z "$HEALTH" ]]; then
   exit 0
 fi
 
-# Boot scope must stay slim on live too
-BOOT=$(curl -sf "$LIVE_API_BASE/v1/bible/corpus-download/web?scope=boot" || true)
-if [[ -z "$BOOT" ]]; then
-  echo "INFO: live boot pack unavailable"
+# Catalog must advertise 和合本 + NASB as whole-Bible boot defaults
+CAT=$(curl -sf "$LIVE_API_BASE/v1/bible/corpus-catalog" || true)
+if [[ -z "$CAT" ]]; then
+  echo "INFO: live corpus catalog unavailable"
   echo "CORPUS_LIVE_R2_OPEN"
   exit 0
 fi
-echo "$BOOT" | grep -q '"scope":"boot"' || {
-  echo "FAIL: live boot pack missing scope=boot"
+echo "$CAT" | grep -q '"cuvs"' || {
+  echo "FAIL: live catalog missing cuvs"
   exit 1
 }
-BOOT_N=$(node -e 'const j=JSON.parse(process.argv[1]); process.stdout.write(String(j.chapterCount??0))' "$BOOT")
-if [[ "$BOOT_N" -gt 12 ]]; then
-  echo "FAIL: live boot scope not slim ($BOOT_N)"
+echo "$CAT" | grep -q '"nasb"' || {
+  echo "FAIL: live catalog missing nasb"
   exit 1
-fi
+}
 
 # Paged full walk — production R2 must hold full WEB after admin PD seed
 SUM=$(node --input-type=module -e '

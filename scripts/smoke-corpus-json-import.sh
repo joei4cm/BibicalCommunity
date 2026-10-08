@@ -26,7 +26,7 @@ if (!existsSync(FIX)) throw new Error("missing fixtures/corpus");
 const tids = readdirSync(FIX, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
 if (tids.length < 8) throw new Error("need >=8 fixture tids (boot + downloadable peers)");
 if (!tids.includes("cuvs") || !tids.includes("web") || !tids.includes("shinKyoudou")) {
-  throw new Error("boot defaults must have fixtures");
+  throw new Error("expected fixtures for cuvs/web/shinKyoudou sample chapters");
 }
 for (const need of ["cuvt", "rcuv", "ccb", "lzz", "kougo", "shinkaiyaku", "kjv", "asv"]) {
   if (!tids.includes(need)) throw new Error("missing downloadable fixture tid=" + need);
@@ -45,7 +45,7 @@ const teaching = ["John.1.json", "John.3.json", "John.14.json", "Ps.23.json", "R
 for (const tid of ["cuvs", "web", "shinKyoudou"]) {
   const files = readdirSync(join(FIX, tid)).filter((f) => f.endsWith(".json"));
   for (const need of teaching) {
-    if (!files.includes(need)) throw new Error("boot teaching parity missing " + tid + "/" + need);
+    if (!files.includes(need)) throw new Error("sample teaching parity missing " + tid + "/" + need);
   }
 }
 for (const tid of ["kjv", "asv", "cuvt", "kougo"]) {

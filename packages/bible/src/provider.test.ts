@@ -8,7 +8,7 @@ import {
 } from "./local-corpus-db.js";
 
 test("loadChapter returns empty R2 stub for boot/download translations (no TS verses)", async () => {
-  for (const id of ["web", "cuvs", "shinKyoudou", "kjv", "asv", "cuvt", "kougo"]) {
+  for (const id of ["web", "cuvs", "nasb", "shinKyoudou", "kjv", "asv", "cuvt", "kougo"]) {
     const result = await loadChapter(id, { book: "John", chapter: 1 });
     assert.ok(!("external" in result), id);
     assert.equal(result.source, "r2", id);
@@ -19,13 +19,13 @@ test("loadChapter returns empty R2 stub for boot/download translations (no TS ve
 });
 
 test("loadChapter returns external deep-links for ESV/NIV and partners", async () => {
-  for (const id of ["niv", "esv", "nlt", "nasb", "csb", "nrsv"]) {
+  for (const id of ["niv", "esv", "nlt", "csb", "nrsv"]) {
     const meta = getTranslation(id);
     assert.ok(meta);
     assert.equal(meta.provider, "external");
     const result = await loadChapter(id, { book: "John", chapter: 1 });
     assert.ok("external" in result && result.external);
-    assert.match(result.url, /biblegateway|bible\.com|NIV|ESV|NLT|NASB|CSB|NRSV/i);
+    assert.match(result.url, /biblegateway|bible\.com|NIV|ESV|NLT|CSB|NRSV/i);
   }
 });
 
@@ -53,7 +53,7 @@ test("partner external chapter marks sso when flags on", async () => {
 });
 
 test("PD + licensed downloadable translations use provider r2 (not local TS)", () => {
-  for (const id of ["web", "kjv", "asv", "kougoyaku-pd", "cuvs", "kougo", "shinKyoudou"]) {
+  for (const id of ["web", "kjv", "asv", "kougoyaku-pd", "cuvs", "nasb", "kougo", "shinKyoudou"]) {
     const meta = getTranslation(id);
     assert.ok(meta, `missing translation ${id}`);
     assert.equal(meta.available, true);
@@ -61,14 +61,18 @@ test("PD + licensed downloadable translations use provider r2 (not local TS)", (
   }
 });
 
-test("boot catalog is cuvs + web + shinKyoudou; ESV is external", () => {
+test("boot catalog is 和合本 + NASB whole-Bible; ESV is external", () => {
   const catalog = listDownloadableCorpusCatalog();
   const boot = catalog.filter((p) => p.installMode === "boot");
-  assert.equal(boot.length, 3);
+  assert.equal(boot.length, 2);
   assert.deepEqual(
     boot.map((b) => b.translationId).sort(),
     [...BOOT_DEFAULT_TRANSLATION_IDS].sort(),
   );
+  assert.deepEqual([...BOOT_DEFAULT_TRANSLATION_IDS].sort(), ["cuvs", "nasb"]);
+  for (const b of boot) {
+    assert.equal(b.packKind, "whole-bible");
+  }
   const esv = catalog.find((p) => p.translationId === "esv");
   assert.ok(esv);
   assert.equal(esv.installMode, "external");

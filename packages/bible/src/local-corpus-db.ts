@@ -33,15 +33,17 @@ export type DownloadableCorpusPack = {
   /** Boot default = pre-seeded at first launch; downloadable = user action. */
   installMode: "boot" | "download" | "external";
   /**
-   * Slim sample / teaching refs shipped as fixtures (not the full canon).
-   * Full PD text is advertised via `fullPackAvailable` + seeded to R2 separately.
+   * Expected chapter refs for the pack. Product unit is whole-Bible (~1189)
+   * for boot/download — never a chapter-by-chapter install UX.
    */
   chapterRefs: string[];
   r2Prefix: string;
-  /** True when a full Protestant pack can be downloaded from R2 (PD tids). */
+  /** True when a full Protestant pack can be downloaded from R2. */
   fullPackAvailable?: boolean;
   /** Expected chapter count when `fullPackAvailable` (≈1189). */
   fullPackChapterCount?: number;
+  /** Install unit for clients — always whole-bible for local packs. */
+  packKind?: "whole-bible";
 };
 
 /** Persistence backend — Map in tests, IndexedDB on web/mobile. */
@@ -187,15 +189,15 @@ export class LocalCorpusDb {
 }
 
 /**
- * Boot defaults — the few translations present after first launch.
- * Everything else is downloadable (R2 pack) or external deep-link.
- * ESV/NIV stay external (cannot lawfully ship full text in-app).
+ * Boot defaults — only these local translations at first launch:
+ * 和合本 (cuvs) + NASB. Everything else is optional whole-Bible download.
+ * Never densify verse text into TypeScript; never chapter-by-chapter product UX.
  */
-export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "web", "shinKyoudou"] as const;
+export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "nasb"] as const;
 
 /**
- * Teaching-set chapter refs seeded for boot defaults (and PD download peers).
- * Content lives in `fixtures/corpus/{tid}/` — never TypeScript packs.
+ * @deprecated Product boot is whole-Bible for BOOT_DEFAULT_TRANSLATION_IDS.
+ * Kept for fixture scaffolding / admin PD dense samples only — not the client install unit.
  */
 export const BOOT_TEACHING_CHAPTER_REFS = [
   "John.1",
@@ -253,12 +255,14 @@ export function listProtestantChapterRefs(): string[] {
   return refs;
 }
 
-/** Extra licensed/PD ids users may download into the local DB (not bundled). */
+/** Extra licensed/PD ids users may download as whole-Bible packs (not bundled). */
 export const DOWNLOADABLE_TRANSLATION_IDS = [
   "cuvt",
   "rcuv",
   "ccb",
   "lzz",
+  "web",
+  "shinKyoudou",
   "kougo",
   "shinkaiyaku",
   "kjv",
@@ -266,16 +270,21 @@ export const DOWNLOADABLE_TRANSLATION_IDS = [
   "kougoyaku-pd",
 ] as const;
 
-/** Downloadable tids that advertise the full teaching-set refs (fixtures present). */
-const TEACHING_SET_DOWNLOAD_IDS = new Set(["kjv", "asv", "cuvt", "kougo"]);
-
-/** PD tids that can advertise a full Protestant R2 pack (never licensed dumps). */
-const PD_FULL_PACK_IDS = new Set(["web", "kjv", "asv"]);
+/** Tids that can advertise a full Protestant whole-Bible R2 pack. */
+const WHOLE_BIBLE_PACK_IDS = new Set([
+  ...BOOT_DEFAULT_TRANSLATION_IDS,
+  "web",
+  "kjv",
+  "asv",
+  "cuvt",
+  "rcuv",
+]);
 
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const packs: DownloadableCorpusPack[] = [];
   const boot = new Set<string>(BOOT_DEFAULT_TRANSLATION_IDS);
   const downloadable = new Set<string>(DOWNLOADABLE_TRANSLATION_IDS);
+  const wholeRefs = listProtestantChapterRefs();
 
   for (const t of listTranslations()) {
     let installMode: DownloadableCorpusPack["installMode"];
@@ -287,22 +296,16 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       installMode = "external";
     }
 
-    let chapterRefs: string[] = [];
-    if (installMode === "boot") {
-      // Catalog lists slim boot teaching refs; full PD pack is separate.
-      chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
-    } else if (installMode === "download") {
-      if (PD_FULL_PACK_IDS.has(t.id)) {
-        chapterRefs = [...PD_DENSE_CHAPTER_REFS];
-      } else {
-        chapterRefs = TEACHING_SET_DOWNLOAD_IDS.has(t.id)
-          ? [...BOOT_TEACHING_CHAPTER_REFS]
-          : [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
-      }
-    }
+    // Product unit is always the whole Bible for boot/download (never chapter packs).
+    const chapterRefs =
+      installMode === "external"
+        ? []
+        : WHOLE_BIBLE_PACK_IDS.has(t.id)
+          ? wholeRefs
+          : [...PD_DENSE_CHAPTER_REFS];
 
-    const fullPackAvailable = PD_FULL_PACK_IDS.has(t.id) && installMode !== "external";
-    const fullPackChapterCount = fullPackAvailable ? listProtestantChapterRefs().length : undefined;
+    const fullPackAvailable = installMode !== "external" && WHOLE_BIBLE_PACK_IDS.has(t.id);
+    const fullPackChapterCount = fullPackAvailable ? wholeRefs.length : undefined;
 
     packs.push({
       translationId: t.id,
@@ -315,6 +318,8 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       r2Prefix: `bible/${t.id}/`,
       fullPackAvailable: fullPackAvailable || undefined,
       fullPackChapterCount,
+      /** Client must download the whole translation, not chapter-by-chapter UX. */
+      packKind: installMode === "external" ? undefined : "whole-bible",
     });
   }
 
@@ -430,7 +435,7 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
       chapter: 23,
       verses: [{ verse: 1, text: "（見本・ローカルDB）主は羊飼い。わたしには何も欠けることがない。" }],
     };
-  } else if (translationId === "web") {
+  } else if (translationId === "nasb" || translationId === "web") {
     samples[0] = {
       book: "John",
       chapter: 1,

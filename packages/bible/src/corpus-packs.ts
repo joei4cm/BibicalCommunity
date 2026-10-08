@@ -212,7 +212,7 @@ export function probeCorpusPackPipeline(): CorpusPackPipelineProbe {
   const bootIds = new Set(BOOT_DEFAULT_TRANSLATION_IDS);
   const downloadIds = new Set(DOWNLOADABLE_TRANSLATION_IDS);
   const ok =
-    boot.length === 3 &&
+    boot.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
     boot.every((p) => bootIds.has(p.translationId as (typeof BOOT_DEFAULT_TRANSLATION_IDS)[number])) &&
     downloadable.length >= 8 &&
     downloadable.some((p) => downloadIds.has(p.translationId as (typeof DOWNLOADABLE_TRANSLATION_IDS)[number])) &&

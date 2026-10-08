@@ -137,6 +137,75 @@ select {
   border: 1px solid var(--lh-border);
 }
 
+/* WeDevote-style Bible reader: one composition — title, chapter nav, continuous prose */
+.bible-reader {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.bible-reader-header {
+  text-align: center;
+  margin: 0.25rem 0 1rem;
+}
+
+.bible-reader-translation {
+  margin: 0 0 0.35rem;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+}
+
+.bible-reader-title {
+  margin: 0 0 0.85rem;
+  font-family: var(--lh-font-reader);
+  font-size: clamp(1.55rem, 4vw, 2.05rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.bible-chapter-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.bible-chapter-nav .btn,
+.bible-chapter-nav .muted {
+  font-size: 0.92rem;
+}
+
+.bible-passage-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  margin: 0 0 1rem;
+}
+
+.bible-passage-controls select {
+  max-width: 11rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--lh-border);
+  background: var(--lh-bg-elevated);
+  color: var(--lh-ink);
+}
+
+.bible-reader-tools {
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--lh-border);
+}
+
+.bible-reader-tools summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--lh-ink-muted);
+  margin-bottom: 0.75rem;
+}
+
 .reader {
   background: var(--lh-reader-bg);
   color: var(--lh-reader-verse, inherit);
@@ -145,6 +214,46 @@ select {
   border: 1px solid var(--lh-reader-border, var(--lh-border));
   font-family: var(--lh-font-reader);
   transition: background 220ms ease, color 220ms ease, box-shadow 220ms ease;
+}
+
+.bible-prose {
+  padding: 1.5rem 1.15rem 1.75rem;
+}
+
+.bible-prose-body {
+  font-size: var(--reader-size, 1.15rem);
+  line-height: var(--reader-lh, 1.85);
+  text-align: justify;
+  text-justify: inter-ideograph;
+  hyphens: auto;
+}
+
+.bible-prose .chapter-lead {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-right: 0.35rem;
+  color: var(--lh-accent);
+  font-family: var(--lh-font-ui);
+}
+
+.verse-inline {
+  cursor: pointer;
+}
+
+.verse-inline.verse-selected {
+  background: color-mix(in srgb, var(--lh-accent-soft) 80%, transparent);
+  border-radius: 4px;
+  outline: 1px solid var(--lh-border);
+}
+
+.verse-inline.verse-highlighted {
+  border-radius: 4px;
+}
+
+.bible-prose .verse-num {
+  margin-right: 0.12rem;
+  margin-left: 0.05rem;
+  font-weight: 600;
 }
 
 [data-reader-skin="parchment"] .reader {

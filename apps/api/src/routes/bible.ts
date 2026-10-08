@@ -4,7 +4,6 @@ import { drizzle } from "drizzle-orm/d1";
 import { and, eq, isNull, or, gt } from "drizzle-orm";
 import {
   BOOT_DEFAULT_TRANSLATION_IDS,
-  BOOT_TEACHING_CHAPTER_REFS,
   buildDemoDownloadPack,
   buildDownloadPackPayloadJson,
   getTranslation,
@@ -83,8 +82,9 @@ bibleRoutes.get("/corpus-packs", (c) => {
 
 /**
  * Download-oriented corpus catalog.
- * Boot ships only a few tids (和合本 / WEB / 新共同訳); rest are download or external.
- * Full verse text is NOT bundled in TypeScript — clients install packs into a local DB.
+ * Boot ships 和合本 (cuvs) + NASB as whole-Bible packs; rest are whole-Bible
+ * download or external. Full verse text is NOT bundled in TypeScript —
+ * clients install packs into a local DB (never per-chapter product UX).
  */
 bibleRoutes.get("/corpus-catalog", async (c) => {
   const catalog = listDownloadableCorpusCatalog();
@@ -106,11 +106,11 @@ bibleRoutes.get("/corpus-catalog", async (c) => {
 /**
  * Download a translation pack as JSON for install into the client local DB.
  *
- * Query `scope`:
- * - `boot` — slim teaching-set only (first-launch seed; never the full PD canon)
- * - `full` (default) — R2 prefix pack (optionally paged)
+ * Product install unit is always the **whole Bible** (not per-chapter).
+ * Query `scope=boot|full` both return the full translation pack under the
+ * R2 prefix (transport may page with `limit`/`after` for large packs).
  *
- * Query `limit` / `after` (full scope): page chapter bodies for large PD packs.
+ * Query `limit` / `after`: page chapter bodies for large packs.
  * - `limit` — max chapters in this page (1–200; omit/`0` = all, legacy)
  * - `after` — resume after this R2 object key from the previous page
  *
@@ -139,27 +139,14 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
 
   const fromR2: { book: string; chapter: number; verses: { verse: number; text: string }[] }[] =
     [];
-  const bootAllow = new Set<string>(BOOT_TEACHING_CHAPTER_REFS);
   const prefix = r2CorpusPrefix(translationId);
   let nextAfter: string | null = null;
   let done = true;
   let totalKeys = 0;
 
-  if (scope === "boot") {
-    // Slim first-launch pack: only teaching-set refs, even if R2 holds full PD.
-    for (const ref of BOOT_TEACHING_CHAPTER_REFS) {
-      const parsed = parseRef(ref);
-      if (!parsed) continue;
-      const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
-      const obj = await c.env.MEDIA.get(key);
-      if (!obj) continue;
-      try {
-        fromR2.push(parseR2ChapterJson(await obj.text()));
-      } catch {
-        /* skip invalid */
-      }
-    }
-  } else {
+  // Product install unit is whole-Bible. `scope=boot` still returns the full
+  // translation pack for boot tids (和合本/NASB) — never a teaching-set subset.
+  if (scope === "boot" || scope === "full") {
     // Collect sorted chapter object keys under the prefix.
     const keys: string[] = [];
     let listCursor: string | undefined;
@@ -226,20 +213,19 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     }),
   );
 
-  if (fromR2.length > 0 || (scope === "full" && totalKeys > 0)) {
+  if (fromR2.length > 0 || totalKeys > 0) {
     return c.json({
       translationId,
       version: 1,
       chapters: fromR2,
       source: "r2" as const,
       scope,
+      packKind: "whole-bible" as const,
       r2Prefix: prefix,
       chapterCount: fromR2.length,
-      totalChapterKeys: scope === "full" ? totalKeys : fromR2.length,
+      totalChapterKeys: totalKeys || fromR2.length,
       done,
       nextAfter: done ? null : nextAfter,
-      bootTeachingOnly: scope === "boot",
-      bootTeachingRefs: scope === "boot" ? [...bootAllow] : undefined,
     });
   }
 

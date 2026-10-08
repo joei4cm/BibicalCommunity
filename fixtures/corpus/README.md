@@ -16,9 +16,10 @@ All three boot tids must include:
 
 | tid | Role |
 |-----|------|
-| `cuvs` | 和合本简体 (boot) |
-| `web` | World English Bible (boot) |
-| `shinKyoudou` | 新共同訳 (boot) |
+| `cuvs` | 和合本简体 (boot whole-Bible) |
+| `nasb` | NASB (boot whole-Bible; licensed R2) |
+| `web` | World English Bible (downloadable whole-Bible) |
+| `shinKyoudou` | 新共同訳 (downloadable) |
 
 ## Downloadable peers
 
@@ -53,11 +54,11 @@ node scripts/seed-r2-from-json-fixtures.mjs http://127.0.0.1:8787 "$TOKEN"
 
 | Mode | translationId examples | How text arrives |
 |------|------------------------|------------------|
-| Boot (few) | `cuvs`, `web`, `shinKyoudou` | First launch downloads pack into IndexedDB `lh-bible` |
-| Download | `cuvt`, `kougo`, `kjv`, … | User taps Download → same local DB |
+| Boot (few) | `cuvs` (和合本), `nasb` | First launch installs **whole-Bible** pack into IndexedDB `lh-bible` |
+| Download | `web`, `cuvt`, `shinKyoudou`, `kougo`, `kjv`, … | User taps **Download whole Bible** → same local DB (never per-chapter UX) |
 | External | `esv`, `niv`, 恩道, 微读 | Deep link only |
 
-Clients download with `scope=boot` (slim teaching-set) or paged `scope=full&limit=100&after=…` — never one giant TypeScript pack.
+Clients download whole-Bible packs (`scope=full`, optional `limit`/`after` transport paging) — never TypeScript densify, never chapter-by-chapter product installs.
 
 **Full public-domain canon** (WEB / KJV / ASV) is **not** stored in git or TypeScript. Platform admins seed it into R2:
 

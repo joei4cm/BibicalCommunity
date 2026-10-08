@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  adjacentChapter,
+  bookIdFromSlug,
+  bookSlug,
   buildPartnerAuthUrl,
   getBook,
   isPartnerId,
@@ -126,52 +130,105 @@ function ChapterPane({
   if (!("verses" in chapter)) return <p className="muted">…</p>;
   return (
     <article
-      className="reader"
+      className="reader bible-prose"
+      data-testid="reader-prose"
       style={{
         ["--reader-size" as string]: `${fontSize}rem`,
         ["--reader-lh" as string]: String(lineHeight),
         fontFamily,
       }}
     >
-      <h2>
-        {chapter.book} {chapter.chapter}
-      </h2>
-      {chapter.verses.map((v) => {
-        const hl = highlightByVerse?.[v.verse];
-        return (
-          <p
-            className={`verse${selectedVerse === v.verse ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
-            key={v.verse}
-            style={hl ? { backgroundColor: hl } : undefined}
-            onClick={() => onSelectVerse(v.verse)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <span className="verse-num">{v.verse}</span>
-            {v.text}
-          </p>
-        );
-      })}
+      {/* WeDevote-style continuous chapter prose: chapter lead + superscript verses */}
+      <div className="bible-prose-body">
+        <span className="chapter-lead" aria-hidden="true">
+          {chapter.chapter}
+        </span>
+        {chapter.verses.map((v) => {
+          const hl = highlightByVerse?.[v.verse];
+          return (
+            <span
+              className={`verse-inline${selectedVerse === v.verse ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
+              key={v.verse}
+              style={hl ? { backgroundColor: hl } : undefined}
+              onClick={() => onSelectVerse(v.verse)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
+              }}
+              role="button"
+              tabIndex={0}
+              data-verse={v.verse}
+            >
+              <sup className="verse-num">{v.verse}</sup>
+              {v.text}{" "}
+            </span>
+          );
+        })}
+      </div>
     </article>
   );
 }
 
 export function BibleReader() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const params = useParams<{ tid?: string; bookSlug?: string; chapter?: string }>();
   const books = useMemo(() => listBooks(), []);
-  const [translationId, setTranslationId] = useState("web");
-  const [secondTranslationId, setSecondTranslationId] = useState("kjv");
+  const routeTid = params.tid && listTranslations().some((tr) => tr.id === params.tid) ? params.tid : "cuvs";
+  const routeBookId = bookIdFromSlug(params.bookSlug ?? "john") ?? "John";
+  const routeChapter = Math.max(1, Number(params.chapter ?? "1") || 1);
+
+  const [translationId, setTranslationId] = useState(routeTid);
+  const [secondTranslationId, setSecondTranslationId] = useState("nasb");
   const [dualPane, setDualPane] = useState(false);
-  const [bookId, setBookId] = useState("John");
-  const [chapterNum, setChapterNum] = useState(1);
+  const [bookId, setBookId] = useState(routeBookId);
+  const [chapterNum, setChapterNum] = useState(routeChapter);
   const [fontSize, setFontSize] = useState(1.15);
   const [lineHeight, setLineHeight] = useState(1.75);
   const [serif, setSerif] = useState(true);
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
+
+  /** Keep URL in WeDevote shape: /app/bible/{tid}/{book}/{chapter} */
+  const goToPassage = useCallback(
+    (tid: string, nextBookId: string, nextChapter: number, replace = false) => {
+      const book = getBook(nextBookId);
+      const capped = Math.min(Math.max(1, nextChapter), book?.chapters ?? 1);
+      const path = `/app/bible/${tid}/${bookSlug(nextBookId)}/${capped}`;
+      navigate(path, { replace });
+      setTranslationId(tid);
+      setBookId(nextBookId);
+      setChapterNum(capped);
+    },
+    [navigate],
+  );
+
+  useEffect(() => {
+    const book = getBook(routeBookId);
+    const capped = Math.min(routeChapter, book?.chapters ?? 1);
+    if (
+      routeTid !== translationId ||
+      routeBookId !== bookId ||
+      capped !== chapterNum
+    ) {
+      setTranslationId(routeTid);
+      setBookId(routeBookId);
+      setChapterNum(capped);
+    }
+    // Normalize incomplete URLs once.
+    if (!params.tid || !params.bookSlug || !params.chapter || capped !== routeChapter) {
+      goToPassage(routeTid, routeBookId, capped, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync from route params only
+  }, [routeTid, routeBookId, routeChapter, params.tid, params.bookSlug, params.chapter]);
+
+  const prevCursor = useMemo(
+    () => adjacentChapter(bookId, chapterNum, -1),
+    [bookId, chapterNum],
+  );
+  const nextCursor = useMemo(
+    () => adjacentChapter(bookId, chapterNum, 1),
+    [bookId, chapterNum],
+  );
 
   const TYPO_PRESETS = {
     compact: { fontSize: 1.0, lineHeight: 1.35, serif: false },
@@ -240,11 +297,11 @@ export function BibleReader() {
   useEffect(() => {
     void ensureBootCorpusSeeded(async (tid) => {
       try {
-        // Boot must stay slim (teaching-set), even when R2 holds full PD WEB.
+        // Boot = whole-Bible pack for 和合本 / NASB (not chapter subsets).
         const pack = await api<{
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=boot`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=full`);
         return { chapters: pack.chapters, source: pack.source };
       } catch {
         return null;
@@ -412,16 +469,19 @@ export function BibleReader() {
     }
   }
 
-  /** Download translation pack from API → install into IndexedDB local corpus DB (paged). */
+  /** Download whole-Bible translation pack → IndexedDB (one install unit, not chapter UX). */
   async function downloadCorpusPack(targetTid = translationId) {
     try {
       setError(null);
       setDownloadingTid(targetTid);
+      // Prefer a single whole-Bible response; fall back to paging only for large R2 prefixes.
       let after: string | null = null;
       let installedTotal = 0;
       let pages = 0;
       for (;;) {
-        const qs = new URLSearchParams({ scope: "full", limit: "100" });
+        const qs = new URLSearchParams({ scope: "full" });
+        // Optional transport paging — product still installs as one whole-Bible pack.
+        if (pages > 0 || after) qs.set("limit", "200");
         if (after) qs.set("after", after);
         const pack = await api<{
           translationId: string;
@@ -430,6 +490,7 @@ export function BibleReader() {
           done?: boolean;
           nextAfter?: string | null;
           totalChapterKeys?: number;
+          packKind?: string;
           error?: string;
         }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?${qs.toString()}`);
         if (!pack.chapters?.length && pages === 0) {
@@ -544,13 +605,69 @@ export function BibleReader() {
     await refreshNotes();
   }
 
-  return (
-    <section className="fade-up">
-      <p className="muted">{t("app.tagline")}</p>
-      <h1 className="brand">{t("app.name")}</h1>
+  const activeTranslation = translations.find((tr) => tr.id === translationId);
+  const passageTitle = `${currentBook?.name[bookNameLocale] ?? bookId} ${chapterNum}`;
+  const prevLabel = prevCursor
+    ? `${t("reader.prevChapter")}: ${getBook(prevCursor.bookId)?.name[bookNameLocale] ?? prevCursor.bookId} ${prevCursor.chapter}`
+    : t("reader.prevChapter");
+  const nextLabel = nextCursor
+    ? `${t("reader.nextChapter")}: ${getBook(nextCursor.bookId)?.name[bookNameLocale] ?? nextCursor.bookId} ${nextCursor.chapter}`
+    : t("reader.nextChapter");
 
-      <div className="toolbar">
-        <select value={translationId} onChange={(e) => setTranslationId(e.target.value)} aria-label={t("reader.translations")}>
+  const renderChapterNav = (testPrefix: string) => (
+    <nav className="bible-chapter-nav" aria-label="Chapter">
+      {prevCursor ? (
+        <Link
+          className="btn ghost"
+          data-testid={`${testPrefix}-prev-chapter`}
+          to={`/app/bible/${translationId}/${bookSlug(prevCursor.bookId)}/${prevCursor.chapter}`}
+          onClick={(e) => {
+            e.preventDefault();
+            goToPassage(translationId, prevCursor.bookId, prevCursor.chapter);
+          }}
+        >
+          {prevLabel}
+        </Link>
+      ) : (
+        <span className="muted">{t("reader.prevChapter")}</span>
+      )}
+      {nextCursor ? (
+        <Link
+          className="btn ghost"
+          data-testid={`${testPrefix}-next-chapter`}
+          to={`/app/bible/${translationId}/${bookSlug(nextCursor.bookId)}/${nextCursor.chapter}`}
+          onClick={(e) => {
+            e.preventDefault();
+            goToPassage(translationId, nextCursor.bookId, nextCursor.chapter);
+          }}
+        >
+          {nextLabel}
+        </Link>
+      ) : (
+        <span className="muted">{t("reader.nextChapter")}</span>
+      )}
+    </nav>
+  );
+
+  return (
+    <section className="fade-up bible-reader" data-testid="bible-reader">
+      {/* WeDevote-shaped primary surface: translation · passage · prev/next · prose */}
+      <header className="bible-reader-header">
+        <p className="muted bible-reader-translation" data-testid="reader-translation-label">
+          {activeTranslation?.name[locale] ?? translationId}
+        </p>
+        <h1 className="bible-reader-title" data-testid="reader-passage-title">
+          {passageTitle}
+        </h1>
+        {renderChapterNav("reader")}
+      </header>
+
+      <div className="bible-passage-controls" data-testid="reader-passage-controls">
+        <select
+          value={translationId}
+          onChange={(e) => goToPassage(e.target.value, bookId, chapterNum)}
+          aria-label={t("reader.translations")}
+        >
           {translations.map((tr) => (
             <option key={tr.id} value={tr.id}>
               {tr.name[locale] ?? tr.abbreviation}
@@ -560,12 +677,7 @@ export function BibleReader() {
         </select>
         <select
           value={bookId}
-          onChange={(e) => {
-            const next = e.target.value;
-            setBookId(next);
-            const book = getBook(next);
-            if (book && chapterNum > book.chapters) setChapterNum(1);
-          }}
+          onChange={(e) => goToPassage(translationId, e.target.value, 1)}
           aria-label="Book"
         >
           {books.map((b) => (
@@ -576,7 +688,7 @@ export function BibleReader() {
         </select>
         <select
           value={chapterNum}
-          onChange={(e) => setChapterNum(Number(e.target.value))}
+          onChange={(e) => goToPassage(translationId, bookId, Number(e.target.value))}
           aria-label="Chapter"
         >
           {chapterOptions.map((n) => (
@@ -585,228 +697,7 @@ export function BibleReader() {
             </option>
           ))}
         </select>
-        <button type="button" className={`btn ghost${dualPane ? " active-toggle" : ""}`} onClick={() => setDualPane((d) => !d)}>
-          {t("reader.dual")}
-        </button>
-        <button type="button" className="btn ghost" onClick={() => void addBookmark()}>
-          {t("reader.bookmark")}
-        </button>
-        <button type="button" className="btn ghost" onClick={() => void grantEntitlement()}>
-          {t("reader.entitlement")}
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          data-testid="reader-corpus-download"
-          disabled={downloadingTid === translationId}
-          onClick={() => void downloadCorpusPack()}
-        >
-          {downloadingTid === translationId
-            ? t("reader.corpusCatalogDownloading")
-            : t("reader.corpusDownload")}
-        </button>
-        <button
-          type="button"
-          className={`btn ghost${showCatalog ? " active-toggle" : ""}`}
-          data-testid="reader-corpus-catalog-toggle"
-          onClick={() => setShowCatalog((v) => !v)}
-        >
-          {t("reader.corpusCatalog")}
-        </button>
       </div>
-      {corpusHint ? (
-        <p className="muted" data-testid="reader-corpus-hint">
-          {corpusHint}
-        </p>
-      ) : null}
-
-      {showCatalog ? (
-        <div className="panel" data-testid="reader-corpus-catalog">
-          <h2 style={{ marginTop: 0 }}>{t("reader.corpusCatalog")}</h2>
-          <p className="muted">{t("reader.corpusCatalogHint")}</p>
-          <ul className="list">
-            {corpusCatalog.map((pack) => {
-              const installed = installedByTid[pack.translationId];
-              const busy = downloadingTid === pack.translationId;
-              const active = pack.translationId === translationId;
-              return (
-                <li key={pack.translationId} data-testid={`corpus-catalog-row-${pack.translationId}`}>
-                  <div className="corpus-catalog-row">
-                    <div className="corpus-catalog-meta">
-                      <strong>
-                        {pack.name[locale] ?? pack.translationId}
-                        {active ? " · ★" : ""}
-                      </strong>
-                      <span className="muted">
-                        {catalogModeLabel(pack.installMode)}
-                        {installed
-                          ? ` · ${t("reader.corpusCatalogInstalled")} ${installed.chapterCount} ${t("reader.corpusCatalogChapters")}`
-                          : pack.installMode !== "external"
-                            ? ` · ${pack.chapterRefs.length} ${t("reader.corpusCatalogChapters")}`
-                            : ""}
-                        {pack.fullPackAvailable && pack.fullPackChapterCount
-                          ? ` · ${t("reader.corpusCatalogFullPack")} ${pack.fullPackChapterCount}`
-                          : ""}
-                      </span>
-                    </div>
-                    <div className="corpus-catalog-actions">
-                      {pack.installMode !== "external" ? (
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          data-testid={`corpus-catalog-download-${pack.translationId}`}
-                          disabled={busy}
-                          onClick={() => void downloadCorpusPack(pack.translationId)}
-                        >
-                          {busy
-                            ? t("reader.corpusCatalogDownloading")
-                            : pack.fullPackAvailable
-                              ? t("reader.corpusDownloadFull")
-                              : t("reader.corpusDownload")}
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        data-testid={`corpus-catalog-open-${pack.translationId}`}
-                        onClick={() => {
-                          setTranslationId(pack.translationId);
-                          setShowCatalog(false);
-                        }}
-                      >
-                        {t("reader.corpusCatalogOpen")}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="panel typography-panel">
-        <h2 style={{ marginTop: 0 }}>{t("reader.typography")}</h2>
-        <div className="toolbar">
-          {(
-            [
-              ["compact", "reader.presetCompact"],
-              ["comfortable", "reader.presetComfortable"],
-              ["spacious", "reader.presetSpacious"],
-            ] as const
-          ).map(([id, key]) => (
-            <button
-              key={id}
-              type="button"
-              className={`btn ghost${preset === id ? " active-toggle" : ""}`}
-              onClick={() => applyPreset(id)}
-            >
-              {t(key)}
-            </button>
-          ))}
-        </div>
-        <div className="toolbar">
-          <button type="button" className="btn ghost" onClick={() => setFontSize((s) => Math.min(1.8, s + 0.1))}>
-            A+
-          </button>
-          <button type="button" className="btn ghost" onClick={() => setFontSize((s) => Math.max(0.9, s - 0.1))}>
-            A-
-          </button>
-          <button
-            type="button"
-            className={`btn ghost${serif ? " active-toggle" : ""}`}
-            onClick={() => setSerif(true)}
-          >
-            {t("reader.serif")}
-          </button>
-          <button
-            type="button"
-            className={`btn ghost${!serif ? " active-toggle" : ""}`}
-            onClick={() => setSerif(false)}
-          >
-            {t("reader.sans")}
-          </button>
-        </div>
-        <div className="field">
-          <label htmlFor="reader-skin">{t("reader.skin")}</label>
-          <select
-            id="reader-skin"
-            data-testid="reader-skin"
-            value={readerSkin}
-            onChange={(e) => setReaderSkin(e.target.value as ReaderSkinId)}
-          >
-            {READER_SKIN_IDS.map((id) => (
-              <option key={id} value={id}>
-                {t(`reader.skin.${id}`)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="reader-lh">
-            {t("reader.lineHeight")}: {lineHeight.toFixed(2)}
-          </label>
-          <input
-            id="reader-lh"
-            type="range"
-            min={1.2}
-            max={2.4}
-            step={0.05}
-            value={lineHeight}
-            onChange={(e) => setLineHeight(Number(e.target.value))}
-          />
-        </div>
-      </div>
-
-      {dualPane && (
-        <div className="toolbar">
-          <select
-            value={secondTranslationId}
-            onChange={(e) => setSecondTranslationId(e.target.value)}
-            aria-label={`${t("reader.translations")} 2`}
-          >
-            {translations.map((tr) => (
-              <option key={tr.id} value={tr.id}>
-                {tr.name[locale] ?? tr.abbreviation}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div className="toolbar highlight-colors" aria-label={t("reader.highlight")}>
-        <span className="muted">{t("reader.highlight")}</span>
-        {HIGHLIGHT_COLORS.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className="swatch"
-            style={{ background: c.value }}
-            aria-label={`${t("reader.highlight")} ${c.id}`}
-            onClick={() => void addHighlight(c.id)}
-          />
-        ))}
-      </div>
-
-      {selectedVerse != null && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>
-            {t("reader.note")} · {bookId} {chapterNum}:{selectedVerse}
-          </h2>
-          <div className="field">
-            <textarea
-              rows={3}
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder={t("reader.note")}
-            />
-          </div>
-          <button type="button" className="btn" onClick={() => void saveNote()}>
-            {t("reader.saveNote")}
-          </button>
-          {noteMsg && <p className="muted">{humanizeStatus(t, noteMsg)}</p>}
-        </div>
-      )}
 
       {error && <p className="muted">{humanizeStatus(t, error)}</p>}
 
@@ -839,43 +730,265 @@ export function BibleReader() {
         )}
       </div>
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("reader.bookmark")}</h2>
-        <ul className="list">
-          {bookmarks.length === 0 && <li className="muted">—</li>}
-          {bookmarks.map((b) => (
-            <li key={b.id}>
-              <strong>{b.label}</strong>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {renderChapterNav("reader-bottom")}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("reader.notesPanel")}</h2>
-        <ul className="list">
-          {decryptedNotes.length === 0 && <li className="muted">{t("reader.noNotes")}</li>}
-          {decryptedNotes.map((n) => (
-            <li key={n.id}>
-              <strong>{n.label}</strong>
-              <p style={{ margin: "0.35rem 0 0" }}>{n.text}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <div className="bible-reader-tools">
+        <div className="toolbar">
+          <button type="button" className={`btn ghost${dualPane ? " active-toggle" : ""}`} onClick={() => setDualPane((d) => !d)}>
+            {t("reader.dual")}
+          </button>
+          <button type="button" className="btn ghost" onClick={() => void addBookmark()}>
+            {t("reader.bookmark")}
+          </button>
+          <button type="button" className="btn ghost" onClick={() => void grantEntitlement()}>
+            {t("reader.entitlement")}
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            data-testid="reader-corpus-download"
+            disabled={downloadingTid === translationId}
+            onClick={() => void downloadCorpusPack()}
+          >
+            {downloadingTid === translationId
+              ? t("reader.corpusCatalogDownloading")
+              : t("reader.corpusDownloadFull")}
+          </button>
+          <button
+            type="button"
+            className={`btn ghost${showCatalog ? " active-toggle" : ""}`}
+            data-testid="reader-corpus-catalog-toggle"
+            onClick={() => setShowCatalog((v) => !v)}
+          >
+            {t("reader.corpusCatalog")}
+          </button>
+        </div>
+        {corpusHint ? (
+          <p className="muted" data-testid="reader-corpus-hint">
+            {corpusHint}
+            {" · "}
+            {t("reader.wholeBiblePack")}
+          </p>
+        ) : null}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("reader.study")}</h2>
-        <ul className="list">
-          {studyMaterials.map((m) => (
-            <li key={m.id}>
-              <a href={m.url} target="_blank" rel="noreferrer">
-                {m.title}
-              </a>
-              <div className="muted">{m.license}</div>
-            </li>
+        {showCatalog ? (
+          <div className="panel" data-testid="reader-corpus-catalog">
+            <h2 style={{ marginTop: 0 }}>{t("reader.corpusCatalog")}</h2>
+            <p className="muted">{t("reader.corpusCatalogHint")}</p>
+            <ul className="list">
+              {corpusCatalog.map((pack) => {
+                const installed = installedByTid[pack.translationId];
+                const busy = downloadingTid === pack.translationId;
+                const active = pack.translationId === translationId;
+                return (
+                  <li key={pack.translationId} data-testid={`corpus-catalog-row-${pack.translationId}`}>
+                    <div className="corpus-catalog-row">
+                      <div className="corpus-catalog-meta">
+                        <strong>
+                          {pack.name[locale] ?? pack.translationId}
+                          {active ? " · ★" : ""}
+                        </strong>
+                        <span className="muted">
+                          {catalogModeLabel(pack.installMode)}
+                          {pack.installMode !== "external" ? ` · ${t("reader.wholeBiblePack")}` : ""}
+                          {installed
+                            ? ` · ${t("reader.corpusCatalogInstalled")} ${installed.chapterCount}`
+                            : ""}
+                        </span>
+                      </div>
+                      <div className="corpus-catalog-actions">
+                        {pack.installMode !== "external" ? (
+                          <button
+                            type="button"
+                            className="btn ghost"
+                            data-testid={`corpus-catalog-download-${pack.translationId}`}
+                            disabled={busy}
+                            onClick={() => void downloadCorpusPack(pack.translationId)}
+                          >
+                            {busy ? t("reader.corpusCatalogDownloading") : t("reader.corpusDownloadFull")}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          data-testid={`corpus-catalog-open-${pack.translationId}`}
+                          onClick={() => {
+                            goToPassage(pack.translationId, bookId, chapterNum);
+                            setShowCatalog(false);
+                          }}
+                        >
+                          {t("reader.corpusCatalogOpen")}
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        <details className="panel typography-panel">
+          <summary>{t("reader.typography")}</summary>
+          <div className="toolbar">
+            {(
+              [
+                ["compact", "reader.presetCompact"],
+                ["comfortable", "reader.presetComfortable"],
+                ["spacious", "reader.presetSpacious"],
+              ] as const
+            ).map(([id, key]) => (
+              <button
+                key={id}
+                type="button"
+                className={`btn ghost${preset === id ? " active-toggle" : ""}`}
+                onClick={() => applyPreset(id)}
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
+          <div className="toolbar">
+            <button type="button" className="btn ghost" onClick={() => setFontSize((s) => Math.min(1.8, s + 0.1))}>
+              A+
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setFontSize((s) => Math.max(0.9, s - 0.1))}>
+              A-
+            </button>
+            <button
+              type="button"
+              className={`btn ghost${serif ? " active-toggle" : ""}`}
+              onClick={() => setSerif(true)}
+            >
+              {t("reader.serif")}
+            </button>
+            <button
+              type="button"
+              className={`btn ghost${!serif ? " active-toggle" : ""}`}
+              onClick={() => setSerif(false)}
+            >
+              {t("reader.sans")}
+            </button>
+          </div>
+          <div className="field">
+            <label htmlFor="reader-skin">{t("reader.skin")}</label>
+            <select
+              id="reader-skin"
+              data-testid="reader-skin"
+              value={readerSkin}
+              onChange={(e) => setReaderSkin(e.target.value as ReaderSkinId)}
+            >
+              {READER_SKIN_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {t(`reader.skin.${id}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="reader-lh">
+              {t("reader.lineHeight")}: {lineHeight.toFixed(2)}
+            </label>
+            <input
+              id="reader-lh"
+              type="range"
+              min={1.2}
+              max={2.4}
+              step={0.05}
+              value={lineHeight}
+              onChange={(e) => setLineHeight(Number(e.target.value))}
+            />
+          </div>
+        </details>
+
+        {dualPane && (
+          <div className="toolbar">
+            <select
+              value={secondTranslationId}
+              onChange={(e) => setSecondTranslationId(e.target.value)}
+              aria-label={`${t("reader.translations")} 2`}
+            >
+              {translations.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.name[locale] ?? tr.abbreviation}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="toolbar highlight-colors" aria-label={t("reader.highlight")}>
+          <span className="muted">{t("reader.highlight")}</span>
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="swatch"
+              style={{ background: c.value }}
+              aria-label={`${t("reader.highlight")} ${c.id}`}
+              onClick={() => void addHighlight(c.id)}
+            />
           ))}
-        </ul>
+        </div>
+
+        {selectedVerse != null && (
+          <div className="panel">
+            <h2 style={{ marginTop: 0 }}>
+              {t("reader.note")} · {bookId} {chapterNum}:{selectedVerse}
+            </h2>
+            <div className="field">
+              <textarea
+                rows={3}
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder={t("reader.note")}
+              />
+            </div>
+            <button type="button" className="btn" onClick={() => void saveNote()}>
+              {t("reader.saveNote")}
+            </button>
+            {noteMsg && <p className="muted">{humanizeStatus(t, noteMsg)}</p>}
+          </div>
+        )}
+
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("reader.bookmark")}</h2>
+          <ul className="list">
+            {bookmarks.length === 0 && <li className="muted">—</li>}
+            {bookmarks.map((b) => (
+              <li key={b.id}>
+                <strong>{b.label}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("reader.notesPanel")}</h2>
+          <ul className="list">
+            {decryptedNotes.length === 0 && <li className="muted">{t("reader.noNotes")}</li>}
+            {decryptedNotes.map((n) => (
+              <li key={n.id}>
+                <strong>{n.label}</strong>
+                <p style={{ margin: "0.35rem 0 0" }}>{n.text}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>{t("reader.study")}</h2>
+          <ul className="list">
+            {studyMaterials.map((m) => (
+              <li key={m.id}>
+                <a href={m.url} target="_blank" rel="noreferrer">
+                  {m.title}
+                </a>
+                <div className="muted">{m.license}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );

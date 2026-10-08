@@ -27,7 +27,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     name: { "zh-CN": "世界英文圣经", en: "World English Bible", ja: "世界英語聖書" },
     language: "en",
     license: "public-domain",
-    /** Boot default — downloaded into local DB; not embedded in TypeScript. */
+    /** Downloadable whole-Bible PD pack (not a boot default). */
     provider: "r2",
     available: true,
   },
@@ -84,9 +84,9 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     abbreviation: "NASB",
     name: { "zh-CN": "新美国标准译本", en: "New American Standard Bible", ja: "NASB" },
     language: "en",
-    license: "external",
-    provider: "external",
-    externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NASB",
+    /** Licensed — install as whole-Bible R2 pack (never TypeScript densify). */
+    license: "licensed",
+    provider: "r2",
     available: true,
   },
   {
