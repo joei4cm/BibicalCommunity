@@ -738,8 +738,10 @@ test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaff
     const mark = await loadChapter(tid, { book: "Mark", chapter: 1 });
     assert.ok(!("external" in mark), tid);
     assert.equal(mark.book, "Mark");
-    assert.ok(mark.verses.length >= 11, tid);
+    assert.ok(mark.verses.length >= 45, tid);
+    assert.equal(mark.verses[mark.verses.length - 1]?.verse, 45, tid);
     assert.match(mark.verses[0]?.text ?? "", /样例|樣例|見本|福音|はじめ/);
+    assert.match(mark.verses.find((v) => v.verse === 15)?.text ?? "", /样例|樣例|見本|神的国|神の国|悔改|悔い改/);
 
     const exod = await loadChapter(tid, { book: "Exod", chapter: 20 });
     assert.ok(!("external" in exod), tid);
@@ -874,18 +876,26 @@ test("loadChapter returns PD Mark.1 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Mark");
   assert.equal(web.chapter, 1);
-  assert.ok(web.verses.length >= 11);
+  assert.ok(web.verses.length >= 45);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 45);
   assert.match(web.verses[0]?.text ?? "", /beginning of the Good News|Jesus Christ/i);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /John came baptizing|baptism of repentance/i);
+  assert.match(web.verses.find((v) => v.verse === 15)?.text ?? "", /Kingdom is at hand|Repent.*believe/i);
+  assert.match(web.verses.find((v) => v.verse === 41)?.text ?? "", /Be made clean|I want to/i);
 
   const kjv = await loadChapter("kjv", { book: "Mk", chapter: 1 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Mark");
+  assert.ok(kjv.verses.length >= 45);
   assert.match(kjv.verses[0]?.text ?? "", /beginning of the gospel|Son of God/i);
+  assert.match(kjv.verses.find((v) => v.verse === 17)?.text ?? "", /fishers of men/i);
 
   const asv = await loadChapter("asv", { book: "mark", chapter: 1 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 45);
   assert.match(asv.verses.find((v) => v.verse === 3)?.text ?? "", /voice of one crying|Make ye ready/i);
+  assert.match(asv.verses.find((v) => v.verse === 45)?.text ?? "", /desert places|every quarter/i);
 });
 
 test("loadChapter returns PD Exodus.20 scaffolds (web/kjv/asv)", async () => {
@@ -914,12 +924,15 @@ test("loadChapter returns zh/ja Mark.1 and Exodus.20 scaffolds", async () => {
   const cuvsMark = await loadChapter("cuvs", { book: "马可福音", chapter: 1 });
   assert.ok(!("external" in cuvsMark));
   assert.equal(cuvsMark.book, "Mark");
-  assert.ok(cuvsMark.verses.length >= 11);
+  assert.ok(cuvsMark.verses.length >= 45);
   assert.match(cuvsMark.verses[0]?.text ?? "", /样例|耶稣基督|福音的起头/);
+  assert.match(cuvsMark.verses.find((v) => v.verse === 15)?.text ?? "", /样例|神的国|悔改|信福音/);
 
   const kougoMark = await loadChapter("kougo", { book: "マルコ", chapter: 1 });
   assert.ok(!("external" in kougoMark));
+  assert.ok(kougoMark.verses.length >= 45);
   assert.match(kougoMark.verses[0]?.text ?? "", /見本|イエス・キリスト|福音のはじめ/);
+  assert.match(kougoMark.verses.find((v) => v.verse === 15)?.text ?? "", /見本|神の国|悔い改/);
 
   const cuvsExod = await loadChapter("cuvs", { book: "出埃及记", chapter: 20 });
   assert.ok(!("external" in cuvsExod));
