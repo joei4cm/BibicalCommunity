@@ -1,5 +1,17 @@
-/** Chinese Contemporary Bible–style denser Philippians 4 denser rejoice/peace scaffold (vv.4–9 + 11–13). (not a licensed corpus dump). */
+/** Chinese Contemporary Bible–style denser Philippians 4 denser full rejoice/peace chapter scaffold (vv.1–23). (not a licensed corpus dump). */
 export const CCB_PHIL_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "（样例）我所亲爱、所想念的弟兄们，你们就是我的喜乐，我的冠冕。我亲爱的弟兄，你们应当靠主站立得稳。",
+  },
+  {
+    verse: 2,
+    text: "（样例）我劝友阿爹和循都基，要在主里同心。",
+  },
+  {
+    verse: 3,
+    text: "（样例）我也求你这真实同负一轭的，帮助这两个女人；她们在福音上曾与我一同劳苦；还有革利免，并其余和我一同做工的，他们的名字都在生命册上。",
+  },
   {
     verse: 4,
     text: "（样例）你们要靠主常常喜乐。我再说，你们要喜乐。",
@@ -25,6 +37,10 @@ export const CCB_PHIL_4: { verse: number; text: string }[] = [
     text: "（样例）你们在我身上所学习的，所领受的，所听见的，所看见的，这些事你们都要去行，赐平安的上帝就必与你们同在。",
   },
   {
+    verse: 10,
+    text: "（样例）我靠主大大地喜乐，因为你们思念我的心如今又发生；你们向来就思念我，只是没有机会。",
+  },
+  {
     verse: 11,
     text: "（样例）我并不是因缺乏说这话；我无论在什么景况都可以知足，这是我已经学会了。",
   },
@@ -35,5 +51,45 @@ export const CCB_PHIL_4: { verse: number; text: string }[] = [
   {
     verse: 13,
     text: "（样例）我靠着那加给我力量的，凡事都能做。",
+  },
+  {
+    verse: 14,
+    text: "（样例）然而，你们和我同受患难原是美事。",
+  },
+  {
+    verse: 15,
+    text: "（样例）腓立比人哪，你们也知道我初传福音、离了马其顿的时候，论到授受的事，除了你们以外，并没有别的教会供给我。",
+  },
+  {
+    verse: 16,
+    text: "（样例）就是我在帖撒罗尼迦，你们也一次两次地打发人供给我的需用。",
+  },
+  {
+    verse: 17,
+    text: "（样例）我并不求什么馈送，所求的就是你们的果子渐渐增多，归在你们的账上。",
+  },
+  {
+    verse: 18,
+    text: "（样例）但我样样都有，并且有余。我已经充足，因我从以巴弗提受了你们的馈送，当作极美的香气，为上帝所收纳、所喜悦的祭物。",
+  },
+  {
+    verse: 19,
+    text: "（样例）我的上帝必照他荣耀的丰富，在基督耶稣里使你们一切所需用的都充足。",
+  },
+  {
+    verse: 20,
+    text: "（样例）愿荣耀归给我们的父上帝，直到永永远远。阿们！",
+  },
+  {
+    verse: 21,
+    text: "（样例）请问在基督耶稣里的各位圣徒安。在我这里的众弟兄都问你们安。",
+  },
+  {
+    verse: 22,
+    text: "（样例）众圣徒都问你们安。在凯撒家里的人特特地问你们安。",
+  },
+  {
+    verse: 23,
+    text: "（样例）愿主耶稣基督的恩常在你们心里！",
   },
 ];

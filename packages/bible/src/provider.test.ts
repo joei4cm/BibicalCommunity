@@ -618,8 +618,11 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const phil = await loadChapter(tid, { book: "Phil", chapter: 4 });
     assert.ok(!("external" in phil), tid);
-    assert.ok(phil.verses.length >= 9, tid);
+    assert.ok(phil.verses.length >= 23, tid);
+    assert.equal(phil.verses[0]?.verse, 1, tid);
+    assert.equal(phil.verses[phil.verses.length - 1]?.verse, 23, tid);
     assert.match(phil.verses.find((v) => v.verse === 4)?.text ?? "", /样例|樣例|見本|喜乐|喜樂|喜び/);
+    assert.match(phil.verses.find((v) => v.verse === 19)?.text ?? "", /样例|樣例|見本|充足|満た/);
 
     const cor = await loadChapter(tid, { book: "1Cor", chapter: 13 });
     assert.ok(!("external" in cor), tid);
@@ -1089,18 +1092,25 @@ test("loadChapter returns PD Philippians.4 scaffolds (web/kjv/asv)", async () =>
   assert.equal(web.source, "local");
   assert.equal(web.book, "Phil");
   assert.equal(web.chapter, 4);
-  assert.ok(web.verses.length >= 9);
+  assert.ok(web.verses.length >= 23);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 23);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Rejoice in the Lord/i);
   assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /all things through Christ/i);
+  assert.match(web.verses.find((v) => v.verse === 19)?.text ?? "", /supply every need|riches in glory/i);
 
   const kjv = await loadChapter("kjv", { book: "Philippians", chapter: 4 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Phil");
+  assert.ok(kjv.verses.length >= 23);
   assert.match(kjv.verses.find((v) => v.verse === 7)?.text ?? "", /peace of God/i);
+  assert.match(kjv.verses.find((v) => v.verse === 19)?.text ?? "", /supply all your need/i);
 
   const asv = await loadChapter("asv", { book: "Php", chapter: 4 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 23);
   assert.match(asv.verses.find((v) => v.verse === 13)?.text ?? "", /all things in him/i);
+  assert.match(asv.verses.find((v) => v.verse === 23)?.text ?? "", /grace of the Lord Jesus Christ/i);
 });
 
 test("loadChapter returns PD 1Corinthians.13 scaffolds (web/kjv/asv)", async () => {
@@ -1129,11 +1139,15 @@ test("loadChapter returns zh/ja Philippians.4 and 1Corinthians.13 scaffolds", as
   const cuvsPhil = await loadChapter("cuvs", { book: "腓立比书", chapter: 4 });
   assert.ok(!("external" in cuvsPhil));
   assert.equal(cuvsPhil.book, "Phil");
+  assert.ok(cuvsPhil.verses.length >= 23);
   assert.match(cuvsPhil.verses.find((v) => v.verse === 4)?.text ?? "", /样例|常常喜乐/);
+  assert.match(cuvsPhil.verses.find((v) => v.verse === 19)?.text ?? "", /样例|一切所需|充足/);
 
   const kougoPhil = await loadChapter("kougo", { book: "ピリピ", chapter: 4 });
   assert.ok(!("external" in kougoPhil));
+  assert.ok(kougoPhil.verses.length >= 23);
   assert.match(kougoPhil.verses.find((v) => v.verse === 4)?.text ?? "", /見本|常に喜び/);
+  assert.match(kougoPhil.verses.find((v) => v.verse === 19)?.text ?? "", /見本|いっさいの必要|満た/);
 
   const cuvsCor = await loadChapter("cuvs", { book: "哥林多前书", chapter: 13 });
   assert.ok(!("external" in cuvsCor));

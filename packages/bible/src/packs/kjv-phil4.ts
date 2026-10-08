@@ -1,5 +1,17 @@
-/** Public-domain: KJV Philippians 4 denser rejoice/peace scaffold (vv.4–9 + 11–13). */
+/** Public-domain: KJV Philippians 4 denser full rejoice/peace chapter scaffold (vv.1–23). */
 export const KJV_PHIL_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "Therefore, my brethren dearly beloved and longed for, my joy and crown, so stand fast in the Lord, my dearly beloved.",
+  },
+  {
+    verse: 2,
+    text: "I beseech Euodias, and beseech Syntyche, that they be of the same mind in the Lord.",
+  },
+  {
+    verse: 3,
+    text: "And I intreat thee also, true yokefellow, help those women which laboured with me in the gospel, with Clement also, and with other my fellowlabourers, whose names are in the book of life.",
+  },
   {
     verse: 4,
     text: "Rejoice in the Lord alway: and again I say, Rejoice.",
@@ -25,6 +37,10 @@ export const KJV_PHIL_4: { verse: number; text: string }[] = [
     text: "Those things, which ye have both learned, and received, and heard, and seen in me, do: and the God of peace shall be with you.",
   },
   {
+    verse: 10,
+    text: "But I rejoiced in the Lord greatly, that now at the last your care of me hath flourished again; wherein ye were also careful, but ye lacked opportunity.",
+  },
+  {
     verse: 11,
     text: "Not that I speak in respect of want: for I have learned, in whatsoever state I am, therewith to be content.",
   },
@@ -35,5 +51,45 @@ export const KJV_PHIL_4: { verse: number; text: string }[] = [
   {
     verse: 13,
     text: "I can do all things through Christ which strengtheneth me.",
+  },
+  {
+    verse: 14,
+    text: "Notwithstanding ye have well done, that ye did communicate with my affliction.",
+  },
+  {
+    verse: 15,
+    text: "Now ye Philippians know also, that in the beginning of the gospel, when I departed from Macedonia, no church communicated with me as concerning giving and receiving, but ye only.",
+  },
+  {
+    verse: 16,
+    text: "For even in Thessalonica ye sent once and again unto my necessity.",
+  },
+  {
+    verse: 17,
+    text: "Not because I desire a gift: but I desire fruit that may abound to your account.",
+  },
+  {
+    verse: 18,
+    text: "But I have all, and abound: I am full, having received of Epaphroditus the things which were sent from you, an odour of a sweet smell, a sacrifice acceptable, wellpleasing to God.",
+  },
+  {
+    verse: 19,
+    text: "But my God shall supply all your need according to his riches in glory by Christ Jesus.",
+  },
+  {
+    verse: 20,
+    text: "Now unto God and our Father be glory for ever and ever. Amen.",
+  },
+  {
+    verse: 21,
+    text: "Salute every saint in Christ Jesus. The brethren which are with me greet you.",
+  },
+  {
+    verse: 22,
+    text: "All the saints salute you, chiefly they that are of Caesar's household.",
+  },
+  {
+    verse: 23,
+    text: "The grace of our Lord Jesus Christ be with you all. Amen.",
   },
 ];
