@@ -612,41 +612,45 @@ export function BibleReader() {
               const active = pack.translationId === translationId;
               return (
                 <li key={pack.translationId} data-testid={`corpus-catalog-row-${pack.translationId}`}>
-                  <div className="toolbar" style={{ margin: 0, alignItems: "center" }}>
-                    <strong>
-                      {pack.name[locale] ?? pack.translationId}
-                      {active ? " · ★" : ""}
-                    </strong>
-                    <span className="muted">
-                      {catalogModeLabel(pack.installMode)}
-                      {installed
-                        ? ` · ${t("reader.corpusCatalogInstalled")} ${installed.chapterCount} ${t("reader.corpusCatalogChapters")}`
-                        : pack.installMode !== "external"
-                          ? ` · ${pack.chapterRefs.length} ${t("reader.corpusCatalogChapters")}`
-                          : ""}
-                    </span>
-                    {pack.installMode !== "external" ? (
+                  <div className="corpus-catalog-row">
+                    <div className="corpus-catalog-meta">
+                      <strong>
+                        {pack.name[locale] ?? pack.translationId}
+                        {active ? " · ★" : ""}
+                      </strong>
+                      <span className="muted">
+                        {catalogModeLabel(pack.installMode)}
+                        {installed
+                          ? ` · ${t("reader.corpusCatalogInstalled")} ${installed.chapterCount} ${t("reader.corpusCatalogChapters")}`
+                          : pack.installMode !== "external"
+                            ? ` · ${pack.chapterRefs.length} ${t("reader.corpusCatalogChapters")}`
+                            : ""}
+                      </span>
+                    </div>
+                    <div className="corpus-catalog-actions">
+                      {pack.installMode !== "external" ? (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          data-testid={`corpus-catalog-download-${pack.translationId}`}
+                          disabled={busy}
+                          onClick={() => void downloadCorpusPack(pack.translationId)}
+                        >
+                          {busy ? t("reader.corpusCatalogDownloading") : t("reader.corpusDownload")}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="btn ghost"
-                        data-testid={`corpus-catalog-download-${pack.translationId}`}
-                        disabled={busy}
-                        onClick={() => void downloadCorpusPack(pack.translationId)}
+                        data-testid={`corpus-catalog-open-${pack.translationId}`}
+                        onClick={() => {
+                          setTranslationId(pack.translationId);
+                          setShowCatalog(false);
+                        }}
                       >
-                        {busy ? t("reader.corpusCatalogDownloading") : t("reader.corpusDownload")}
+                        {t("reader.corpusCatalogOpen")}
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      data-testid={`corpus-catalog-open-${pack.translationId}`}
-                      onClick={() => {
-                        setTranslationId(pack.translationId);
-                        setShowCatalog(false);
-                      }}
-                    >
-                      {t("reader.corpusCatalogOpen")}
-                    </button>
+                    </div>
                   </div>
                 </li>
               );
