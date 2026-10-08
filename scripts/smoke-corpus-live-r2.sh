@@ -10,19 +10,19 @@ cd "$ROOT"
 if [[ "${LIVE_R2:-}" != "1" ]]; then
   echo "INFO: LIVE_R2!=1 — skipping live Cloudflare R2 account probe"
   echo "INFO: local wrangler R2 binding still proven via smoke-corpus-*.sh + ADMIN_PD_CORPUS_OK"
-  echo "CORPUS_LIVE_R2_OPEN"
-  exit 0
-fi
-
-if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" || -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-  echo "INFO: LIVE_R2=1 but CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN missing"
+  echo "INFO: production path: bash scripts/live-r2-bootstrap.sh (needs CLOUDFLARE_API_TOKEN + ACCOUNT_ID)"
   echo "CORPUS_LIVE_R2_OPEN"
   exit 0
 fi
 
 LIVE_API_BASE="${LIVE_API_BASE:-}"
 if [[ -z "$LIVE_API_BASE" ]]; then
-  echo "INFO: LIVE_R2=1 but LIVE_API_BASE unset (production Worker URL required)"
+  if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" || -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    echo "INFO: LIVE_R2=1 but LIVE_API_BASE and CF credentials missing"
+    echo "CORPUS_LIVE_R2_OPEN"
+    exit 0
+  fi
+  echo "INFO: LIVE_API_BASE unset — run scripts/live-r2-bootstrap.sh to deploy+seed, or set LIVE_API_BASE"
   echo "CORPUS_LIVE_R2_OPEN"
   exit 0
 fi

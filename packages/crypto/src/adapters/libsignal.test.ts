@@ -1,12 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  createProductSignalClient,
   createSignalClient,
+  isWorkersOrBrowserRuntime,
   LibsignalNotConfiguredError,
   LibsignalSignalClient,
-  probeLibsignalPackage,
+  resolveProductSignalBackend,
   resolveSignalBackend,
 } from "./libsignal.js";
+import { X25519SignalClient } from "../x25519-signal.js";
 
 test("createSignalClient defaults to WebCrypto and encrypts", async () => {
   const client = createSignalClient("webcrypto");
@@ -42,4 +45,22 @@ test("sync createSignalClient(libsignal) stays fail-closed", async () => {
     () => createSignalClient("libsignal").generateIdentity(),
     LibsignalNotConfiguredError,
   );
+});
+
+test("product backend prefers x25519 on Workers/browser runtimes", () => {
+  // Node test harness is not Workers — product default is libsignal here.
+  assert.equal(isWorkersOrBrowserRuntime(), false);
+  assert.equal(resolveProductSignalBackend(), "libsignal");
+  assert.equal(resolveProductSignalBackend("x25519"), "x25519");
+});
+
+test("createProductSignalClient yields a usable peer roundtrip", async () => {
+  const client = await createProductSignalClient("x25519");
+  assert.ok(client instanceof X25519SignalClient);
+  const a = await client.generateIdentity();
+  const b = await client.generateIdentity();
+  const as = await client.establishSession(a.privateState, b.publicBundle);
+  const bs = await client.establishSession(b.privateState, a.publicBundle);
+  const enc = await client.encrypt(as, "product-x25519");
+  assert.equal(await client.decrypt(bs, enc), "product-x25519");
 });

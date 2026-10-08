@@ -49,6 +49,28 @@ export class LibsignalSignalClient implements SignalClient {
 export type SignalBackend = "webcrypto" | "libsignal" | "x25519";
 
 /**
+ * True on Cloudflare Workers / browsers — no `@signalapp/libsignal-client` native addon.
+ * Official Signal package has no WASM/browser build (LIBSIGNAL_WORKERS_OPEN).
+ */
+export function isWorkersOrBrowserRuntime(): boolean {
+  const g = globalThis as {
+    WebSocketPair?: unknown;
+    window?: unknown;
+    document?: unknown;
+    navigator?: { userAgent?: string };
+    process?: { versions?: { node?: string } };
+  };
+  // Cloudflare Workers expose WebSocketPair; browsers expose window/document.
+  if (typeof g.WebSocketPair !== "undefined") return true;
+  if (typeof g.window !== "undefined" || typeof g.document !== "undefined") return true;
+  const ua = g.navigator?.userAgent ?? "";
+  if (/Cloudflare-Workers/i.test(ua)) return true;
+  // Node has process.versions.node; absence ⇒ non-Node edge runtime.
+  if (!g.process?.versions?.node) return true;
+  return false;
+}
+
+/**
  * Resolve backend from explicit prefer, else `LOGOSHOME_SIGNAL_BACKEND`
  * (`webcrypto` | `libsignal` | `x25519`) on `globalThis` or Node `process.env`.
  * Defaults to webcrypto (portable P-256). `x25519` selects Curve25519 WebCrypto path.
@@ -63,6 +85,24 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   if (env === "libsignal") return "libsignal";
   if (env === "x25519") return "x25519";
   return "webcrypto";
+}
+
+/**
+ * Product default for LogosHome clients/Workers:
+ * - Workers/browser → `x25519` (portable Curve25519; native libsignal unavailable)
+ * - Node → `libsignal` when env unset (native PQXDH when bindings load)
+ * Env `LOGOSHOME_SIGNAL_BACKEND` still wins when set.
+ */
+export function resolveProductSignalBackend(prefer?: SignalBackend): SignalBackend {
+  if (prefer) return prefer;
+  const g = globalThis as {
+    LOGOSHOME_SIGNAL_BACKEND?: string;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
+  if (env === "libsignal" || env === "x25519" || env === "webcrypto") return env;
+  if (isWorkersOrBrowserRuntime()) return "x25519";
+  return "libsignal";
 }
 
 let nativeClientPromise: Promise<SignalClient | null> | null = null;
@@ -104,6 +144,22 @@ export async function createSignalClientAsync(prefer?: SignalBackend): Promise<S
   if (backend === "libsignal") {
     const native = await loadNativeLibsignal();
     return native ?? new LibsignalSignalClient();
+  }
+  if (backend === "x25519") return new X25519SignalClient();
+  return new WebCryptoSignalClient();
+}
+
+/**
+ * Product factory: Workers/browser get X25519; Node prefers native libsignal.
+ * If native bindings fail on Node, falls back to X25519 (never leave chat fail-closed).
+ */
+export async function createProductSignalClient(prefer?: SignalBackend): Promise<SignalClient> {
+  const backend = resolveProductSignalBackend(prefer);
+  if (backend === "libsignal") {
+    const native = await loadNativeLibsignal();
+    if (native) return native;
+    // Soft fallback — production chat must work without native addon.
+    return new X25519SignalClient();
   }
   if (backend === "x25519") return new X25519SignalClient();
   return new WebCryptoSignalClient();

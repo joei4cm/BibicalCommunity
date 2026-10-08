@@ -13,14 +13,14 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
 | 7 | Church Home forums / embeds | `HOME_SMOKE_OK`; `HOME_MEMBERS_OK`; **`HOME_JOIN_SLUG_OK`**; **`HOME_FORUM_MEDIA_ACL_OK`** (R2 `mediaKey`, embed allowlist, group-board membership ACL) | PARTIAL — compose+roster+join+media/ACL PASS; live CF media ops OPEN |
-| 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` + **`LIBSIGNAL_PACKAGE_PROBE_OK`** + **`LIBSIGNAL_NATIVE_ROUNDTRIP_OK`** (Node); **`LIBSIGNAL_WORKERS_FALLBACK_OK`** (x25519 + webcrypto **peer roundtrips**) + **`LIBSIGNAL_WORKERS_OPEN`** (native addon still unavailable on Workers/browser); `CURVE25519_X25519_OK`; `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; IndexedDB `lh-secure` | PARTIAL — Node native PQXDH + Workers-portable x25519/webcrypto peer roundtrips PASS; Workers native libsignal addon OPEN |
+| 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` + **`LIBSIGNAL_PACKAGE_PROBE_OK`** + **`LIBSIGNAL_NATIVE_ROUNDTRIP_OK`** (Node); **`LIBSIGNAL_WORKERS_FALLBACK_OK`** (x25519 + webcrypto + **`createProductSignalClient`**) + **`LIBSIGNAL_WORKERS_OPEN`** (no official WASM/Workers build of `@signalapp/libsignal-client`; product default → x25519); `CURVE25519_X25519_OK`; `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; IndexedDB `lh-secure` | PARTIAL — Node native PQXDH + Workers product x25519 PASS; official Workers native/WASM libsignal OPEN |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK`; `SCREEN_SHARE_GATE_OK` (secure-context + getDisplayMedia probe) | PARTIAL — signaling+capability gate PASS; live OS picker still user-gesture / device OPEN |
 | 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK` + **`ME_DEVICES_OK`** (list/revoke); `HOME_VERIFY_OK` / `HOME_MEMBERS_OK` / `HOME_JOIN_SLUG_OK` / `HOME_WIPE_OK`; roster verify + join-by-slug | PARTIAL — verify+join+device revoke UX PASS; recovery mnemonic stays client-only |
 | 10b | Admin console (users / homes / groups / remote wipe) | `ADMIN_CONSOLE_OK` (`scripts/smoke-admin.sh`); platform bootstrap + church-scoped manage + admin remote wipe; **PD corpus seed** (`ADMIN_PD_CORPUS_OK` / Web corpus tab); Web `/app/admin` | PARTIAL — API+UI+smoke PASS; live CF admin ops OPEN |
 | 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv`; **`DEVICE_NOTE_CRYPTO_OK`** / **`DEVICE_WEBCRYPTO_GATE_OK`** | PARTIAL — roundtrip+SecureStore+automated WebCrypto PASS; physical handset E2E OPEN |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `I18N_PARITY_OK` + `I18N_AUDIT_OK` + `I18N_NATIVE_COPY_OK` + `PWA_THEME_OK` + `READER_SKINS_OK` | PARTIAL — key parity + native differ-check PASS; human native QA OPEN |
-| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations `0004_devotion_step` + `0005_platform_admin` + `0006_forum_media_key`); `DEPLOY_DRY_RUN_OK` | PARTIAL — preflight+dry-run PASS; live account OPEN |
+| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations `0004_devotion_step` + `0005_platform_admin` + `0006_forum_media_key`); `DEPLOY_DRY_RUN_OK`; **`scripts/live-r2-bootstrap.sh`** → `CORPUS_LIVE_R2_OK` when CF secrets present else **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — preflight+dry-run+bootstrap script PASS; live account credentials OPEN |
 | 15 | Hostile privacy floors / wipe | `HOME_HOSTILE_OK` + wipeToken; `ADMIN_REMOTE_WIPE_OK` + **`ADMIN_WIPE_R2_OK`** (R2 `media/{userId}/` delete + annotation ciphertext zero + cron expire); `SECURITY_AUDIT_OK` | PARTIAL — local wipe+R2 path PASS; live CF ops OPEN |
 
 ## Smoke tokens
@@ -33,7 +33,8 @@ bash scripts/smoke-admin-pd-corpus.sh # ADMIN_PD_CORPUS_OK (getbible→R2; not T
 node scripts/seed-r2-pd-full.mjs …    # PD_FULL_R2_SEED_OK (platform_admin; full WEB/KJV/ASV)
 bash scripts/smoke-corpus-boot-scope.sh # CORPUS_BOOT_VS_FULL_OK (boot slim vs full)
 bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after walk)
-bash scripts/smoke-corpus-live-r2.sh   # CORPUS_LIVE_R2_OPEN (or OK with LIVE_R2=1)
+bash scripts/smoke-corpus-live-r2.sh   # CORPUS_LIVE_R2_OPEN (or OK with LIVE_R2=1 + LIVE_API_BASE)
+bash scripts/live-r2-bootstrap.sh      # LIVE_R2_BOOTSTRAP_OK / CORPUS_LIVE_R2_OK (needs CF token)
 bash scripts/smoke-storage.sh        # STORAGE_SMOKE_OK (session-aes / note / field / annotation)
 bash scripts/smoke-home.sh           # HOME_JOIN_SLUG_OK / HOME_MEMBERS_OK / …
 bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK
