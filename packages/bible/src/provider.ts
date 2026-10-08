@@ -73,6 +73,16 @@ import { KJV_REV_21 } from "./packs/kjv-rev21.js";
 import { ASV_REV_21 } from "./packs/asv-rev21.js";
 import { CUVS_REV_21 } from "./packs/cuvs-rev21.js";
 import { KOUGO_REV_21 } from "./packs/kougo-rev21.js";
+import { WEB_JAMES_1 } from "./packs/web-james1.js";
+import { KJV_JAMES_1 } from "./packs/kjv-james1.js";
+import { ASV_JAMES_1 } from "./packs/asv-james1.js";
+import { CUVS_JAMES_1 } from "./packs/cuvs-james1.js";
+import { KOUGO_JAMES_1 } from "./packs/kougo-james1.js";
+import { WEB_COL_3 } from "./packs/web-col3.js";
+import { KJV_COL_3 } from "./packs/kjv-col3.js";
+import { ASV_COL_3 } from "./packs/asv-col3.js";
+import { CUVS_COL_3 } from "./packs/cuvs-col3.js";
+import { KOUGO_COL_3 } from "./packs/kougo-col3.js";
 import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
 import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
 import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
@@ -228,6 +238,17 @@ function normalizeBookKey(book: string): string | null {
   ) {
     return "rev";
   }
+  if (b === "jas" || b === "james" || book === "雅各书" || book === "ヤコブ") {
+    return "jas";
+  }
+  if (
+    b === "col" ||
+    b === "colossians" ||
+    book === "歌罗西书" ||
+    book === "コロサイ"
+  ) {
+    return "col";
+  }
   return null;
 }
 
@@ -267,6 +288,10 @@ function canonicalBookId(key: string): string {
       return "1Cor";
     case "rev":
       return "Rev";
+    case "jas":
+      return "Jas";
+    case "col":
+      return "Col";
     default:
       return key;
   }
@@ -285,6 +310,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     phil: { 4: WEB_PHIL_4 },
     "1cor": { 13: WEB_1COR_13 },
     rev: { 21: WEB_REV_21 },
+    jas: { 1: WEB_JAMES_1 },
+    col: { 3: WEB_COL_3 },
     ps: { 1: WEB_PSALM_1, 23: WEB_PSALM_23 },
     prov: { 3: WEB_PROV_3 },
     rom: { 8: WEB_ROM_8 },
@@ -304,6 +331,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     phil: { 4: KJV_PHIL_4 },
     "1cor": { 13: KJV_1COR_13 },
     rev: { 21: KJV_REV_21 },
+    jas: { 1: KJV_JAMES_1 },
+    col: { 3: KJV_COL_3 },
     ps: { 1: KJV_PSALM_1, 23: KJV_PSALM_23 },
     prov: { 3: KJV_PROV_3 },
     rom: { 8: KJV_ROM_8 },
@@ -323,6 +352,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     phil: { 4: ASV_PHIL_4 },
     "1cor": { 13: ASV_1COR_13 },
     rev: { 21: ASV_REV_21 },
+    jas: { 1: ASV_JAMES_1 },
+    col: { 3: ASV_COL_3 },
     ps: { 1: ASV_PSALM_1, 23: ASV_PSALM_23 },
     prov: { 3: ASV_PROV_3 },
     rom: { 8: ASV_ROM_8 },
@@ -345,6 +376,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     phil: { 4: KOUGO_PHIL_4 },
     "1cor": { 13: KOUGO_1COR_13 },
     rev: { 21: KOUGO_REV_21 },
+    jas: { 1: KOUGO_JAMES_1 },
+    col: { 3: KOUGO_COL_3 },
     ps: { 1: KOUGO_PSALM_1, 23: KOUGO_PSALM_23 },
     prov: { 3: KOUGO_PROV_3 },
     rom: { 8: KOUGO_ROM_8 },
@@ -367,6 +400,8 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     phil: { 4: CUVS_PHIL_4 },
     "1cor": { 13: CUVS_1COR_13 },
     rev: { 21: CUVS_REV_21 },
+    jas: { 1: CUVS_JAMES_1 },
+    col: { 3: CUVS_COL_3 },
     ps: { 1: CUVS_PSALM_1, 23: CUVS_PSALM_23 },
     prov: { 3: CUVS_PROV_3 },
     rom: { 8: CUVS_ROM_8 },

@@ -62,6 +62,13 @@ bash scripts/smoke-corpus-inventory.sh
 rg -q 'READER_SKIN_IDS' apps/mobile/src/reader-skins.ts
 echo "MOBILE_READER_SKINS_OK"
 
+echo "== device webcrypto gate =="
+bash scripts/smoke-device-crypto.sh
+
+echo "== partner live IdP gate (documents OPEN without credentials) =="
+bash scripts/smoke-partner-live-idp.sh | tee /tmp/lh-partner-live.log
+rg -q 'PARTNER_LIVE_IDP_OPEN|PARTNER_LIVE_IDP_OK' /tmp/lh-partner-live.log
+
 echo "== PWA gate =="
 test -f apps/web/public/icon.svg
 rg -q 'VitePWA' apps/web/vite.config.ts
