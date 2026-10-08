@@ -664,8 +664,10 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const rev = await loadChapter(tid, { book: "Rev", chapter: 21 });
     assert.ok(!("external" in rev), tid);
-    assert.ok(rev.verses.length >= 7, tid);
+    assert.ok(rev.verses.length >= 27, tid);
+    assert.equal(rev.verses[rev.verses.length - 1]?.verse, 27, tid);
     assert.match(rev.verses[0]?.text ?? "", /样例|樣例|見本|新天|新しい天/);
+    assert.match(rev.verses.find((v) => v.verse === 22)?.text ?? "", /样例|樣例|見本|殿|聖所|羔羊|小羊/);
   }
 });
 
@@ -706,9 +708,13 @@ test("loadChapter returns PD Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds (web/kjv/a
 
   const rev = await loadChapter("web", { book: "Rev", chapter: 21 });
   assert.ok(!("external" in rev));
-  assert.ok(rev.verses.length >= 7);
+  assert.ok(rev.verses.length >= 27);
+  assert.equal(rev.verses[0]?.verse, 1);
+  assert.equal(rev.verses[rev.verses.length - 1]?.verse, 27);
   assert.match(rev.verses[0]?.text ?? "", /new heaven and a new earth/i);
   assert.match(rev.verses.find((v) => v.verse === 4)?.text ?? "", /wipe away every tear|Death will be no more/i);
+  assert.match(rev.verses.find((v) => v.verse === 22)?.text ?? "", /no temple|Lamb are its temple/i);
+  assert.match(rev.verses.find((v) => v.verse === 27)?.text ?? "", /Lamb's book of life/i);
 });
 
 test("loadChapter returns zh/ja Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds", async () => {
@@ -747,13 +753,15 @@ test("loadChapter returns zh/ja Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds", async
 
   const cuvsRev = await loadChapter("cuvs", { book: "Rev", chapter: 21 });
   assert.ok(!("external" in cuvsRev));
-  assert.ok(cuvsRev.verses.length >= 7);
+  assert.ok(cuvsRev.verses.length >= 27);
   assert.match(cuvsRev.verses[0]?.text ?? "", /样例|新天新地/);
+  assert.match(cuvsRev.verses.find((v) => v.verse === 22)?.text ?? "", /样例|城内有殿|羔羊为城的殿/);
 
   const kougoRev = await loadChapter("kougo", { book: "Revelation", chapter: 21 });
   assert.ok(!("external" in kougoRev));
-  assert.ok(kougoRev.verses.length >= 7);
+  assert.ok(kougoRev.verses.length >= 27);
   assert.match(kougoRev.verses[0]?.text ?? "", /見本|新しい天/);
+  assert.match(kougoRev.verses.find((v) => v.verse === 22)?.text ?? "", /見本|聖所|小羊/);
 });
 
 test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaffolds", async () => {

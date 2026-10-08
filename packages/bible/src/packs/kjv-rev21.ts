@@ -1,4 +1,4 @@
-/** Public-domain: KJV Revelation 21 denser new-heaven scaffold (vv.1–7). */
+/** Public-domain: KJV Revelation 21 denser full new-heaven chapter scaffold (vv.1–27). */
 export const KJV_REV_21: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -27,5 +27,85 @@ export const KJV_REV_21: { verse: number; text: string }[] = [
   {
     verse: 7,
     text: "He that overcometh shall inherit all things; and I will be his God, and he shall be my son.",
+  },
+  {
+    verse: 8,
+    text: "But the fearful, and unbelieving, and the abominable, and murderers, and whoremongers, and sorcerers, and idolaters, and all liars, shall have their part in the lake which burneth with fire and brimstone: which is the second death.",
+  },
+  {
+    verse: 9,
+    text: "And there came unto me one of the seven angels which had the seven vials full of the seven last plagues, and talked with me, saying, Come hither, I will shew thee the bride, the Lamb's wife.",
+  },
+  {
+    verse: 10,
+    text: "And he carried me away in the spirit to a great and high mountain, and shewed me that great city, the holy Jerusalem, descending out of heaven from God,",
+  },
+  {
+    verse: 11,
+    text: "Having the glory of God: and her light was like unto a stone most precious, even like a jasper stone, clear as crystal;",
+  },
+  {
+    verse: 12,
+    text: "And had a wall great and high, and had twelve gates, and at the gates twelve angels, and names written thereon, which are the names of the twelve tribes of the children of Israel:",
+  },
+  {
+    verse: 13,
+    text: "On the east three gates; on the north three gates; on the south three gates; and on the west three gates.",
+  },
+  {
+    verse: 14,
+    text: "And the wall of the city had twelve foundations, and in them the names of the twelve apostles of the Lamb.",
+  },
+  {
+    verse: 15,
+    text: "And he that talked with me had a golden reed to measure the city, and the gates thereof, and the wall thereof.",
+  },
+  {
+    verse: 16,
+    text: "And the city lieth foursquare, and the length is as large as the breadth: and he measured the city with the reed, twelve thousand furlongs. The length and the breadth and the height of it are equal.",
+  },
+  {
+    verse: 17,
+    text: "And he measured the wall thereof, an hundred and forty and four cubits, according to the measure of a man, that is, of the angel.",
+  },
+  {
+    verse: 18,
+    text: "And the building of the wall of it was of jasper: and the city was pure gold, like unto clear glass.",
+  },
+  {
+    verse: 19,
+    text: "And the foundations of the wall of the city were garnished with all manner of precious stones. The first foundation was jasper; the second, sapphire; the third, a chalcedony; the fourth, an emerald;",
+  },
+  {
+    verse: 20,
+    text: "The fifth, sardonyx; the sixth, sardius; the seventh, chrysolyte; the eighth, beryl; the ninth, a topaz; the tenth, a chrysoprasus; the eleventh, a jacinth; the twelfth, an amethyst.",
+  },
+  {
+    verse: 21,
+    text: "And the twelve gates were twelve pearls: every several gate was of one pearl: and the street of the city was pure gold, as it were transparent glass.",
+  },
+  {
+    verse: 22,
+    text: "And I saw no temple therein: for the Lord God Almighty and the Lamb are the temple of it.",
+  },
+  {
+    verse: 23,
+    text: "And the city had no need of the sun, neither of the moon, to shine in it: for the glory of God did lighten it, and the Lamb is the light thereof.",
+  },
+  {
+    verse: 24,
+    text: "And the nations of them which are saved shall walk in the light of it: and the kings of the earth do bring their glory and honour into it.",
+  },
+  {
+    verse: 25,
+    text: "And the gates of it shall not be shut at all by day: for there shall be no night there.",
+  },
+  {
+    verse: 26,
+    text: "And they shall bring the glory and honour of the nations into it.",
+  },
+  {
+    verse: 27,
+    text: "And there shall in no wise enter into it any thing that defileth, neither whatsoever worketh abomination, or maketh a lie: but they which are written in the Lamb's book of life.",
   },
 ];
