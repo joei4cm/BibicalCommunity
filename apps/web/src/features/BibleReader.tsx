@@ -816,9 +816,10 @@ export function BibleReader() {
           type="button"
           className={`bible-dock-btn${toolsExpanded ? " is-on" : ""}`}
           data-testid="reader-dock-tools"
+          aria-label={t("reader.moreTools")}
           onClick={() => setToolsOpen((v) => !v)}
         >
-          {t("reader.moreTools")}
+          {t("reader.dockMore")}
         </button>
       </div>
 
