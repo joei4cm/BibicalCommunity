@@ -177,49 +177,64 @@ test("loadChapter returns lzz scaffold John.1", async () => {
 test("loadChapter returns cuvs/kougo/kjv/asv John.2 scaffolds", async () => {
   const cuvs = await loadChapter("cuvs", { book: "John", chapter: 2 });
   assert.ok(!("external" in cuvs));
-  assert.match(cuvs.verses[0]?.text ?? "", /迦拿|娶亲/);
+  assert.ok(cuvs.verses.length >= 11);
+  assert.match(cuvs.verses[0]?.text ?? "", /样例|迦拿|娶亲/);
+  assert.match(cuvs.verses.find((v) => v.verse === 11)?.text ?? "", /样例|神迹|荣耀|门徒/);
 
   const kougo = await loadChapter("kougo", { book: "John", chapter: 2 });
   assert.ok(!("external" in kougo));
-  assert.match(kougo.verses[0]?.text ?? "", /カナ|婚礼/);
+  assert.ok(kougo.verses.length >= 11);
+  assert.match(kougo.verses[0]?.text ?? "", /見本|カナ|婚礼/);
+  assert.match(kougo.verses.find((v) => v.verse === 11)?.text ?? "", /見本|しるし|栄光|信じ/);
 
   const kjv = await loadChapter("kjv", { book: "John", chapter: 2 });
   assert.ok(!("external" in kjv));
+  assert.ok(kjv.verses.length >= 11);
   assert.match(kjv.verses[0]?.text ?? "", /Cana/i);
+  assert.match(kjv.verses.find((v) => v.verse === 11)?.text ?? "", /beginning of miracles|manifested.*glory/i);
 
   const asv = await loadChapter("asv", { book: "John", chapter: 2 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 11);
   assert.match(asv.verses[0]?.text ?? "", /Cana/i);
+  assert.match(asv.verses.find((v) => v.verse === 5)?.text ?? "", /Whatsoever he saith|do it/i);
 });
 
 test("loadChapter returns expanded zh/ja John.2 scaffolds", async () => {
   const cuvt = await loadChapter("cuvt", { book: "John", chapter: 2 });
   assert.ok(!("external" in cuvt));
-  assert.match(cuvt.verses[0]?.text ?? "", /迦拿|娶親/);
+  assert.ok(cuvt.verses.length >= 11);
+  assert.match(cuvt.verses[0]?.text ?? "", /樣例|迦拿|娶親/);
   assert.match(cuvt.verses.find((v) => v.verse === 11)?.text ?? "", /神蹟|榮耀/);
 
   const rcuv = await loadChapter("rcuv", { book: "John", chapter: 2 });
   assert.ok(!("external" in rcuv));
-  assert.match(rcuv.verses[0]?.text ?? "", /迦拿|娶亲/);
+  assert.ok(rcuv.verses.length >= 11);
+  assert.match(rcuv.verses[0]?.text ?? "", /样例|迦拿|娶亲/);
 
   const ccb = await loadChapter("ccb", { book: "John", chapter: 2 });
   assert.ok(!("external" in ccb));
-  assert.match(ccb.verses[0]?.text ?? "", /迦拿|婚宴/);
+  assert.ok(ccb.verses.length >= 11);
+  assert.match(ccb.verses[0]?.text ?? "", /样例|迦拿|婚宴|娶亲/);
 
   const lzz = await loadChapter("lzz", { book: "John", chapter: 2 });
   assert.ok(!("external" in lzz));
-  assert.match(lzz.verses[0]?.text ?? "", /迦拿|婚筵/);
+  assert.ok(lzz.verses.length >= 11);
+  assert.match(lzz.verses[0]?.text ?? "", /样例|迦拿|婚筵/);
 
   const shinkaiyaku = await loadChapter("shinkaiyaku", { book: "John", chapter: 2 });
   assert.ok(!("external" in shinkaiyaku));
-  assert.match(shinkaiyaku.verses[0]?.text ?? "", /カナ|婚宴/);
+  assert.ok(shinkaiyaku.verses.length >= 11);
+  assert.match(shinkaiyaku.verses[0]?.text ?? "", /見本|カナ|婚礼|婚宴/);
 
   const shinKyoudou = await loadChapter("shinKyoudou", { book: "John", chapter: 2 });
   assert.ok(!("external" in shinKyoudou));
-  assert.match(shinKyoudou.verses[0]?.text ?? "", /カナ|婚礼/);
+  assert.ok(shinKyoudou.verses.length >= 11);
+  assert.match(shinKyoudou.verses[0]?.text ?? "", /見本|カナ|婚礼/);
 
   const kougoyakuPd = await loadChapter("kougoyaku-pd", { book: "John", chapter: 2 });
   assert.ok(!("external" in kougoyakuPd));
+  assert.ok(kougoyakuPd.verses.length >= 11);
   assert.match(kougoyakuPd.verses[0]?.text ?? "", /カナ|婚筵/);
 });
 
