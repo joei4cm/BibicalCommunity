@@ -103,6 +103,7 @@ const DENSER_FLOORS = [
   { book: "Phil", chapter: 4, min: 23 },
   { book: "Matt", chapter: 6, min: 34 },
   { book: "Heb", chapter: 11, min: 40 },
+  { book: "Mark", chapter: 1, min: 45 },
   { book: "John", chapter: 2, min: 11 },
   { book: "Acts", chapter: 2, min: 9 },
   { book: "Ps", chapter: 1, min: 6 },
