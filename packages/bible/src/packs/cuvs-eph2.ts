@@ -1,4 +1,4 @@
-/** Simplified Chinese Union–style denser Ephesians 2 denser grace-by-faith scaffold (vv.1–10). (not a licensed corpus dump). */
+/** Simplified Chinese Union–style denser Ephesians 2 denser full grace/peace chapter scaffold (vv.1–22). (not a licensed corpus dump). */
 export const CUVS_EPH_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -18,7 +18,7 @@ export const CUVS_EPH_2: { verse: number; text: string }[] = [
   },
   {
     verse: 5,
-    text: "（样例）当我们死在过犯中的时候，便叫我们与基督一同活过来（你们得救是本乎恩）。",
+    text: "（样例）当我们死在过犯中的时候，便叫我们与基督一同活过来。你们得救是本乎恩。",
   },
   {
     verse: 6,
@@ -39,5 +39,53 @@ export const CUVS_EPH_2: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "（样例）我们原是他的工作，在基督耶稣里造成的，为要叫我们行善，就是神所预备叫我们行的。",
+  },
+  {
+    verse: 11,
+    text: "（样例）所以你们应当记念：你们从前按肉体是外邦人，是称为没受割礼的；这名原是那些凭人手所行受割礼之人所起的。",
+  },
+  {
+    verse: 12,
+    text: "（样例）那时，你们与基督无关，在以色列国民以外，在所应许的诸约上是局外人，并且活在世上没有指望，没有神。",
+  },
+  {
+    verse: 13,
+    text: "（样例）你们从前远离神的人，如今却在基督耶稣里，靠着他的血，已经得亲近了。",
+  },
+  {
+    verse: 14,
+    text: "（样例）因他使我们和睦，将两下合而为一，拆毁了中间隔断的墙；",
+  },
+  {
+    verse: 15,
+    text: "（样例）而且以自己的身体废掉冤仇，就是那记在律法上的规条，为要将两下藉着自己造成一个新人，如此便成就了和睦。",
+  },
+  {
+    verse: 16,
+    text: "（样例）既在十字架上灭了冤仇，便藉这十字架使两下归为一体，与神和好了，",
+  },
+  {
+    verse: 17,
+    text: "（样例）并且来传和平的福音给你们远处的人，也给那近处的人。",
+  },
+  {
+    verse: 18,
+    text: "（样例）因为我们两下藉着他被一个圣灵所感，得以进到父面前。",
+  },
+  {
+    verse: 19,
+    text: "（样例）这样，你们不再作外人和客旅，是与圣徒同国，是神家里的人了；",
+  },
+  {
+    verse: 20,
+    text: "（样例）并且被建造在使徒和先知的根基上，有基督耶稣自己为房角石，",
+  },
+  {
+    verse: 21,
+    text: "（样例）各房靠他联络得合式，渐渐成为主的圣殿。",
+  },
+  {
+    verse: 22,
+    text: "（样例）你们也靠他同被建造，成为神藉着圣灵居住的所在。",
   },
 ];

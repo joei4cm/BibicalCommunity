@@ -1,4 +1,4 @@
-/** Public-domain: KJV Ephesians 2 denser grace-by-faith scaffold (vv.1–10). */
+/** Public-domain: KJV Ephesians 2 denser full grace/peace chapter scaffold (vv.1–22). */
 export const KJV_EPH_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,5 +39,53 @@ export const KJV_EPH_2: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "For we are his workmanship, created in Christ Jesus unto good works, which God hath before ordained that we should walk in them.",
+  },
+  {
+    verse: 11,
+    text: "Wherefore remember, that ye being in time past Gentiles in the flesh, who are called Uncircumcision by that which is called the Circumcision in the flesh made by hands;",
+  },
+  {
+    verse: 12,
+    text: "That at that time ye were without Christ, being aliens from the commonwealth of Israel, and strangers from the covenants of promise, having no hope, and without God in the world:",
+  },
+  {
+    verse: 13,
+    text: "But now in Christ Jesus ye who sometimes were far off are made nigh by the blood of Christ.",
+  },
+  {
+    verse: 14,
+    text: "For he is our peace, who hath made both one, and hath broken down the middle wall of partition between us;",
+  },
+  {
+    verse: 15,
+    text: "Having abolished in his flesh the enmity, even the law of commandments contained in ordinances; for to make in himself of twain one new man, so making peace;",
+  },
+  {
+    verse: 16,
+    text: "And that he might reconcile both unto God in one body by the cross, having slain the enmity thereby:",
+  },
+  {
+    verse: 17,
+    text: "And came and preached peace to you which were afar off, and to them that were nigh.",
+  },
+  {
+    verse: 18,
+    text: "For through him we both have access by one Spirit unto the Father.",
+  },
+  {
+    verse: 19,
+    text: "Now therefore ye are no more strangers and foreigners, but fellowcitizens with the saints, and of the household of God;",
+  },
+  {
+    verse: 20,
+    text: "And are built upon the foundation of the apostles and prophets, Jesus Christ himself being the chief corner stone;",
+  },
+  {
+    verse: 21,
+    text: "In whom all the building fitly framed together groweth unto an holy temple in the Lord:",
+  },
+  {
+    verse: 22,
+    text: "In whom ye also are builded together for an habitation of God through the Spirit.",
   },
 ];
