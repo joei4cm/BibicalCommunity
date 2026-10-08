@@ -158,11 +158,9 @@ select {
 @keyframes bible-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -290,12 +288,10 @@ body:has(.bible-reader) .tab-bar a.active::after {
 @keyframes bible-brand-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
     filter: blur(2px);
   }
   to {
     opacity: 1;
-    transform: none;
     filter: none;
   }
 }
@@ -512,11 +508,9 @@ body:has(.bible-reader) .tab-bar a.active::after {
 @keyframes bible-folio-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -611,12 +605,15 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border-top: 1px solid var(--br-line);
 }
 
-/* Floating reading dock — clear of tab bar, soft glass */
+/* Floating reading dock — viewport-fixed (no ancestor transform), soft glass */
 .bible-reading-dock {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
+  margin-inline: auto;
   bottom: calc(5.15rem + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
   z-index: 45;
   display: flex;
   align-items: center;
@@ -634,11 +631,9 @@ body:has(.bible-reader) .tab-bar a.active::after {
 @keyframes bible-dock-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
 }
 
