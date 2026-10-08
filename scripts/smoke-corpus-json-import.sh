@@ -48,7 +48,7 @@ for (const tid of ["cuvs", "web", "shinKyoudou"]) {
     if (!files.includes(need)) throw new Error("boot teaching parity missing " + tid + "/" + need);
   }
 }
-for (const tid of ["kjv", "asv", "cuvt", "kougo"]) {
+for (const tid of ["kjv", "asv", "cuvt", "kougo", "rcuv", "ccb", "lzz", "shinkaiyaku"]) {
   const files = readdirSync(join(FIX, tid)).filter((f) => f.endsWith(".json"));
   for (const need of teaching) {
     if (!files.includes(need)) throw new Error("download teaching parity missing " + tid + "/" + need);

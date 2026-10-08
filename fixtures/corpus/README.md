@@ -24,8 +24,7 @@ All three boot tids must include:
 
 | tid | Teaching-set fixtures |
 |-----|----------------------|
-| `kjv`, `asv`, `cuvt`, `kougo` | Same 7-ref teaching set |
-| `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Slim samples (`John.1`, `Ps.23`, …) |
+| `kjv`, `asv`, `cuvt`, `kougo`, `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Same 7-ref teaching set |
 
 ## Chapter JSON shape
 

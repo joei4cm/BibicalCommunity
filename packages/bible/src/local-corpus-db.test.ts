@@ -30,7 +30,7 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   assert.ok(downloadable.length >= 5);
   assert.ok(downloadable.some((p) => p.translationId === "cuvt"));
   assert.ok(downloadable.some((p) => p.translationId === "kougo"));
-  for (const tid of ["kjv", "asv", "cuvt", "kougo"]) {
+  for (const tid of ["kjv", "asv", "cuvt", "kougo", "rcuv", "ccb", "lzz", "shinkaiyaku"]) {
     const row = downloadable.find((p) => p.translationId === tid);
     assert.ok(row, tid);
     assert.deepEqual(row.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], tid);

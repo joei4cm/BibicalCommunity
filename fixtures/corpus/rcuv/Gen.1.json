@@ -1,0 +1,14 @@
+{
+  "book": "Gen",
+  "chapter": 1,
+  "verses": [
+    {
+      "verse": 1,
+      "text": "（样例·fixture）起初，神创造天地。"
+    },
+    {
+      "verse": 3,
+      "text": "（样例·fixture）神说：“要有光”，就有了光。"
+    }
+  ]
+}

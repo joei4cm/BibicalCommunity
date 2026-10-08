@@ -216,7 +216,16 @@ export const DOWNLOADABLE_TRANSLATION_IDS = [
 ] as const;
 
 /** Downloadable tids that advertise the full teaching-set refs (fixtures present). */
-const TEACHING_SET_DOWNLOAD_IDS = new Set(["kjv", "asv", "cuvt", "kougo"]);
+const TEACHING_SET_DOWNLOAD_IDS = new Set([
+  "kjv",
+  "asv",
+  "cuvt",
+  "kougo",
+  "rcuv",
+  "ccb",
+  "lzz",
+  "shinkaiyaku",
+]);
 
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const packs: DownloadableCorpusPack[] = [];
