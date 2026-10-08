@@ -1,14 +1,17 @@
 /**
  * Bible corpus-pack pipeline.
  *
- * Local public-domain / scaffold chapters ship as available packs derived from
- * `listLocalScaffoldInventory`. Full licensed translation corpora use the same
- * manifest shape and load chapter JSON from R2 (`bible/{translationId}/…`)
- * once entitlement lands.
+ * Corpora are downloaded (R2 chapter JSON → client local DB), never bundled as
+ * TypeScript chapter modules. Catalog rows come from boot/download defaults;
+ * licensed full dumps share the same R2 prefix shape.
  */
 
 import { r2ChapterObjectKey } from "./r2-format.js";
-import { listLocalScaffoldInventory } from "./provider.js";
+import {
+  BOOT_DEFAULT_TRANSLATION_IDS,
+  DOWNLOADABLE_TRANSLATION_IDS,
+  listDownloadableCorpusCatalog,
+} from "./local-corpus-db.js";
 import {
   getTranslation,
   listTranslations,
@@ -27,13 +30,15 @@ export type CorpusPackManifest = {
   language: TranslationLanguage;
   license: TranslationLicense;
   provider: CorpusPackProvider;
-  /** Chapter refs currently available offline (Book.chapter). */
+  /** Chapter refs currently advertised for seed / download smoke. */
   chapterRefs: string[];
   /** Sample R2 object keys for seeding / entitlement checks. */
   sampleR2Keys: string[];
   available: boolean;
   /** R2 prefix `bible/{translationId}/` when provider=r2. */
   r2Prefix?: string;
+  /** boot = first-launch seed; download = user action. */
+  installMode?: "boot" | "download";
 };
 
 export function r2CorpusPackPrefix(translationId: string): string {
@@ -67,22 +72,12 @@ export function parseCorpusPackManifest(raw: string): CorpusPackManifest {
     sampleR2Keys: Array.isArray(data.sampleR2Keys) ? data.sampleR2Keys.map(String) : [],
     available: data.available !== false,
     r2Prefix: data.r2Prefix ?? r2CorpusPackPrefix(data.translationId),
+    installMode: data.installMode,
   };
 }
 
 export function buildCorpusPackManifestJson(pack: CorpusPackManifest): string {
   return JSON.stringify(pack);
-}
-
-function inventoryByTranslation(): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  for (const row of listLocalScaffoldInventory()) {
-    const list = map.get(row.translationId) ?? [];
-    list.push(row.ref);
-    map.set(row.translationId, list);
-  }
-  for (const [, refs] of map) refs.sort();
-  return map;
 }
 
 function sampleKeysFor(translationId: string, refs: string[]): string[] {
@@ -95,38 +90,62 @@ function sampleKeysFor(translationId: string, refs: string[]): string[] {
   });
 }
 
-/** Local packs: every translation that already has offline scaffold chapters. */
+/**
+ * Downloadable / boot packs derived from the slim catalog.
+ * `provider` is always `r2` — content lives in MEDIA, not TypeScript.
+ * Kept under filter `provider: "local"` historically meant "shipped offline";
+ * those rows are gone. Callers should prefer corpus-catalog.
+ */
 export function buildLocalCorpusPacks(): CorpusPackManifest[] {
-  const byTid = inventoryByTranslation();
-  const packs: CorpusPackManifest[] = [];
-  for (const [translationId, chapterRefs] of byTid) {
-    const meta = getTranslation(translationId);
-    if (!meta) continue;
-    packs.push({
-      id: `${translationId}-local`,
-      version: 1,
-      translationId,
-      name: meta.name,
-      language: meta.language,
-      license: meta.license,
-      provider: "local",
-      chapterRefs,
-      sampleR2Keys: sampleKeysFor(translationId, chapterRefs),
+  // Intentionally empty — no TypeScript-embedded verse packs.
+  return [];
+}
+
+/** Boot + download packs available once R2/fixtures are seeded. */
+export function buildDownloadCorpusPacks(): CorpusPackManifest[] {
+  const catalog = listDownloadableCorpusCatalog().filter(
+    (p) => p.installMode === "boot" || p.installMode === "download",
+  );
+  return catalog.map((row) => {
+    const meta = getTranslation(row.translationId);
+    return {
+      id: `${row.translationId}-r2`,
+      version: row.version,
+      translationId: row.translationId,
+      name: row.name,
+      language: row.language,
+      license: row.license,
+      provider: "r2" as const,
+      chapterRefs: row.chapterRefs,
+      sampleR2Keys: sampleKeysFor(row.translationId, row.chapterRefs),
       available: true,
-    });
-  }
-  return packs.sort((a, b) => a.translationId.localeCompare(b.translationId));
+      r2Prefix: row.r2Prefix,
+      installMode: row.installMode === "boot" ? ("boot" as const) : ("download" as const),
+      ...(meta ? {} : {}),
+    };
+  });
 }
 
 /**
  * Licensed / R2 full-corpus stubs — not available until entitlement + R2
- * chapter objects land. One stub per registry id with provider=r2.
+ * chapter objects land. One stub per registry id with provider=r2 that is
+ * not already in the boot/download catalog as a slim pack.
  */
 export function buildLicensedCorpusPackStubs(): CorpusPackManifest[] {
+  const catalogIds = new Set(
+    listDownloadableCorpusCatalog()
+      .filter((p) => p.installMode === "boot" || p.installMode === "download")
+      .map((p) => p.translationId),
+  );
   return listTranslations()
-    .filter((t) => t.provider === ("r2" as TranslationProviderKind) && t.license === "licensed")
+    .filter(
+      (t) =>
+        t.provider === ("r2" as TranslationProviderKind) &&
+        t.license === "licensed" &&
+        !catalogIds.has(t.id),
+    )
     .map((t) => ({
-      id: `${t.id}-r2`,
+      id: `${t.id}-r2-full`,
       version: 1,
       translationId: t.id,
       name: {
@@ -153,7 +172,7 @@ export function listCorpusPacks(filter?: {
   provider?: CorpusPackProvider;
   language?: TranslationLanguage;
 }): CorpusPackManifest[] {
-  const all = [...buildLocalCorpusPacks(), ...buildLicensedCorpusPackStubs()];
+  const all = [...buildDownloadCorpusPacks(), ...buildLicensedCorpusPackStubs()];
   return all.filter((p) => {
     if (filter?.availableOnly && !p.available) return false;
     if (filter?.provider && p.provider !== filter.provider) return false;
@@ -171,35 +190,47 @@ export type CorpusPackPipelineProbe = {
   localCount: number;
   licensedStubCount: number;
   localChapterTotal: number;
+  downloadableCount: number;
+  bootCount: number;
   languages: { zh: number; en: number; ja: number };
   sampleIds: string[];
+  /** True when TypeScript densify packs are gone (expected). */
+  noTsPacks: boolean;
 };
 
 export function probeCorpusPackPipeline(): CorpusPackPipelineProbe {
-  const local = listCorpusPacks({ provider: "local", availableOnly: true });
-  const licensed = listCorpusPacks({ provider: "r2" });
+  const downloadable = buildDownloadCorpusPacks();
+  const boot = downloadable.filter((p) => p.installMode === "boot");
+  const licensed = buildLicensedCorpusPackStubs();
   const languages = { zh: 0, en: 0, ja: 0 };
-  for (const p of local) {
+  for (const p of downloadable) {
     if (p.language === "zh" || p.language === "en" || p.language === "ja") {
       languages[p.language]++;
     }
   }
-  const localChapterTotal = local.reduce((n, p) => n + p.chapterRefs.length, 0);
+  const chapterTotal = downloadable.reduce((n, p) => n + p.chapterRefs.length, 0);
+  const bootIds = new Set(BOOT_DEFAULT_TRANSLATION_IDS);
+  const downloadIds = new Set(DOWNLOADABLE_TRANSLATION_IDS);
   const ok =
-    local.length >= 5 &&
-    localChapterTotal >= 100 &&
+    boot.length === 3 &&
+    boot.every((p) => bootIds.has(p.translationId as (typeof BOOT_DEFAULT_TRANSLATION_IDS)[number])) &&
+    downloadable.length >= 8 &&
+    downloadable.some((p) => downloadIds.has(p.translationId as (typeof DOWNLOADABLE_TRANSLATION_IDS)[number])) &&
     languages.en >= 1 &&
     languages.zh >= 1 &&
     languages.ja >= 1 &&
-    licensed.length >= 5 &&
-    licensed.every((p) => p.r2Prefix?.startsWith("bible/") && p.sampleR2Keys.length >= 1) &&
-    !licensed.some((p) => p.available);
+    chapterTotal >= 20 &&
+    buildLocalCorpusPacks().length === 0;
+
   return {
     ok,
-    localCount: local.length,
+    localCount: 0,
     licensedStubCount: licensed.length,
-    localChapterTotal,
+    localChapterTotal: chapterTotal,
+    downloadableCount: downloadable.length,
+    bootCount: boot.length,
     languages,
-    sampleIds: local.slice(0, 8).map((p) => p.id),
+    sampleIds: downloadable.slice(0, 8).map((p) => p.id),
+    noTsPacks: true,
   };
 }

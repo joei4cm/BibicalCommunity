@@ -1,6 +1,6 @@
 # Corpus fixtures (JSON data — not TypeScript)
 
-Drop Bible chapter JSON here to seed R2 / client local DB. **Do not** densify full corpora into `packages/bible/src/packs/*.ts`.
+Drop Bible chapter JSON here to seed R2 / client local DB. **`packages/bible/src/packs/` must not exist** — never densify corpora into TypeScript.
 
 ## Layout
 

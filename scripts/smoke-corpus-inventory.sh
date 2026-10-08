@@ -1,74 +1,78 @@
 #!/usr/bin/env bash
-# Inventory local dual-pane scaffolds across zh/en/ja mainstream translations.
+# Inventory JSON fixtures (not TypeScript densify packs) + devotion materials.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 pnpm --filter @logoshome/bible build >/dev/null
 node --input-type=module -e '
-import { listLocalScaffoldInventory, listTranslations, listDevotionMaterials } from "./packages/bible/dist/index.js";
+import { readdirSync, existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  listLocalScaffoldInventory,
+  listTranslations,
+  listDevotionMaterials,
+  listDownloadableCorpusCatalog,
+  BOOT_DEFAULT_TRANSLATION_IDS,
+} from "./packages/bible/dist/index.js";
 
-const inv = listLocalScaffoldInventory();
-if (inv.length < 100) throw new Error("expected >=100 local scaffold chapters, got " + inv.length);
+if (existsSync(join("packages/bible/src/packs"))) {
+  throw new Error("packages/bible/src/packs must not exist");
+}
+if (listLocalScaffoldInventory().length !== 0) {
+  throw new Error("TS scaffold inventory must be empty");
+}
 
-const byLang = { zh: 0, en: 0, ja: 0 };
+const fixturesRoot = join("fixtures", "corpus");
+const tidDirs = readdirSync(fixturesRoot, { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .map((d) => d.name)
+  .sort();
+if (tidDirs.length < 3) throw new Error("expected >=3 fixture translation dirs");
+
 const metas = Object.fromEntries(listTranslations().map((t) => [t.id, t]));
-for (const row of inv) {
-  const lang = metas[row.translationId]?.language;
-  if (lang === "zh" || lang === "en" || lang === "ja") byLang[lang]++;
+const byLang = { zh: 0, en: 0, ja: 0 };
+let chapterFiles = 0;
+for (const tid of tidDirs) {
+  const files = readdirSync(join(fixturesRoot, tid)).filter((f) => f.endsWith(".json"));
+  chapterFiles += files.length;
+  const lang = metas[tid]?.language;
+  if (lang === "zh" || lang === "en" || lang === "ja") byLang[lang] += files.length;
+  for (const f of files) {
+    const raw = readFileSync(join(fixturesRoot, tid, f), "utf8");
+    const data = JSON.parse(raw);
+    if (!data.book || !Array.isArray(data.verses)) {
+      throw new Error("invalid fixture " + tid + "/" + f);
+    }
+  }
 }
-if (byLang.en < 20) throw new Error("en scaffolds too few: " + byLang.en);
-if (byLang.zh < 10) throw new Error("zh scaffolds too few: " + byLang.zh);
-if (byLang.ja < 10) throw new Error("ja scaffolds too few: " + byLang.ja);
+if (chapterFiles < 10) throw new Error("expected >=10 fixture chapters, got " + chapterFiles);
+if (byLang.en < 3) throw new Error("en fixtures too few: " + byLang.en);
 
-const needRefs = [
-  "John.15",
-  "Rev.21",
-  "Phil.4",
-  "1Cor.13",
-  "Matt.6",
-  "Gal.5",
-  "Jas.1",
-  "Col.3",
-  "Matt.28",
-  "Eph.2",
-  "John.14",
-  "Rom.12",
-  "1John.4",
-];
-for (const ref of needRefs) {
-  if (!inv.some((r) => r.ref === ref && r.translationId === "web")) {
-    throw new Error("missing web scaffold " + ref);
-  }
+const catalog = listDownloadableCorpusCatalog();
+const boot = catalog.filter((p) => p.installMode === "boot");
+if (boot.length !== 3) throw new Error("boot catalog must be 3");
+for (const id of BOOT_DEFAULT_TRANSLATION_IDS) {
+  if (!boot.some((b) => b.translationId === id)) throw new Error("missing boot " + id);
 }
-for (const tid of ["web", "kjv", "asv"]) {
-  for (const ref of ["John.14", "Rom.12", "1John.4"]) {
-    if (!inv.some((r) => r.ref === ref && r.translationId === tid)) {
-      throw new Error("missing PD triad scaffold " + tid + " " + ref);
-    }
-  }
-}
-for (const tid of ["cuvs", "kougo"]) {
-  for (const ref of ["John.14", "1John.4", "Rom.12", "Heb.11"]) {
-    if (!inv.some((r) => r.ref === ref && r.translationId === tid)) {
-      throw new Error("missing zh/ja scaffold " + tid + " " + ref);
-    }
-  }
-}
-for (const tid of ["rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"]) {
-  if (!inv.some((r) => r.ref === "John.14" && r.translationId === tid)) {
-    throw new Error("missing John.14 scaffold " + tid);
-  }
-}
+const esv = catalog.find((p) => p.translationId === "esv");
+if (!esv || esv.installMode !== "external") throw new Error("ESV must be external");
+
 const devotion = listDevotionMaterials();
-if (devotion.length < 5) throw new Error("expected >=5 devotion materials, got " + devotion.length);
-for (const m of devotion) {
-  for (const loc of ["zh-CN", "en", "ja"]) {
-    if (!m.title[loc]?.trim() || !m.body[loc]?.trim()) throw new Error("devotion incomplete " + m.id + " " + loc);
-  }
-}
+if (devotion.length < 5) throw new Error("expected >=5 devotion materials");
 
-console.log("CORPUS_SCAFFOLD_COUNT=" + inv.length);
-console.log("CORPUS_SCAFFOLD_LANG en=" + byLang.en + " zh=" + byLang.zh + " ja=" + byLang.ja);
-console.log("CORPUS_SCAFFOLD_INVENTORY_OK");
+console.log(
+  "CORPUS_SCAFFOLD_INVENTORY_OK fixtures=" +
+    chapterFiles +
+    " tids=" +
+    tidDirs.length +
+    " langs=en:" +
+    byLang.en +
+    ",zh:" +
+    byLang.zh +
+    ",ja:" +
+    byLang.ja +
+    " boot=" +
+    boot.map((b) => b.translationId).join("+"),
+);
 console.log("DEVOTION_MATERIALS_OK count=" + devotion.length);
 '

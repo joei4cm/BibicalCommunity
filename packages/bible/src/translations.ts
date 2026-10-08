@@ -27,7 +27,8 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     name: { "zh-CN": "世界英文圣经", en: "World English Bible", ja: "世界英語聖書" },
     language: "en",
     license: "public-domain",
-    provider: "local",
+    /** Boot default — downloaded into local DB; not embedded in TypeScript. */
+    provider: "r2",
     available: true,
   },
   {
@@ -36,7 +37,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     name: { "zh-CN": "钦定版", en: "King James Version", ja: "欽定訳" },
     language: "en",
     license: "public-domain",
-    provider: "local",
+    provider: "r2",
     available: true,
   },
   {
@@ -45,7 +46,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     name: { "zh-CN": "美国标准译本", en: "American Standard Version", ja: "アメリカ標準訳" },
     language: "en",
     license: "public-domain",
-    provider: "local",
+    provider: "r2",
     available: true,
   },
   {
@@ -201,7 +202,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     name: { "zh-CN": "日语文语译本", en: "Japanese Classical", ja: "文語訳" },
     language: "ja",
     license: "public-domain",
-    provider: "local",
+    provider: "r2",
     available: true,
   },
   {

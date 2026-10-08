@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prove corpus-pack pipeline: local scaffold packs + licensed R2 full-corpus stubs.
+# Prove corpus-pack pipeline: R2 download/boot packs (no TypeScript densify).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -12,27 +12,43 @@ import {
   getCorpusPack,
   buildCorpusPackManifestJson,
   parseCorpusPackManifest,
+  buildLocalCorpusPacks,
   listLocalScaffoldInventory,
+  BOOT_DEFAULT_TRANSLATION_IDS,
 } from "./packages/bible/dist/index.js";
 import { r2ChapterObjectKey } from "./packages/bible/dist/index.js";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+if (existsSync(join("packages/bible/src/packs"))) {
+  throw new Error("packages/bible/src/packs must not exist — corpora are JSON/R2 only");
+}
+if (buildLocalCorpusPacks().length !== 0) {
+  throw new Error("local TS corpus packs must be empty");
+}
+if (listLocalScaffoldInventory().length !== 0) {
+  throw new Error("scaffold inventory must be empty (no TS densify)");
+}
 
 const probe = probeCorpusPackPipeline();
 if (!probe.ok) throw new Error("corpus pack pipeline probe failed");
-if (probe.localCount < 5) throw new Error("need >=5 local corpus packs");
-if (probe.localChapterTotal < 100) throw new Error("local chapters too few");
+if (probe.bootCount !== 3) throw new Error("bootCount must be 3");
+if (probe.downloadableCount < 8) throw new Error("need >=8 downloadable packs");
+if (!probe.noTsPacks) throw new Error("noTsPacks must be true");
 
-const inv = listLocalScaffoldInventory();
-const webLocal = getCorpusPack("web-local");
-if (!webLocal?.available) throw new Error("missing web-local pack");
-if (!webLocal.chapterRefs.includes("John.3")) throw new Error("web-local missing John.3");
-if (webLocal.chapterRefs.length > inv.filter((r) => r.translationId === "web").length) {
-  throw new Error("web-local chapterRefs exceed inventory");
+const web = getCorpusPack("web-r2");
+if (!web?.available) throw new Error("missing web-r2 pack");
+if (!web.chapterRefs.includes("John.1")) throw new Error("web-r2 missing John.1");
+if (web.provider !== "r2") throw new Error("web pack must be r2");
+
+for (const id of BOOT_DEFAULT_TRANSLATION_IDS) {
+  const p = getCorpusPack(id + "-r2");
+  if (!p || p.installMode !== "boot") throw new Error("missing boot pack " + id);
 }
 
-const licensed = listCorpusPacks({ provider: "r2" });
-if (licensed.length < 5) throw new Error("expected >=5 licensed stubs");
-for (const p of licensed) {
-  if (p.available) throw new Error("licensed stub must be unavailable: " + p.id);
+const packs = listCorpusPacks({ provider: "r2", availableOnly: true });
+if (packs.length < 8) throw new Error("expected >=8 available r2 packs");
+for (const p of packs) {
   if (p.r2Prefix !== r2CorpusPackPrefix(p.translationId)) {
     throw new Error("r2 prefix mismatch " + p.id);
   }
@@ -41,17 +57,19 @@ for (const p of licensed) {
   }
 }
 
-const raw = buildCorpusPackManifestJson(webLocal);
+const raw = buildCorpusPackManifestJson(web);
 const again = parseCorpusPackManifest(raw);
-if (again.id !== "web-local") throw new Error("roundtrip failed");
+if (again.id !== "web-r2") throw new Error("roundtrip failed");
 
 console.log(
-  "CORPUS_PACK_PIPELINE_OK local=" +
-    probe.localCount +
+  "CORPUS_PACK_PIPELINE_OK boot=" +
+    probe.bootCount +
+    " downloadable=" +
+    probe.downloadableCount +
     " chapters=" +
     probe.localChapterTotal +
-    " licensedStubs=" +
-    probe.licensedStubCount +
+    " noTsPacks=" +
+    probe.noTsPacks +
     " langs=en:" +
     probe.languages.en +
     ",zh:" +
