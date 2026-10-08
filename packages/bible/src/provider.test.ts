@@ -862,8 +862,10 @@ test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaff
     const exod = await loadChapter(tid, { book: "Exod", chapter: 20 });
     assert.ok(!("external" in exod), tid);
     assert.equal(exod.book, "Exod");
-    assert.ok(exod.verses.length >= 17, tid);
+    assert.ok(exod.verses.length >= 26, tid);
+    assert.equal(exod.verses[exod.verses.length - 1]?.verse, 26, tid);
     assert.match(exod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|樣例|見本|别的|別的|神としては|ほかに神|ほかの神/);
+    assert.match(exod.verses.find((v) => v.verse === 20)?.text ?? "", /样例|樣例|見本|惧怕|懼怕|恐れて|试验|試驗|試み/);
 
     const luke = await loadChapter(tid, { book: "Luke", chapter: 2 });
     assert.ok(!("external" in luke), tid);
@@ -1036,21 +1038,30 @@ test("loadChapter returns PD Exodus.20 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Exod");
   assert.equal(web.chapter, 20);
-  assert.ok(web.verses.length >= 17);
+  assert.ok(web.verses.length >= 26);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 26);
   assert.match(web.verses.find((v) => v.verse === 2)?.text ?? "", /Yahweh your God|land of Egypt/i);
   assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /not murder|not kill/i);
   assert.match(web.verses.find((v) => v.verse === 17)?.text ?? "", /not covet/i);
+  assert.match(web.verses.find((v) => v.verse === 18)?.text ?? "", /thunderings|lightnings|trumpet/i);
+  assert.match(web.verses.find((v) => v.verse === 20)?.text ?? "", /Don't be afraid|Fear not|test you/i);
+  assert.match(web.verses.find((v) => v.verse === 26)?.text ?? "", /steps|altar|nakedness/i);
 
   const kjv = await loadChapter("kjv", { book: "Exodus", chapter: 20 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Exod");
-  assert.ok(kjv.verses.length >= 17);
+  assert.ok(kjv.verses.length >= 26);
+  assert.equal(kjv.verses[kjv.verses.length - 1]?.verse, 26);
   assert.match(kjv.verses.find((v) => v.verse === 3)?.text ?? "", /no other gods before me/i);
+  assert.match(kjv.verses.find((v) => v.verse === 20)?.text ?? "", /Fear not|prove you/i);
 
   const asv = await loadChapter("asv", { book: "Ex", chapter: 20 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 17);
+  assert.ok(asv.verses.length >= 26);
+  assert.equal(asv.verses[asv.verses.length - 1]?.verse, 26);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /Jehovah thy God|Egypt/i);
+  assert.match(asv.verses.find((v) => v.verse === 26)?.text ?? "", /steps|altar|nakedness/i);
 });
 
 test("loadChapter returns zh/ja Mark.1 and Exodus.20 scaffolds", async () => {
@@ -1070,16 +1081,23 @@ test("loadChapter returns zh/ja Mark.1 and Exodus.20 scaffolds", async () => {
   const cuvsExod = await loadChapter("cuvs", { book: "出埃及记", chapter: 20 });
   assert.ok(!("external" in cuvsExod));
   assert.equal(cuvsExod.book, "Exod");
-  assert.ok(cuvsExod.verses.length >= 17);
+  assert.ok(cuvsExod.verses.length >= 26);
+  assert.equal(cuvsExod.verses[cuvsExod.verses.length - 1]?.verse, 26);
   assert.match(cuvsExod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|不可有别的神/);
   assert.match(cuvsExod.verses.find((v) => v.verse === 13)?.text ?? "", /不可杀人/);
   assert.match(cuvsExod.verses.find((v) => v.verse === 17)?.text ?? "", /不可贪恋/);
+  assert.match(cuvsExod.verses.find((v) => v.verse === 18)?.text ?? "", /雷轰|闪电|角声/);
+  assert.match(cuvsExod.verses.find((v) => v.verse === 20)?.text ?? "", /不要惧怕|试验/);
+  assert.match(cuvsExod.verses.find((v) => v.verse === 26)?.text ?? "", /台阶|下体/);
 
   const kougoExod = await loadChapter("kougo", { book: "出エジプト記", chapter: 20 });
   assert.ok(!("external" in kougoExod));
-  assert.ok(kougoExod.verses.length >= 17);
+  assert.ok(kougoExod.verses.length >= 26);
+  assert.equal(kougoExod.verses[kougoExod.verses.length - 1]?.verse, 26);
   assert.match(kougoExod.verses.find((v) => v.verse === 2)?.text ?? "", /見本|エジプトの地|奴隷の家/);
   assert.match(kougoExod.verses.find((v) => v.verse === 13)?.text ?? "", /殺してはならない/);
+  assert.match(kougoExod.verses.find((v) => v.verse === 20)?.text ?? "", /恐れてはならない|試み/);
+  assert.match(kougoExod.verses.find((v) => v.verse === 26)?.text ?? "", /階段|祭壇|裸/);
 });
 
 test("loadChapter returns PD Luke.2 scaffolds (web/kjv/asv)", async () => {

@@ -1,4 +1,4 @@
-/** Traditional Chinese Union–style denser Exodus 20 Decalogue scaffold (vv.1–17; not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser Exodus 20 denser full Decalogue / altar chapter scaffold (vv.1–26). (not a licensed corpus dump). */
 export const CUVT_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -67,5 +67,41 @@ export const CUVT_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 17,
     text: "（樣例）不可貪戀人的房屋；也不可貪戀人的妻子、僕婢、牛驢，並他一切所有的。",
+  },
+  {
+    verse: 18,
+    text: "（樣例）眾百姓見雷轟、閃電、角聲、山上冒煙，就都發顫，遠遠地站立，",
+  },
+  {
+    verse: 19,
+    text: "（樣例）對摩西說：「求你和我們說話，我們必聽；不要神和我們說話，恐怕我們死亡。」",
+  },
+  {
+    verse: 20,
+    text: "（樣例）摩西對百姓說：「不要懼怕；因為神降臨是要試驗你們，叫你們時常敬畏他，不致犯罪。」",
+  },
+  {
+    verse: 21,
+    text: "（樣例）於是百姓遠遠地站立；摩西就挨近神所在的幽暗之中。",
+  },
+  {
+    verse: 22,
+    text: "（樣例）耶和華對摩西說：「你要向以色列人這樣說：『你們自己看見我從天上和你們說話了。",
+  },
+  {
+    verse: 23,
+    text: "（樣例）你們不可做甚麼神像與我相配，不可為自己做金銀的神像。",
+  },
+  {
+    verse: 24,
+    text: "（樣例）你要為我築土壇，在上面以牛羊獻為燔祭和平安祭。凡記下我名的地方，我必到那裏賜福給你。",
+  },
+  {
+    verse: 25,
+    text: "（樣例）你若為我築石壇，不可用鑿成的石頭，因你在上頭一動用具，就把壇污穢了。",
+  },
+  {
+    verse: 26,
+    text: "（樣例）你上我的壇，不可用臺階，免得露出你的下體來。』」",
   },
 ];

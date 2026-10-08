@@ -1,4 +1,4 @@
-/** Revised CUV-style denser Exodus 20 Decalogue scaffold (vv.1–17; not a licensed corpus dump). */
+/** Revised CUV-style denser Exodus 20 denser full Decalogue / altar chapter scaffold (vv.1–26). (not a licensed corpus dump). */
 export const RCUV_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -67,5 +67,41 @@ export const RCUV_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 17,
     text: "（样例）不可贪恋人的房屋；也不可贪恋人的妻子、仆婢、牛驴，并他一切所有的。",
+  },
+  {
+    verse: 18,
+    text: "（样例）众百姓见雷轰、闪电、角声、山上冒烟，就都发颤，远远地站立，",
+  },
+  {
+    verse: 19,
+    text: "（样例）对摩西说：「求你和我们说话，我们必听；不要神和我们说话，恐怕我们死亡。」",
+  },
+  {
+    verse: 20,
+    text: "（样例）摩西对百姓说：「不要惧怕；因为神降临是要试验你们，叫你们时常敬畏他，不致犯罪。」",
+  },
+  {
+    verse: 21,
+    text: "（样例）于是百姓远远地站立；摩西就挨近神所在的幽暗之中。",
+  },
+  {
+    verse: 22,
+    text: "（样例）耶和华对摩西说：「你要向以色列人这样说：『你们自己看见我从天上和你们说话了。",
+  },
+  {
+    verse: 23,
+    text: "（样例）你们不可做什么神像与我相配，不可为自己做金银的神像。",
+  },
+  {
+    verse: 24,
+    text: "（样例）你要为我筑土坛，在上面以牛羊献为燔祭和平安祭。凡记下我名的地方，我必到那里赐福给你。",
+  },
+  {
+    verse: 25,
+    text: "（样例）你若为我筑石坛，不可用凿成的石头，因你在上头一动用具，就把坛污秽了。",
+  },
+  {
+    verse: 26,
+    text: "（样例）你上我的坛，不可用台阶，免得露出你的下体来。』」",
   },
 ];
