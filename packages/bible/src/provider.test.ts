@@ -787,7 +787,21 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   assert.ok(!("external" in john14));
   assert.equal(john14.source, "local");
   assert.equal(john14.chapter, 14);
+  assert.ok(john14.verses.length >= 18);
+  assert.equal(john14.verses[0]?.verse, 1);
   assert.match(john14.verses.find((v) => v.verse === 6)?.text ?? "", /way, the truth, and the life/i);
+  assert.match(john14.verses.find((v) => v.verse === 16)?.text ?? "", /Counselor|Comforter|Spirit/i);
+  assert.match(john14.verses.find((v) => v.verse === 27)?.text ?? "", /Peace I leave with you/i);
+
+  const kjv14 = await loadChapter("kjv", { book: "John", chapter: 14 });
+  assert.ok(!("external" in kjv14));
+  assert.ok(kjv14.verses.length >= 18);
+  assert.match(kjv14.verses.find((v) => v.verse === 2)?.text ?? "", /mansions|Father's house/i);
+
+  const asv14 = await loadChapter("asv", { book: "John", chapter: 14 });
+  assert.ok(!("external" in asv14));
+  assert.ok(asv14.verses.length >= 18);
+  assert.match(asv14.verses.find((v) => v.verse === 17)?.text ?? "", /Spirit of truth/i);
 
   const rom12 = await loadChapter("kjv", { book: "Romans", chapter: 12 });
   assert.ok(!("external" in rom12));
