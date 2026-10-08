@@ -323,24 +323,37 @@ test("loadChapter returns Psalm.23 scaffolds (web/kjv/asv + zh/ja)", async () =>
   const web = await loadChapter("web", { book: "Ps", chapter: 23 });
   assert.ok(!("external" in web));
   assert.equal(web.book, "Ps");
+  assert.ok(web.verses.length >= 6);
   assert.match(web.verses[0]?.text ?? "", /shepherd/i);
+  assert.match(web.verses.find((v) => v.verse === 6)?.text ?? "", /dwell|forever|house/i);
 
   const kjv = await loadChapter("kjv", { book: "Psalm", chapter: 23 });
   assert.ok(!("external" in kjv));
-  assert.ok(kjv.verses.length >= 3 && kjv.verses.length <= 5);
+  assert.ok(kjv.verses.length >= 6);
   assert.match(kjv.verses[0]?.text ?? "", /LORD is my shepherd/i);
+  assert.match(kjv.verses.find((v) => v.verse === 6)?.text ?? "", /house of the LORD|for ever/i);
 
   const asv = await loadChapter("asv", { book: "Psalms", chapter: 23 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 6);
   assert.match(asv.verses[0]?.text ?? "", /Jehovah is my shepherd/i);
 
   const cuvs = await loadChapter("cuvs", { book: "Ps", chapter: 23 });
   assert.ok(!("external" in cuvs));
+  assert.ok(cuvs.verses.length >= 6);
   assert.match(cuvs.verses[0]?.text ?? "", /样例|牧者/);
+  assert.match(cuvs.verses.find((v) => v.verse === 6)?.text ?? "", /恩惠慈爱|耶和华的殿/);
+
+  const cuvt = await loadChapter("cuvt", { book: "Ps", chapter: 23 });
+  assert.ok(!("external" in cuvt));
+  assert.ok(cuvt.verses.length >= 6);
+  assert.match(cuvt.verses.find((v) => v.verse === 6)?.text ?? "", /恩惠慈愛|耶和華的殿/);
 
   const kougo = await loadChapter("kougo", { book: "Ps", chapter: 23 });
   assert.ok(!("external" in kougo));
+  assert.ok(kougo.verses.length >= 6);
   assert.match(kougo.verses[0]?.text ?? "", /見本|牧者/);
+  assert.match(kougo.verses.find((v) => v.verse === 6)?.text ?? "", /主の家|いつまでも/);
 });
 
 test("loadChapter returns zh/ja Genesis.1 scaffolds", async () => {
@@ -562,7 +575,8 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const cor = await loadChapter(tid, { book: "1Cor", chapter: 13 });
     assert.ok(!("external" in cor), tid);
-    assert.match(cor.verses.find((v) => v.verse === 13)?.text ?? "", /样例|樣例|見本|最大的是爱|最大的是愛|愛である/);
+    assert.ok(cor.verses.length >= 13, tid);
+    assert.match(cor.verses.find((v) => v.verse === 13)?.text ?? "", /样例|樣例|見本|最大的是爱|最大的是愛|愛である|愛です/);
 
     const eph = await loadChapter(tid, { book: "Eph", chapter: 2 });
     assert.ok(!("external" in eph), tid);
@@ -597,7 +611,8 @@ test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaff
     const exod = await loadChapter(tid, { book: "Exod", chapter: 20 });
     assert.ok(!("external" in exod), tid);
     assert.equal(exod.book, "Exod");
-    assert.match(exod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|樣例|見本|别的|別的|神としては/);
+    assert.ok(exod.verses.length >= 17, tid);
+    assert.match(exod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|樣例|見本|别的|別的|神としては|ほかに神|ほかの神/);
 
     const luke = await loadChapter(tid, { book: "Luke", chapter: 2 });
     assert.ok(!("external" in luke), tid);
@@ -729,16 +744,20 @@ test("loadChapter returns PD Exodus.20 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Exod");
   assert.equal(web.chapter, 20);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 17);
   assert.match(web.verses.find((v) => v.verse === 2)?.text ?? "", /Yahweh your God|land of Egypt/i);
+  assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /not murder|not kill/i);
+  assert.match(web.verses.find((v) => v.verse === 17)?.text ?? "", /not covet/i);
 
   const kjv = await loadChapter("kjv", { book: "Exodus", chapter: 20 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Exod");
+  assert.ok(kjv.verses.length >= 17);
   assert.match(kjv.verses.find((v) => v.verse === 3)?.text ?? "", /no other gods before me/i);
 
   const asv = await loadChapter("asv", { book: "Ex", chapter: 20 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 17);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /Jehovah thy God|Egypt/i);
 });
 
@@ -756,11 +775,16 @@ test("loadChapter returns zh/ja Mark.1 and Exodus.20 scaffolds", async () => {
   const cuvsExod = await loadChapter("cuvs", { book: "出埃及记", chapter: 20 });
   assert.ok(!("external" in cuvsExod));
   assert.equal(cuvsExod.book, "Exod");
+  assert.ok(cuvsExod.verses.length >= 17);
   assert.match(cuvsExod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|不可有别的神/);
+  assert.match(cuvsExod.verses.find((v) => v.verse === 13)?.text ?? "", /不可杀人/);
+  assert.match(cuvsExod.verses.find((v) => v.verse === 17)?.text ?? "", /不可贪恋/);
 
   const kougoExod = await loadChapter("kougo", { book: "出エジプト記", chapter: 20 });
   assert.ok(!("external" in kougoExod));
+  assert.ok(kougoExod.verses.length >= 17);
   assert.match(kougoExod.verses.find((v) => v.verse === 2)?.text ?? "", /見本|エジプトの地|奴隷の家/);
+  assert.match(kougoExod.verses.find((v) => v.verse === 13)?.text ?? "", /殺してはならない/);
 });
 
 test("loadChapter returns PD Luke.2 scaffolds (web/kjv/asv)", async () => {
@@ -906,17 +930,20 @@ test("loadChapter returns PD 1Corinthians.13 scaffolds (web/kjv/asv)", async () 
   assert.ok(!("external" in web));
   assert.equal(web.book, "1Cor");
   assert.equal(web.chapter, 13);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 13);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Love is patient/i);
+  assert.match(web.verses.find((v) => v.verse === 8)?.text ?? "", /Love never fails/i);
   assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /greatest of these is love/i);
 
   const kjv = await loadChapter("kjv", { book: "1Corinthians", chapter: 13 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "1Cor");
+  assert.ok(kjv.verses.length >= 13);
   assert.match(kjv.verses.find((v) => v.verse === 13)?.text ?? "", /greatest of these is charity/i);
 
   const asv = await loadChapter("asv", { book: "1Co", chapter: 13 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 13);
   assert.match(asv.verses.find((v) => v.verse === 1)?.text ?? "", /have not love/i);
 });
 
@@ -933,10 +960,13 @@ test("loadChapter returns zh/ja Philippians.4 and 1Corinthians.13 scaffolds", as
   const cuvsCor = await loadChapter("cuvs", { book: "哥林多前书", chapter: 13 });
   assert.ok(!("external" in cuvsCor));
   assert.equal(cuvsCor.book, "1Cor");
+  assert.ok(cuvsCor.verses.length >= 13);
+  assert.match(cuvsCor.verses.find((v) => v.verse === 4)?.text ?? "", /爱是恒久忍耐|恩慈/);
   assert.match(cuvsCor.verses.find((v) => v.verse === 13)?.text ?? "", /样例|最大的是爱/);
 
   const kougoCor = await loadChapter("kougo", { book: "コリント第一", chapter: 13 });
   assert.ok(!("external" in kougoCor));
+  assert.ok(kougoCor.verses.length >= 13);
   assert.match(kougoCor.verses.find((v) => v.verse === 13)?.text ?? "", /見本|最も大いなるものは、愛/);
 });
 
