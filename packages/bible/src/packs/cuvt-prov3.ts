@@ -1,4 +1,4 @@
-/** Traditional Chinese Union–style denser Proverbs 3 denser trust scaffold (vv.1–8). (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser Proverbs 3 denser full trust/wisdom chapter scaffold (vv.1–35). (not a licensed corpus dump). */
 export const CUVT_PROV_3: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -6,7 +6,7 @@ export const CUVT_PROV_3: { verse: number; text: string }[] = [
   },
   {
     verse: 2,
-    text: "（樣例）因為他必將長久的日子、生命的年數與平安加給你。",
+    text: "（樣例）因為他必將長久的日子、生命的年数與平安加給你。",
   },
   {
     verse: 3,
@@ -30,6 +30,114 @@ export const CUVT_PROV_3: { verse: number; text: string }[] = [
   },
   {
     verse: 8,
-    text: "（樣例）這便醫治你的肚臍，滋潤你的百骨。",
+    text: "（樣例）这便醫治你的肚臍，滋潤你的百骨。",
+  },
+  {
+    verse: 9,
+    text: "（樣例）你要以財物和一切初熟的土產尊榮耶和華。",
+  },
+  {
+    verse: 10,
+    text: "（樣例）這樣，你的倉房必充滿有餘，你的酒醡有新酒盈溢。",
+  },
+  {
+    verse: 11,
+    text: "（樣例）我兒，你不可輕看耶和華的管教，也不可厭煩他的責備；",
+  },
+  {
+    verse: 12,
+    text: "（樣例）因為耶和華所愛的，他必責備，正如父親責備所喜愛的儿子。",
+  },
+  {
+    verse: 13,
+    text: "（樣例）得智慧、得聰明的，这人便为有福。",
+  },
+  {
+    verse: 14,
+    text: "（樣例）因為得智慧勝過得銀子，其利益強如精金，",
+  },
+  {
+    verse: 15,
+    text: "（樣例）比珍珠寶貴；你一切所喜愛的，都不足与比較。",
+  },
+  {
+    verse: 16,
+    text: "（樣例）她右手有長壽，左手有富貴。",
+  },
+  {
+    verse: 17,
+    text: "（樣例）她的道是安樂，她的路全是平安。",
+  },
+  {
+    verse: 18,
+    text: "（樣例）她与持守她的作生命樹；持定她的俱各有福。",
+  },
+  {
+    verse: 19,
+    text: "（樣例）耶和華以智慧立地，以聰明定天，",
+  },
+  {
+    verse: 20,
+    text: "（樣例）以知識使深淵裂開，使天空滴下甘露。",
+  },
+  {
+    verse: 21,
+    text: "（樣例）我兒，要謹守真智慧和謀略，不可使她離開你的眼目。",
+  },
+  {
+    verse: 22,
+    text: "（樣例）這樣，她必作你的生命，頸項的美飾。",
+  },
+  {
+    verse: 23,
+    text: "（樣例）你就坦然行路，不至碰腳。",
+  },
+  {
+    verse: 24,
+    text: "（樣例）你躺下，必不懼怕；你躺臥，睡得香甜。",
+  },
+  {
+    verse: 25,
+    text: "（樣例）忽然來的驚恐不要害怕，惡人的毀滅也不要恐懼，",
+  },
+  {
+    verse: 26,
+    text: "（樣例）因為耶和華是你的倚靠，他必保守你的脚不陷入網羅。",
+  },
+  {
+    verse: 27,
+    text: "（樣例）你手若有行善的力量，不可推辭，就當向那應得的人施行。",
+  },
+  {
+    verse: 28,
+    text: "（樣例）你那里若有現成的，不可对鄰舍說：去吧，明天再来，我必给你。",
+  },
+  {
+    verse: 29,
+    text: "（樣例）你的鄰舍既在你附近安居，你不可設計害他。",
+  },
+  {
+    verse: 30,
+    text: "（樣例）人未曾加害与你，不可無故与他相爭。",
+  },
+  {
+    verse: 31,
+    text: "（樣例）不可嫉妒強暴的人，也不可選擇他所行的路。",
+  },
+  {
+    verse: 32,
+    text: "（樣例）因為，乖僻人为耶和華所憎惡；正直人为他所親密。",
+  },
+  {
+    verse: 33,
+    text: "（樣例）耶和華咒詛惡人的家庭，賜福与義人的居所。",
+  },
+  {
+    verse: 34,
+    text: "（樣例）他譏誚那好譏誚的人，賜恩给謙卑的人。",
+  },
+  {
+    verse: 35,
+    text: "（樣例）智慧人必承受尊榮；愚昧人高升也成為羞辱。",
   },
 ];
