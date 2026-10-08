@@ -19,5 +19,8 @@
   "devDependencies": {
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@signalapp/libsignal-client": "0.105.0"
   }
 }

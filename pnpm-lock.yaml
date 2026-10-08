@@ -166,6 +166,10 @@ importers:
         version: 5.9.3
 
   packages/crypto:
+    dependencies:
+      '@signalapp/libsignal-client':
+        specifier: 0.105.0
+        version: 0.105.0
     devDependencies:
       tsx:
         specifier: ^4.20.3
@@ -2249,6 +2253,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@signalapp/libsignal-client@0.105.0':
+    resolution: {integrity: sha512-6H7aQ6/grE6A/wG3nAm+c7aMWhj472/wtbTnNzb9z2KEPZ933PwYGi93zy6Pm63Mxd7SiOSfoa4gSTr++F44UQ==}
+
   '@sinclair/typebox@0.27.12':
     resolution: {integrity: sha512-hhyNJ+nbR6ZR7pToHvllEFun9TL0sbL+tk/ON75lo+Xas054uez98qRbsuNt7MBCyZKK4+8Yli/OAGZhmfBZ/g==}
 
@@ -3986,6 +3993,10 @@ packages:
     resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
     engines: {node: '>= 6.13.0'}
 
+  node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
+    hasBin: true
+
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
 
@@ -4772,6 +4783,10 @@ packages:
   type-fest@0.7.1:
     resolution: {integrity: sha512-Ne2YiiGN8bmrmJJEuTWTLJR32nh/JdL1+PSicowtNb0WFpn59GK8/lfD61bVtzguz7b3PBt74nxpv/Pw5po5Rg==}
     engines: {node: '>=8'}
+
+  type-fest@4.41.0:
+    resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
+    engines: {node: '>=16'}
 
   typed-array-buffer@1.0.3:
     resolution: {integrity: sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw==}
@@ -7243,6 +7258,11 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.64.1':
     optional: true
 
+  '@signalapp/libsignal-client@0.105.0':
+    dependencies:
+      node-gyp-build: 4.8.4
+      type-fest: 4.41.0
+
   '@sinclair/typebox@0.27.12': {}
 
   '@sindresorhus/is@7.2.0': {}
@@ -9196,6 +9216,8 @@ snapshots:
 
   node-forge@1.4.0: {}
 
+  node-gyp-build@4.8.4: {}
+
   node-int64@0.4.0: {}
 
   node-releases@2.0.57: {}
@@ -10074,6 +10096,8 @@ snapshots:
   type-fest@0.21.3: {}
 
   type-fest@0.7.1: {}
+
+  type-fest@4.41.0: {}
 
   typed-array-buffer@1.0.3:
     dependencies:

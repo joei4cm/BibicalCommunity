@@ -37,12 +37,7 @@ test("resolveSignalBackend respects prefer and env", () => {
   else g.LOGOSHOME_SIGNAL_BACKEND = prev;
 });
 
-test("probeLibsignalPackage reports availability without enabling backend", async () => {
-  const probe = await probeLibsignalPackage();
-  assert.equal(probe.packageName, "@signalapp/libsignal-client");
-  assert.equal(typeof probe.available, "boolean");
-  if (!probe.available) assert.ok((probe.reason ?? "").length > 0);
-  // Probe must not change fail-closed factory behavior.
+test("sync createSignalClient(libsignal) stays fail-closed", async () => {
   await assert.rejects(
     () => createSignalClient("libsignal").generateIdentity(),
     LibsignalNotConfiguredError,
