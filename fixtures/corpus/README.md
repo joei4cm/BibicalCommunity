@@ -15,6 +15,7 @@ Examples:
 - `shinKyoudou/John.3.json` — boot default (新共同訳)
 - `kougo/John.1.json` — downloadable sample
 - `cuvt` / `rcuv` / `ccb` / `lzz` / `shinkaiyaku` — downloadable peer demos
+- `kjv` / `asv` — public-domain English downloadable fixtures
 
 ## Chapter JSON shape
 
