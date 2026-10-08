@@ -68,6 +68,14 @@ type WipeCommand = {
 
 type Section = "homes" | "users" | "groups" | "wipe";
 
+const SECTION_IDS: Section[] = ["homes", "users", "groups", "wipe"];
+
+function sectionFromHash(): Section {
+  if (typeof window === "undefined") return "homes";
+  const raw = window.location.hash.replace(/^#/, "");
+  return SECTION_IDS.includes(raw as Section) ? (raw as Section) : "homes";
+}
+
 export function AdminConsole() {
   const { t } = useTranslation();
   const [access, setAccess] = useState<AdminAccess | null>(null);
@@ -77,7 +85,7 @@ export function AdminConsole() {
   const [groups, setGroups] = useState<AdminGroup[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [wipes, setWipes] = useState<WipeCommand[]>([]);
-  const [section, setSection] = useState<Section>("homes");
+  const [section, setSection] = useState<Section>(() => sectionFromHash());
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -159,6 +167,22 @@ export function AdminConsole() {
   useEffect(() => {
     if (selected) setChurchName(selected.name);
   }, [selected]);
+
+  useEffect(() => {
+    const onHash = () => setSection(sectionFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  function goSection(id: Section) {
+    setSection(id);
+    if (typeof window !== "undefined") {
+      const next = `#${id}`;
+      if (window.location.hash !== next) {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${next}`);
+      }
+    }
+  }
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -352,7 +376,11 @@ export function AdminConsole() {
         {note ? ` · ${humanizeStatus(t, note)}` : ""}
       </p>
 
-      <div className="toolbar board-tabs" role="tablist" aria-label={t("admin.title")}>
+      <div
+        className="toolbar board-tabs admin-section-tabs"
+        role="tablist"
+        aria-label={t("admin.title")}
+      >
         {sections.map((s) => (
           <button
             key={s.id}
@@ -361,37 +389,66 @@ export function AdminConsole() {
             aria-selected={section === s.id}
             className={`btn ghost${section === s.id ? " active-toggle" : ""}`}
             data-testid={`admin-tab-${s.id}`}
-            onClick={() => setSection(s.id)}
+            onClick={() => goSection(s.id)}
           >
             {s.label}
           </button>
         ))}
       </div>
 
-      <div className="panel">
+      <div className="panel" data-testid="admin-church-picker">
         <h2 style={{ marginTop: 0 }}>{t("admin.selectHome")}</h2>
-        <ul className="list" data-testid="admin-church-list">
-          {churches.length === 0 && <li className="muted">—</li>}
-          {churches.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                className={`btn ghost${churchId === c.id ? " active-toggle" : ""}`}
-                onClick={() => setChurchId(c.id)}
+        {churches.length === 0 ? (
+          <p className="muted">—</p>
+        ) : (
+          <>
+            <div className="field">
+              <label htmlFor="admin-church-select">{t("admin.selectHome")}</label>
+              <select
+                id="admin-church-select"
+                data-testid="admin-church-select"
+                value={churchId ?? ""}
+                onChange={(e) => setChurchId(e.target.value || null)}
               >
-                {c.name}
-                {churchId === c.id ? ` · ${t("home.selected")}` : ""}
-              </button>
-              <div className="muted">
-                {c.role} · {c.memberCount} {t("admin.members")} · {c.groupCount}{" "}
-                {t("admin.groups")}
-                {c.securityMode === "hostile" ? (
+                {churches.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.securityMode === "hostile" ? ` (${t("home.securityMode.hostileBadge")})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selected ? (
+              <p className="muted" data-testid="admin-church-meta">
+                {selected.role} · {selected.memberCount} {t("admin.members")} ·{" "}
+                {selected.groupCount} {t("admin.groups")}
+                {selected.securityMode === "hostile" ? (
                   <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
                 ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
+              </p>
+            ) : null}
+            {section === "homes" && churches.length > 1 ? (
+              <ul className="list" data-testid="admin-church-list">
+                {churches.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className={`btn ghost${churchId === c.id ? " active-toggle" : ""}`}
+                      onClick={() => setChurchId(c.id)}
+                    >
+                      {c.name}
+                      {churchId === c.id ? ` · ${t("home.selected")}` : ""}
+                    </button>
+                    <div className="muted">
+                      {c.role} · {c.memberCount} {t("admin.members")} · {c.groupCount}{" "}
+                      {t("admin.groups")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
       </div>
 
       {section === "homes" && (
