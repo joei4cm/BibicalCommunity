@@ -1,5 +1,65 @@
-/** Traditional Chinese Union–style denser Galatians 5 denser Spirit-walk scaffold (vv.16–26). (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser Galatians 5 denser full freedom/Spirit chapter scaffold (vv.1–26). (not a licensed corpus dump). */
 export const CUVT_GAL_5: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "（樣例）基督釋放了我們，叫我們得以自由。所以要站立得穩，不要再被奴僕的軛挾制。",
+  },
+  {
+    verse: 2,
+    text: "（樣例）我保羅告訴你們，若受割禮，基督就與你們無益了。",
+  },
+  {
+    verse: 3,
+    text: "（樣例）我再指著凡受割禮的人確實地說，他是欠著行全律法的債。",
+  },
+  {
+    verse: 4,
+    text: "（樣例）你們這要靠律法稱義的，是與基督隔絕，從恩典中墜落了。",
+  },
+  {
+    verse: 5,
+    text: "（樣例）我們靠著聖靈，憑著信心，等候所盼望的義。",
+  },
+  {
+    verse: 6,
+    text: "（樣例）原來在基督耶穌裡，受割禮不受割禮全無功效，惟獨使人生發仁愛的信心才有功效。",
+  },
+  {
+    verse: 7,
+    text: "（樣例）你們向來跑得好，有誰攔阻你們，叫你們不順從真理呢？",
+  },
+  {
+    verse: 8,
+    text: "（樣例）這樣的勸導不是出於那召你們的。",
+  },
+  {
+    verse: 9,
+    text: "（樣例）一點麵酵能使全團都發起來。",
+  },
+  {
+    verse: 10,
+    text: "（樣例）我在主裡很信你們必不懷別樣的心；但那擾亂你們的，無論是誰，必擔當他的罪名。",
+  },
+  {
+    verse: 11,
+    text: "（樣例）弟兄們，我若仍舊傳割禮，為什麼還受逼迫呢？若是這樣，那十字架討厭的地方就沒有了。",
+  },
+  {
+    verse: 12,
+    text: "（樣例）恨不得那擾亂你們的人把自己割絕了。",
+  },
+  {
+    verse: 13,
+    text: "（樣例）弟兄們，你們蒙召是要得自由，只是不可將你們的自由當作放縱情慾的機會，總要用愛心互相服事。",
+  },
+  {
+    verse: 14,
+    text: "（樣例）因為全律法都包在愛人如己這一句話之內了。",
+  },
+  {
+    verse: 15,
+    text: "（樣例）你們要謹慎，若相咬相吞，只怕要彼此消滅了。",
+  },
   {
     verse: 16,
     text: "（樣例）我說，你們當順著聖靈而行，就不放縱肉體的情慾了。",
