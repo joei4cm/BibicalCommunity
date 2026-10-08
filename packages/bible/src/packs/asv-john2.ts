@@ -1,4 +1,4 @@
-/** Public-domain: ASV John 2 denser Cana wedding scaffold (vv.1–11). */
+/** Public-domain: ASV John 2 denser full Cana / temple chapter scaffold (vv.1–25). */
 export const ASV_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -22,7 +22,7 @@ export const ASV_JOHN_2: { verse: number; text: string }[] = [
   },
   {
     verse: 6,
-    text: "Now there were six waterpots of stone set there after the Jews’ manner of purifying, containing two or three firkins apiece.",
+    text: "Now there were six waterpots of stone set there after the Jews' manner of purifying, containing two or three firkins apiece.",
   },
   {
     verse: 7,
@@ -43,5 +43,61 @@ export const ASV_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 11,
     text: "This beginning of his signs did Jesus in Cana of Galilee, and manifested his glory; and his disciples believed on him.",
+  },
+  {
+    verse: 12,
+    text: "After this he went down to Capernaum, he, and his mother, and his brethren, and his disciples; and there they abode not many days.",
+  },
+  {
+    verse: 13,
+    text: "And the passover of the Jews was at hand, and Jesus went up to Jerusalem.",
+  },
+  {
+    verse: 14,
+    text: "And he found in the temple those that sold oxen and sheep and doves, and the changers of money sitting:",
+  },
+  {
+    verse: 15,
+    text: "and he made a scourge of cords, and cast all out of the temple, both the sheep and the oxen; and he poured out the changers' money, and overthrew their tables;",
+  },
+  {
+    verse: 16,
+    text: "and to them that sold the doves he said, Take these things hence; make not my Father's house a house of merchandise.",
+  },
+  {
+    verse: 17,
+    text: "His disciples remembered that it was written, Zeal for thy house shall eat me up.",
+  },
+  {
+    verse: 18,
+    text: "The Jews therefore answered and said unto him, What sign showest thou unto us, seeing that thou doest these things?",
+  },
+  {
+    verse: 19,
+    text: "Jesus answered and said unto them, Destroy this temple, and in three days I will raise it up.",
+  },
+  {
+    verse: 20,
+    text: "The Jews therefore said, Forty and six years was this temple in building, and wilt thou raise it up in three days?",
+  },
+  {
+    verse: 21,
+    text: "But he spake of the temple of his body.",
+  },
+  {
+    verse: 22,
+    text: "When therefore he was raised from the dead, his disciples remembered that he spake this; and they believed the scripture, and the word which Jesus had said.",
+  },
+  {
+    verse: 23,
+    text: "Now when he was in Jerusalem at the passover, during the feast, many believed on his name, beholding his signs which he did.",
+  },
+  {
+    verse: 24,
+    text: "But Jesus did not trust himself unto them, for that he knew all men,",
+  },
+  {
+    verse: 25,
+    text: "and because he needed not that any one should bear witness concerning man; for he himself knew what was in man.",
   },
 ];

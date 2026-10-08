@@ -1,4 +1,4 @@
-/** Public-domain: KJV John 2 denser Cana wedding scaffold (vv.1–11). */
+/** Public-domain: KJV John 2 denser full Cana / temple chapter scaffold (vv.1–25). */
 export const KJV_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -43,5 +43,61 @@ export const KJV_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 11,
     text: "This beginning of miracles did Jesus in Cana of Galilee, and manifested forth his glory; and his disciples believed on him.",
+  },
+  {
+    verse: 12,
+    text: "After this he went down to Capernaum, he, and his mother, and his brethren, and his disciples: and they continued there not many days.",
+  },
+  {
+    verse: 13,
+    text: "And the Jews' passover was at hand, and Jesus went up to Jerusalem.",
+  },
+  {
+    verse: 14,
+    text: "And found in the temple those that sold oxen and sheep and doves, and the changers of money sitting:",
+  },
+  {
+    verse: 15,
+    text: "And when he had made a scourge of small cords, he drove them all out of the temple, and the sheep, and the oxen; and poured out the changers' money, and overthrew the tables;",
+  },
+  {
+    verse: 16,
+    text: "And said unto them that sold doves, Take these things hence; make not my Father's house an house of merchandise.",
+  },
+  {
+    verse: 17,
+    text: "And his disciples remembered that it was written, The zeal of thine house hath eaten me up.",
+  },
+  {
+    verse: 18,
+    text: "Then answered the Jews and said unto him, What sign shewest thou unto us, seeing that thou doest these things?",
+  },
+  {
+    verse: 19,
+    text: "Jesus answered and said unto them, Destroy this temple, and in three days I will raise it up.",
+  },
+  {
+    verse: 20,
+    text: "Then said the Jews, Forty and six years was this temple in building, and wilt thou rear it up in three days?",
+  },
+  {
+    verse: 21,
+    text: "But he spake of the temple of his body.",
+  },
+  {
+    verse: 22,
+    text: "When therefore he was risen from the dead, his disciples remembered that he had said this unto them; and they believed the scripture, and the word which Jesus had said.",
+  },
+  {
+    verse: 23,
+    text: "Now when he was in Jerusalem at the passover, in the feast day, many believed in his name, when they saw the miracles which he did.",
+  },
+  {
+    verse: 24,
+    text: "But Jesus did not commit himself unto them, because he knew all men,",
+  },
+  {
+    verse: 25,
+    text: "And needed not that any should testify of man: for he knew what was in man.",
   },
 ];

@@ -1,4 +1,4 @@
-/** Traditional Chinese Union–style denser John 2 denser Cana wedding scaffold (vv.1–11). (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser John 2 denser full Cana / temple chapter scaffold (vv.1–25). (not a licensed corpus dump). */
 export const CUVT_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -43,5 +43,61 @@ export const CUVT_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 11,
     text: "（樣例）這是耶穌所行的頭一件神蹟，是在加利利的迦拿行的，顯出他的榮耀來；他的門徒就信他了。",
+  },
+  {
+    verse: 12,
+    text: "（樣例）這事以後，耶穌與他的母親、弟兄，和門徒都下迦百農去，在那裏住了不多幾日。",
+  },
+  {
+    verse: 13,
+    text: "（樣例）猶太人的逾越節近了，耶穌就上耶路撒冷去。",
+  },
+  {
+    verse: 14,
+    text: "（樣例）看見殿裏有賣牛、羊、鴿子的，並有兌換銀錢的人坐在那裏，",
+  },
+  {
+    verse: 15,
+    text: "（樣例）耶穌就拿繩子做成鞭子，把牛羊都趕出殿去，倒出兌換銀錢之人的銀錢，推翻他們的桌子，",
+  },
+  {
+    verse: 16,
+    text: "（樣例）又對賣鴿子的說：「把這些東西拿去！不要將我父的殿當作買賣的地方。」",
+  },
+  {
+    verse: 17,
+    text: "（樣例）他的門徒就想起經上記着說：「我為你的殿心裏焦急，如同火燒。」",
+  },
+  {
+    verse: 18,
+    text: "（樣例）因此猶太人問他說：「你既做這些事，還顯甚麼神蹟給我們看呢？」",
+  },
+  {
+    verse: 19,
+    text: "（樣例）耶穌回答說：「你們拆毀這殿，我三日內要再建立起來。」",
+  },
+  {
+    verse: 20,
+    text: "（樣例）猶太人便說：「這殿是四十六年才造成的，你三日內就再建立起來嗎？」",
+  },
+  {
+    verse: 21,
+    text: "（樣例）但耶穌這話是以他的身體為殿。",
+  },
+  {
+    verse: 22,
+    text: "（樣例）所以到他從死裏復活以後，門徒就想起他說過這話，便信了聖經和耶穌所說的。",
+  },
+  {
+    verse: 23,
+    text: "（樣例）當耶穌在耶路撒冷過逾越節的時候，有許多人看見他所行的神蹟，就信了他的名。",
+  },
+  {
+    verse: 24,
+    text: "（樣例）耶穌卻不將自己交託他們；因為他知道萬人，",
+  },
+  {
+    verse: 25,
+    text: "（樣例）也用不着誰見證人怎樣，因他知道人心裏所存的。",
   },
 ];
