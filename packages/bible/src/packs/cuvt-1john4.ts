@@ -1,5 +1,29 @@
-/** Traditional Chinese Union–style denser 1 John 4 (vv.7–21) scaffold (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser 1 John 4 denser full love / spirits chapter scaffold (vv.1–21). (not a licensed corpus dump). */
 export const CUVT_1JOHN_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "（樣例）親愛的弟兄啊，一切的靈，你們不可都信，總要試驗那些靈是出於神的不是，因為世上有許多假先知已經出來了。",
+  },
+  {
+    verse: 2,
+    text: "（樣例）凡靈認耶穌基督是成了肉身來的，就是出於神的；從此你們可以認出神的靈來。",
+  },
+  {
+    verse: 3,
+    text: "（樣例）凡靈不認耶穌，就不是出於神；這是那敵基督者的靈。你們從前聽見他要來，現在已經在世上了。",
+  },
+  {
+    verse: 4,
+    text: "（樣例）小子們哪，你們是屬神的，並且勝了他們；因為那在你們裏面的，比那在世界上的更大。",
+  },
+  {
+    verse: 5,
+    text: "（樣例）他們是屬世界的，所以論世界的事，世人也聽從他們。",
+  },
+  {
+    verse: 6,
+    text: "（樣例）我們是屬神的，認識神的就聽從我們；不屬神的就不聽從我們。從此我們可以認出真理的靈和謬妄的靈來。",
+  },
   {
     verse: 7,
     text: "（樣例）親愛的弟兄啊，我們應當彼此相愛，因為愛是從神來的。凡有愛心的，都是由神而生，並且認識神。",
@@ -10,7 +34,7 @@ export const CUVT_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 9,
-    text: "（樣例）神差他獨生子到世間來，使我們藉著他得生，神愛我們的心在此就顯明了。",
+    text: "（樣例）神差他獨生子到世間來，使我們藉着他得生，神愛我們的心在此就顯明了。",
   },
   {
     verse: 10,
@@ -42,11 +66,11 @@ export const CUVT_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 17,
-    text: "（樣例）這樣，愛在我們裏面得以完全，我們就可以在審判的日子坦然無懼。因為他如何，我們在這世上也如何。",
+    text: "（樣例）這樣，愛在我們裏面得以完全，我們就可以在審判的日子坦然無懼；因為他如何，我們在這世上也如何。",
   },
   {
     verse: 18,
-    text: "（樣例）愛裏沒有懼怕；愛既完全，就把懼怕除去。因為懼怕裏含著刑罰，懼怕的人在愛裏未得完全。",
+    text: "（樣例）愛裏沒有懼怕；愛既完全，就把懼怕除去。因為懼怕裏含着刑罰，懼怕的人在愛裏未得完全。",
   },
   {
     verse: 19,
@@ -54,7 +78,7 @@ export const CUVT_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 20,
-    text: "（樣例）人若說我愛神，卻恨他的弟兄，就是說謊話的；不愛他所看見的弟兄，就不能愛沒有看見的神。",
+    text: "（樣例）人若說「我愛神」，卻恨他的弟兄，就是說謊話的；不愛他所看見的弟兄，就不能愛沒有看見的神。",
   },
   {
     verse: 21,

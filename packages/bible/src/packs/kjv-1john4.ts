@@ -1,5 +1,29 @@
-/** Public-domain: KJV 1 John 4 (love discourse vv.7–21 for dual-pane / offline). */
+/** Public-domain: KJV 1 John 4 denser full love / spirits chapter scaffold (vv.1–21). */
 export const KJV_1JOHN_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "Beloved, believe not every spirit, but try the spirits whether they are of God: because many false prophets are gone out into the world.",
+  },
+  {
+    verse: 2,
+    text: "Hereby know ye the Spirit of God: Every spirit that confesseth that Jesus Christ is come in the flesh is of God:",
+  },
+  {
+    verse: 3,
+    text: "And every spirit that confesseth not that Jesus Christ is come in the flesh is not of God: and this is that spirit of antichrist, whereof ye have heard that it should come; and even now already is it in the world.",
+  },
+  {
+    verse: 4,
+    text: "Ye are of God, little children, and have overcome them: because greater is he that is in you, than he that is in the world.",
+  },
+  {
+    verse: 5,
+    text: "They are of the world: therefore speak they of the world, and the world heareth them.",
+  },
+  {
+    verse: 6,
+    text: "We are of God: he that knoweth God heareth us; he that is not of God heareth not us. Hereby know we the spirit of truth, and the spirit of error.",
+  },
   {
     verse: 7,
     text: "Beloved, let us love one another: for love is of God; and every one that loveth is born of God, and knoweth God.",

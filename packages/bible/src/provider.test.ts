@@ -1430,31 +1430,42 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   const jn4 = await loadChapter("asv", { book: "1John", chapter: 4 });
   assert.ok(!("external" in jn4));
   assert.equal(jn4.book, "1John");
-  assert.ok(jn4.verses.length >= 15);
-  assert.equal(jn4.verses[0]?.verse, 7);
+  assert.ok(jn4.verses.length >= 21);
+  assert.equal(jn4.verses[0]?.verse, 1);
   assert.equal(jn4.verses[jn4.verses.length - 1]?.verse, 21);
+  assert.match(jn4.verses.find((v) => v.verse === 1)?.text ?? "", /prove the spirits|believe not every spirit|false prophets/i);
+  assert.match(jn4.verses.find((v) => v.verse === 4)?.text ?? "", /greater is he|overcome/i);
   assert.match(jn4.verses.find((v) => v.verse === 8)?.text ?? "", /God is love/i);
   assert.match(jn4.verses.find((v) => v.verse === 18)?.text ?? "", /perfect love|casteth out fear|casts out fear/i);
   assert.match(jn4.verses.find((v) => v.verse === 19)?.text ?? "", /first loved us/i);
 
   const webJn4 = await loadChapter("web", { book: "1John", chapter: 4 });
   assert.ok(!("external" in webJn4));
-  assert.ok(webJn4.verses.length >= 15);
+  assert.ok(webJn4.verses.length >= 21);
+  assert.equal(webJn4.verses[0]?.verse, 1);
+  assert.match(webJn4.verses.find((v) => v.verse === 1)?.text ?? "", /test the spirits|false prophets/i);
   assert.match(webJn4.verses.find((v) => v.verse === 10)?.text ?? "", /atoning sacrifice|propitiation/i);
 
   const kjvJn4 = await loadChapter("kjv", { book: "1John", chapter: 4 });
   assert.ok(!("external" in kjvJn4));
-  assert.ok(kjvJn4.verses.length >= 15);
+  assert.ok(kjvJn4.verses.length >= 21);
+  assert.match(kjvJn4.verses.find((v) => v.verse === 1)?.text ?? "", /try the spirits|false prophets/i);
   assert.match(kjvJn4.verses.find((v) => v.verse === 21)?.text ?? "", /love his brother/i);
 
   const cuvsJn4 = await loadChapter("cuvs", { book: "1John", chapter: 4 });
   assert.ok(!("external" in cuvsJn4));
-  assert.ok(cuvsJn4.verses.length >= 15);
+  assert.ok(cuvsJn4.verses.length >= 21);
+  assert.equal(cuvsJn4.verses[0]?.verse, 1);
+  assert.match(cuvsJn4.verses.find((v) => v.verse === 1)?.text ?? "", /试验|假先知|灵/);
+  assert.match(cuvsJn4.verses.find((v) => v.verse === 4)?.text ?? "", /属神|胜了|更大/);
   assert.match(cuvsJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神就是爱|上帝就是爱/);
   assert.match(cuvsJn4.verses.find((v) => v.verse === 18)?.text ?? "", /惧怕|完全/);
   const kougoJn4 = await loadChapter("kougo", { book: "1John", chapter: 4 });
   assert.ok(!("external" in kougoJn4));
-  assert.ok(kougoJn4.verses.length >= 15);
+  assert.ok(kougoJn4.verses.length >= 21);
+  assert.equal(kougoJn4.verses[0]?.verse, 1);
+  assert.match(kougoJn4.verses.find((v) => v.verse === 1)?.text ?? "", /霊|ためし|にせ預言者/);
+  assert.match(kougoJn4.verses.find((v) => v.verse === 4)?.text ?? "", /うち勝|大いなる/);
   assert.match(kougoJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神は愛である/);
   assert.match(kougoJn4.verses.find((v) => v.verse === 19)?.text ?? "", /まず|愛して/);
 });

@@ -1,5 +1,29 @@
-/** Simplified Chinese Union–style denser 1 John 4 (vv.7–21) scaffold (not a licensed corpus dump). */
+/** Simplified Chinese Union–style denser 1 John 4 denser full love / spirits chapter scaffold (vv.1–21). (not a licensed corpus dump). */
 export const CUVS_1JOHN_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "（样例）亲爱的弟兄啊，一切的灵，你们不可都信，总要试验那些灵是出于神的不是，因为世上有许多假先知已经出来了。",
+  },
+  {
+    verse: 2,
+    text: "（样例）凡灵认耶稣基督是成了肉身来的，就是出于神的；从此你们可以认出神的灵来。",
+  },
+  {
+    verse: 3,
+    text: "（样例）凡灵不认耶稣，就不是出于神；这是那敌基督者的灵。你们从前听见他要来，现在已经在世上了。",
+  },
+  {
+    verse: 4,
+    text: "（样例）小子们哪，你们是属神的，并且胜了他们；因为那在你们里面的，比那在世界上的更大。",
+  },
+  {
+    verse: 5,
+    text: "（样例）他们是属世界的，所以论世界的事，世人也听从他们。",
+  },
+  {
+    verse: 6,
+    text: "（样例）我们是属神的，认识神的就听从我们；不属神的就不听从我们。从此我们可以认出真理的灵和谬妄的灵来。",
+  },
   {
     verse: 7,
     text: "（样例）亲爱的弟兄啊，我们应当彼此相爱，因为爱是从神来的。凡有爱心的，都是由神而生，并且认识神。",
@@ -42,7 +66,7 @@ export const CUVS_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 17,
-    text: "（样例）这样，爱在我们里面得以完全，我们就可以在审判的日子坦然无惧。因为他如何，我们在这世上也如何。",
+    text: "（样例）这样，爱在我们里面得以完全，我们就可以在审判的日子坦然无惧；因为他如何，我们在这世上也如何。",
   },
   {
     verse: 18,
@@ -54,7 +78,7 @@ export const CUVS_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 20,
-    text: "（样例）人若说我爱神，却恨他的弟兄，就是说谎话的；不爱他所看见的弟兄，就不能爱没有看见的神。",
+    text: "（样例）人若说「我爱神」，却恨他的弟兄，就是说谎话的；不爱他所看见的弟兄，就不能爱没有看见的神。",
   },
   {
     verse: 21,
