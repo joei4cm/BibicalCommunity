@@ -1,5 +1,29 @@
-/** Public-domain: WEB 1 John 4 (love discourse vv.7–21 for dual-pane / offline). */
+/** Public-domain: WEB 1 John 4 denser full love / spirits chapter scaffold (vv.1–21). */
 export const WEB_1JOHN_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "Beloved, don't believe every spirit, but test the spirits, whether they are of God, because many false prophets have gone out into the world.",
+  },
+  {
+    verse: 2,
+    text: "By this you know the Spirit of God: every spirit who confesses that Jesus Christ has come in the flesh is of God,",
+  },
+  {
+    verse: 3,
+    text: "and every spirit who doesn't confess that Jesus Christ has come in the flesh is not of God, and this is the spirit of the Antichrist, of whom you have heard that it comes. Now it is in the world already.",
+  },
+  {
+    verse: 4,
+    text: "You are of God, little children, and have overcome them; because greater is he who is in you than he who is in the world.",
+  },
+  {
+    verse: 5,
+    text: "They are of the world. Therefore they speak of the world, and the world hears them.",
+  },
+  {
+    verse: 6,
+    text: "We are of God. He who knows God listens to us. He who is not of God doesn't listen to us. By this we know the spirit of truth, and the spirit of error.",
+  },
   {
     verse: 7,
     text: "Beloved, let's love one another, for love is of God; and everyone who loves has been born of God and knows God.",

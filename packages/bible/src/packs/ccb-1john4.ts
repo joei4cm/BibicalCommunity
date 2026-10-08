@@ -1,5 +1,29 @@
-/** Chinese Contemporary Bible–style denser 1 John 4 (vv.7–21) scaffold (not a licensed corpus dump). */
+/** Chinese Contemporary Bible–style denser 1 John 4 denser full love / spirits chapter scaffold (vv.1–21). (not a licensed corpus dump). */
 export const CCB_1JOHN_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "（样例）亲爱的弟兄啊，一切的灵，你们不可都信，总要试验那些灵是出于上帝的不是，因为世上有许多假先知已经出来了。",
+  },
+  {
+    verse: 2,
+    text: "（样例）凡灵认耶稣基督是成了肉身来的，就是出于上帝的；从此你们可以认出上帝的灵来。",
+  },
+  {
+    verse: 3,
+    text: "（样例）凡灵不认耶稣，就不是出于上帝；这是那敌基督者的灵。你们从前听见他要来，现在已经在世上了。",
+  },
+  {
+    verse: 4,
+    text: "（样例）小子们哪，你们是属上帝的，并且胜了他们；因为那在你们里面的，比那在世界上的更大。",
+  },
+  {
+    verse: 5,
+    text: "（样例）他们是属世界的，所以论世界的事，世人也听从他们。",
+  },
+  {
+    verse: 6,
+    text: "（样例）我们是属上帝的，认识上帝的就听从我们；不属上帝的就不听从我们。从此我们可以认出真理的灵和谬妄的灵来。",
+  },
   {
     verse: 7,
     text: "（样例）亲爱的弟兄啊，我们应当彼此相爱，因为爱是从上帝来的。凡有爱心的，都是由上帝而生，并且认识上帝。",
@@ -18,11 +42,11 @@ export const CCB_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 11,
-    text: "（样例）亲爱的弟兄啊，神既是这样爱我们，我们也当彼此相爱。",
+    text: "（样例）亲爱的弟兄啊，上帝既是这样爱我们，我们也当彼此相爱。",
   },
   {
     verse: 12,
-    text: "（样例）从来没有人见过上帝，我们若彼此相爱，神就住在我们里面，爱他的心在我们里面得以完全了。",
+    text: "（样例）从来没有人见过上帝，我们若彼此相爱，上帝就住在我们里面，爱他的心在我们里面得以完全了。",
   },
   {
     verse: 13,
@@ -34,7 +58,7 @@ export const CCB_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 15,
-    text: "（样例）凡认耶稣为上帝儿子的，神就住在他里面，他也住在上帝里面。",
+    text: "（样例）凡认耶稣为上帝儿子的，上帝就住在他里面，他也住在上帝里面。",
   },
   {
     verse: 16,
@@ -42,7 +66,7 @@ export const CCB_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 17,
-    text: "（样例）这样，爱在我们里面得以完全，我们就可以在审判的日子坦然无惧。因为他如何，我们在这世上也如何。",
+    text: "（样例）这样，爱在我们里面得以完全，我们就可以在审判的日子坦然无惧；因为他如何，我们在这世上也如何。",
   },
   {
     verse: 18,
@@ -50,11 +74,11 @@ export const CCB_1JOHN_4: { verse: number; text: string }[] = [
   },
   {
     verse: 19,
-    text: "（样例）我们爱，因为神先爱我们。",
+    text: "（样例）我们爱，因为上帝先爱我们。",
   },
   {
     verse: 20,
-    text: "（样例）人若说我爱上帝，却恨他的弟兄，就是说谎话的；不爱他所看见的弟兄，就不能爱没有看见的上帝。",
+    text: "（样例）人若说「我爱上帝」，却恨他的弟兄，就是说谎话的；不爱他所看见的弟兄，就不能爱没有看见的上帝。",
   },
   {
     verse: 21,
