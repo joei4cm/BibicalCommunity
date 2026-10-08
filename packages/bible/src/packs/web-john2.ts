@@ -1,4 +1,4 @@
-/** Public-domain sample: WEB John 2 (wedding at Cana excerpt for dual-pane demos). */
+/** Public-domain: WEB John 2 denser Cana wedding scaffold (vv.1–11). */
 export const WEB_JOHN_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -10,15 +10,15 @@ export const WEB_JOHN_2: { verse: number; text: string }[] = [
   },
   {
     verse: 3,
-    text: 'When the wine ran out, Jesus\' mother said to him, "They have no wine."',
+    text: "When the wine ran out, Jesus' mother said to him, \"They have no wine.\"",
   },
   {
     verse: 4,
-    text: 'Jesus said to her, "Woman, what does that have to do with you and me? My hour has not yet come."',
+    text: "Jesus said to her, \"Woman, what does that have to do with you and me? My hour has not yet come.\"",
   },
   {
     verse: 5,
-    text: 'His mother said to the servants, "Whatever he says to you, do it."',
+    text: "His mother said to the servants, \"Whatever he says to you, do it.\"",
   },
   {
     verse: 6,
@@ -26,11 +26,11 @@ export const WEB_JOHN_2: { verse: number; text: string }[] = [
   },
   {
     verse: 7,
-    text: 'Jesus said to them, "Fill the water pots with water." So they filled them up to the brim.',
+    text: "Jesus said to them, \"Fill the water pots with water.\" So they filled them up to the brim.",
   },
   {
     verse: 8,
-    text: 'He said to them, "Now draw some out, and take it to the ruler of the feast." So they took it.',
+    text: "He said to them, \"Now draw some out, and take it to the ruler of the feast.\" So they took it.",
   },
   {
     verse: 9,
@@ -38,7 +38,7 @@ export const WEB_JOHN_2: { verse: number; text: string }[] = [
   },
   {
     verse: 10,
-    text: 'and said to him, "Everyone serves the good wine first, and when the guests have drunk freely, then that which is worse. You have kept the good wine until now!"',
+    text: "and said to him, \"Everyone serves the good wine first, and when the guests have drunk freely, then that which is worse. You have kept the good wine until now!\"",
   },
   {
     verse: 11,
