@@ -28,6 +28,27 @@ export function r2ChapterObjectKey(
   return `bible/${translationId}/${book}.${chapter}.json`;
 }
 
+/** Prefix for listing all chapter objects of a translation in R2. */
+export function r2CorpusPrefix(translationId: string): string {
+  return `bible/${translationId}/`;
+}
+
+/**
+ * Parse `bible/{tid}/{Book}.{N}.json` → book + chapter.
+ * Returns null when the key is not a chapter object.
+ */
+export function parseR2ChapterObjectKey(
+  key: string,
+): { translationId: string; book: string; chapter: number } | null {
+  const m = /^bible\/([^/]+)\/([A-Za-z0-9]+)\.(\d+)\.json$/.exec(key);
+  if (!m) return null;
+  return {
+    translationId: m[1]!,
+    book: m[2]!,
+    chapter: Number(m[3]),
+  };
+}
+
 /** Build a chapter payload suitable for MEDIA.put (UTF-8 JSON). */
 export function buildR2ChapterJson(input: R2ChapterJson): string {
   if (!input.book || !Number.isFinite(input.chapter) || !Array.isArray(input.verses)) {

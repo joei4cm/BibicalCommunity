@@ -8,7 +8,7 @@ import {
   probeCorpusPackPipeline,
   r2CorpusPackPrefix,
 } from "./corpus-packs.js";
-import { r2ChapterObjectKey } from "./r2-format.js";
+import { parseR2ChapterObjectKey, r2ChapterObjectKey, r2CorpusPrefix } from "./r2-format.js";
 
 test("local corpus packs cover zh/en/ja scaffold translations", () => {
   const local = listCorpusPacks({ provider: "local", availableOnly: true });
@@ -47,4 +47,11 @@ test("probeCorpusPackPipeline reports ready local + licensed stub path", () => {
     true,
   );
   assert.equal(r2ChapterObjectKey("cuvs", "John", 1), "bible/cuvs/John.1.json");
+  assert.equal(r2CorpusPrefix("cuvs"), "bible/cuvs/");
+  assert.deepEqual(parseR2ChapterObjectKey("bible/cuvs/John.1.json"), {
+    translationId: "cuvs",
+    book: "John",
+    chapter: 1,
+  });
+  assert.equal(parseR2ChapterObjectKey("media/user/x"), null);
 });
