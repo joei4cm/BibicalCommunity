@@ -149,6 +149,18 @@ curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Phil.4" | grep -qE '見�
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=1Cor.13" | grep -qE '样例|恒久忍耐|最大的是爱'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=1Cor.13" | grep -qE '見本|愛は寛容|最も大いなるものは、愛'
 echo "MULTI_BOOK_PASTORAL_OK"
+echo "== multi-book apocalyptic scaffolds John.15 / Rev.21 =="
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.15" | grep -qiE 'true vine|branches|Remain in my love|love one another'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.15" | grep -qiE 'true vine|abideth in me|love one another'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.15" | grep -qiE 'true vine|abideth in me|love one another'
+curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rev.21" | grep -qiE 'new heaven and a new earth|wipe away every tear|making all things new'
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Rev.21" | grep -qiE 'new heaven and a new earth|wipe away all tears|make all things new'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Rev.21" | grep -qiE 'new heaven and a new earth|wipe away every tear|make all things new'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.15" | grep -qE '样例|真葡萄树|彼此相爱'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.15" | grep -qE '見本|まことのぶどう|互に愛し合う'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rev.21" | grep -qE '样例|新天新地|擦去他们一切的眼泪'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rev.21" | grep -qE '見本|新しい天と新しい地|涙を全くぬぐい'
+echo "MULTI_BOOK_APOCALYPTIC_OK"
 echo "== chapter CUVS John.1 (zh) =="
 
 CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")

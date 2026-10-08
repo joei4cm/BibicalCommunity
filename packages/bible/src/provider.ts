@@ -63,6 +63,16 @@ import { KJV_1COR_13 } from "./packs/kjv-1cor13.js";
 import { ASV_1COR_13 } from "./packs/asv-1cor13.js";
 import { CUVS_1COR_13 } from "./packs/cuvs-1cor13.js";
 import { KOUGO_1COR_13 } from "./packs/kougo-1cor13.js";
+import { WEB_JOHN_15 } from "./packs/web-john15.js";
+import { KJV_JOHN_15 } from "./packs/kjv-john15.js";
+import { ASV_JOHN_15 } from "./packs/asv-john15.js";
+import { CUVS_JOHN_15 } from "./packs/cuvs-john15.js";
+import { KOUGO_JOHN_15 } from "./packs/kougo-john15.js";
+import { WEB_REV_21 } from "./packs/web-rev21.js";
+import { KJV_REV_21 } from "./packs/kjv-rev21.js";
+import { ASV_REV_21 } from "./packs/asv-rev21.js";
+import { CUVS_REV_21 } from "./packs/cuvs-rev21.js";
+import { KOUGO_REV_21 } from "./packs/kougo-rev21.js";
 import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
 import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
 import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
@@ -208,6 +218,16 @@ function normalizeBookKey(book: string): string | null {
   ) {
     return "1cor";
   }
+  if (
+    b === "rev" ||
+    b === "re" ||
+    b === "revelation" ||
+    book === "启示录" ||
+    book === "啟示錄" ||
+    book === "ヨハネの黙示録"
+  ) {
+    return "rev";
+  }
   return null;
 }
 
@@ -245,6 +265,8 @@ function canonicalBookId(key: string): string {
       return "Phil";
     case "1cor":
       return "1Cor";
+    case "rev":
+      return "Rev";
     default:
       return key;
   }
@@ -256,12 +278,13 @@ function canonicalBookId(key: string): string {
  */
 const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> = {
   web: {
-    john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3 },
+    john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3, 15: WEB_JOHN_15 },
     gen: { 1: WEB_GEN_1 },
     matt: { 5: WEB_MATT_5, 6: WEB_MATT_6 },
     gal: { 5: WEB_GAL_5 },
     phil: { 4: WEB_PHIL_4 },
     "1cor": { 13: WEB_1COR_13 },
+    rev: { 21: WEB_REV_21 },
     ps: { 1: WEB_PSALM_1, 23: WEB_PSALM_23 },
     prov: { 3: WEB_PROV_3 },
     rom: { 8: WEB_ROM_8 },
@@ -274,12 +297,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     deut: { 6: WEB_DEUT_6 },
   },
   kjv: {
-    john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3 },
+    john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3, 15: KJV_JOHN_15 },
     gen: { 1: KJV_GEN_1 },
     matt: { 5: KJV_MATT_5, 6: KJV_MATT_6 },
     gal: { 5: KJV_GAL_5 },
     phil: { 4: KJV_PHIL_4 },
     "1cor": { 13: KJV_1COR_13 },
+    rev: { 21: KJV_REV_21 },
     ps: { 1: KJV_PSALM_1, 23: KJV_PSALM_23 },
     prov: { 3: KJV_PROV_3 },
     rom: { 8: KJV_ROM_8 },
@@ -292,12 +316,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     deut: { 6: KJV_DEUT_6 },
   },
   asv: {
-    john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3 },
+    john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3, 15: ASV_JOHN_15 },
     gen: { 1: ASV_GEN_1 },
     matt: { 5: ASV_MATT_5, 6: ASV_MATT_6 },
     gal: { 5: ASV_GAL_5 },
     phil: { 4: ASV_PHIL_4 },
     "1cor": { 13: ASV_1COR_13 },
+    rev: { 21: ASV_REV_21 },
     ps: { 1: ASV_PSALM_1, 23: ASV_PSALM_23 },
     prov: { 3: ASV_PROV_3 },
     rom: { 8: ASV_ROM_8 },
@@ -313,12 +338,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
   },
   kougo: {
-    john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3 },
+    john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3, 15: KOUGO_JOHN_15 },
     gen: { 1: KOUGO_GEN_1 },
     matt: { 6: KOUGO_MATT_6 },
     gal: { 5: KOUGO_GAL_5 },
     phil: { 4: KOUGO_PHIL_4 },
     "1cor": { 13: KOUGO_1COR_13 },
+    rev: { 21: KOUGO_REV_21 },
     ps: { 1: KOUGO_PSALM_1, 23: KOUGO_PSALM_23 },
     prov: { 3: KOUGO_PROV_3 },
     rom: { 8: KOUGO_ROM_8 },
@@ -334,12 +360,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
   },
   cuvs: {
-    john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3 },
+    john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 15: CUVS_JOHN_15 },
     gen: { 1: CUVS_GEN_1 },
     matt: { 6: CUVS_MATT_6 },
     gal: { 5: CUVS_GAL_5 },
     phil: { 4: CUVS_PHIL_4 },
     "1cor": { 13: CUVS_1COR_13 },
+    rev: { 21: CUVS_REV_21 },
     ps: { 1: CUVS_PSALM_1, 23: CUVS_PSALM_23 },
     prov: { 3: CUVS_PROV_3 },
     rom: { 8: CUVS_ROM_8 },
@@ -436,4 +463,34 @@ export async function loadChapter(
     ],
     source: "local",
   };
+}
+
+export type LocalScaffoldRef = {
+  translationId: string;
+  book: string;
+  chapter: number;
+  ref: string;
+};
+
+/** Inventory of in-repo dual-pane / offline chapter scaffolds (not full corpora). */
+export function listLocalScaffoldInventory(): LocalScaffoldRef[] {
+  const out: LocalScaffoldRef[] = [];
+  for (const [translationId, books] of Object.entries(LOCAL_SAMPLES)) {
+    for (const [bookKey, chapters] of Object.entries(books)) {
+      for (const chapter of Object.keys(chapters).map(Number)) {
+        const book = canonicalBookId(bookKey);
+        out.push({
+          translationId,
+          book,
+          chapter,
+          ref: `${book}.${chapter}`,
+        });
+      }
+    }
+  }
+  return out.sort((a, b) =>
+    a.translationId === b.translationId
+      ? a.ref.localeCompare(b.ref)
+      : a.translationId.localeCompare(b.translationId),
+  );
 }
