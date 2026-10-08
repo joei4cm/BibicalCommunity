@@ -1,4 +1,4 @@
-/** Public-domain sample: ASV Psalm 1 (excerpt for dual-pane scaffold). */
+/** Public-domain: ASV Psalm 1 denser full scaffold (vv.1–6). */
 export const ASV_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -15,5 +15,13 @@ export const ASV_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 4,
     text: "The wicked are not so, But are like the chaff which the wind driveth away.",
+  },
+  {
+    verse: 5,
+    text: "Therefore the wicked shall not stand in the judgment, Nor sinners in the congregation of the righteous.",
+  },
+  {
+    verse: 6,
+    text: "For Jehovah knoweth the way of the righteous; But the way of the wicked shall perish.",
   },
 ];

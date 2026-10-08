@@ -1,4 +1,4 @@
-/** Simplified Chinese Union–style Psalm 1 scaffold (not a licensed corpus dump). */
+/** Simplified Chinese Union–style denser Psalm 1 denser full scaffold (vv.1–6). (not a licensed corpus dump). */
 export const CUVS_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -15,5 +15,13 @@ export const CUVS_PSALM_1: { verse: number; text: string }[] = [
   {
     verse: 4,
     text: "（样例）恶人并不是这样，乃像糠秕被风吹散。",
+  },
+  {
+    verse: 5,
+    text: "（样例）因此，当审判的时候，恶人必站立不住；罪人在义人的会中也是如此。",
+  },
+  {
+    verse: 6,
+    text: "（样例）因为耶和华知道义人的道路；恶人的道路却必灭亡。",
   },
 ];

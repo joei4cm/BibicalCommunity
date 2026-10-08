@@ -532,16 +532,19 @@ test("loadChapter returns PD Acts.2 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Acts");
   assert.equal(web.chapter, 2);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 9);
   assert.match(web.verses[0]?.text ?? "", /Pentecost/i);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Holy Spirit|other languages/i);
+  assert.match(web.verses.find((v) => v.verse === 38)?.text ?? "", /Repent.*baptized|Holy Spirit/i);
 
   const kjv = await loadChapter("kjv", { book: "Acts", chapter: 2 });
   assert.ok(!("external" in kjv));
+  assert.ok(kjv.verses.length >= 9);
   assert.match(kjv.verses.find((v) => v.verse === 38)?.text ?? "", /Repent.*baptized|Holy Ghost/i);
 
   const asv = await loadChapter("asv", { book: "acts", chapter: 2 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 9);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /rushing of a mighty wind/i);
 });
 
@@ -561,10 +564,13 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   const cuvsActs = await loadChapter("cuvs", { book: "Acts", chapter: 2 });
   assert.ok(!("external" in cuvsActs));
   assert.equal(cuvsActs.book, "Acts");
+  assert.ok(cuvsActs.verses.length >= 9);
   assert.match(cuvsActs.verses[0]?.text ?? "", /样例|五旬节/);
+  assert.match(cuvsActs.verses.find((v) => v.verse === 38)?.text ?? "", /样例|悔改|受洗|圣灵/);
 
   const kougoActs = await loadChapter("kougo", { book: "Acts", chapter: 2 });
   assert.ok(!("external" in kougoActs));
+  assert.ok(kougoActs.verses.length >= 9);
   assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
 });
 
@@ -600,7 +606,9 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const matt = await loadChapter(tid, { book: "Matt", chapter: 28 });
     assert.ok(!("external" in matt), tid);
+    assert.ok(matt.verses.length >= 15, tid);
     assert.match(matt.verses.find((v) => v.verse === 19)?.text ?? "", /样例|樣例|見本|门徒|門徒|弟子/);
+    assert.match(matt.verses.find((v) => v.verse === 6)?.text ?? "", /样例|樣例|見本|复活|復活|よみがえ|甦/);
 
     const rev = await loadChapter(tid, { book: "Rev", chapter: 21 });
     assert.ok(!("external" in rev), tid);
@@ -657,16 +665,19 @@ test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3
     const acts = await loadChapter(tid, { book: "Acts", chapter: 2 });
     assert.ok(!("external" in acts), tid);
     assert.equal(acts.book, "Acts");
+    assert.ok(acts.verses.length >= 9, tid);
     assert.match(acts.verses[0]?.text ?? "", /样例|樣例|見本|五旬/);
 
     const ps = await loadChapter(tid, { book: "Ps", chapter: 1 });
     assert.ok(!("external" in ps), tid);
     assert.equal(ps.book, "Ps");
+    assert.ok(ps.verses.length >= 6, tid);
     assert.match(ps.verses[0]?.text ?? "", /样例|樣例|見本|恶|惡|福|さいわい|幸い/);
 
     const prov = await loadChapter(tid, { book: "Prov", chapter: 3 });
     assert.ok(!("external" in prov), tid);
     assert.equal(prov.book, "Prov");
+    assert.ok(prov.verses.length >= 8, tid);
     assert.match(prov.verses.find((v) => v.verse === 5)?.text ?? "", /样例|樣例|見本|仰赖|仰賴|信頼|聪明|聰明|知識/);
   }
 });
@@ -677,17 +688,20 @@ test("loadChapter returns PD Psalm.1 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Ps");
   assert.equal(web.chapter, 1);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 6);
   assert.match(web.verses[0]?.text ?? "", /Blessed is the man|counsel of the wicked/i);
   assert.match(web.verses.find((v) => v.verse === 3)?.text ?? "", /tree planted|streams of water/i);
+  assert.match(web.verses.find((v) => v.verse === 6)?.text ?? "", /knows the way|way of the wicked/i);
 
   const kjv = await loadChapter("kjv", { book: "Psalm", chapter: 1 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Ps");
+  assert.ok(kjv.verses.length >= 6);
   assert.match(kjv.verses[0]?.text ?? "", /Blessed is the man|counsel of the ungodly/i);
 
   const asv = await loadChapter("asv", { book: "Psalms", chapter: 1 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 6);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /law of Jehovah|meditate day and night/i);
 });
 
@@ -696,16 +710,19 @@ test("loadChapter returns PD Proverbs.3 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Prov");
   assert.equal(web.chapter, 3);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 8);
   assert.match(web.verses.find((v) => v.verse === 5)?.text ?? "", /Trust in Yahweh|own understanding/i);
+  assert.match(web.verses.find((v) => v.verse === 8)?.text ?? "", /health|marrow|bones/i);
 
   const kjv = await loadChapter("kjv", { book: "Proverbs", chapter: 3 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Prov");
+  assert.ok(kjv.verses.length >= 8);
   assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /Trust in the LORD|own understanding/i);
 
   const asv = await loadChapter("asv", { book: "prov", chapter: 3 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 8);
   assert.match(asv.verses.find((v) => v.verse === 6)?.text ?? "", /acknowledge him|direct thy paths/i);
 });
 
@@ -713,20 +730,23 @@ test("loadChapter returns zh/ja Psalm.1 and Proverbs.3 scaffolds", async () => {
   const cuvsPs = await loadChapter("cuvs", { book: "Ps", chapter: 1 });
   assert.ok(!("external" in cuvsPs));
   assert.equal(cuvsPs.book, "Ps");
-  assert.ok(cuvsPs.verses.length >= 3 && cuvsPs.verses.length <= 5);
+  assert.ok(cuvsPs.verses.length >= 6);
   assert.match(cuvsPs.verses[0]?.text ?? "", /样例|恶人的计谋|有福/);
 
   const kougoPs = await loadChapter("kougo", { book: "Psalm", chapter: 1 });
   assert.ok(!("external" in kougoPs));
+  assert.ok(kougoPs.verses.length >= 6);
   assert.match(kougoPs.verses[0]?.text ?? "", /見本|悪しき者|さいわい/);
 
   const cuvsProv = await loadChapter("cuvs", { book: "箴言", chapter: 3 });
   assert.ok(!("external" in cuvsProv));
   assert.equal(cuvsProv.book, "Prov");
+  assert.ok(cuvsProv.verses.length >= 8);
   assert.match(cuvsProv.verses.find((v) => v.verse === 5)?.text ?? "", /样例|仰赖耶和华|自己的聪明/);
 
   const kougoProv = await loadChapter("kougo", { book: "Proverbs", chapter: 3 });
   assert.ok(!("external" in kougoProv));
+  assert.ok(kougoProv.verses.length >= 8);
   assert.match(kougoProv.verses.find((v) => v.verse === 5)?.text ?? "", /見本|主に信頼|自分の知識/);
 });
 
@@ -886,6 +906,29 @@ test("loadChapter returns PD Matt.6 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in asv));
   assert.ok(asv.verses.length >= 6);
   assert.match(asv.verses.find((v) => v.verse === 10)?.text ?? "", /Thy kingdom come|will be done/i);
+});
+
+test("loadChapter returns PD Matt.28 scaffolds (web/kjv/asv)", async () => {
+  const web = await loadChapter("web", { book: "Matt", chapter: 28 });
+  assert.ok(!("external" in web));
+  assert.equal(web.source, "local");
+  assert.equal(web.book, "Matt");
+  assert.equal(web.chapter, 28);
+  assert.ok(web.verses.length >= 15);
+  assert.match(web.verses.find((v) => v.verse === 6)?.text ?? "", /risen|not here/i);
+  assert.match(web.verses.find((v) => v.verse === 19)?.text ?? "", /make disciples|baptizing|Father.*Son.*Holy Spirit/i);
+  assert.match(web.verses.find((v) => v.verse === 20)?.text ?? "", /I am with you|end of the age|always/i);
+
+  const kjv = await loadChapter("kjv", { book: "Matthew", chapter: 28 });
+  assert.ok(!("external" in kjv));
+  assert.equal(kjv.book, "Matt");
+  assert.ok(kjv.verses.length >= 15);
+  assert.match(kjv.verses.find((v) => v.verse === 19)?.text ?? "", /teach all nations|baptizing/i);
+
+  const asv = await loadChapter("asv", { book: "Mt", chapter: 28 });
+  assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 15);
+  assert.match(asv.verses.find((v) => v.verse === 6)?.text ?? "", /risen|He is not here/i);
 });
 
 test("loadChapter returns PD Galatians.5 scaffolds (web/kjv/asv)", async () => {
