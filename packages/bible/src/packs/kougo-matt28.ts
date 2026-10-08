@@ -1,4 +1,4 @@
-/** Japanese colloquial-style denser Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). (not a licensed corpus dump). */
+/** Japanese colloquial-style denser Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). (not a licensed corpus dump). */
 export const KOUGO_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,6 +39,26 @@ export const KOUGO_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "（見本）すると、イエスは言われた、「恐れることはない。行ってわたしの兄弟たちに、ガリラヤに行け、そこでわたしに会えるであろうと、告げなさい」。",
+  },
+  {
+    verse: 11,
+    text: "（見本）女たちが行っている間に、番人のうち数人が町に行って、すべての出来事を祭司長たちに報告した。",
+  },
+  {
+    verse: 12,
+    text: "（見本）そこで、彼らは長老たちと集まって相談し、兵卒たちに多くの金を与えて、",
+  },
+  {
+    verse: 13,
+    text: "（見本）言った、「『弟子たちが夜中に来て、われわれの眠っている間に彼を盗んだ』と言え。",
+  },
+  {
+    verse: 14,
+    text: "（見本）もしこのことが総督の耳に入っても、われわれが彼を説得して、あなたがたに心配をかけないようにしよう」。",
+  },
+  {
+    verse: 15,
+    text: "（見本）それで、兵卒たちは金を受け取って、教えられたとおりにした。この話は、今日に至るまでユダヤ人の間に広がっている。",
   },
   {
     verse: 16,

@@ -1,4 +1,4 @@
-/** Public-domain: KJV Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). */
+/** Public-domain: KJV Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). */
 export const KJV_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,6 +39,26 @@ export const KJV_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "Then said Jesus unto them, Be not afraid: go tell my brethren that they go into Galilee, and there shall they see me.",
+  },
+  {
+    verse: 11,
+    text: "Now when they were going, behold, some of the watch came into the city, and shewed unto the chief priests all the things that were done.",
+  },
+  {
+    verse: 12,
+    text: "And when they were assembled with the elders, and had taken counsel, they gave large money unto the soldiers,",
+  },
+  {
+    verse: 13,
+    text: "Saying, Say ye, His disciples came by night, and stole him away while we slept.",
+  },
+  {
+    verse: 14,
+    text: "And if this come to the governor's ears, we will persuade him, and secure you.",
+  },
+  {
+    verse: 15,
+    text: "So they took the money, and did as they were taught: and this saying is commonly reported among the Jews until this day.",
   },
   {
     verse: 16,
