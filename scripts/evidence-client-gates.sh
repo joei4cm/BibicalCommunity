@@ -45,10 +45,12 @@ console.log("I18N_KEYS_OK count=" + zh.length);
 console.log("I18N_PARITY_OK");
 '
 
-echo "== reader skins + screen-share gate =="
+echo "== reader skins + theme-pack pipeline + screen-share gate =="
 rg -q 'READER_SKIN_IDS' apps/web/src/lib/reader-skins.ts
+rg -q 'applyThemePack|ThemePackManifest' apps/web/src/lib/reader-skins.ts
 rg -q 'data-reader-skin' apps/web/src/styles/global.css
 rg -q 'reader.skin' packages/shared/src/i18n/catalogs.ts
+bash scripts/smoke-theme-packs.sh
 rg -q 'probeDisplayMedia|canStartScreenShare' apps/web/src/lib/screen-share.ts
 rg -q 'canStartScreenShare' apps/web/src/features/ChatPanel.tsx
 echo "READER_SKINS_OK"
