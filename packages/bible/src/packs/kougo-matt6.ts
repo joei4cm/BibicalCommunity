@@ -1,4 +1,4 @@
-/** Japanese colloquial-style Matthew 6 scaffold (not a licensed corpus dump). */
+/** Japanese colloquial-style denser Matthew 6 scaffold (vv.9–13 + 33; not a licensed corpus dump). */
 export const KOUGO_MATT_6: { verse: number; text: string }[] = [
   {
     verse: 9,
@@ -10,7 +10,15 @@ export const KOUGO_MATT_6: { verse: number; text: string }[] = [
   },
   {
     verse: 11,
-    text: "（見本）わたしたちの日ごとの食物を、今日もお与えください。",
+    text: "（見本）わたしたちの日用の糧を、きょうもお与えください。",
+  },
+  {
+    verse: 12,
+    text: "（見本）わたしたちに負債のある者をゆるしましたように、わたしたちの負債をもおゆるしください。",
+  },
+  {
+    verse: 13,
+    text: "（見本）わたしたちを試みに会わせないで、悪からお救いください』。",
   },
   {
     verse: 33,

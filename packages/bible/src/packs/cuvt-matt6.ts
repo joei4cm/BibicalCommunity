@@ -1,4 +1,4 @@
-/** Traditional Chinese Union–style Matthew 6 scaffold (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser Matthew 6 scaffold (vv.9–13 + 33; not a licensed corpus dump). */
 export const CUVT_MATT_6: { verse: number; text: string }[] = [
   {
     verse: 9,
@@ -11,6 +11,14 @@ export const CUVT_MATT_6: { verse: number; text: string }[] = [
   {
     verse: 11,
     text: "（樣例）我們日用的飲食，今日賜給我們。",
+  },
+  {
+    verse: 12,
+    text: "（樣例）免我們的債，如同我們免了人的債。",
+  },
+  {
+    verse: 13,
+    text: "（樣例）不叫我們遇見試探；救我們脫離凶惡。因為國度、權柄、榮耀，全是你的，直到永遠。阿們！",
   },
   {
     verse: 33,

@@ -1,4 +1,4 @@
-/** Public-domain sample: ASV Matthew 6 (Lord's Prayer / teaching excerpt for dual-pane scaffold). */
+/** Public-domain: ASV Matthew 6 denser Lord's Prayer scaffold (vv.9–13 + 33). */
 export const ASV_MATT_6: { verse: number; text: string }[] = [
   {
     verse: 9,
@@ -11,6 +11,14 @@ export const ASV_MATT_6: { verse: number; text: string }[] = [
   {
     verse: 11,
     text: "Give us this day our daily bread.",
+  },
+  {
+    verse: 12,
+    text: "And forgive us our debts, as we also have forgiven our debtors.",
+  },
+  {
+    verse: 13,
+    text: "And bring us not into temptation, but deliver us from the evil one.",
   },
   {
     verse: 33,

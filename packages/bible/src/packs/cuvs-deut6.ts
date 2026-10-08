@@ -1,4 +1,4 @@
-/** Simplified Chinese Union–style Deuteronomy 6 scaffold (not a licensed corpus dump). */
+/** Simplified Chinese Union–style denser Deuteronomy 6 Shema scaffold (vv.4–9; not a licensed corpus dump). */
 export const CUVS_DEUT_6: { verse: number; text: string }[] = [
   {
     verse: 4,
@@ -15,5 +15,13 @@ export const CUVS_DEUT_6: { verse: number; text: string }[] = [
   {
     verse: 7,
     text: "（样例）也要殷勤教训你的儿女。无论你坐在家里，行在路上，躺下，起来，都要谈论。",
+  },
+  {
+    verse: 8,
+    text: "（样例）也要系在手上为记号，戴在额上为经文；",
+  },
+  {
+    verse: 9,
+    text: "（样例）又要写在你房屋的门框上，并你的城门上。",
   },
 ];

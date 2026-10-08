@@ -284,16 +284,19 @@ test("loadChapter returns PD Genesis.1 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Gen");
   assert.equal(web.chapter, 1);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 13);
   assert.match(web.verses[0]?.text ?? "", /In the beginning.*God created/);
+  assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /third day/i);
 
   const kjv = await loadChapter("kjv", { book: "Genesis", chapter: 1 });
   assert.ok(!("external" in kjv));
+  assert.ok(kjv.verses.length >= 13);
   assert.match(kjv.verses[0]?.text ?? "", /In the beginning God created/);
   assert.match(kjv.verses.find((v) => v.verse === 3)?.text ?? "", /Let there be light/);
 
   const asv = await loadChapter("asv", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 13);
   assert.match(asv.verses[0]?.text ?? "", /heavens and the earth|heaven and the earth/i);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /waste and void|Spirit of God/);
 });
@@ -360,12 +363,15 @@ test("loadChapter returns zh/ja Genesis.1 scaffolds", async () => {
   const cuvs = await loadChapter("cuvs", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in cuvs));
   assert.equal(cuvs.book, "Gen");
-  assert.ok(cuvs.verses.length >= 3 && cuvs.verses.length <= 5);
+  assert.ok(cuvs.verses.length >= 13);
   assert.match(cuvs.verses[0]?.text ?? "", /样例|起初|创造/);
+  assert.match(cuvs.verses.find((v) => v.verse === 13)?.text ?? "", /第三日/);
 
   const kougo = await loadChapter("kougo", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in kougo));
+  assert.ok(kougo.verses.length >= 13);
   assert.match(kougo.verses[0]?.text ?? "", /見本|創造|はじめに/);
+  assert.match(kougo.verses.find((v) => v.verse === 13)?.text ?? "", /第三日/);
 });
 
 test("loadChapter returns PD Romans.8 scaffolds (web/kjv/asv)", async () => {
@@ -622,6 +628,7 @@ test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaff
     const deut = await loadChapter(tid, { book: "Deut", chapter: 6 });
     assert.ok(!("external" in deut), tid);
     assert.equal(deut.book, "Deut");
+    assert.ok(deut.verses.length >= 6, tid);
     assert.match(deut.verses.find((v) => v.verse === 4)?.text ?? "", /样例|樣例|見本|以色列|イスラエル|独一|唯一/);
   }
 });
@@ -812,16 +819,19 @@ test("loadChapter returns PD Deuteronomy.6 scaffolds (web/kjv/asv)", async () =>
   assert.ok(!("external" in web));
   assert.equal(web.book, "Deut");
   assert.equal(web.chapter, 6);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 6);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Hear.*Israel|Yahweh is one/i);
+  assert.match(web.verses.find((v) => v.verse === 9)?.text ?? "", /door posts|gates/i);
 
   const kjv = await loadChapter("kjv", { book: "Deuteronomy", chapter: 6 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Deut");
+  assert.ok(kjv.verses.length >= 6);
   assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /love the LORD thy God/i);
 
   const asv = await loadChapter("asv", { book: "Dt", chapter: 6 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 6);
   assert.match(asv.verses.find((v) => v.verse === 4)?.text ?? "", /Jehovah our God|one Jehovah/i);
 });
 
@@ -839,11 +849,15 @@ test("loadChapter returns zh/ja Luke.2 and Deuteronomy.6 scaffolds", async () =>
   const cuvsDeut = await loadChapter("cuvs", { book: "申命记", chapter: 6 });
   assert.ok(!("external" in cuvsDeut));
   assert.equal(cuvsDeut.book, "Deut");
+  assert.ok(cuvsDeut.verses.length >= 6);
   assert.match(cuvsDeut.verses.find((v) => v.verse === 4)?.text ?? "", /样例|以色列|独一的主/);
+  assert.match(cuvsDeut.verses.find((v) => v.verse === 9)?.text ?? "", /门框|城门/);
 
   const kougoDeut = await loadChapter("kougo", { book: "申命記", chapter: 6 });
   assert.ok(!("external" in kougoDeut));
+  assert.ok(kougoDeut.verses.length >= 6);
   assert.match(kougoDeut.verses.find((v) => v.verse === 4)?.text ?? "", /見本|イスラエル|唯一の主/);
+  assert.match(kougoDeut.verses.find((v) => v.verse === 9)?.text ?? "", /入口|門/);
 });
 
 test("loadChapter returns PD Matt.6 scaffolds (web/kjv/asv)", async () => {
@@ -852,17 +866,21 @@ test("loadChapter returns PD Matt.6 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Matt");
   assert.equal(web.chapter, 6);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 6);
   assert.match(web.verses.find((v) => v.verse === 9)?.text ?? "", /Our Father|name be kept holy/i);
+  assert.match(web.verses.find((v) => v.verse === 12)?.text ?? "", /Forgive us our debts/i);
   assert.match(web.verses.find((v) => v.verse === 33)?.text ?? "", /seek first|Kingdom/i);
 
   const kjv = await loadChapter("kjv", { book: "Matthew", chapter: 6 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Matt");
+  assert.ok(kjv.verses.length >= 6);
   assert.match(kjv.verses.find((v) => v.verse === 11)?.text ?? "", /daily bread/i);
+  assert.match(kjv.verses.find((v) => v.verse === 13)?.text ?? "", /temptation|evil/i);
 
   const asv = await loadChapter("asv", { book: "Mt", chapter: 6 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 6);
   assert.match(asv.verses.find((v) => v.verse === 10)?.text ?? "", /Thy kingdom come|will be done/i);
 });
 
@@ -888,12 +906,15 @@ test("loadChapter returns zh/ja Matt.6 and Galatians.5 scaffolds", async () => {
   const cuvsMatt = await loadChapter("cuvs", { book: "马太福音", chapter: 6 });
   assert.ok(!("external" in cuvsMatt));
   assert.equal(cuvsMatt.book, "Matt");
-  assert.ok(cuvsMatt.verses.length >= 3 && cuvsMatt.verses.length <= 5);
+  assert.ok(cuvsMatt.verses.length >= 6);
   assert.match(cuvsMatt.verses.find((v) => v.verse === 9)?.text ?? "", /样例|天上的父|尊你的名/);
+  assert.match(cuvsMatt.verses.find((v) => v.verse === 13)?.text ?? "", /试探|凶恶|阿们/);
 
   const kougoMatt = await loadChapter("kougo", { book: "マタイ", chapter: 6 });
   assert.ok(!("external" in kougoMatt));
+  assert.ok(kougoMatt.verses.length >= 6);
   assert.match(kougoMatt.verses.find((v) => v.verse === 9)?.text ?? "", /見本|われらの父|御名/);
+  assert.match(kougoMatt.verses.find((v) => v.verse === 13)?.text ?? "", /試み|悪から/);
 
   const cuvsGal = await loadChapter("cuvs", { book: "加拉太书", chapter: 5 });
   assert.ok(!("external" in cuvsGal));
