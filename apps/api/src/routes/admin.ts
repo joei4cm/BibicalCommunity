@@ -1,12 +1,15 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { createId, wipeCommandSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { randomToken, sha256Hex } from "../services/crypto";
+import { assertChurchAdmin, loadAdminAccess } from "../services/admin-access";
+import { applyHostilePrivacyFloorsToChurch } from "../services/hostile-privacy";
+import { securityModeSchema } from "@logoshome/shared";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
@@ -56,17 +59,418 @@ adminRoutes.post("/wipe/:id/ack", async (c) => {
 
 adminRoutes.use("*", requireAuth);
 
+adminRoutes.get("/access", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  return c.json(access);
+});
+
+/** Promote caller to platform_admin when bootstrap secret matches (local/dev). */
+adminRoutes.post("/platform/bootstrap", async (c) => {
+  const secret = c.env.PLATFORM_ADMIN_BOOTSTRAP_SECRET;
+  if (!secret) return c.json({ error: "bootstrap_disabled" }, 403);
+  const body = z.object({ secret: z.string().min(1) }).parse(await c.req.json());
+  if (body.secret !== secret) return c.json({ error: "forbidden" }, 403);
+  const db = drizzle(c.env.DB, { schema });
+  await db
+    .update(schema.users)
+    .set({ platformRole: "platform_admin" })
+    .where(eq(schema.users.id, c.get("userId")));
+  return c.json({ ok: true, platformRole: "platform_admin" });
+});
+
+adminRoutes.get("/churches", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.canAccessConsole) return c.json({ error: "forbidden" }, 403);
+
+  if (access.platformAdmin) {
+    const rows = await db.select().from(schema.churches).limit(200);
+    const churches = [];
+    for (const church of rows) {
+      const members = await db
+        .select()
+        .from(schema.churchMembers)
+        .where(eq(schema.churchMembers.churchId, church.id));
+      const groups = await db
+        .select()
+        .from(schema.churchGroups)
+        .where(eq(schema.churchGroups.churchId, church.id));
+      churches.push({
+        id: church.id,
+        name: church.name,
+        slug: church.slug,
+        securityMode: church.securityMode,
+        createdAt: church.createdAt,
+        memberCount: members.length,
+        groupCount: groups.length,
+        role: access.churches.find((x) => x.churchId === church.id)?.role ?? "platform_admin",
+      });
+    }
+    return c.json({ churches, platformAdmin: true });
+  }
+
+  const churches = [];
+  for (const scoped of access.churches) {
+    const members = await db
+      .select()
+      .from(schema.churchMembers)
+      .where(eq(schema.churchMembers.churchId, scoped.churchId));
+    const groups = await db
+      .select()
+      .from(schema.churchGroups)
+      .where(eq(schema.churchGroups.churchId, scoped.churchId));
+    churches.push({
+      id: scoped.churchId,
+      name: scoped.name,
+      slug: scoped.slug,
+      securityMode: scoped.securityMode,
+      memberCount: members.length,
+      groupCount: groups.length,
+      role: scoped.role,
+    });
+  }
+  return c.json({ churches, platformAdmin: false });
+});
+
+const patchChurchSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  securityMode: securityModeSchema.optional(),
+});
+
+adminRoutes.patch("/churches/:churchId", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    await assertChurchAdmin(db, c.get("userId"), churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const body = patchChurchSchema.parse(await c.req.json());
+  const patch: Partial<typeof schema.churches.$inferInsert> = {};
+  if (body.name) patch.name = body.name;
+  if (body.securityMode) patch.securityMode = body.securityMode;
+  if (Object.keys(patch).length === 0) return c.json({ error: "empty_patch" }, 400);
+
+  await db.update(schema.churches).set(patch).where(eq(schema.churches.id, churchId));
+  if (body.securityMode === "hostile") {
+    await applyHostilePrivacyFloorsToChurch(db, churchId);
+  }
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
+  )[0];
+  return c.json({ ok: true, church });
+});
+
+adminRoutes.get("/churches/:churchId/members", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    await assertChurchAdmin(db, c.get("userId"), churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const members = await db
+    .select()
+    .from(schema.churchMembers)
+    .where(eq(schema.churchMembers.churchId, churchId));
+  const out = [];
+  for (const m of members) {
+    const user = (
+      await db.select().from(schema.users).where(eq(schema.users.id, m.userId)).limit(1)
+    )[0];
+    out.push({
+      membershipId: m.id,
+      userId: m.userId,
+      uid: user?.uid ?? null,
+      role: m.role,
+      verified: m.verified,
+      tombstoned: Boolean(user?.tombstoned),
+      platformRole: user?.platformRole ?? null,
+      groups: JSON.parse(m.groupIdsJson || "[]") as string[],
+      createdAt: m.createdAt,
+    });
+  }
+  return c.json({ members: out });
+});
+
+const patchMemberSchema = z.object({
+  role: z.enum(["member", "admin", "security_officer"]).optional(),
+  verified: z.boolean().optional(),
+  groupIds: z.array(z.string()).optional(),
+});
+
+adminRoutes.patch("/churches/:churchId/members/:userId", async (c) => {
+  const churchId = c.req.param("churchId");
+  const targetUserId = c.req.param("userId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    await assertChurchAdmin(db, c.get("userId"), churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const body = patchMemberSchema.parse(await c.req.json());
+  const member = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(
+          eq(schema.churchMembers.churchId, churchId),
+          eq(schema.churchMembers.userId, targetUserId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!member) return c.json({ error: "not_found" }, 404);
+
+  const patch: Partial<typeof schema.churchMembers.$inferInsert> = {};
+  if (body.role) patch.role = body.role;
+  if (body.verified !== undefined) patch.verified = body.verified;
+  if (body.groupIds) patch.groupIdsJson = JSON.stringify(body.groupIds);
+  await db.update(schema.churchMembers).set(patch).where(eq(schema.churchMembers.id, member.id));
+  return c.json({ ok: true });
+});
+
+adminRoutes.delete("/churches/:churchId/members/:userId", async (c) => {
+  const churchId = c.req.param("churchId");
+  const targetUserId = c.req.param("userId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    await assertChurchAdmin(db, c.get("userId"), churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  if (targetUserId === c.get("userId")) {
+    return c.json({ error: "cannot_remove_self" }, 400);
+  }
+  await db
+    .delete(schema.churchMembers)
+    .where(
+      and(
+        eq(schema.churchMembers.churchId, churchId),
+        eq(schema.churchMembers.userId, targetUserId),
+      ),
+    );
+  return c.json({ ok: true });
+});
+
+adminRoutes.get("/churches/:churchId/groups", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    await assertChurchAdmin(db, c.get("userId"), churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const groups = await db
+    .select()
+    .from(schema.churchGroups)
+    .where(eq(schema.churchGroups.churchId, churchId));
+  return c.json({
+    groups: groups.map((g) => ({
+      id: g.id,
+      churchId: g.churchId,
+      name: g.name,
+      createdAt: g.createdAt,
+    })),
+  });
+});
+
+adminRoutes.post("/churches/:churchId/groups", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    await assertChurchAdmin(db, c.get("userId"), churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const body = z.object({ name: z.string().min(1).max(120) }).parse(await c.req.json());
+  const id = createId("cgrp");
+  await db.insert(schema.churchGroups).values({
+    id,
+    churchId,
+    name: body.name,
+    createdAt: Date.now(),
+  });
+  return c.json({ id, name: body.name, churchId }, 201);
+});
+
+adminRoutes.patch("/groups/:groupId", async (c) => {
+  const groupId = c.req.param("groupId");
+  const db = drizzle(c.env.DB, { schema });
+  const group = (
+    await db.select().from(schema.churchGroups).where(eq(schema.churchGroups.id, groupId)).limit(1)
+  )[0];
+  if (!group) return c.json({ error: "not_found" }, 404);
+  try {
+    await assertChurchAdmin(db, c.get("userId"), group.churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const body = z.object({ name: z.string().min(1).max(120) }).parse(await c.req.json());
+  await db
+    .update(schema.churchGroups)
+    .set({ name: body.name })
+    .where(eq(schema.churchGroups.id, groupId));
+  return c.json({ ok: true, id: groupId, name: body.name });
+});
+
+adminRoutes.delete("/groups/:groupId", async (c) => {
+  const groupId = c.req.param("groupId");
+  const db = drizzle(c.env.DB, { schema });
+  const group = (
+    await db.select().from(schema.churchGroups).where(eq(schema.churchGroups.id, groupId)).limit(1)
+  )[0];
+  if (!group) return c.json({ error: "not_found" }, 404);
+  try {
+    await assertChurchAdmin(db, c.get("userId"), group.churchId);
+  } catch {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  // Drop group id from member groupIdsJson arrays
+  const members = await db
+    .select()
+    .from(schema.churchMembers)
+    .where(eq(schema.churchMembers.churchId, group.churchId));
+  for (const m of members) {
+    const ids = (JSON.parse(m.groupIdsJson || "[]") as string[]).filter((id) => id !== groupId);
+    if (ids.length !== JSON.parse(m.groupIdsJson || "[]").length) {
+      await db
+        .update(schema.churchMembers)
+        .set({ groupIdsJson: JSON.stringify(ids) })
+        .where(eq(schema.churchMembers.id, m.id));
+    }
+  }
+  await db.delete(schema.churchGroups).where(eq(schema.churchGroups.id, groupId));
+  return c.json({ ok: true });
+});
+
+/** Users visible to console: members of admin-scoped churches, or all if platform admin. */
+adminRoutes.get("/users", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.canAccessConsole) return c.json({ error: "forbidden" }, 403);
+
+  const churchFilter = c.req.query("churchId");
+  let churchIds: string[];
+  if (access.platformAdmin) {
+    if (churchFilter) {
+      churchIds = [churchFilter];
+    } else {
+      churchIds = (await db.select({ id: schema.churches.id }).from(schema.churches)).map((r) => r.id);
+    }
+  } else {
+    churchIds = access.churches.map((cScope) => cScope.churchId);
+    if (churchFilter) {
+      if (!churchIds.includes(churchFilter)) return c.json({ error: "forbidden" }, 403);
+      churchIds = [churchFilter];
+    }
+  }
+
+  const byUser = new Map<
+    string,
+    {
+      userId: string;
+      uid: string | null;
+      tombstoned: boolean;
+      platformRole: string | null;
+      createdAt: number;
+      memberships: Array<{ churchId: string; role: string; verified: boolean }>;
+    }
+  >();
+
+  for (const churchId of churchIds) {
+    const members = await db
+      .select()
+      .from(schema.churchMembers)
+      .where(eq(schema.churchMembers.churchId, churchId));
+    for (const m of members) {
+      const user = (
+        await db.select().from(schema.users).where(eq(schema.users.id, m.userId)).limit(1)
+      )[0];
+      if (!user) continue;
+      const row = byUser.get(user.id) ?? {
+        userId: user.id,
+        uid: user.uid,
+        tombstoned: Boolean(user.tombstoned),
+        platformRole: user.platformRole ?? null,
+        createdAt: user.createdAt,
+        memberships: [],
+      };
+      row.memberships.push({ churchId, role: m.role, verified: m.verified });
+      byUser.set(user.id, row);
+    }
+  }
+
+  // Platform admins also see users with no church membership
+  if (access.platformAdmin && !churchFilter) {
+    const allUsers = await db.select().from(schema.users).limit(500);
+    for (const user of allUsers) {
+      if (byUser.has(user.id)) continue;
+      byUser.set(user.id, {
+        userId: user.id,
+        uid: user.uid,
+        tombstoned: Boolean(user.tombstoned),
+        platformRole: user.platformRole ?? null,
+        createdAt: user.createdAt,
+        memberships: [],
+      });
+    }
+  }
+
+  return c.json({ users: [...byUser.values()] });
+});
+
+adminRoutes.get("/wipe/commands", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.canAccessConsole) return c.json({ error: "forbidden" }, 403);
+
+  const rows = await db.select().from(schema.wipeCommands).limit(200);
+  const scopedUserIds = new Set<string>();
+  if (!access.platformAdmin) {
+    for (const scoped of access.churches) {
+      const members = await db
+        .select()
+        .from(schema.churchMembers)
+        .where(eq(schema.churchMembers.churchId, scoped.churchId));
+      for (const m of members) scopedUserIds.add(m.userId);
+    }
+  }
+
+  const commands = rows
+    .filter((r) => access.platformAdmin || scopedUserIds.has(r.userId) || r.issuedBy === c.get("userId"))
+    .map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      deviceId: r.deviceId,
+      issuedBy: r.issuedBy,
+      reasonCode: r.reasonCode,
+      status: r.status,
+      issuedAt: r.issuedAt,
+      expiresAt: r.expiresAt,
+    }));
+  return c.json({ commands });
+});
+
 adminRoutes.post("/wipe", async (c) => {
   const body = wipeCommandSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
-  // Foundation: any authenticated caller can self-wipe; cross-user wipe requires church admin role.
-  if (body.userId !== c.get("userId")) {
-    const memberships = await db
-      .select()
-      .from(schema.churchMembers)
-      .where(eq(schema.churchMembers.userId, c.get("userId")));
-    const isAdmin = memberships.some((m) => m.role === "admin" || m.role === "security_officer");
-    if (!isAdmin) return c.json({ error: "forbidden" }, 403);
+  const actorId = c.get("userId");
+  // Self-wipe always allowed; cross-user wipe requires church admin or platform admin.
+  if (body.userId !== actorId) {
+    const access = await loadAdminAccess(db, actorId);
+    if (!access.canAccessConsole) return c.json({ error: "forbidden" }, 403);
+    if (!access.platformAdmin) {
+      const memberships = await db
+        .select()
+        .from(schema.churchMembers)
+        .where(eq(schema.churchMembers.userId, body.userId));
+      const targetChurchIds = new Set(memberships.map((m) => m.churchId));
+      const overlap = access.churches.some((ch) => targetChurchIds.has(ch.churchId));
+      if (!overlap) return c.json({ error: "forbidden" }, 403);
+    }
   }
 
   const token = randomToken();
@@ -76,7 +480,7 @@ adminRoutes.post("/wipe", async (c) => {
     id,
     userId: body.userId,
     deviceId: body.deviceId,
-    issuedBy: c.get("userId"),
+    issuedBy: actorId,
     reasonCode: body.reasonCode,
     tokenHash: await sha256Hex(token),
     status: "pending",
@@ -84,11 +488,9 @@ adminRoutes.post("/wipe", async (c) => {
     expiresAt: now + 24 * 60 * 60 * 1000,
   });
 
-  // Server-side destruction of ciphertext courier data
   await db.update(schema.users).set({ tombstoned: true }).where(eq(schema.users.id, body.userId));
   await db.delete(schema.sessions).where(eq(schema.sessions.userId, body.userId));
 
-  // Tombstone messages in conversations the wiped user belongs to
   const convoMemberships = await db
     .select({ conversationId: schema.conversationMembers.conversationId })
     .from(schema.conversationMembers)
@@ -101,7 +503,6 @@ adminRoutes.post("/wipe", async (c) => {
       .where(inArray(schema.messages.conversationId, conversationIds));
   }
 
-  // Revoke all devices for the wiped user
   await db.update(schema.devices).set({ revoked: true }).where(eq(schema.devices.userId, body.userId));
 
   return c.json({ id, wipeToken: token, status: "pending" }, 201);

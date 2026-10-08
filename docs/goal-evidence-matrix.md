@@ -16,17 +16,19 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK`; `CURVE25519_X25519_OK` / `KEYS_CURVE25519_OK` (WebCrypto X25519+Ed25519); `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; mobile TTL+archive | PARTIAL — P-256+X25519+TTL+archive PASS; production `@signalapp/libsignal-client` OPEN |
 | 9 | WebRTC + screen share | `CALL_SCREEN_SIGNAL_OK`; `SCREEN_SHARE_GATE_OK` (secure-context + getDisplayMedia probe) | PARTIAL — signaling+capability gate PASS; live OS picker still user-gesture / device OPEN |
 | 10 | Me profile / privacy / search / verify / wipe | `ME_SMOKE_OK`; `HOME_VERIFY_OK` / `HOME_MEMBERS_OK` / `HOME_JOIN_SLUG_OK` / `HOME_WIPE_OK`; roster verify + join-by-slug | PARTIAL — verify+join UX PASS |
+| 10b | Admin console (users / homes / groups / remote wipe) | `ADMIN_CONSOLE_OK` (`scripts/smoke-admin.sh`); platform bootstrap + church-scoped manage + admin remote wipe; Web `/app/admin` | PARTIAL — API+UI+smoke PASS; live CF admin ops OPEN |
 | 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv` (expo-secure-store → AsyncStorage fallback) for note/session/device keys | PARTIAL — roundtrip+SecureStore path PASS; physical device E2E OPEN |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `I18N_PARITY_OK` + `I18N_AUDIT_OK` + `I18N_NATIVE_COPY_OK` + `PWA_THEME_OK` + `READER_SKINS_OK` | PARTIAL — key parity + native differ-check PASS; human native QA OPEN |
-| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migration `0004_devotion_step`); `DEPLOY_DRY_RUN_OK` | PARTIAL — preflight+dry-run PASS; live account OPEN |
-| 15 | Hostile privacy floors / wipe | `HOME_HOSTILE_OK` + wipeToken; `SECURITY_AUDIT_OK` | PARTIAL |
+| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations `0004_devotion_step` + `0005_platform_admin`); `DEPLOY_DRY_RUN_OK` | PARTIAL — preflight+dry-run PASS; live account OPEN |
+| 15 | Hostile privacy floors / wipe | `HOME_HOSTILE_OK` + wipeToken; `ADMIN_REMOTE_WIPE_OK`; `SECURITY_AUDIT_OK` | PARTIAL |
 
 ## Smoke tokens
 
 ```bash
 bash scripts/smoke-api.sh            # SMOKE_OK, PLAN_CSV_SUBSCRIBE_OK, ME_SMOKE_OK, MULTI_BOOK_*, SSO_*, …
 bash scripts/smoke-me.sh             # ME_PROFILE_OK / ME_SEARCH_OK / ME_PRIVACY_HIDE_OK
+bash scripts/smoke-admin.sh          # ADMIN_CONSOLE_OK / ADMIN_REMOTE_WIPE_OK / …
 bash scripts/smoke-storage.sh        # STORAGE_SMOKE_OK (session-aes / note / field / annotation)
 bash scripts/smoke-home.sh           # HOME_JOIN_SLUG_OK / HOME_MEMBERS_OK / …
 bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK

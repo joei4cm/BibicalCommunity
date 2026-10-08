@@ -122,5 +122,8 @@
   "security.deviceKeysMissing": "尚未注册设备密钥。",
   "security.uploadKeys": "上传加密身份",
   "auth.login": "登录",
-  "auth.register": "注册"
+  "auth.register": "注册",
+  "nav.admin": "管理",
+  "admin.title": "管理控制台",
+  "admin.open": "打开管理控制台"
 }

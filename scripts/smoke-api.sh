@@ -415,4 +415,7 @@ bash "$SCRIPT_DIR/smoke-annotations.sh" "$BASE"
 echo "== me profile / privacy / search =="
 bash "$SCRIPT_DIR/smoke-me.sh" "$BASE"
 
+echo "== admin console (users / homes / groups / remote wipe) =="
+bash "$SCRIPT_DIR/smoke-admin.sh" "$BASE"
+
 echo "SMOKE_OK"

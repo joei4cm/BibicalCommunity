@@ -33,4 +33,6 @@ export type Env = {
   /** Optional token endpoint overrides (default partner token URLs). */
   ENDAO_OAUTH_TOKEN_URL?: string;
   WEREAD_OAUTH_TOKEN_URL?: string;
+  /** Local/dev secret to promote a caller to platform_admin via /v1/admin/platform/bootstrap. */
+  PLATFORM_ADMIN_BOOTSTRAP_SECRET?: string;
 };

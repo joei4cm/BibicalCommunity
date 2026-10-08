@@ -59,6 +59,15 @@ select {
   backdrop-filter: blur(14px);
 }
 
+.tab-bar[data-tabs="5"] {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.tab-bar[data-tabs="5"] a {
+  font-size: 0.78rem;
+  padding: 0.5rem 0.15rem;
+}
+
 .tab-bar a {
   text-align: center;
   padding: 0.55rem 0.25rem;
