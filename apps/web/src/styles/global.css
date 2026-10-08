@@ -197,11 +197,11 @@ body:has(.bible-reader) {
 }
 
 .bible-reader-brand {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.25rem;
   font-family: var(--br-font-reader);
-  font-size: clamp(1.35rem, 3.8vw, 1.7rem);
+  font-size: clamp(1.45rem, 4vw, 1.85rem);
   font-weight: 600;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.14em;
   color: var(--br-accent);
   animation: bible-brand-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -209,18 +209,18 @@ body:has(.bible-reader) {
 @keyframes bible-brand-in {
   from {
     opacity: 0;
-    letter-spacing: 0.5em;
+    letter-spacing: 0.32em;
   }
   to {
     opacity: 1;
-    letter-spacing: 0.28em;
+    letter-spacing: 0.14em;
   }
 }
 
 .bible-reader-translation {
   margin: 0;
-  font-size: 0.7rem;
-  letter-spacing: 0.2em;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--br-muted);
   font-weight: 600;
@@ -228,12 +228,12 @@ body:has(.bible-reader) {
 }
 
 .bible-reader-title {
-  margin: 0.35rem 0 0.85rem;
+  margin: 0.2rem 0 0.55rem;
   font-family: var(--br-font-reader);
-  font-size: clamp(1.85rem, 5.5vw, 2.55rem);
+  font-size: clamp(1.9rem, 5.5vw, 2.6rem);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1.15;
+  letter-spacing: 0.02em;
+  line-height: 1.12;
   color: var(--br-ink);
 }
 
@@ -243,7 +243,7 @@ body:has(.bible-reader) {
   justify-content: center;
   align-items: center;
   gap: 0.15rem 0.2rem;
-  margin: 0 auto 1rem;
+  margin: 0 auto 0.55rem;
   width: fit-content;
   max-width: 100%;
   padding: 0;
@@ -298,10 +298,27 @@ body:has(.bible-reader) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.35rem 1.25rem;
-  margin: 0 0 1.35rem;
-  padding: 0.75rem 0 0;
+  margin: 0 0 1.1rem;
+  padding: 0.55rem 0 0;
   border-top: 1px solid var(--br-line);
   border-bottom: 0;
+}
+
+.bible-chapter-nav--top {
+  margin-bottom: 1.25rem;
+  padding-top: 0.45rem;
+}
+
+.bible-chapter-nav--top .bible-nav-link {
+  flex-direction: row;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.bible-chapter-nav--top .bible-nav-target {
+  color: var(--br-accent);
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 .bible-nav-link {

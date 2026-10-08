@@ -287,7 +287,7 @@ export function BibleReader() {
     [bookNameLocale],
   );
   const corpusCatalog = useMemo(() => listDownloadableCorpusCatalog(), []);
-  const readerFont = serif ? "var(--lh-font-reader)" : "var(--lh-font-ui)";
+  const readerFont = serif ? "var(--br-font-reader)" : "var(--br-font-ui)";
 
   const refreshInstalledCorpus = useCallback(async () => {
     try {
@@ -637,11 +637,19 @@ export function BibleReader() {
             goToPassage(translationId, prevCursor.bookId, prevCursor.chapter);
           }}
         >
-          <span className="bible-nav-dir">← {t("reader.prevChapter")}</span>
-          <span className="bible-nav-target">{prevShort}</span>
+          {placement === "top" ? (
+            <span className="bible-nav-target">← {prevShort}</span>
+          ) : (
+            <>
+              <span className="bible-nav-dir">← {t("reader.prevChapter")}</span>
+              <span className="bible-nav-target">{prevShort}</span>
+            </>
+          )}
         </Link>
       ) : (
-        <span className="bible-nav-link is-disabled">← {t("reader.prevChapter")}</span>
+        <span className="bible-nav-link is-disabled">
+          {placement === "top" ? "←" : `← ${t("reader.prevChapter")}`}
+        </span>
       )}
       {nextCursor ? (
         <Link
@@ -653,11 +661,19 @@ export function BibleReader() {
             goToPassage(translationId, nextCursor.bookId, nextCursor.chapter);
           }}
         >
-          <span className="bible-nav-dir">{t("reader.nextChapter")} →</span>
-          <span className="bible-nav-target">{nextShort}</span>
+          {placement === "top" ? (
+            <span className="bible-nav-target">{nextShort} →</span>
+          ) : (
+            <>
+              <span className="bible-nav-dir">{t("reader.nextChapter")} →</span>
+              <span className="bible-nav-target">{nextShort}</span>
+            </>
+          )}
         </Link>
       ) : (
-        <span className="bible-nav-link is-disabled bible-nav-link--next">{t("reader.nextChapter")} →</span>
+        <span className="bible-nav-link is-disabled bible-nav-link--next">
+          {placement === "top" ? "→" : `${t("reader.nextChapter")} →`}
+        </span>
       )}
     </nav>
   );
