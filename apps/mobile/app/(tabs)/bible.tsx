@@ -465,19 +465,36 @@ export default function BibleScreen() {
     setDownloadingTid(targetTid);
     setAnnMsg(null);
     try {
-      const pack = await api<{
-        chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
-        source?: string;
-      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?scope=full`);
-      if (!pack.chapters?.length) {
-        setAnnMsg("corpus_download_empty");
-        return;
+      let after: string | null = null;
+      let installedTotal = 0;
+      let pages = 0;
+      for (;;) {
+        const qs = `scope=full&limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`;
+        const pack = await api<{
+          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+          source?: string;
+          done?: boolean;
+          nextAfter?: string | null;
+          totalChapterKeys?: number;
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?${qs}`);
+        if (!pack.chapters?.length && pages === 0) {
+          setAnnMsg("corpus_download_empty");
+          return;
+        }
+        if (pack.chapters?.length) {
+          const { installed } = await installDownloadedPack(targetTid, pack.chapters);
+          installedTotal += installed;
+        }
+        pages += 1;
+        setAnnMsg(
+          `corpus_installed:${installedTotal}${pack.totalChapterKeys ? `/${pack.totalChapterKeys}` : ""}`,
+        );
+        if (pack.done !== false || !pack.nextAfter) break;
+        after = pack.nextAfter;
       }
-      const { installed } = await installDownloadedPack(targetTid, pack.chapters);
-      setAnnMsg(`corpus_installed:${installed}`);
       await refreshInstalledCorpus();
       if (targetTid === translationId) {
-        setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installed}`);
+        setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installedTotal}`);
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local) {
           setExternal(null);

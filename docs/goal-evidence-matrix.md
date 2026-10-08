@@ -8,7 +8,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** (polyfill+note+session+x25519) | PARTIAL — PWA+automated WebCrypto gate PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **download→local DB**; boot **cuvs/web/shinKyoudou** via `corpus-download?scope=boot` (teaching-set only; **`CORPUS_BOOT_VS_FULL_OK`**); on-demand **`scope=full`** for PD WEB (~1189 ch via `seed-r2-pd-full.mjs`); in-repo dense key chapters; licensed peers teaching samples; **Web+Expo** catalog; ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — slim boot + full PD download path PASS; licensed full text + production CF R2 OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **download→local DB**; boot `scope=boot` teaching-set (**`CORPUS_BOOT_VS_FULL_OK`**); on-demand PD WEB full via paged `scope=full&limit&after` (**`CORPUS_PAGED_DOWNLOAD_OK`** / 1189); `seed-r2-pd-full.mjs`; Web+Expo catalog; ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — slim boot + paged full PD download PASS; licensed full text + production CF R2 OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
@@ -40,6 +40,8 @@ bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK 
 bash scripts/smoke-corpus-json-import.sh # CORPUS_JSON_FIXTURE_OK / CORPUS_PD_DENSE_FIXTURES_OK / CORPUS_JSON_IMPORT_OK
 node scripts/fetch-pd-corpus-fixtures.mjs  # refresh in-repo WEB/KJV/ASV key-chapter fixtures (optional)
 bash scripts/smoke-corpus-pd-full-r2.sh    # CORPUS_PD_FULL_R2_OK (full WEB→local R2→download, not git)
+bash scripts/smoke-corpus-boot-scope.sh    # CORPUS_BOOT_VS_FULL_OK (boot=7 teaching; full=1189 PD)
+bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after walk = 1189)
 bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + denser Acts.2/Ps.1/Prov.3/Matt.28/Eph.2/Col.3/Jas.1/Rev.21 put→get)
 bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK (JSON fixtures→R2; no TS packs)
 bash scripts/smoke-bible-entitlement.sh # BIBLE_ENTITLEMENT_DEV_SKIP_OK / BIBLE_ENTITLEMENT_GRANT_OK

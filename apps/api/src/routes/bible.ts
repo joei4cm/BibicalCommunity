@@ -108,7 +108,11 @@ bibleRoutes.get("/corpus-catalog", async (c) => {
  *
  * Query `scope`:
  * - `boot` — slim teaching-set only (first-launch seed; never the full PD canon)
- * - `full` (default) — every R2 object under `bible/{tid}/`
+ * - `full` (default) — R2 prefix pack (optionally paged)
+ *
+ * Query `limit` / `after` (full scope): page chapter bodies for large PD packs.
+ * - `limit` — max chapters in this page (1–200; omit/`0` = all, legacy)
+ * - `after` — resume after this R2 object key from the previous page
  *
  * Not a TypeScript densify path.
  */
@@ -116,6 +120,10 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
   const translationId = c.req.param("translationId");
   const scopeRaw = (c.req.query("scope") ?? "full").toLowerCase();
   const scope = scopeRaw === "boot" ? "boot" : "full";
+  const after = c.req.query("after") ?? "";
+  const limitRaw = Number(c.req.query("limit") ?? "0");
+  const pageLimit =
+    Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(200, Math.floor(limitRaw)) : 0;
   const meta = getTranslation(translationId);
   if (!meta) return c.json({ error: "unknown_translation" }, 404);
   if (meta.provider === "external") {
@@ -131,9 +139,11 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
 
   const fromR2: { book: string; chapter: number; verses: { verse: number; text: string }[] }[] =
     [];
-  const seen = new Set<string>();
   const bootAllow = new Set<string>(BOOT_TEACHING_CHAPTER_REFS);
   const prefix = r2CorpusPrefix(translationId);
+  let nextAfter: string | null = null;
+  let done = true;
+  let totalKeys = 0;
 
   if (scope === "boot") {
     // Slim first-launch pack: only teaching-set refs, even if R2 holds full PD.
@@ -145,37 +155,48 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
       if (!obj) continue;
       try {
         fromR2.push(parseR2ChapterJson(await obj.text()));
-        seen.add(ref);
       } catch {
         /* skip invalid */
       }
     }
   } else {
-    // Full prefix listing — every chapter object under bible/{tid}/
-    let cursor: string | undefined;
+    // Collect sorted chapter object keys under the prefix.
+    const keys: string[] = [];
+    let listCursor: string | undefined;
     for (;;) {
-      const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor });
+      const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor: listCursor });
       for (const obj of listed.objects) {
         const parsedKey = parseR2ChapterObjectKey(obj.key);
         if (!parsedKey || parsedKey.translationId !== translationId) continue;
-        const refKey = `${parsedKey.book}.${parsedKey.chapter}`;
-        if (seen.has(refKey)) continue;
-        const body = await c.env.MEDIA.get(obj.key);
-        if (!body) continue;
-        try {
-          const chapter = parseR2ChapterJson(await body.text());
-          fromR2.push(chapter);
-          seen.add(refKey);
-        } catch {
-          /* skip invalid */
-        }
+        keys.push(obj.key);
       }
       if (!listed.truncated) break;
-      cursor = listed.cursor;
+      listCursor = listed.cursor;
+    }
+    keys.sort((a, b) => a.localeCompare(b));
+    totalKeys = keys.length;
+
+    let start = 0;
+    if (after) {
+      const idx = keys.findIndex((k) => k > after);
+      start = idx === -1 ? keys.length : idx;
+    }
+    const pageKeys = pageLimit > 0 ? keys.slice(start, start + pageLimit) : keys.slice(start);
+    done = start + pageKeys.length >= keys.length;
+    nextAfter = pageKeys.length ? pageKeys[pageKeys.length - 1]! : null;
+
+    for (const key of pageKeys) {
+      const body = await c.env.MEDIA.get(key);
+      if (!body) continue;
+      try {
+        fromR2.push(parseR2ChapterJson(await body.text()));
+      } catch {
+        /* skip invalid */
+      }
     }
 
-    // Fallback: known catalog sample refs (when list empty / partial)
-    if (fromR2.length === 0) {
+    // Fallback: known catalog sample refs (when list empty)
+    if (fromR2.length === 0 && totalKeys === 0 && !after) {
       const catalogEntry = listDownloadableCorpusCatalog().find(
         (p) => p.translationId === translationId,
       );
@@ -194,6 +215,8 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
           /* skip invalid */
         }
       }
+      done = true;
+      nextAfter = null;
     }
   }
 
@@ -203,7 +226,7 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     }),
   );
 
-  if (fromR2.length > 0) {
+  if (fromR2.length > 0 || (scope === "full" && totalKeys > 0)) {
     return c.json({
       translationId,
       version: 1,
@@ -212,6 +235,9 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
       scope,
       r2Prefix: prefix,
       chapterCount: fromR2.length,
+      totalChapterKeys: scope === "full" ? totalKeys : fromR2.length,
+      done,
+      nextAfter: done ? null : nextAfter,
       bootTeachingOnly: scope === "boot",
       bootTeachingRefs: scope === "boot" ? [...bootAllow] : undefined,
     });
@@ -223,6 +249,9 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     source: "demo" as const,
     scope,
     chapterCount: demo.chapters.length,
+    totalChapterKeys: demo.chapters.length,
+    done: true,
+    nextAfter: null,
     bootTeachingOnly: scope === "boot",
   });
 });
