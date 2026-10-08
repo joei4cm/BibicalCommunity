@@ -1,23 +1,24 @@
-/** Public-domain sample: ASV John 3 (abbreviated; includes 3:16 for dual-pane demos). */
+/** Public-domain: ASV John 3 (Nicodemus discourse vv.1–21 for dual-pane / offline). */
 export const ASV_JOHN_3: { verse: number; text: string }[] = [
-  {
-    verse: 1,
-    text: "Now there was a man of the Pharisees, named Nicodemus, a ruler of the Jews:",
-  },
-  {
-    verse: 2,
-    text: "the same came unto him by night, and said to him, Rabbi, we know that thou art a teacher come from God; for no one can do these signs that thou doest, except God be with him.",
-  },
-  {
-    verse: 3,
-    text: "Jesus answered and said unto him, Verily, verily, I say unto thee, Except one be born anew, he cannot see the kingdom of God.",
-  },
-  {
-    verse: 16,
-    text: "For God so loved the world, that he gave his only begotten Son, that whosoever believeth on him should not perish, but have eternal life.",
-  },
-  {
-    verse: 17,
-    text: "For God sent not the Son into the world to judge the world; but that the world should be saved through him.",
-  },
+  { verse: 1, text: "Now there was a man of the Pharisees, named Nicodemus, a ruler of the Jews:" },
+  { verse: 2, text: "the same came unto him by night, and said to him, Rabbi, we know that thou art a teacher come from God; for no one can do these signs that thou doest, except God be with him." },
+  { verse: 3, text: "Jesus answered and said unto him, Verily, verily, I say unto thee, Except one be born anew, he cannot see the kingdom of God." },
+  { verse: 4, text: "Nicodemus saith unto him, How can a man be born when he is old? can he enter a second time into his mother's womb, and be born?" },
+  { verse: 5, text: "Jesus answered, Verily, verily, I say unto thee, Except one be born of water and the Spirit, he cannot enter into the kingdom of God." },
+  { verse: 6, text: "That which is born of the flesh is flesh; and that which is born of the Spirit is spirit." },
+  { verse: 7, text: "Marvel not that I said unto thee, Ye must be born anew." },
+  { verse: 8, text: "The wind bloweth where it will, and thou hearest the voice thereof, but knowest not whence it cometh, and whither it goeth: so is every one that is born of the Spirit." },
+  { verse: 9, text: "Nicodemus answered and said unto him, How can these things be?" },
+  { verse: 10, text: "Jesus answered and said unto him, Art thou the teacher of Israel, and understandest not these things?" },
+  { verse: 11, text: "Verily, verily, I say unto thee, We speak that which we know, and bear witness of that which we have seen; and ye receive not our witness." },
+  { verse: 12, text: "If I told you earthly things and ye believe not, how shall ye believe if I tell you heavenly things?" },
+  { verse: 13, text: "And no one hath ascended into heaven, but he that descended out of heaven, even the Son of man, who is in heaven." },
+  { verse: 14, text: "And as Moses lifted up the serpent in the wilderness, even so must the Son of man be lifted up;" },
+  { verse: 15, text: "that whosoever believeth may in him have eternal life." },
+  { verse: 16, text: "For God so loved the world, that he gave his only begotten Son, that whosoever believeth on him should not perish, but have eternal life." },
+  { verse: 17, text: "For God sent not the Son into the world to judge the world; but that the world should be saved through him." },
+  { verse: 18, text: "He that believeth on him is not judged: he that believeth not hath been judged already, because he hath not believed on the name of the only begotten Son of God." },
+  { verse: 19, text: "And this is the judgment, that the light is come into the world, and men loved the darkness rather than the light; for their works were evil." },
+  { verse: 20, text: "For every one that doeth evil hateth the light, and cometh not to the light, lest his works should be reproved." },
+  { verse: 21, text: "But he that doeth the truth cometh to the light, that his works may be made manifest, that they have been wrought in God." },
 ];

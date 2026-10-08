@@ -49,8 +49,11 @@ test("loadChapter returns verses for web John.3 (chapter switch)", async () => {
   const result = await loadChapter("web", { book: "John", chapter: 3 });
   assert.ok(!("external" in result));
   assert.equal(result.chapter, 3);
-  assert.ok(result.verses.length > 0);
+  assert.ok(result.verses.length >= 21);
+  assert.equal(result.verses[0]?.verse, 1);
+  assert.equal(result.verses[result.verses.length - 1]?.verse, 21);
   assert.match(result.verses.find((v) => v.verse === 16)?.text ?? "", /God so loved the world/);
+  assert.match(result.verses.find((v) => v.verse === 5)?.text ?? "", /born of water and spirit/i);
 });
 
 test("loadChapter returns verses for web John.2", async () => {
