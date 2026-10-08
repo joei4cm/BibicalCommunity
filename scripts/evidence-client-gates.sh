@@ -75,6 +75,8 @@ echo "MOBILE_READER_SKINS_OK"
 
 echo "== device webcrypto gate =="
 bash scripts/smoke-device-crypto.sh
+echo "== handset-shaped mobile viewport gate =="
+bash scripts/smoke-handset-shaped.sh
 
 echo "== partner live IdP gate (documents OPEN without credentials) =="
 bash scripts/smoke-partner-live-idp.sh | tee /tmp/lh-partner-live.log

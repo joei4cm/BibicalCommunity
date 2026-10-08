@@ -25,6 +25,8 @@ if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
   echo "INFO: Set those secrets, fill account_id/database_id in wrangler.production.toml,"
   echo "INFO: then re-run: bash scripts/live-r2-bootstrap.sh"
   echo "INFO: Or set LIVE_API_BASE=https://<worker> LIVE_R2=1 bash scripts/smoke-corpus-live-r2.sh"
+  echo "INFO: wrangler deploy --temporary preview accounts cannot create R2 buckets"
+  echo "INFO: (r2 bucket create → auth 10000); production account token required for CORPUS_LIVE_R2_OK"
   echo "CORPUS_LIVE_R2_OPEN"
   exit 0
 fi
