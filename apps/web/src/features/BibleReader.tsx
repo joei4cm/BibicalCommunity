@@ -78,6 +78,16 @@ function partnerSsoEnabled(chapter: { url: string; sso?: boolean }): boolean {
   return Boolean(chapter.sso) || chapter.url.includes("sso=1");
 }
 
+/** Strip demo fixture markers so reading UI is not visually polluted. */
+function displayVerseText(text: string): string {
+  return text
+    .replace(/（样例[·・.]?fixture）/gi, "")
+    .replace(/\(样例[·・.]?fixture\)/gi, "")
+    .replace(/\(fixture\)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function ChapterPane({
   chapter,
   verseRef,
@@ -159,7 +169,7 @@ function ChapterPane({
               data-verse={v.verse}
             >
               <sup className="verse-num">{v.verse}</sup>
-              {v.text}{" "}
+              {displayVerseText(v.text)}{" "}
             </span>
           );
         })}
