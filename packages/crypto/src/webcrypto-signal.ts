@@ -5,7 +5,6 @@
  */
 
 import {
-  generateEphemeralKeyPair,
   generateIdentityKeyPair,
   generateOneTimePrekeys,
   generateSignedPrekey,
