@@ -10,6 +10,7 @@ export * from "./theme-packs.js";
 export * from "./devotion-packs.js";
 export * from "./corpus-packs.js";
 export * from "./local-corpus-db.js";
+export * from "./corpus-import.js";
 export { WEB_JOHN_1 } from "./sample-web-john1.js";
 export { KJV_JOHN_1 } from "./sample-kjv-john1.js";
 export { ASV_JOHN_1 } from "./sample-asv-john1.js";
