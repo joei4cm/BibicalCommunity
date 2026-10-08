@@ -24,9 +24,12 @@ import {
 const FIX = join(process.cwd(), "fixtures", "corpus");
 if (!existsSync(FIX)) throw new Error("missing fixtures/corpus");
 const tids = readdirSync(FIX, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
-if (tids.length < 3) throw new Error("need >=3 fixture tids");
+if (tids.length < 8) throw new Error("need >=8 fixture tids (boot + downloadable peers)");
 if (!tids.includes("cuvs") || !tids.includes("web") || !tids.includes("shinKyoudou")) {
   throw new Error("boot defaults must have fixtures");
+}
+for (const need of ["cuvt", "rcuv", "ccb", "lzz", "kougo", "shinkaiyaku"]) {
+  if (!tids.includes(need)) throw new Error("missing downloadable fixture tid=" + need);
 }
 
 const byTid = {};

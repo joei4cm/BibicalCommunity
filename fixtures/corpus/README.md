@@ -14,6 +14,7 @@ Examples:
 - `web/Ps.23.json` — boot default (WEB)
 - `shinKyoudou/John.3.json` — boot default (新共同訳)
 - `kougo/John.1.json` — downloadable sample
+- `cuvt` / `rcuv` / `ccb` / `lzz` / `shinkaiyaku` — downloadable peer demos
 
 ## Chapter JSON shape
 

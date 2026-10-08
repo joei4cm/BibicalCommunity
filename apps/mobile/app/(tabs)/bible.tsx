@@ -21,6 +21,12 @@ import {
 } from "@logoshome/bible";
 import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../../src/api";
+import {
+  bibleLocalDb,
+  ensureBootCorpusSeeded,
+  installDownloadedPack,
+  readLocalChapter,
+} from "../../src/bible-local-db";
 import { useLocale } from "../../src/locale";
 import { decryptJson, encryptJson } from "../../src/note-crypto";
 import {
@@ -184,6 +190,21 @@ export default function BibleScreen() {
   }, [refreshAnnotations]);
 
   useEffect(() => {
+    if (!apiBase) return;
+    void ensureBootCorpusSeeded(async (tid) => {
+      try {
+        const pack = await api<{
+          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+          source?: string;
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}`);
+        return { chapters: pack.chapters, source: pack.source };
+      } catch {
+        return null;
+      }
+    });
+  }, [apiBase]);
+
+  useEffect(() => {
     if (!apiBase) {
       setVerses(WEB_JOHN_1);
       setChapterLabel("John 1 (WEB)");
@@ -196,6 +217,15 @@ export default function BibleScreen() {
     setLoading(true);
     void (async () => {
       try {
+        const local = await readLocalChapter(translationId, bookId, chapterNum);
+        if (local && !cancelled) {
+          setExternal(null);
+          setVerses(local.verses);
+          setChapterLabel(`${local.book} ${local.chapter} (local-db)`);
+          setError(null);
+          setLoading(false);
+          return;
+        }
         const data = await api<ChapterResponse>(
           `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
         );
@@ -226,7 +256,7 @@ export default function BibleScreen() {
     return () => {
       cancelled = true;
     };
-  }, [apiBase, translationId, ref, locale]);
+  }, [apiBase, translationId, ref, locale, bookId, chapterNum]);
 
   useEffect(() => {
     if (!apiBase) {
@@ -236,30 +266,33 @@ export default function BibleScreen() {
     let cancelled = false;
     void (async () => {
       try {
+        const installed = await bibleLocalDb.listInstalled();
+        const localRow = installed.find((r) => r.translationId === translationId);
+        if (cancelled) return;
+        if (localRow) {
+          const hasChapter = localRow.chapterRefs.includes(ref);
+          setCorpusHint(
+            hasChapter
+              ? `${t(locale, "reader.corpusLocalDb")} · ${localRow.chapterCount}`
+              : `${t(locale, "reader.corpusPartial")} · ${localRow.chapterCount}`,
+          );
+          return;
+        }
         const res = await api<{
-          bootDefaults?: string[];
           catalog?: Array<{
             translationId: string;
             installMode: "boot" | "download" | "external";
             chapterRefs: string[];
           }>;
-          packs?: Array<{
-            translationId: string;
-            provider: string;
-            available: boolean;
-            chapterRefs: string[];
-          }>;
         }>("/v1/bible/corpus-catalog");
         if (cancelled) return;
         const entry = res.catalog?.find((p) => p.translationId === translationId);
-        if (entry?.installMode === "boot") {
-          setCorpusHint(
-            `${t(locale, "reader.corpusLocalDb")} · ${entry.chapterRefs.length || "boot"}`,
-          );
-        } else if (entry?.installMode === "download") {
+        if (entry?.installMode === "download") {
           setCorpusHint(t(locale, "reader.corpusDownloadable"));
         } else if (entry?.installMode === "external") {
           setCorpusHint(t(locale, "reader.corpusExternal"));
+        } else if (entry?.installMode === "boot") {
+          setCorpusHint(t(locale, "reader.corpusBootPending"));
         } else {
           setCorpusHint(null);
         }
@@ -391,6 +424,38 @@ export default function BibleScreen() {
       await api(`/v1/annotations/${id}`, { method: "DELETE" });
       setAnnMsg("deleted");
       await refreshAnnotations();
+    } catch (e) {
+      setAnnMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAnnBusy(false);
+    }
+  }
+
+  async function downloadCorpusPack() {
+    if (!apiBase) {
+      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      return;
+    }
+    setAnnBusy(true);
+    setAnnMsg(null);
+    try {
+      const pack = await api<{
+        chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+        source?: string;
+      }>(`/v1/bible/corpus-download/${encodeURIComponent(translationId)}`);
+      if (!pack.chapters?.length) {
+        setAnnMsg("corpus_download_empty");
+        return;
+      }
+      const { installed } = await installDownloadedPack(translationId, pack.chapters);
+      setAnnMsg(`corpus_installed:${installed}`);
+      setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installed}`);
+      const local = await readLocalChapter(translationId, bookId, chapterNum);
+      if (local) {
+        setExternal(null);
+        setVerses(local.verses);
+        setChapterLabel(`${local.book} ${local.chapter} (local-db)`);
+      }
     } catch (e) {
       setAnnMsg(e instanceof Error ? e.message : "error");
     } finally {
@@ -622,6 +687,14 @@ export default function BibleScreen() {
               onPress={() => void addBookmark()}
             >
               <Text style={styles.btnGhostText}>{t(locale, "reader.bookmark")}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnGhost, annBusy && styles.btnDisabled]}
+              disabled={annBusy}
+              testID="reader-corpus-download"
+              onPress={() => void downloadCorpusPack()}
+            >
+              <Text style={styles.btnGhostText}>{t(locale, "reader.corpusDownload")}</Text>
             </Pressable>
           </View>
           <Text style={styles.label}>{t(locale, "reader.highlight")}</Text>

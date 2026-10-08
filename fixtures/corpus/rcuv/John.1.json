@@ -1,0 +1,14 @@
+{
+  "book": "John",
+  "chapter": 1,
+  "verses": [
+    {
+      "verse": 1,
+      "text": "（样例·fixture）太初有道，道与神同在，道就是神。"
+    },
+    {
+      "verse": 14,
+      "text": "（样例·fixture）道成了肉身，住在我们中间。"
+    }
+  ]
+}
