@@ -1,4 +1,4 @@
-/** Public-domain sample: ASV Deuteronomy 6 (excerpt for dual-pane scaffold). */
+/** Public-domain: ASV Deuteronomy 6 denser Shema scaffold (vv.4–9). */
 export const ASV_DEUT_6: { verse: number; text: string }[] = [
   {
     verse: 4,
@@ -15,5 +15,13 @@ export const ASV_DEUT_6: { verse: number; text: string }[] = [
   {
     verse: 7,
     text: "and thou shalt teach them diligently unto thy children, and shalt talk of them when thou sittest in thy house, and when thou walkest by the way, and when thou liest down, and when thou risest up.",
+  },
+  {
+    verse: 8,
+    text: "And thou shalt bind them for a sign upon thy hand, and they shall be for frontlets between thine eyes.",
+  },
+  {
+    verse: 9,
+    text: "And thou shalt write them upon the door-posts of thy house, and upon thy gates.",
   },
 ];

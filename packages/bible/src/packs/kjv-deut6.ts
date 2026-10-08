@@ -1,4 +1,4 @@
-/** Public-domain sample: KJV Deuteronomy 6 (excerpt for dual-pane scaffold). */
+/** Public-domain: KJV Deuteronomy 6 denser Shema scaffold (vv.4–9). */
 export const KJV_DEUT_6: { verse: number; text: string }[] = [
   {
     verse: 4,
@@ -15,5 +15,13 @@ export const KJV_DEUT_6: { verse: number; text: string }[] = [
   {
     verse: 7,
     text: "And thou shalt teach them diligently unto thy children, and shalt talk of them when thou sittest in thine house, and when thou walkest by the way, and when thou liest down, and when thou risest up.",
+  },
+  {
+    verse: 8,
+    text: "And thou shalt bind them for a sign upon thine hand, and they shall be as frontlets between thine eyes.",
+  },
+  {
+    verse: 9,
+    text: "And thou shalt write them upon the posts of thy house, and on thy gates.",
   },
 ];
