@@ -22,9 +22,10 @@ All three boot tids must include:
 
 ## Downloadable peers
 
-| tid | Teaching-set fixtures |
-|-----|----------------------|
-| `kjv`, `asv`, `cuvt`, `kougo`, `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Same 7-ref teaching set |
+| tid | Fixtures |
+|-----|----------|
+| `web`, `kjv`, `asv` | **PD dense** — 26 key chapters with full verse text (`node scripts/fetch-pd-corpus-fixtures.mjs`) |
+| `cuvt`, `kougo`, `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Same 7-ref teaching set (licensed samples; full text via R2 entitlement) |
 
 ## Chapter JSON shape
 

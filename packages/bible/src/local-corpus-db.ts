@@ -202,6 +202,39 @@ export const BOOT_TEACHING_CHAPTER_REFS = [
 /** Slim sample refs for downloadable peers that only ship a few fixtures. */
 export const DOWNLOAD_SAMPLE_CHAPTER_REFS = ["John.1", "John.3", "Ps.23"] as const;
 
+/**
+ * Denser public-domain chapter set (WEB / KJV / ASV) fetched into fixtures/corpus.
+ * Still download→local DB — never TypeScript packs. Licensed zh/ja stay teaching-set only.
+ */
+export const PD_DENSE_CHAPTER_REFS = [
+  "Gen.1",
+  "Exod.20",
+  "Ps.1",
+  "Ps.23",
+  "Prov.3",
+  "Isa.53",
+  "Matt.5",
+  "Matt.6",
+  "Matt.28",
+  "Mark.1",
+  "Luke.2",
+  "John.1",
+  "John.3",
+  "John.14",
+  "John.15",
+  "Acts.2",
+  "Rom.8",
+  "Rom.12",
+  "1Cor.13",
+  "Eph.2",
+  "Phil.4",
+  "Col.3",
+  "Heb.11",
+  "Jas.1",
+  "1John.4",
+  "Rev.21",
+] as const;
+
 /** Extra licensed/PD ids users may download into the local DB (not bundled). */
 export const DOWNLOADABLE_TRANSLATION_IDS = [
   "cuvt",
@@ -227,6 +260,9 @@ const TEACHING_SET_DOWNLOAD_IDS = new Set([
   "shinkaiyaku",
 ]);
 
+/** Public-domain tids with denser fixture packs (full chapter verse text). */
+const PD_DENSE_IDS = new Set(["web", "kjv", "asv"]);
+
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const packs: DownloadableCorpusPack[] = [];
   const boot = new Set<string>(BOOT_DEFAULT_TRANSLATION_IDS);
@@ -243,7 +279,9 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
     }
 
     let chapterRefs: string[] = [];
-    if (installMode === "boot") {
+    if (PD_DENSE_IDS.has(t.id) && (installMode === "boot" || installMode === "download")) {
+      chapterRefs = [...PD_DENSE_CHAPTER_REFS];
+    } else if (installMode === "boot") {
       chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
     } else if (installMode === "download") {
       chapterRefs = TEACHING_SET_DOWNLOAD_IDS.has(t.id)
