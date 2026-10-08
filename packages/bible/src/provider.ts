@@ -98,6 +98,11 @@ import { KJV_JOHN_14 } from "./packs/kjv-john14.js";
 import { ASV_JOHN_14 } from "./packs/asv-john14.js";
 import { CUVS_JOHN_14 } from "./packs/cuvs-john14.js";
 import { KOUGO_JOHN_14 } from "./packs/kougo-john14.js";
+import { RCUV_JOHN_14 } from "./packs/rcuv-john14.js";
+import { CCB_JOHN_14 } from "./packs/ccb-john14.js";
+import { LZZ_JOHN_14 } from "./packs/lzz-john14.js";
+import { SHINKAIYAKU_JOHN_14 } from "./packs/shinkaiyaku-john14.js";
+import { SHIN_KYOUDOU_JOHN_14 } from "./packs/shin-kyoudou-john14.js";
 import { WEB_ROM_12 } from "./packs/web-rom12.js";
 import { KJV_ROM_12 } from "./packs/kjv-rom12.js";
 import { ASV_ROM_12 } from "./packs/asv-rom12.js";
@@ -472,19 +477,24 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   },
 
   rcuv: {
-    john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3 },
+    john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3, 14: RCUV_JOHN_14 },
   },
   shinkaiyaku: {
-    john: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3 },
+    john: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3, 14: SHINKAIYAKU_JOHN_14 },
   },
   shinKyoudou: {
-    john: { 1: SHIN_KYOUDOU_JOHN_1, 2: SHIN_KYOUDOU_JOHN_2, 3: SHIN_KYOUDOU_JOHN_3 },
+    john: {
+      1: SHIN_KYOUDOU_JOHN_1,
+      2: SHIN_KYOUDOU_JOHN_2,
+      3: SHIN_KYOUDOU_JOHN_3,
+      14: SHIN_KYOUDOU_JOHN_14,
+    },
   },
   ccb: {
-    john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3 },
+    john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14 },
   },
   lzz: {
-    john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3 },
+    john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3, 14: LZZ_JOHN_14 },
   },
 };
 
