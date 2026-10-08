@@ -138,9 +138,12 @@ console.log("DEVICE_HANDSET_CORPUS_CATALOG_OK");
 
 await page.goto(WEB + "/app/me", { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
-const upload = page.getByRole("button", { name: /上传加密身份|upload|密钥|鍵|keys/i });
-await upload.first().waitFor({ state: "visible", timeout: 10_000 });
-console.log("DEVICE_HANDSET_PRODUCT_KEYS_UI_OK");
+const backend = page.getByTestId("me-signal-backend");
+await backend.waitFor({ state: "visible", timeout: 10_000 });
+await backend.selectOption("opene2ee");
+const upload = page.getByTestId("me-upload-keys");
+await upload.waitFor({ state: "visible", timeout: 10_000 });
+console.log("DEVICE_HANDSET_PRODUCT_KEYS_UI_OK backend=opene2ee");
 
 await browser.close();
 console.log("DEVICE_HANDSET_SHAPED_OK viewport=" + vp.width + "x" + vp.height);

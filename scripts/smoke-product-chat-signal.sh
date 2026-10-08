@@ -50,6 +50,19 @@ try {
   else g.WebSocketPair = prev;
 }
 
+// Opt-in OpenE2EE product facade (not official libsignal; not wire-compatible).
+const oeRound = await productChatPeerRoundtrip("product-chat-opene2ee", "opene2ee");
+if (!oeRound.ok || oeRound.backend !== "opene2ee") {
+  throw new Error("opene2ee roundtrip failed: " + JSON.stringify(oeRound));
+}
+const oeAlice = await createProductChatIdentity("opene2ee");
+if (!String(oeAlice.identity.publicBundle.identityKeyPub).includes("opene2ee")) {
+  throw new Error("expected opene2ee identity marker");
+}
+if (!oeAlice.identity.publicBundle.kyberPrekeyPub) {
+  throw new Error("expected Kyber on OpenE2EE product bundle");
+}
+console.log("PRODUCT_CHAT_OPENE2EE_OK backend=opene2ee facade=createProductChatIdentity kyber=1");
 console.log("PRODUCT_CHAT_SIGNAL_OK backend=x25519 facade=createProductChatIdentity");
 '
 
