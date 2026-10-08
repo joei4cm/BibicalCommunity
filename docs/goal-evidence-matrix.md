@@ -54,7 +54,9 @@ bash scripts/smoke-product-chat-signal.sh # PRODUCT_CHAT_SIGNAL_OK (app product 
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK + DEVICE_PRODUCT_CHAT_OK (+ DEVICE_HANDSET_E2E_OPEN)
 bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_OPENE2EE_PRODUCT_OK + DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
 bash scripts/live-workers-temporary.sh # LIVE_WORKERS_TEMPORARY_OK (preview Worker+D1, no R2) + CORPUS_LIVE_R2_OPEN
-bash scripts/seed-d1-corpus-boot.sh    # LIVE_WORKERS_D1_CORPUS_OK (D1 fallback; not R2)
+bash scripts/seed-d1-corpus-boot.sh    # LIVE_WORKERS_D1_CORPUS_OK (HTTP admin seed; not R2)
+bash scripts/seed-d1-corpus-sql-remote.sh # LIVE_WORKERS_D1_CORPUS_OK via wrangler SQL (bypasses workers.dev bot)
+bash scripts/live-workers-temporary.sh # LIVE_WORKERS_TEMPORARY_OK (preview; no R2; may be bot-challenged)
 bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
 bash scripts/smoke-goal-open-gates.sh  # GOAL_OPEN_GATES_OK + remaining OPEN token count
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh
