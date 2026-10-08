@@ -1,5 +1,17 @@
-/** Public-domain: WEB Philippians 4 denser rejoice/peace scaffold (vv.4–9 + 11–13). */
+/** Public-domain: WEB Philippians 4 denser full rejoice/peace chapter scaffold (vv.1–23). */
 export const WEB_PHIL_4: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "Therefore, my brothers, beloved and longed for, my joy and crown, stand firm in the Lord in this way, my beloved.",
+  },
+  {
+    verse: 2,
+    text: "I exhort Euodia, and I exhort Syntyche, to think the same way in the Lord.",
+  },
+  {
+    verse: 3,
+    text: "Yes, I beg you also, true partner, help these women, for they labored with me in the Good News with Clement also, and the rest of my fellow workers, whose names are in the book of life.",
+  },
   {
     verse: 4,
     text: "Rejoice in the Lord always! Again I will say, Rejoice!",
@@ -25,6 +37,10 @@ export const WEB_PHIL_4: { verse: number; text: string }[] = [
     text: "The things which you learned, received, heard, and saw in me: do these things, and the God of peace will be with you.",
   },
   {
+    verse: 10,
+    text: "But I rejoice in the Lord greatly that now at length you have revived your thought for me; in which you did indeed take thought, but you lacked opportunity.",
+  },
+  {
     verse: 11,
     text: "Not that I speak because of lack, for I have learned in whatever state I am, to be content in it.",
   },
@@ -35,5 +51,45 @@ export const WEB_PHIL_4: { verse: number; text: string }[] = [
   {
     verse: 13,
     text: "I can do all things through Christ who strengthens me.",
+  },
+  {
+    verse: 14,
+    text: "However you did well that you shared in my affliction.",
+  },
+  {
+    verse: 15,
+    text: "You yourselves also know, you Philippians, that in the beginning of the Good News, when I departed from Macedonia, no assembly shared with me in the matter of giving and receiving but you only.",
+  },
+  {
+    verse: 16,
+    text: "For even in Thessalonica you sent once and again to my need.",
+  },
+  {
+    verse: 17,
+    text: "Not that I seek for the gift, but I seek for the fruit that increases to your account.",
+  },
+  {
+    verse: 18,
+    text: "But I have all things and abound. I am filled, having received from Epaphroditus the things that came from you, a sweet-smelling fragrance, an acceptable and well-pleasing sacrifice to God.",
+  },
+  {
+    verse: 19,
+    text: "My God will supply every need of yours according to his riches in glory in Christ Jesus.",
+  },
+  {
+    verse: 20,
+    text: "Now to our God and Father be the glory forever and ever! Amen.",
+  },
+  {
+    verse: 21,
+    text: "Greet every saint in Christ Jesus. The brothers who are with me greet you.",
+  },
+  {
+    verse: 22,
+    text: "All the saints greet you, especially those who are of Caesar's household.",
+  },
+  {
+    verse: 23,
+    text: "The grace of the Lord Jesus Christ be with you all. Amen.",
   },
 ];
