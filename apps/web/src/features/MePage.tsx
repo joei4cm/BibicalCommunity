@@ -15,6 +15,7 @@ import {
 import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
+import { secureGet, secureSet } from "../lib/secure-kv";
 import { humanizeStatus } from "../lib/status";
 
 type MeChurch = {
@@ -47,11 +48,7 @@ type PendingWipe = {
   expiresAt: number;
 };
 
-/**
- * Device private material in localStorage under `lh.device.priv`.
- * NOT production-secure storage — use platform secure enclave / IndexedDB
- * wrapped keys before shipping E2EE.
- */
+/** Device private material in IndexedDB (`lh-secure`) under `lh.device.priv`. */
 const DEVICE_PRIV_KEY = "lh.device.priv";
 
 const DEFAULT_PRIVACY: PrivacySettings = {
@@ -81,9 +78,11 @@ export function MePage() {
   const [authBusy, setAuthBusy] = useState(false);
   const [wipeUserId, setWipeUserId] = useState("");
   const [wipeDeviceId, setWipeDeviceId] = useState("");
-  const [hasDeviceKey, setHasDeviceKey] = useState(
-    () => typeof localStorage !== "undefined" && !!localStorage.getItem(DEVICE_PRIV_KEY),
-  );
+  const [hasDeviceKey, setHasDeviceKey] = useState(false);
+
+  useEffect(() => {
+    void secureGet(DEVICE_PRIV_KEY).then((v) => setHasDeviceKey(!!v));
+  }, []);
 
   const isChurchAdmin = profile?.churches?.some(
     (c) => c.role === "admin" || c.role === "security_officer",
@@ -283,8 +282,7 @@ export function MePage() {
       const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
       const registrationId = Math.floor(Math.random() * 16380) + 1;
 
-      // Private material — localStorage is NOT production-secure storage.
-      localStorage.setItem(
+      await secureSet(
         DEVICE_PRIV_KEY,
         JSON.stringify({
           identity,
