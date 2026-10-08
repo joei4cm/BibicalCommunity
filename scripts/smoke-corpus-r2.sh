@@ -55,15 +55,28 @@ process.stdout.write(JSON.stringify({ key: r2ChapterObjectKey(tid, book, chapter
   echo "CORPUS_R2_OK tid=$tid ref=${book}.${chapter} key=$key"
 }
 
-# zh + ja licensed R2 providers
+# zh + ja licensed R2 providers (John.1 baseline + key peer tids)
 put_and_verify cuvs John 1 "太初有道，道与神同在，道就是神。"
 put_and_verify cuvt John 1 "太初有道，道與神同在，道就是神。"
 put_and_verify kougo John 1 "初めに言があった。言は神と共にあった。言は神であった。"
+put_and_verify rcuv John 1 "太初有道，道与神同在，道就是神。"
+put_and_verify ccb John 1 "太初有道，道与上帝同在，道就是上帝。"
+put_and_verify lzz John 1 "太初有道，道与神同在，道就是神。"
+put_and_verify shinkaiyaku John 1 "初めに言があった。言は神と共にあった。言は神であった。"
+put_and_verify shinKyoudou John 1 "初めに言があった。言は神と共にあった。言は神であった。"
+
+# Additional chapter put→get for denser dual-pane refs
+put_and_verify cuvs John 14 "你们心里不要忧愁；你们信神，也当信我。"
+put_and_verify rcuv Matt 5 "虚心的人有福了！因为天国是他们的。"
+put_and_verify kougo Rom 8 "こういうわけで、今や、キリスト・イエスにある者は罪に定められることがない。"
 
 # Pack catalog still lists licensed stubs for full-corpus entitlement path.
 CP=$(curl -sf "$BASE/v1/bible/corpus-packs?provider=r2")
 echo "$CP" | grep -q 'cuvs-r2'
 echo "$CP" | grep -q 'kougo-r2'
 echo "$CP" | grep -q 'cuvt-r2'
+echo "$CP" | grep -q 'rcuv-r2'
+echo "$CP" | grep -q 'ccb-r2'
+echo "$CP" | grep -q 'lzz-r2'
 
-echo "CORPUS_R2_CHAPTER_OK translations=cuvs,cuvt,kougo"
+echo "CORPUS_R2_CHAPTER_OK translations=cuvs,cuvt,kougo,rcuv,ccb,lzz,shinkaiyaku,shinKyoudou"
