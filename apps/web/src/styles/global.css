@@ -149,7 +149,7 @@ select {
   --br-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
   max-width: 42rem;
   margin: 0 auto;
-  padding: 0.4rem 0.2rem 5.5rem;
+  padding: 0.4rem 0.2rem 7.5rem;
   color: var(--br-ink);
   animation: bible-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -165,14 +165,14 @@ select {
   }
 }
 
-/* Full-bleed cool stone room + soft window light + linen grain */
+/* Immersive cool paper page — one reading plane, not a card on sage */
 body:has(.bible-reader) {
-  background-color: #b9c6c1;
+  background-color: #e4ebe7;
   background-image:
-    radial-gradient(ellipse 100% 58% at 50% -18%, rgba(236, 244, 240, 0.72), transparent 58%),
-    radial-gradient(ellipse 55% 42% at 12% 35%, rgba(14, 61, 54, 0.08), transparent 55%),
-    radial-gradient(ellipse 50% 38% at 92% 70%, rgba(55, 78, 88, 0.09), transparent 52%),
-    linear-gradient(180deg, #a8b8b2 0%, #c5d1cc 18%, #dce4e0 48%, #e8eeeb 100%);
+    radial-gradient(ellipse 110% 70% at 50% -20%, rgba(255, 255, 255, 0.55), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 0% 100%, rgba(14, 61, 54, 0.05), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 100% 80%, rgba(60, 80, 90, 0.05), transparent 48%),
+    linear-gradient(180deg, #d5e0db 0%, #e7eeea 32%, #eef3f0 70%, #f2f6f4 100%);
 }
 
 body:has(.bible-reader)::before {
@@ -181,7 +181,7 @@ body:has(.bible-reader)::before {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.28;
+  opacity: 0.18;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
   mix-blend-mode: multiply;
 }
@@ -193,7 +193,7 @@ body:has(.bible-reader)::after {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 80% 55% at 50% 42%, transparent 40%, rgba(20, 36, 32, 0.07) 100%);
+    radial-gradient(ellipse 90% 70% at 50% 40%, transparent 55%, rgba(18, 40, 34, 0.045) 100%);
 }
 
 .app-shell:has(.bible-reader) {
@@ -483,21 +483,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
   font-size: 0.9rem;
 }
 
-/* Open page plane — cool paper wash that melts into the room (not a card) */
+/* Prose sits on the page plane — no inset card / no floating panel */
 .bible-folio {
-  margin: 0 -0.35rem;
-  padding: 1.1rem 1.15rem 1.35rem;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(238, 242, 240, 0.55) 0%,
-      rgba(242, 245, 243, 0.38) 42%,
-      rgba(236, 241, 238, 0.12) 100%
-    );
+  margin: 0;
+  padding: 0.55rem 0.2rem 1.1rem;
+  background: transparent;
   box-shadow: none;
   border-radius: 0;
-  border-top: 1px solid rgba(14, 61, 54, 0.06);
-  border-bottom: 1px solid rgba(14, 61, 54, 0.05);
+  border: 0;
   animation: bible-folio-in 680ms 50ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -602,20 +595,21 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border-top: 1px solid var(--br-line);
 }
 
-/* WeDevote-style reading dock — floats above tab bar */
+/* WeDevote-style reading dock — floats clearly above tab bar */
 .bible-reading-dock {
   position: fixed;
   left: 50%;
-  bottom: calc(3.65rem + env(safe-area-inset-bottom));
+  bottom: calc(5.1rem + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  z-index: 40;
+  z-index: 45;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.35rem 0.45rem;
-  background: color-mix(in srgb, #f2f5f3 90%, transparent);
-  border: 1px solid rgba(14, 61, 54, 0.12);
-  backdrop-filter: blur(16px) saturate(1.1);
+  gap: 0.1rem;
+  padding: 0.4rem 0.5rem;
+  background: color-mix(in srgb, #f7faf8 92%, transparent);
+  border: 1px solid rgba(14, 61, 54, 0.16);
+  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
   animation: bible-dock-in 520ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -835,8 +829,8 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 
   .bible-folio {
-    margin: 0 -0.15rem;
-    padding: 0.85rem 0.7rem 1.1rem;
+    margin: 0;
+    padding: 0.35rem 0.1rem 0.9rem;
   }
 
   .bible-passage-controls {
@@ -853,10 +847,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 
   .bible-reading-dock {
-    bottom: calc(3.85rem + env(safe-area-inset-bottom));
+    bottom: calc(5.35rem + env(safe-area-inset-bottom));
     width: calc(100% - 1.5rem);
     max-width: 22rem;
     justify-content: center;
+  }
+
+  .bible-reader {
+    padding-bottom: 8rem;
   }
 }
 
