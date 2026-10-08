@@ -10,7 +10,12 @@ export default defineConfig({
       "@logoshome/bible": path.resolve(__dirname, "../../packages/bible/src/index.ts"),
       "@logoshome/crypto": path.resolve(__dirname, "../../packages/crypto/src/index.ts"),
       "@logoshome/ui": path.resolve(__dirname, "../../packages/ui/src/index.ts"),
+      // Node-native Signal bindings must never enter the browser graph.
+      "@signalapp/libsignal-client": path.resolve(__dirname, "src/shims/empty-libsignal.ts"),
     },
+  },
+  optimizeDeps: {
+    exclude: ["@signalapp/libsignal-client"],
   },
   plugins: [
     react(),

@@ -8,11 +8,11 @@ import {
   createSignalClientAsync,
   LibsignalNotConfiguredError,
   LibsignalSignalClient,
-  NativeLibsignalSignalClient,
   probeLibsignalPackage,
   resolveSignalBackend,
   WebCryptoSignalClient,
 } from "../packages/crypto/dist/index.js";
+import { NativeLibsignalSignalClient } from "../packages/crypto/dist/adapters/libsignal-native.js";
 
 if (resolveSignalBackend("webcrypto") !== "webcrypto") {
   throw new Error("prefer webcrypto failed");

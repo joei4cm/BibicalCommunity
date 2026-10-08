@@ -3,19 +3,16 @@
  *
  * WebCryptoSignalClient (P-256) and X25519SignalClient ship for Workers/browser
  * portability. When `@signalapp/libsignal-client` native bindings load (Node),
- * `createSignalClient("libsignal")` returns a real PQXDH client. Otherwise the
+ * `createSignalClientAsync("libsignal")` returns a real PQXDH client. Otherwise the
  * adapter stays fail-closed.
+ *
+ * Native bindings are loaded only via dynamic import so Vite/browser builds never
+ * pull Node-only `@signalapp/libsignal-client` into the web bundle.
  */
 
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "../signal-stub.js";
 import { WebCryptoSignalClient } from "../webcrypto-signal.js";
 import { X25519SignalClient } from "../x25519-signal.js";
-import {
-  NativeLibsignalSignalClient,
-  tryCreateNativeLibsignalClient,
-} from "./libsignal-native.js";
-
-export { NativeLibsignalSignalClient, tryCreateNativeLibsignalClient };
 
 export class LibsignalNotConfiguredError extends Error {
   constructor() {
@@ -69,6 +66,20 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
 }
 
 let nativeClientPromise: Promise<SignalClient | null> | null = null;
+
+/** Dynamic-only — keeps Node native module out of browser bundles. */
+export async function tryCreateNativeLibsignalClient(): Promise<SignalClient | null> {
+  try {
+    const mod = await import(
+      /* @vite-ignore */
+      /* webpackIgnore: true */
+      "./libsignal-native.js"
+    );
+    return mod.tryCreateNativeLibsignalClient();
+  } catch {
+    return null;
+  }
+}
 
 function loadNativeLibsignal(): Promise<SignalClient | null> {
   if (!nativeClientPromise) nativeClientPromise = tryCreateNativeLibsignalClient();

@@ -400,7 +400,11 @@ export class NativeLibsignalSignalClient implements SignalClient {
 /** Attempt to load native libsignal; returns null when unavailable on this platform. */
 export async function tryCreateNativeLibsignalClient(): Promise<SignalClient | null> {
   try {
-    const ls = await import("@signalapp/libsignal-client");
+    const ls = await import(
+      /* @vite-ignore */
+      /* webpackIgnore: true */
+      "@signalapp/libsignal-client"
+    );
     // Touch a native entrypoint so missing prebuilds fail here.
     ls.IdentityKeyPair.generate();
     return new NativeLibsignalSignalClient(ls);
