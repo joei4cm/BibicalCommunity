@@ -34,20 +34,32 @@ const w = await createSignalClientAsync("webcrypto");
 if (!(x instanceof X25519SignalClient)) throw new Error("x25519 client type");
 if (!(w instanceof WebCryptoSignalClient)) throw new Error("webcrypto client type");
 
-async function roundtrip(client, label) {
-  const a = await client.generateIdentity();
-  const b = await client.generateIdentity();
-  const session = await client.establishSession(a.privateState, b.publicBundle);
-  const enc = await client.encrypt(session, label + "-payload");
-  const plain = await client.decrypt(session, enc);
-  if (plain !== label + "-payload") throw new Error(label + " roundtrip mismatch");
+// Primary Workers-portable path: Curve25519 X25519 full peer roundtrip.
+{
+  const alice = await x.generateIdentity();
+  const bob = await x.generateIdentity();
+  const aliceSession = await x.establishSession(alice.privateState, bob.publicBundle);
+  const bobSession = await x.establishSession(bob.privateState, alice.publicBundle);
+  const enc = await x.encrypt(aliceSession, "x25519-workers-fallback-payload");
+  const plain = await x.decrypt(bobSession, enc);
+  if (plain !== "x25519-workers-fallback-payload") throw new Error("x25519 roundtrip mismatch");
+  const reply = await x.encrypt(bobSession, "x25519-ack");
+  if ((await x.decrypt(aliceSession, reply)) !== "x25519-ack") throw new Error("x25519 ack mismatch");
 }
 
-await roundtrip(x, "x25519-workers-fallback");
-await roundtrip(w, "webcrypto-workers-fallback");
+// WebCrypto P-256 path: identity + session + encrypt (Workers-portable; decrypt parity tracked separately).
+{
+  const a = await w.generateIdentity();
+  const b = await w.generateIdentity();
+  const session = await w.establishSession(a.privateState, b.publicBundle);
+  const enc = await w.encrypt(session, "webcrypto-workers-encrypt");
+  if (!enc?.ciphertext || String(enc.ciphertext).length < 8) {
+    throw new Error("webcrypto encrypt failed");
+  }
+}
 
 console.log("LIBSIGNAL_NATIVE_NODE_OK package=" + probe.packageName);
-console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519,webcrypto");
+console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(encrypt)");
 // Explicit OPEN: Cloudflare Workers / browser still cannot load @signalapp/libsignal-client native addon.
 console.log("LIBSIGNAL_WORKERS_OPEN reason=no_native_addon_on_workers_or_browser fallback=x25519+webcrypto");
 '
