@@ -22,6 +22,7 @@ const need = [
   "home.joinChurch","home.joinSlug","home.membersPending","plans.advanceDay",
   "plans.devotionPlan","plans.todayReading","me.pendingVerify",
   "admin.title","admin.sectionUsers","admin.sectionHomes","admin.sectionGroups","admin.sectionWipe",
+  "reader.corpusLocal","reader.corpusPartial","reader.corpusLicensedStub",
 ];
 let fail = 0;
 for (const loc of ["zh-CN","en","ja"]) {
@@ -58,6 +59,8 @@ echo "SCREEN_SHARE_GATE_OK"
 
 echo "== curve25519 x25519 path =="
 bash scripts/smoke-curve25519.sh
+echo "== libsignal workers/browser gap gate =="
+bash scripts/smoke-libsignal-workers.sh
 
 echo "== corpus scaffold inventory + corpus/devotion packs =="
 bash scripts/smoke-corpus-inventory.sh

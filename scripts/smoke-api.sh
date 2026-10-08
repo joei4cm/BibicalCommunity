@@ -16,6 +16,13 @@ test "$LOCALE" = "zh-CN"
 AUTH="Authorization: Bearer $TOKEN"
 echo "== bible translations =="
 curl -sf "$BASE/v1/bible/translations" | head -c 120; echo
+echo "== bible corpus-packs =="
+CPACKS=$(curl -sf "$BASE/v1/bible/corpus-packs")
+echo "$CPACKS" | head -c 200; echo
+echo "$CPACKS" | grep -q '"ok":true'
+echo "$CPACKS" | grep -q 'web-local'
+echo "$CPACKS" | grep -q 'cuvs-r2'
+echo "BIBLE_CORPUS_PACKS_OK"
 echo "== chapter WEB John.1 =="
 curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.1" | head -c 160; echo
 echo "== chapter WEB John.2 =="
