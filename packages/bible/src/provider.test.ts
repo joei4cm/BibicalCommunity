@@ -438,15 +438,47 @@ test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => 
 test("loadChapter returns zh/ja Romans.12 scaffolds", async () => {
   const cuvs = await loadChapter("cuvs", { book: "Rom", chapter: 12 });
   assert.ok(!("external" in cuvs));
-  assert.ok(cuvs.verses.length >= 8);
+  assert.ok(cuvs.verses.length >= 21);
   assert.match(cuvs.verses.find((v) => v.verse === 1)?.text ?? "", /活祭/);
+  assert.match(cuvs.verses.find((v) => v.verse === 9)?.text ?? "", /爱人不可虚假|恶要厌恶/);
   assert.match(cuvs.verses.find((v) => v.verse === 21)?.text ?? "", /以善胜恶/);
+
+  const cuvt = await loadChapter("cuvt", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in cuvt));
+  assert.ok(cuvt.verses.length >= 21);
+  assert.match(cuvt.verses.find((v) => v.verse === 1)?.text ?? "", /活祭|聖潔/);
+  assert.match(cuvt.verses.find((v) => v.verse === 21)?.text ?? "", /以善勝惡/);
+
+  const rcuv = await loadChapter("rcuv", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in rcuv));
+  assert.ok(rcuv.verses.length >= 21);
+  assert.match(rcuv.verses.find((v) => v.verse === 21)?.text ?? "", /以善胜恶/);
+
+  const ccb = await loadChapter("ccb", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in ccb));
+  assert.ok(ccb.verses.length >= 21);
+  assert.match(ccb.verses.find((v) => v.verse === 1)?.text ?? "", /活祭|上帝/);
+
+  const lzz = await loadChapter("lzz", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in lzz));
+  assert.ok(lzz.verses.length >= 21);
+  assert.match(lzz.verses.find((v) => v.verse === 21)?.text ?? "", /以善胜恶|善胜恶/);
 
   const kougo = await loadChapter("kougo", { book: "Romans", chapter: 12 });
   assert.ok(!("external" in kougo));
-  assert.ok(kougo.verses.length >= 8);
+  assert.ok(kougo.verses.length >= 21);
   assert.match(kougo.verses.find((v) => v.verse === 2)?.text ?? "", /造りかえられ|心を新たに/);
   assert.match(kougo.verses.find((v) => v.verse === 21)?.text ?? "", /善をもって悪に勝ち/);
+
+  const shinkaiyaku = await loadChapter("shinkaiyaku", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in shinkaiyaku));
+  assert.ok(shinkaiyaku.verses.length >= 21);
+  assert.match(shinkaiyaku.verses.find((v) => v.verse === 21)?.text ?? "", /善をもって悪に勝ち|悪に負けては/);
+
+  const shinKyoudou = await loadChapter("shinKyoudou", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in shinKyoudou));
+  assert.ok(shinKyoudou.verses.length >= 21);
+  assert.match(shinKyoudou.verses.find((v) => v.verse === 21)?.text ?? "", /善をもって悪に勝ち|悪に負けては/);
 });
 
 test("loadChapter returns PD Isaiah.53 scaffolds (web/kjv/asv)", async () => {
