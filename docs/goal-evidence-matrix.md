@@ -31,8 +31,8 @@ bash scripts/smoke-me.sh             # ME_PROFILE_OK / ME_SEARCH_OK / ME_PRIVACY
 bash scripts/smoke-admin.sh          # ADMIN_CONSOLE_OK / ADMIN_REMOTE_WIPE_OK / …
 bash scripts/smoke-admin-pd-corpus.sh # ADMIN_PD_CORPUS_OK (getbible→R2; not TS packs)
 node scripts/seed-r2-pd-full.mjs …    # PD_FULL_R2_SEED_OK (platform_admin; full WEB/KJV/ASV)
-bash scripts/smoke-corpus-boot-scope.sh # CORPUS_BOOT_VS_FULL_OK (boot slim vs full)
-bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after walk)
+bash scripts/smoke-corpus-boot-scope.sh # CORPUS_BOOT_VS_FULL_OK (boot=cuvs+nasb whole-Bible)
+bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after transport)
 bash scripts/smoke-corpus-live-r2.sh   # CORPUS_LIVE_R2_OPEN (or OK with LIVE_R2=1 + LIVE_API_BASE)
 bash scripts/live-r2-bootstrap.sh      # LIVE_R2_BOOTSTRAP_OK / CORPUS_LIVE_R2_OK (needs CF token)
 bash scripts/smoke-storage.sh        # STORAGE_SMOKE_OK (session-aes / note / field / annotation)
@@ -41,8 +41,8 @@ bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK
 bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-token)
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
 bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK (JSON fixtures; no TS packs) / DEVOTION_MATERIALS_OK
-bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (boot=3 downloadable R2; noTsPacks)
-bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK / CORPUS_DOWNLOAD_OK (boot slim + download→DB)
+bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (boot=2 cuvs+nasb; downloadable R2; noTsPacks)
+bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK / CORPUS_DOWNLOAD_OK (whole-Bible download→DB)
 bash scripts/smoke-corpus-json-import.sh # CORPUS_JSON_FIXTURE_OK / CORPUS_JSON_IMPORT_OK (fixtures→R2/local DB)
 bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + denser Acts.2/Ps.1/Prov.3/Matt.28/Eph.2/Col.3/Jas.1/Rev.21 put→get)
 bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK (JSON fixtures→R2; no TS packs)
@@ -54,8 +54,10 @@ bash scripts/smoke-product-chat-signal.sh # PRODUCT_CHAT_SIGNAL_OK (app product 
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK + DEVICE_PRODUCT_CHAT_OK (+ DEVICE_HANDSET_E2E_OPEN)
 bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
 bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
+bash scripts/smoke-goal-open-gates.sh  # GOAL_OPEN_GATES_OK + remaining OPEN token count
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh
 ```
+
 
 
 ## Explicitly not claimed

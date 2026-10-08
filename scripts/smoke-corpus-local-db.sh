@@ -20,9 +20,11 @@ import {
 
 const probe = await probeLocalCorpusPipeline();
 if (!probe.ok) throw new Error("local corpus pipeline probe failed: " + JSON.stringify(probe));
-if (probe.bootDefaults.length !== 3) throw new Error("boot defaults must be exactly 3");
-if (!probe.bootDefaults.includes("cuvs") || !probe.bootDefaults.includes("web") || !probe.bootDefaults.includes("shinKyoudou")) {
-  throw new Error("boot defaults must be cuvs/web/shinKyoudou");
+if (probe.bootDefaults.length !== BOOT_DEFAULT_TRANSLATION_IDS.length) {
+  throw new Error("boot defaults length must match BOOT_DEFAULT_TRANSLATION_IDS");
+}
+if (!probe.bootDefaults.includes("cuvs") || !probe.bootDefaults.includes("nasb")) {
+  throw new Error("boot defaults must be cuvs+nasb whole-Bible");
 }
 const catalog = listDownloadableCorpusCatalog();
 const esv = catalog.find((p) => p.translationId === "esv");
@@ -53,8 +55,9 @@ if curl -sf "$BASE/health" >/dev/null 2>&1; then
   CAT=$(curl -sf "$BASE/v1/bible/corpus-catalog")
   echo "$CAT" | grep -q '"ok":true'
   echo "$CAT" | grep -q '"cuvs"'
+  echo "$CAT" | grep -q '"nasb"'
   echo "$CAT" | grep -q '"web"'
-  echo "$CAT" | grep -q '"shinKyoudou"'
+  echo "$CAT" | grep -q '"packKind":"whole-bible"'
   echo "$CAT" | grep -q 'downloadableCount'
   echo "CORPUS_CATALOG_OK"
 
@@ -69,13 +72,18 @@ if curl -sf "$BASE/health" >/dev/null 2>&1; then
   grep -q external_translation /tmp/corpus-esv.json
   echo "CORPUS_EXTERNAL_BLOCK_OK tid=esv"
 
-  # Boot defaults downloadable (R2 after fixture seed, else demo) — not TS densify
-  for tid in cuvs web shinKyoudou; do
-    BOOT_DL=$(curl -sf "$BASE/v1/bible/corpus-download/$tid")
+  # Boot defaults (和合本+NASB) whole-Bible downloadable — not TS densify / not per-chapter
+  for tid in cuvs nasb; do
+    BOOT_DL=$(curl -sf "$BASE/v1/bible/corpus-download/$tid?scope=full")
     echo "$BOOT_DL" | grep -q "\"translationId\":\"$tid\""
     echo "$BOOT_DL" | grep -q '"chapters"'
     echo "CORPUS_BOOT_DOWNLOAD_OK tid=$tid"
   done
+  # Downloadable peer still available as whole-Bible pack
+  WEB_DL=$(curl -sf "$BASE/v1/bible/corpus-download/web?scope=full")
+  echo "$WEB_DL" | grep -q '"translationId":"web"'
+  echo "$WEB_DL" | grep -q '"chapters"'
+  echo "CORPUS_DOWNLOAD_PEER_OK tid=web"
 
   # Prefix pack: put an extra chapter then download must include it via R2 list
   HANDLE2="prefixpack$(date +%s)"

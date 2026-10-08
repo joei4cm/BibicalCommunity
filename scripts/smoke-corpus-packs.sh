@@ -32,7 +32,9 @@ if (listLocalScaffoldInventory().length !== 0) {
 
 const probe = probeCorpusPackPipeline();
 if (!probe.ok) throw new Error("corpus pack pipeline probe failed");
-if (probe.bootCount !== 3) throw new Error("bootCount must be 3");
+if (probe.bootCount !== BOOT_DEFAULT_TRANSLATION_IDS.length) {
+  throw new Error("bootCount must be " + BOOT_DEFAULT_TRANSLATION_IDS.length + " (和合本+NASB)");
+}
 if (probe.downloadableCount < 8) throw new Error("need >=8 downloadable packs");
 if (!probe.noTsPacks) throw new Error("noTsPacks must be true");
 
