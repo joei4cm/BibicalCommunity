@@ -81,9 +81,9 @@ function partnerSsoEnabled(chapter: { url: string; sso?: boolean }): boolean {
 /** Strip demo fixture markers so reading UI is not visually polluted. */
 function displayVerseText(text: string): string {
   return text
-    .replace(/（样例[·・.]?fixture）/gi, "")
-    .replace(/\(样例[·・.]?fixture\)/gi, "")
-    .replace(/\(fixture\)/gi, "")
+    .replace(/[（(]\s*样例(?:[·・.\s]*fixture)?\s*[）)]/gi, "")
+    .replace(/[（(]\s*fixture\s*[）)]/gi, "")
+    .replace(/[（(]\s*見本\s*[）)]/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
