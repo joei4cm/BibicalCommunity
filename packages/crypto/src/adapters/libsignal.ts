@@ -13,6 +13,7 @@
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "../signal-stub.js";
 import { WebCryptoSignalClient } from "../webcrypto-signal.js";
 import { X25519SignalClient } from "../x25519-signal.js";
+import { OpenE2eeSignalClient } from "./opene2ee-signal.js";
 
 export class LibsignalNotConfiguredError extends Error {
   constructor() {
@@ -46,7 +47,7 @@ export class LibsignalSignalClient implements SignalClient {
   }
 }
 
-export type SignalBackend = "webcrypto" | "libsignal" | "x25519";
+export type SignalBackend = "webcrypto" | "libsignal" | "x25519" | "opene2ee";
 
 /**
  * True on Cloudflare Workers / browsers — no `@signalapp/libsignal-client` native addon.
@@ -72,8 +73,9 @@ export function isWorkersOrBrowserRuntime(): boolean {
 
 /**
  * Resolve backend from explicit prefer, else `LOGOSHOME_SIGNAL_BACKEND`
- * (`webcrypto` | `libsignal` | `x25519`) on `globalThis` or Node `process.env`.
+ * (`webcrypto` | `libsignal` | `x25519` | `opene2ee`) on `globalThis` or Node `process.env`.
  * Defaults to webcrypto (portable P-256). `x25519` selects Curve25519 WebCrypto path.
+ * `opene2ee` selects OpenE2EE keys + mutual ECDH (Workers-portable; not official libsignal).
  */
 export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   if (prefer) return prefer;
@@ -84,6 +86,7 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
   if (env === "libsignal") return "libsignal";
   if (env === "x25519") return "x25519";
+  if (env === "opene2ee") return "opene2ee";
   return "webcrypto";
 }
 
@@ -100,7 +103,9 @@ export function resolveProductSignalBackend(prefer?: SignalBackend): SignalBacke
     process?: { env?: Record<string, string | undefined> };
   };
   const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
-  if (env === "libsignal" || env === "x25519" || env === "webcrypto") return env;
+  if (env === "libsignal" || env === "x25519" || env === "webcrypto" || env === "opene2ee") {
+    return env;
+  }
   if (isWorkersOrBrowserRuntime()) return "x25519";
   return "libsignal";
 }
@@ -135,6 +140,7 @@ export function createSignalClient(prefer?: SignalBackend): SignalClient {
   const backend = resolveSignalBackend(prefer);
   if (backend === "libsignal") return new LibsignalSignalClient();
   if (backend === "x25519") return new X25519SignalClient();
+  if (backend === "opene2ee") return new OpenE2eeSignalClient();
   return new WebCryptoSignalClient();
 }
 
@@ -146,12 +152,14 @@ export async function createSignalClientAsync(prefer?: SignalBackend): Promise<S
     return native ?? new LibsignalSignalClient();
   }
   if (backend === "x25519") return new X25519SignalClient();
+  if (backend === "opene2ee") return new OpenE2eeSignalClient();
   return new WebCryptoSignalClient();
 }
 
 /**
  * Product factory: Workers/browser get X25519; Node prefers native libsignal.
  * If native bindings fail on Node, falls back to X25519 (never leave chat fail-closed).
+ * Opt-in OpenE2EE Workers path via prefer/`LOGOSHOME_SIGNAL_BACKEND=opene2ee`.
  */
 export async function createProductSignalClient(prefer?: SignalBackend): Promise<SignalClient> {
   const backend = resolveProductSignalBackend(prefer);
@@ -162,6 +170,7 @@ export async function createProductSignalClient(prefer?: SignalBackend): Promise
     return new X25519SignalClient();
   }
   if (backend === "x25519") return new X25519SignalClient();
+  if (backend === "opene2ee") return new OpenE2eeSignalClient();
   return new WebCryptoSignalClient();
 }
 

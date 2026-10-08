@@ -124,6 +124,39 @@ console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(
   );
 }
 
+// Opt-in product OpenE2EE SignalClient under Workers-shaped runtime (not official libsignal).
+{
+  const { createProductSignalClient, OpenE2eeSignalClient, isWorkersOrBrowserRuntime } =
+    await import("./packages/crypto/dist/index.js");
+  const g = globalThis;
+  const prevPair = g.WebSocketPair;
+  g.WebSocketPair = function WebSocketPair() {};
+  try {
+    if (!isWorkersOrBrowserRuntime()) throw new Error("expected Workers shape for OpenE2EE product");
+    const client = await createProductSignalClient("opene2ee");
+    if (!(client instanceof OpenE2eeSignalClient)) {
+      throw new Error("expected OpenE2eeSignalClient, got " + client.constructor.name);
+    }
+    const a = await client.generateIdentity();
+    const b = await client.generateIdentity();
+    if (!a.publicBundle.kyberPrekeyPub || !b.publicBundle.kyberPrekeyPub) {
+      throw new Error("expected Kyber prekeys on OpenE2EE public bundles");
+    }
+    const as = await client.establishSession(a.privateState, b.publicBundle);
+    const bs = await client.establishSession(b.privateState, a.publicBundle);
+    const enc = await client.encrypt(as, "opene2ee-product-workers");
+    if ((await client.decrypt(bs, enc)) !== "opene2ee-product-workers") {
+      throw new Error("OpenE2EE product roundtrip mismatch");
+    }
+    console.log(
+      "LIBSIGNAL_OPENE2EE_PRODUCT_OK backend=opene2ee workersShaped=true kyberBundle=1 roundtrip=1",
+    );
+  } finally {
+    if (prevPair === undefined) delete g.WebSocketPair;
+    else g.WebSocketPair = prevPair;
+  }
+}
+
 // Explicit OPEN: official @signalapp/libsignal-client has no WASM/Workers/browser build.
-console.log("LIBSIGNAL_WORKERS_OPEN reason=no_official_wasm_or_native_addon_on_workers_or_browser product_fallback=x25519 opene2ee_pqxdh=available opene2ee_msg=available");
+console.log("LIBSIGNAL_WORKERS_OPEN reason=no_official_wasm_or_native_addon_on_workers_or_browser product_fallback=x25519 opene2ee_product=available");
 '

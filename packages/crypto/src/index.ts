@@ -8,6 +8,7 @@ export {
   probeOpenE2eePqxdhWorkers,
   type OpenE2eePqxdhProbe,
 } from "./adapters/opene2ee-pqxdh-probe.js";
+export { OpenE2eeSignalClient } from "./adapters/opene2ee-signal.js";
 export * from "./product-chat.js";
 export * from "./session-aes.js";
 export * from "./wipe.js";
