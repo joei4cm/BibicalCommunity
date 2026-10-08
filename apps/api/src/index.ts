@@ -63,11 +63,21 @@ app.route("/v1/calls", callRoutes);
 app.route("/v1/partners", partnerRoutes);
 
 async function scheduled(_event: ScheduledEvent, env: Env) {
+  const now = Date.now();
+  // TTL tombstone for disappearing messages.
   await env.DB.prepare(
     `UPDATE messages SET tombstoned = 1, ciphertext = '', ratchet_header = ''
      WHERE expires_at IS NOT NULL AND expires_at < ? AND tombstoned = 0`,
   )
-    .bind(Date.now())
+    .bind(now)
+    .run();
+
+  // Expire stale wipe commands that were never acked (SECURITY.md §7 sweep).
+  await env.DB.prepare(
+    `UPDATE wipe_commands SET status = 'expired'
+     WHERE status = 'pending' AND expires_at < ?`,
+  )
+    .bind(now)
     .run();
 }
 

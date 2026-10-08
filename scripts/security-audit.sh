@@ -41,6 +41,31 @@ else
   fail=1
 fi
 
+# Wipe must delete R2 user media (SECURITY.md §7)
+if rg -n 'deleteUserMediaObjects|r2Deleted' apps/api/src/routes/admin.ts apps/api/src/services/wipe-media.ts | grep -q .; then
+  echo "OK: wipe path deletes R2 media objects"
+else
+  echo "FAIL: wipe path missing R2 media deletion"
+  fail=1
+fi
+
+# Wipe must zero annotation ciphertext
+if rg -n 'schema\.annotations' apps/api/src/routes/admin.ts | grep -q . \
+  && rg -n 'ciphertext: ""' apps/api/src/routes/admin.ts | grep -q .; then
+  echo "OK: wipe path zeros annotation ciphertext"
+else
+  echo "FAIL: wipe path missing annotation ciphertext zeroing"
+  fail=1
+fi
+
+# Cron must expire stale wipe commands
+if rg -n "wipe_commands.*expired|status = 'expired'" apps/api/src/index.ts | grep -q .; then
+  echo "OK: cron expires pending wipe commands"
+else
+  echo "FAIL: cron missing wipe command expiry"
+  fail=1
+fi
+
 # Field crypto present for profile
 if test -f apps/api/src/services/field-crypto.ts; then
   echo "OK: field-crypto service exists"

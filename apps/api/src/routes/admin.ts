@@ -9,6 +9,7 @@ import { requireAuth, type AuthVars } from "../middleware/auth";
 import { randomToken, sha256Hex } from "../services/crypto";
 import { assertChurchAdmin, loadAdminAccess } from "../services/admin-access";
 import { applyHostilePrivacyFloorsToChurch } from "../services/hostile-privacy";
+import { deleteUserMediaObjects } from "../services/wipe-media";
 import { securityModeSchema } from "@logoshome/shared";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -503,9 +504,28 @@ adminRoutes.post("/wipe", async (c) => {
       .where(inArray(schema.messages.conversationId, conversationIds));
   }
 
+  // Zero private note/highlight ciphertext (P3) — destruction, not archival.
+  await db
+    .update(schema.annotations)
+    .set({ ciphertext: "", iv: "", updatedAt: now })
+    .where(eq(schema.annotations.userId, body.userId));
+
   await db.update(schema.devices).set({ revoked: true }).where(eq(schema.devices.userId, body.userId));
 
-  return c.json({ id, wipeToken: token, status: "pending" }, 201);
+  // Destroy user R2 media blobs (P5) under media/{userId}/.
+  const r2 = await deleteUserMediaObjects(c.env.MEDIA, body.userId);
+
+  return c.json(
+    {
+      id,
+      wipeToken: token,
+      status: "pending",
+      r2Deleted: r2.deleted,
+      r2Prefix: r2.prefix,
+      annotationsZeroed: true,
+    },
+    201,
+  );
 });
 
 adminRoutes.get("/wipe/pending", async (c) => {

@@ -121,14 +121,32 @@ echo "$SEC" | grep -q '"ok":true'
 echo "$SEC" | grep -q '"securityMode":"hostile"'
 echo "ADMIN_CHURCH_PATCH_OK"
 
-echo "== admin remote wipe peer =="
+echo "== admin remote wipe peer (incl. R2 media + annotation zero) =="
+# Seed a peer R2 object so wipe must report r2Deleted >= 1
+UPLOAD=$(curl -sf -X POST -H "$AUTH2" "$BASE/v1/media/upload-url")
+MKEY=$(echo "$UPLOAD" | sed -n 's/.*"key":"\([^"]*\)".*/\1/p')
+PUT=$(echo "$UPLOAD" | sed -n 's/.*"putUrl":"\([^"]*\)".*/\1/p')
+test -n "$MKEY" && test -n "$PUT"
+curl -sf -X PUT -H "$AUTH2" -H 'content-type: application/octet-stream' \
+  --data-binary 'wipe-r2-probe' "$BASE$PUT" >/dev/null
+# Seed an annotation ciphertext that wipe must zero
+curl -sf -X POST -H "$AUTH2" -H 'content-type: application/json' \
+  -d '{"translationId":"web","ref":{"book":"John","chapter":3,"verseStart":16},"kind":"note","ciphertext":"secret-note-blob","iv":"deadbeef"}' \
+  "$BASE/v1/annotations" >/dev/null
+
 WIPE=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"userId\":\"$PEER\",\"reasonCode\":\"admin\"}" \
   "$BASE/v1/admin/wipe")
-echo "$WIPE" | head -c 200; echo
+echo "$WIPE" | head -c 280; echo
 WID=$(echo "$WIPE" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 WTOK=$(echo "$WIPE" | sed -n 's/.*"wipeToken":"\([^"]*\)".*/\1/p')
 test -n "$WID" && test -n "$WTOK"
+echo "$WIPE" | grep -q '"annotationsZeroed":true'
+echo "$WIPE" | grep -qE '"r2Deleted":[1-9]'
+echo "$WIPE" | grep -q "media/${PEER}/"
+# R2 object gone
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH" "$BASE/v1/media/${MKEY}")
+test "$CODE" = "404" || test "$CODE" = "401"
 ACK=$(curl -sf -X POST -H 'content-type: application/json' \
   -d "{\"wipeToken\":\"$WTOK\"}" \
   "$BASE/v1/admin/wipe/${WID}/ack")
@@ -153,5 +171,6 @@ CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN4"
   "$BASE/v1/admin/wipe")
 test "$CODE" = "403"
 echo "ADMIN_REMOTE_WIPE_OK"
+echo "ADMIN_WIPE_R2_OK"
 
 echo "ADMIN_CONSOLE_OK"
