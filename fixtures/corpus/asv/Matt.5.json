@@ -1,0 +1,18 @@
+{
+  "book": "Matt",
+  "chapter": 5,
+  "verses": [
+    {
+      "verse": 3,
+      "text": "Blessed are the poor in spirit: for theirs is the kingdom of heaven."
+    },
+    {
+      "verse": 9,
+      "text": "Blessed are the peacemakers: for they shall be called sons of God."
+    },
+    {
+      "verse": 16,
+      "text": "Even so let your light shine before men; that they may see your good works, and glorify your Father who is in heaven."
+    }
+  ]
+}

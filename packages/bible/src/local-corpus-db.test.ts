@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   BOOT_DEFAULT_TRANSLATION_IDS,
+  BOOT_TEACHING_CHAPTER_REFS,
   LocalCorpusDb,
   MemoryLocalCorpusStore,
   buildDemoDownloadPack,
@@ -19,6 +20,9 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
     boot.map((b) => b.translationId).sort(),
     [...BOOT_DEFAULT_TRANSLATION_IDS].sort(),
   );
+  for (const b of boot) {
+    assert.deepEqual(b.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], b.translationId);
+  }
   const esv = catalog.find((p) => p.translationId === "esv");
   assert.ok(esv);
   assert.equal(esv.installMode, "external");
@@ -26,6 +30,11 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   assert.ok(downloadable.length >= 5);
   assert.ok(downloadable.some((p) => p.translationId === "cuvt"));
   assert.ok(downloadable.some((p) => p.translationId === "kougo"));
+  for (const tid of ["kjv", "asv", "cuvt", "kougo"]) {
+    const row = downloadable.find((p) => p.translationId === tid);
+    assert.ok(row, tid);
+    assert.deepEqual(row.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], tid);
+  }
 });
 
 test("install download pack into local DB then read chapter", async () => {

@@ -45,7 +45,14 @@ for (const tid of tidDirs) {
     }
   }
 }
-if (chapterFiles < 10) throw new Error("expected >=10 fixture chapters, got " + chapterFiles);
+if (chapterFiles < 40) throw new Error("expected >=40 fixture chapters, got " + chapterFiles);
+const teaching = ["John.1.json", "John.3.json", "John.14.json", "Ps.23.json", "Rom.8.json", "Matt.5.json", "Gen.1.json"];
+for (const tid of ["cuvs", "web", "shinKyoudou"]) {
+  const files = readdirSync(join(fixturesRoot, tid)).filter((f) => f.endsWith(".json"));
+  for (const need of teaching) {
+    if (!files.includes(need)) throw new Error("boot teaching parity missing " + tid + "/" + need);
+  }
+}
 if (byLang.en < 3) throw new Error("en fixtures too few: " + byLang.en);
 
 const catalog = listDownloadableCorpusCatalog();

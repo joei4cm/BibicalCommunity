@@ -8,14 +8,24 @@ Drop Bible chapter JSON here to seed R2 / client local DB. **`packages/bible/src
 fixtures/corpus/{translationId}/{Book}.{chapter}.json
 ```
 
-Examples:
+## Boot teaching set (parity required)
 
-- `cuvs/John.1.json` — boot default (和合本简体)
-- `web/Ps.23.json` — boot default (WEB); also John.14 / Rom.8 / Matt.5 / Gen.1 teaching samples
-- `shinKyoudou/John.3.json` — boot default (新共同訳)
-- `kougo/John.1.json` — downloadable sample
-- `cuvt` / `rcuv` / `ccb` / `lzz` / `shinkaiyaku` — downloadable peer demos
-- `kjv` / `asv` — public-domain English downloadable fixtures
+All three boot tids must include:
+
+`John.1`, `John.3`, `John.14`, `Ps.23`, `Rom.8`, `Matt.5`, `Gen.1`
+
+| tid | Role |
+|-----|------|
+| `cuvs` | 和合本简体 (boot) |
+| `web` | World English Bible (boot) |
+| `shinKyoudou` | 新共同訳 (boot) |
+
+## Downloadable peers
+
+| tid | Teaching-set fixtures |
+|-----|----------------------|
+| `kjv`, `asv`, `cuvt`, `kougo` | Same 7-ref teaching set |
+| `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Slim samples (`John.1`, `Ps.23`, …) |
 
 ## Chapter JSON shape
 
@@ -32,11 +42,10 @@ Same as R2 object body (`bible/{tid}/{Book}.{N}.json`):
 ## Import
 
 ```bash
-# Offline → LocalCorpusDb
+# Offline → LocalCorpusDb (+ CORPUS_BOOT_TEACHING_PARITY_OK)
 bash scripts/smoke-corpus-json-import.sh
 
 # Live API → R2
-# (registers a temp user, then)
 node scripts/seed-r2-from-json-fixtures.mjs http://127.0.0.1:8787 "$TOKEN"
 ```
 
@@ -45,7 +54,7 @@ node scripts/seed-r2-from-json-fixtures.mjs http://127.0.0.1:8787 "$TOKEN"
 | Mode | translationId examples | How text arrives |
 |------|------------------------|------------------|
 | Boot (few) | `cuvs`, `web`, `shinKyoudou` | First launch downloads pack into IndexedDB `lh-bible` |
-| Download | `cuvt`, `kougo`, `rcuv`, … | User taps Download → same local DB |
+| Download | `cuvt`, `kougo`, `kjv`, … | User taps Download → same local DB |
 | External | `esv`, `niv`, 恩道, 微读 | Deep link only |
 
 Licensed full corpora: place publisher-authorized JSON under this tree (or upload to R2 with entitlement); never commit unauthorized dumps.
