@@ -439,24 +439,27 @@ test("loadChapter returns PD Hebrews.11 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Heb");
   assert.equal(web.chapter, 11);
-  assert.ok(web.verses.length >= 12);
+  assert.ok(web.verses.length >= 40);
   assert.equal(web.verses[0]?.verse, 1);
-  assert.equal(web.verses[web.verses.length - 1]?.verse, 12);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 40);
   assert.match(web.verses[0]?.text ?? "", /faith is assurance|hoped for/i);
   assert.match(web.verses.find((v) => v.verse === 8)?.text ?? "", /Abraham/i);
+  assert.match(web.verses.find((v) => v.verse === 40)?.text ?? "", /better thing|apart from us|made perfect/i);
 
   const kjv = await loadChapter("kjv", { book: "Hebrews", chapter: 11 });
   assert.ok(!("external" in kjv));
-  assert.ok(kjv.verses.length >= 12);
+  assert.ok(kjv.verses.length >= 40);
   assert.match(kjv.verses[0]?.text ?? "", /substance of things hoped for/i);
   assert.match(kjv.verses.find((v) => v.verse === 6)?.text ?? "", /impossible to please/i);
   assert.match(kjv.verses.find((v) => v.verse === 7)?.text ?? "", /Noah/i);
+  assert.match(kjv.verses.find((v) => v.verse === 29)?.text ?? "", /Red sea/i);
 
   const asv = await loadChapter("asv", { book: "heb", chapter: 11 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 12);
+  assert.ok(asv.verses.length >= 40);
   assert.match(asv.verses[0]?.text ?? "", /assurance of things hoped for/i);
   assert.match(asv.verses.find((v) => v.verse === 5)?.text ?? "", /Enoch/i);
+  assert.match(asv.verses.find((v) => v.verse === 40)?.text ?? "", /better thing|apart from us|made perfect/i);
 });
 
 test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => {
@@ -477,15 +480,17 @@ test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => 
   const cuvsHeb = await loadChapter("cuvs", { book: "Heb", chapter: 11 });
   assert.ok(!("external" in cuvsHeb));
   assert.equal(cuvsHeb.book, "Heb");
-  assert.ok(cuvsHeb.verses.length >= 10);
+  assert.ok(cuvsHeb.verses.length >= 40);
   assert.match(cuvsHeb.verses[0]?.text ?? "", /样例|信就是|实底/);
   assert.match(cuvsHeb.verses.find((v) => v.verse === 8)?.text ?? "", /亚伯拉罕/);
+  assert.match(cuvsHeb.verses.find((v) => v.verse === 40)?.text ?? "", /样例|更美的事|完全/);
 
   const kougoHeb = await loadChapter("kougo", { book: "Hebrews", chapter: 11 });
   assert.ok(!("external" in kougoHeb));
-  assert.ok(kougoHeb.verses.length >= 10);
+  assert.ok(kougoHeb.verses.length >= 40);
   assert.match(kougoHeb.verses[0]?.text ?? "", /見本|信仰とは/);
   assert.match(kougoHeb.verses.find((v) => v.verse === 7)?.text ?? "", /ノア/);
+  assert.match(kougoHeb.verses.find((v) => v.verse === 40)?.text ?? "", /見本|すぐれた|全う/);
 });
 
 test("loadChapter returns zh/ja Romans.12 scaffolds", async () => {
@@ -762,9 +767,11 @@ test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3
     const heb = await loadChapter(tid, { book: "Heb", chapter: 11 });
     assert.ok(!("external" in heb), tid);
     assert.equal(heb.book, "Heb");
-    assert.ok(heb.verses.length >= 12, tid);
+    assert.ok(heb.verses.length >= 40, tid);
+    assert.equal(heb.verses[heb.verses.length - 1]?.verse, 40, tid);
     assert.match(heb.verses[0]?.text ?? "", /样例|樣例|見本|信|信仰/);
     assert.match(heb.verses.find((v) => v.verse === 12)?.text ?? "", /星|砂|沙|子孙|子孫|生まれ/);
+    assert.match(heb.verses.find((v) => v.verse === 40)?.text ?? "", /样例|樣例|見本|更美|すぐれた|完全|全う/);
 
     const isa = await loadChapter(tid, { book: "Isa", chapter: 53 });
     assert.ok(!("external" in isa), tid);

@@ -1,10 +1,13 @@
-/** Public-domain: ASV Hebrews 11 (faith hall vv.1–12 for dual-pane / offline). */
+/** Public-domain: ASV Hebrews 11 denser full faith-hall chapter scaffold (vv.1–40). */
 export const ASV_HEB_11: { verse: number; text: string }[] = [
   {
     verse: 1,
     text: "Now faith is assurance of things hoped for, a conviction of things not seen.",
   },
-  { verse: 2, text: "For therein the elders had witness borne to them." },
+  {
+    verse: 2,
+    text: "For therein the elders had witness borne to them.",
+  },
   {
     verse: 3,
     text: "By faith we understand that the worlds have been framed by the word of God, so that what is seen hath not been made out of things which appear.",
@@ -44,5 +47,117 @@ export const ASV_HEB_11: { verse: number; text: string }[] = [
   {
     verse: 12,
     text: "wherefore also there sprang of one, and him as good as dead, so many as the stars of heaven in multitude, and as the sand, which is by the sea-shore, innumerable.",
+  },
+  {
+    verse: 13,
+    text: "These all died in faith, not having received the promises, but having seen them and greeted them from afar, and having confessed that they were strangers and pilgrims on the earth.",
+  },
+  {
+    verse: 14,
+    text: "For they that say such things make it manifest that they are seeking after a country of their own.",
+  },
+  {
+    verse: 15,
+    text: "And if indeed they had been mindful of that country from which they went out, they would have had opportunity to return.",
+  },
+  {
+    verse: 16,
+    text: "But now they desire a better country, that is, a heavenly: wherefore God is not ashamed of them, to be called their God; for he hath prepared for them a city.",
+  },
+  {
+    verse: 17,
+    text: "By faith Abraham, being tried, offered up Isaac: yea, he that had gladly received the promises was offering up his only begotten son;",
+  },
+  {
+    verse: 18,
+    text: "even he to whom it was said, In Isaac shall thy seed be called:",
+  },
+  {
+    verse: 19,
+    text: "accounting that God is able to raise up, even from the dead; from whence he did also in a figure receive him back.",
+  },
+  {
+    verse: 20,
+    text: "By faith Isaac blessed Jacob and Esau, even concerning things to come.",
+  },
+  {
+    verse: 21,
+    text: "By faith Jacob, when he was dying, blessed each of the sons of Joseph; and worshipped, leaning upon the top of his staff.",
+  },
+  {
+    verse: 22,
+    text: "By faith Joseph, when his end was nigh, made mention of the departure of the children of Israel; and gave commandment concerning his bones.",
+  },
+  {
+    verse: 23,
+    text: "By faith Moses, when he was born, was hid three months by his parents, because they saw he was a goodly child; and they were not afraid of the king's commandment.",
+  },
+  {
+    verse: 24,
+    text: "By faith Moses, when he was grown up, refused to be called the son of Pharaoh's daughter;",
+  },
+  {
+    verse: 25,
+    text: "choosing rather to share ill treatment with the people of God, than to enjoy the pleasures of sin for a season;",
+  },
+  {
+    verse: 26,
+    text: "accounting the reproach of Christ greater riches than the treasures of Egypt: for he looked unto the recompense of reward.",
+  },
+  {
+    verse: 27,
+    text: "By faith he forsook Egypt, not fearing the wrath of the king: for he endured, as seeing him who is invisible.",
+  },
+  {
+    verse: 28,
+    text: "By faith he kept the passover, and the sprinkling of the blood, that the destroyer of the firstborn should not touch them.",
+  },
+  {
+    verse: 29,
+    text: "By faith they passed through the Red sea as by dry land: which the Egyptians assaying to do were swallowed up.",
+  },
+  {
+    verse: 30,
+    text: "By faith the walls of Jericho fell down, after they had been compassed about for seven days.",
+  },
+  {
+    verse: 31,
+    text: "By faith Rahab the harlot perished not with them that were disobedient, having received the spies with peace.",
+  },
+  {
+    verse: 32,
+    text: "And what shall I more say? for the time will fail me if I tell of Gideon, Barak, Samson, Jephthah; of David and Samuel and the prophets:",
+  },
+  {
+    verse: 33,
+    text: "who through faith subdued kingdoms, wrought righteousness, obtained promises, stopped the mouths of lions,",
+  },
+  {
+    verse: 34,
+    text: "quenched the power of fire, escaped the edge of the sword, from weakness were made strong, waxed mighty in war, turned to flight armies of aliens.",
+  },
+  {
+    verse: 35,
+    text: "Women received their dead by a resurrection: and others were tortured, not accepting their deliverance; that they might obtain a better resurrection:",
+  },
+  {
+    verse: 36,
+    text: "and others had trial of mockings and scourgings, yea, moreover of bonds and imprisonment:",
+  },
+  {
+    verse: 37,
+    text: "they were stoned, they were sawn asunder, they were tempted, they were slain with the sword: they went about in sheepskins, in goatskins; being destitute, afflicted, ill-treated",
+  },
+  {
+    verse: 38,
+    text: "(of whom the world was not worthy), wandering in deserts and mountains and caves, and the holes of the earth.",
+  },
+  {
+    verse: 39,
+    text: "And these all, having had witness borne to them through their faith, received not the promise,",
+  },
+  {
+    verse: 40,
+    text: "God having provided some better thing concerning us, that apart from us they should not be made perfect.",
   },
 ];
