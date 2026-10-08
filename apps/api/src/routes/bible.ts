@@ -54,7 +54,7 @@ bibleRoutes.get("/study", (c) => {
   });
 });
 
-/** Corpus-pack catalog: local scaffolds + licensed R2 stubs. */
+/** Corpus-pack catalog: R2 download/boot packs (no TypeScript verse modules). */
 bibleRoutes.get("/corpus-packs", (c) => {
   const availableOnly = c.req.query("availableOnly") === "1";
   const provider = c.req.query("provider") as "local" | "r2" | undefined;
@@ -72,6 +72,9 @@ bibleRoutes.get("/corpus-packs", (c) => {
       localCount: probe.localCount,
       licensedStubCount: probe.licensedStubCount,
       localChapterTotal: probe.localChapterTotal,
+      downloadableCount: probe.downloadableCount,
+      bootCount: probe.bootCount,
+      noTsPacks: probe.noTsPacks,
       languages: probe.languages,
     },
   });
@@ -286,25 +289,17 @@ bibleRoutes.get("/chapter", async (c) => {
       });
     }
 
-    // Dev / scaffold fallback: local John packs (cuvs/cuvt/kougo/…) when R2 empty.
-    const local = await loadChapter(translationId, ref, {
-      endao: c.env.ENDAO_SSO_ENABLED === "true",
-      weread: c.env.WEREAD_SSO_ENABLED === "true",
-    });
-    if ("external" in local) return c.json(local);
-    if (local.verses.length > 0 && !local.verses[0]?.text.startsWith(`[${meta.abbreviation}] Sample`)) {
-      return c.json(local);
-    }
-
+    // No TypeScript verse fallback — corpora live in R2 / client local DB only.
     return c.json(
       {
         error: "chapter_not_in_r2",
-        hint: `Upload JSON to MEDIA key "${key}" (see scripts/seed-r2-sample.md)`,
+        hint: `Upload JSON to MEDIA key "${key}" (fixtures/corpus + seed-r2-from-json-fixtures.mjs)`,
       },
       404,
     );
   }
 
+  // Non-r2/external already handled above; remaining providers resolve via package.
   const result = await loadChapter(translationId, ref, {
     endao: c.env.ENDAO_SSO_ENABLED === "true",
     weread: c.env.WEREAD_SSO_ENABLED === "true",

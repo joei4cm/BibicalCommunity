@@ -87,7 +87,7 @@ flowchart LR
 | **Downloadable** | CUVT, RCUV, CCB, 吕振中, 口語訳, 新改訳, KJV, ASV… | User downloads pack → install into local DB; source of truth is R2 (`bible/{tid}/Book.N.json`) |
 | **External** | ESV, NIV, 恩道, 微读, 思高… | Deep link / partner SSO — not stored in-app (license) |
 
-`packages/bible` exposes `TranslationProvider`: `local | r2 | external`, plus `LocalCorpusDb` + `/v1/bible/corpus-catalog` + `/v1/bible/corpus-download/:tid`. Reader prefers **local DB**, then API/R2. Corpora are imported as **JSON fixtures** (`fixtures/corpus/{tid}/Book.N.json`) via `corpus-import` / `seed-r2-from-json-fixtures.mjs` — not densified TypeScript. TS chapter scaffolds are demo/test only.
+`packages/bible` exposes `TranslationProvider`: `r2 | external` (legacy `local` retired), plus `LocalCorpusDb` + `/v1/bible/corpus-catalog` + `/v1/bible/corpus-download/:tid`. Reader prefers **local DB**, then API/R2. Corpora are imported as **JSON fixtures** (`fixtures/corpus/{tid}/Book.N.json`) via `corpus-import` / `seed-r2-from-json-fixtures.mjs`. **`packages/bible/src/packs/` must not exist** — do not densify verse text into TypeScript.
 
 ## Environments
 

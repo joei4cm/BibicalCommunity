@@ -8,7 +8,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** (polyfill+note+session+x25519) | PARTIAL — PWA+automated WebCrypto gate PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; **download→local DB** (web IndexedDB `lh-bible` + mobile AsyncStorage; Me wipe clears bible DB); boot **cuvs/web/shinKyoudou** via **`corpus-download`**; WEB fixtures include teaching set John.1/3/14, Ps.23, Rom.8, Matt.5, Gen.1; downloadable **cuvt/rcuv/ccb/lzz/kougo/shinkaiyaku/kjv/asv**; ESV/partners **external**; **`CORPUS_LOCAL_DB_OK`** / **`CORPUS_JSON_IMPORT_OK`** / **`CORPUS_R2_PREFIX_PACK_OK`**; reader prefers local-db; TS scaffolds legacy-only | PARTIAL — slim boot + JSON fixtures + prefix pack + web/mobile local-DB PASS; full licensed corpora in live R2 OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs** (`src/packs/` removed); **download→local DB** (web IndexedDB `lh-bible` + mobile AsyncStorage; Me wipe clears bible DB); boot **cuvs/web/shinKyoudou** via **`corpus-download`**; WEB fixtures include teaching set John.1/3/14, Ps.23, Rom.8, Matt.5, Gen.1; downloadable **cuvt/rcuv/ccb/lzz/kougo/shinkaiyaku/kjv/asv**; ESV/partners **external**; **`CORPUS_LOCAL_DB_OK`** / **`CORPUS_JSON_IMPORT_OK`** / **`CORPUS_PACK_PIPELINE_OK`** (boot=3, noTsPacks); reader prefers local-db | PARTIAL — slim boot + JSON fixtures + download path PASS; full licensed corpora in live R2 OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
@@ -26,7 +26,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 ## Smoke tokens
 
 ```bash
-bash scripts/smoke-api.sh            # SMOKE_OK, PLAN_CSV_SUBSCRIBE_OK, ME_SMOKE_OK, MULTI_BOOK_*, SSO_*, …
+bash scripts/smoke-api.sh            # SMOKE_OK, BIBLE_CORPUS_CATALOG_OK, NO_TS_FALLBACK_OK, PLAN_CSV_SUBSCRIBE_OK, ME_SMOKE_OK, SSO_*, …
 bash scripts/smoke-me.sh             # ME_PROFILE_OK / ME_SEARCH_OK / ME_PRIVACY_HIDE_OK
 bash scripts/smoke-admin.sh          # ADMIN_CONSOLE_OK / ADMIN_REMOTE_WIPE_OK / …
 bash scripts/smoke-storage.sh        # STORAGE_SMOKE_OK (session-aes / note / field / annotation)
@@ -34,12 +34,12 @@ bash scripts/smoke-home.sh           # HOME_JOIN_SLUG_OK / HOME_MEMBERS_OK / …
 bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK
 bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-token)
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
-bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK / DEVOTION_MATERIALS_OK
-bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (local + R2 licensed stubs)
+bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK (JSON fixtures; no TS packs) / DEVOTION_MATERIALS_OK
+bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (boot=3 downloadable R2; noTsPacks)
 bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK / CORPUS_DOWNLOAD_OK (boot slim + download→DB)
 bash scripts/smoke-corpus-json-import.sh # CORPUS_JSON_FIXTURE_OK / CORPUS_JSON_IMPORT_OK (fixtures→R2/local DB)
 bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + denser Acts.2/Ps.1/Prov.3/Matt.28/Eph.2/Col.3/Jas.1/Rev.21 put→get)
-bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK + SEED_DENSER_FLOORS_OK (pack→R2 key chapters)
+bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK (JSON fixtures→R2; no TS packs)
 bash scripts/smoke-bible-entitlement.sh # BIBLE_ENTITLEMENT_DEV_SKIP_OK / BIBLE_ENTITLEMENT_GRANT_OK
 bash scripts/smoke-translation-resolve.sh # TRANSLATION_RESOLVE_PATH_OK (every registry id)
 bash scripts/smoke-curve25519.sh       # CURVE25519_X25519_OK

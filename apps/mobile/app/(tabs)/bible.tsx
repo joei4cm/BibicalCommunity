@@ -16,7 +16,6 @@ import {
   listBooks,
   listStudyMaterials,
   listTranslations,
-  WEB_JOHN_1,
   type TranslationMeta,
 } from "@logoshome/bible";
 import { t } from "@logoshome/shared";
@@ -84,7 +83,7 @@ export default function BibleScreen() {
   const [translationId, setTranslationId] = useState("web");
   const [bookId, setBookId] = useState("John");
   const [chapterNum, setChapterNum] = useState(1);
-  const [verses, setVerses] = useState(WEB_JOHN_1);
+  const [verses, setVerses] = useState<{ verse: number; text: string }[]>([]);
   const [chapterLabel, setChapterLabel] = useState("John 1");
   const [external, setExternal] = useState<ExternalChapter | null>(null);
   const [loading, setLoading] = useState(false);
@@ -206,10 +205,10 @@ export default function BibleScreen() {
 
   useEffect(() => {
     if (!apiBase) {
-      setVerses(WEB_JOHN_1);
-      setChapterLabel("John 1 (WEB)");
+      setVerses([]);
+      setChapterLabel("John 1");
       setExternal(null);
-      setError(null);
+      setError("API offline — install a corpus pack or connect");
       return;
     }
 
@@ -244,8 +243,8 @@ export default function BibleScreen() {
       } catch (e) {
         if (!cancelled) {
           setExternal(null);
-          setVerses(WEB_JOHN_1);
-          setChapterLabel("John 1 (WEB fallback)");
+          setVerses([]);
+          setChapterLabel(`${bookId} ${chapterNum}`);
           setError(e instanceof Error ? e.message : "error");
         }
       } finally {

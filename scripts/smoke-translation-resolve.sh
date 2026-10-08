@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 # Prove every registry translation has a loadChapter resolve path
-# (local verses | external URL | r2 stub-or-scaffold).
+# (external URL | r2 stub — verses come from R2/local DB, never TypeScript packs).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 pnpm --filter @logoshome/bible build >/dev/null
 node --input-type=module -e '
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { listTranslations, loadChapter } from "./packages/bible/dist/index.js";
+
+if (existsSync(join("packages/bible/src/packs"))) {
+  throw new Error("packages/bible/src/packs must not exist");
+}
 
 const all = listTranslations();
 if (all.length < 20) throw new Error("registry too small: " + all.length);
 
-const summary = { localProvider: 0, external: 0, r2: 0, localHit: 0, r2Stub: 0 };
+const summary = { localProvider: 0, external: 0, r2: 0, r2Stub: 0 };
 for (const t of all) {
   const result = await loadChapter(t.id, { book: "John", chapter: 1 });
 
@@ -31,42 +37,35 @@ for (const t of all) {
   }
 
   if (t.provider === "local") {
-    if (result.source !== "local" || !result.verses?.length) {
-      throw new Error(t.id + ": local provider must return local verses");
-    }
-    summary.localProvider++;
-    summary.localHit++;
-    continue;
+    throw new Error(t.id + ": provider=local is retired — use r2 + download");
   }
 
   if (t.provider === "r2") {
-    // Prefer in-repo scaffold; otherwise package-level R2 stub (Worker MEDIA fills it).
-    if (result.source === "local") {
-      if (!result.verses?.length) throw new Error(t.id + ": empty local scaffold");
-      summary.localHit++;
-    } else if (result.source === "r2") {
-      summary.r2Stub++;
-    } else {
+    if (result.source !== "r2") {
       throw new Error(t.id + ": r2 provider unresolved source=" + result.source);
     }
+    if (result.verses.length !== 0) {
+      throw new Error(t.id + ": package must not embed verses (got " + result.verses.length + ")");
+    }
     summary.r2++;
+    summary.r2Stub++;
     continue;
   }
 
   throw new Error(t.id + ": unknown provider " + t.provider);
 }
 
-if (summary.localProvider < 4) {
-  throw new Error("expected >=4 local providers, got " + summary.localProvider);
+if (summary.localProvider !== 0) {
+  throw new Error("expected 0 local providers, got " + summary.localProvider);
 }
 if (summary.external < 8) {
   throw new Error("expected >=8 external providers, got " + summary.external);
 }
-if (summary.r2 < 5) {
-  throw new Error("expected >=5 r2 providers, got " + summary.r2);
+if (summary.r2 < 10) {
+  throw new Error("expected >=10 r2 providers, got " + summary.r2);
 }
 
-// PD triad denser chapters must resolve locally.
+// PD triad chapters resolve as empty R2 stubs (content from fixtures/download).
 for (const ref of [
   { book: "John", chapter: 14 },
   { book: "Rom", chapter: 12 },
@@ -75,8 +74,8 @@ for (const ref of [
   for (const id of ["web", "kjv", "asv"]) {
     const ch = await loadChapter(id, ref);
     if ("external" in ch) throw new Error(id + " " + ref.book + "." + ref.chapter + " external");
-    if (ch.source !== "local" || !ch.verses.length) {
-      throw new Error(id + " missing local " + ref.book + "." + ref.chapter);
+    if (ch.source !== "r2") {
+      throw new Error(id + " expected r2 stub for " + ref.book + "." + ref.chapter);
     }
   }
 }
@@ -90,8 +89,6 @@ console.log(
     summary.external +
     " r2=" +
     summary.r2 +
-    " localHit=" +
-    summary.localHit +
     " r2Stub=" +
     summary.r2Stub,
 );
