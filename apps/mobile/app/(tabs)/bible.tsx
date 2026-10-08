@@ -468,15 +468,20 @@ export default function BibleScreen() {
       let after: string | null = null;
       let installedTotal = 0;
       let pages = 0;
-      for (;;) {
-        const qs = `scope=full&limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`;
-        const pack = await api<{
+      let done = false;
+      while (!done) {
+        const qs: string =
+          "scope=full&limit=100" + (after ? `&after=${encodeURIComponent(after)}` : "");
+        type PackPage = {
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
           done?: boolean;
           nextAfter?: string | null;
           totalChapterKeys?: number;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?${qs}`);
+        };
+        const pack: PackPage = await api<PackPage>(
+          `/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?${qs}`,
+        );
         if (!pack.chapters?.length && pages === 0) {
           setAnnMsg("corpus_download_empty");
           return;
@@ -489,8 +494,11 @@ export default function BibleScreen() {
         setAnnMsg(
           `corpus_installed:${installedTotal}${pack.totalChapterKeys ? `/${pack.totalChapterKeys}` : ""}`,
         );
-        if (pack.done !== false || !pack.nextAfter) break;
-        after = pack.nextAfter;
+        if (pack.done !== false || !pack.nextAfter) {
+          done = true;
+        } else {
+          after = pack.nextAfter;
+        }
       }
       await refreshInstalledCorpus();
       if (targetTid === translationId) {
