@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Document Workers/browser libsignal gap: Node native PQXDH works; Workers path stays X25519/WebCrypto.
-# Tokens: LIBSIGNAL_NATIVE_NODE_OK / LIBSIGNAL_WORKERS_FALLBACK_OK / LIBSIGNAL_WORKERS_OPEN
+# Also probes OpenE2EE pure-TS PQXDH under Workers-shaped runtime (not official libsignal).
+# Tokens: LIBSIGNAL_NATIVE_NODE_OK / LIBSIGNAL_WORKERS_FALLBACK_OK /
+#         LIBSIGNAL_OPENE2EE_PQXDH_OK / LIBSIGNAL_WORKERS_OPEN
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -91,6 +93,24 @@ try {
 
 console.log("LIBSIGNAL_NATIVE_NODE_OK package=" + probe.packageName);
 console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(roundtrip),product(x25519)");
+
+// Workers-portable PQXDH (OpenE2EE pure-TS; MIT/Apache). Not official libsignal; not wire-compatible.
+{
+  const { probeOpenE2eePqxdhWorkers } = await import("./packages/crypto/dist/index.js");
+  const oe = await probeOpenE2eePqxdhWorkers({ forceWorkersShape: true });
+  if (!oe.ok) throw new Error("OpenE2EE PQXDH Workers probe failed: " + JSON.stringify(oe));
+  console.log(
+    "LIBSIGNAL_OPENE2EE_PQXDH_OK package=" +
+      oe.packageName +
+      " usedPQXDH=" +
+      oe.usedPQXDH +
+      " secretBytes=" +
+      oe.sharedSecretBytes +
+      " workersShaped=" +
+      oe.workersShaped,
+  );
+}
+
 // Explicit OPEN: official @signalapp/libsignal-client has no WASM/Workers/browser build.
-console.log("LIBSIGNAL_WORKERS_OPEN reason=no_official_wasm_or_native_addon_on_workers_or_browser product_fallback=x25519");
+console.log("LIBSIGNAL_WORKERS_OPEN reason=no_official_wasm_or_native_addon_on_workers_or_browser product_fallback=x25519 opene2ee_pqxdh=available");
 '
