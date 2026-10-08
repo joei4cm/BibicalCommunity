@@ -99,6 +99,9 @@ console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(
   const { probeOpenE2eePqxdhWorkers } = await import("./packages/crypto/dist/index.js");
   const oe = await probeOpenE2eePqxdhWorkers({ forceWorkersShape: true });
   if (!oe.ok) throw new Error("OpenE2EE PQXDH Workers probe failed: " + JSON.stringify(oe));
+  if (!oe.peersMatched || !oe.messageRoundtrip) {
+    throw new Error("OpenE2EE PQXDH peer/msg incomplete: " + JSON.stringify(oe));
+  }
   console.log(
     "LIBSIGNAL_OPENE2EE_PQXDH_OK package=" +
       oe.packageName +
@@ -107,10 +110,20 @@ console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(
       " secretBytes=" +
       oe.sharedSecretBytes +
       " workersShaped=" +
+      oe.workersShaped +
+      " peersMatched=" +
+      oe.peersMatched,
+  );
+  console.log(
+    "LIBSIGNAL_OPENE2EE_MSG_OK package=" +
+      oe.packageName +
+      " messageRoundtrip=" +
+      oe.messageRoundtrip +
+      " workersShaped=" +
       oe.workersShaped,
   );
 }
 
 // Explicit OPEN: official @signalapp/libsignal-client has no WASM/Workers/browser build.
-console.log("LIBSIGNAL_WORKERS_OPEN reason=no_official_wasm_or_native_addon_on_workers_or_browser product_fallback=x25519 opene2ee_pqxdh=available");
+console.log("LIBSIGNAL_WORKERS_OPEN reason=no_official_wasm_or_native_addon_on_workers_or_browser product_fallback=x25519 opene2ee_pqxdh=available opene2ee_msg=available");
 '
