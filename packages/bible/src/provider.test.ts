@@ -102,6 +102,13 @@ test("loadChapter returns verses for asv John.3 (includes 3:16)", async () => {
   );
 });
 
+test("loadChapter returns denser kougoyaku-pd John.3 scaffold", async () => {
+  const result = await loadChapter("kougoyaku-pd", { book: "John", chapter: 3 });
+  assert.ok(!("external" in result));
+  assert.ok(result.verses.length >= 21);
+  assert.match(result.verses.find((v) => v.verse === 16)?.text ?? "", /獨り子|永遠の生命|世を愛/);
+});
+
 test("loadChapter returns verses for kougoyaku-pd John.1", async () => {
   const result = await loadChapter("kougoyaku-pd", { book: "John", chapter: 1 });
   assert.ok(!("external" in result));
@@ -307,19 +314,21 @@ test("loadChapter returns PD Genesis.1 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Gen");
   assert.equal(web.chapter, 1);
-  assert.ok(web.verses.length >= 13);
+  assert.ok(web.verses.length >= 31);
   assert.match(web.verses[0]?.text ?? "", /In the beginning.*God created/);
+  assert.match(web.verses.find((v) => v.verse === 27)?.text ?? "", /image|male and female/i);
+  assert.match(web.verses.find((v) => v.verse === 31)?.text ?? "", /very good|sixth day/i);
   assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /third day/i);
 
   const kjv = await loadChapter("kjv", { book: "Genesis", chapter: 1 });
   assert.ok(!("external" in kjv));
-  assert.ok(kjv.verses.length >= 13);
+  assert.ok(kjv.verses.length >= 31);
   assert.match(kjv.verses[0]?.text ?? "", /In the beginning God created/);
   assert.match(kjv.verses.find((v) => v.verse === 3)?.text ?? "", /Let there be light/);
 
   const asv = await loadChapter("asv", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 13);
+  assert.ok(asv.verses.length >= 31);
   assert.match(asv.verses[0]?.text ?? "", /heavens and the earth|heaven and the earth/i);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /waste and void|Spirit of God/);
 });
@@ -386,13 +395,15 @@ test("loadChapter returns zh/ja Genesis.1 scaffolds", async () => {
   const cuvs = await loadChapter("cuvs", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in cuvs));
   assert.equal(cuvs.book, "Gen");
-  assert.ok(cuvs.verses.length >= 13);
+  assert.ok(cuvs.verses.length >= 31);
   assert.match(cuvs.verses[0]?.text ?? "", /样例|起初|创造/);
   assert.match(cuvs.verses.find((v) => v.verse === 13)?.text ?? "", /第三日/);
+  assert.match(cuvs.verses.find((v) => v.verse === 27)?.text ?? "", /样例|形像|造男造女/);
+  assert.match(cuvs.verses.find((v) => v.verse === 31)?.text ?? "", /样例|甚好|第六日/);
 
   const kougo = await loadChapter("kougo", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in kougo));
-  assert.ok(kougo.verses.length >= 13);
+  assert.ok(kougo.verses.length >= 31);
   assert.match(kougo.verses[0]?.text ?? "", /見本|創造|はじめに/);
   assert.match(kougo.verses.find((v) => v.verse === 13)?.text ?? "", /第三日/);
 });
@@ -1396,6 +1407,7 @@ test("loadChapter returns expanded cuvt key-chapter scaffolds", async () => {
 
   const gen1 = await loadChapter("cuvt", { book: "Gen", chapter: 1 });
   assert.ok(!("external" in gen1));
+  assert.ok(gen1.verses.length >= 31);
   assert.match(gen1.verses.find((v) => v.verse === 1)?.text ?? "", /創造天地/);
 
   const ps23 = await loadChapter("cuvt", { book: "Ps", chapter: 23 });

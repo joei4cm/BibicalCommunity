@@ -1,8 +1,8 @@
-/** Simplified Chinese Union–style denser Genesis 1 scaffold (vv.1–13; not a licensed corpus dump). */
+/** Simplified Chinese Union–style denser Genesis 1 denser full creation-week scaffold (vv.1–31). (not a licensed corpus dump). */
 export const CUVS_GEN_1: { verse: number; text: string }[] = [
   {
     verse: 1,
-    text: "（样例）起初神创造天地。",
+    text: "（样例）起初，神创造天地。",
   },
   {
     verse: 2,
@@ -10,7 +10,7 @@ export const CUVS_GEN_1: { verse: number; text: string }[] = [
   },
   {
     verse: 3,
-    text: "（样例）神说：要有光，就有了光。",
+    text: "（样例）神说：“要有光”，就有了光。",
   },
   {
     verse: 4,
@@ -22,7 +22,7 @@ export const CUVS_GEN_1: { verse: number; text: string }[] = [
   },
   {
     verse: 6,
-    text: "（样例）神说：诸水之间要有空气，将水分为上下。",
+    text: "（样例）神说：“诸水之间要有空气，将水分为上下。”",
   },
   {
     verse: 7,
@@ -34,7 +34,7 @@ export const CUVS_GEN_1: { verse: number; text: string }[] = [
   },
   {
     verse: 9,
-    text: "（样例）神说：天下的水要聚在一处，使旱地露出来。事就这样成了。",
+    text: "（样例）神说：“天下的水要聚在一处，使旱地露出来。”事就这样成了。",
   },
   {
     verse: 10,
@@ -42,7 +42,7 @@ export const CUVS_GEN_1: { verse: number; text: string }[] = [
   },
   {
     verse: 11,
-    text: "（样例）神说：地要发生青草和结种子的菜蔬，并结果子的树木，各从其类，果子都包着核。事就这样成了。",
+    text: "（样例）神说：“地要发生青草和结种子的菜蔬，并结果子的树木，各从其类，果子都包着核。”事就这样成了。",
   },
   {
     verse: 12,
@@ -51,5 +51,77 @@ export const CUVS_GEN_1: { verse: number; text: string }[] = [
   {
     verse: 13,
     text: "（样例）有晚上，有早晨，是第三日。",
+  },
+  {
+    verse: 14,
+    text: "（样例）神说：“天上要有光体，可以分昼夜，作记号，定节令、日子、年岁，",
+  },
+  {
+    verse: 15,
+    text: "（样例）并要发光在天空，普照在地上。”事就这样成了。",
+  },
+  {
+    verse: 16,
+    text: "（样例）于是神造了两个大光，大的管昼，小的管夜，又造众星，",
+  },
+  {
+    verse: 17,
+    text: "（样例）就把这些光摆列在天空，普照在地上，",
+  },
+  {
+    verse: 18,
+    text: "（样例）管理昼夜，分别明暗。神看着是好的。",
+  },
+  {
+    verse: 19,
+    text: "（样例）有晚上，有早晨，是第四日。",
+  },
+  {
+    verse: 20,
+    text: "（样例）神说：“水要多多滋生有生命的物；要有雀鸟飞在地面以上，天空之中。”",
+  },
+  {
+    verse: 21,
+    text: "（样例）神就造出大鱼和水中所滋生各样有生命的动物，各从其类；又造出各样飞鸟，各从其类。神看着是好的。",
+  },
+  {
+    verse: 22,
+    text: "（样例）神就赐福给这一切，说：“滋生繁多，充满海中的水；雀鸟也要多生在地上。”",
+  },
+  {
+    verse: 23,
+    text: "（样例）有晚上，有早晨，是第五日。",
+  },
+  {
+    verse: 24,
+    text: "（样例）神说：“地要生出活物来，各从其类；牲畜、昆虫、野兽，各从其类。”事就这样成了。",
+  },
+  {
+    verse: 25,
+    text: "（样例）于是神造出野兽，各从其类；牲畜，各从其类；地上一切昆虫，各从其类。神看着是好的。",
+  },
+  {
+    verse: 26,
+    text: "（样例）神说：“我们要照着我们的形像、按着我们的样式造人，使他们管理海里的鱼、空中的鸟、地上的牲畜，和全地，并地上所爬的一切昆虫。”",
+  },
+  {
+    verse: 27,
+    text: "（样例）神就照着自己的形像造人，乃是照着他的形像造男造女。",
+  },
+  {
+    verse: 28,
+    text: "（样例）神就赐福给他们，又对他们说：“要生养众多，遍满地面，治理这地，也要管理海里的鱼、空中的鸟，和地上各样行动的活物。”",
+  },
+  {
+    verse: 29,
+    text: "（样例）神说：“看哪，我将遍地上一切结种子的菜蔬和一切树上所结有核的果子全赐给你们作食物。",
+  },
+  {
+    verse: 30,
+    text: "（样例）至于地上的走兽和空中的飞鸟，并各样爬在地上有生命的物，我将青草赐给它们作食物。”事就这样成了。",
+  },
+  {
+    verse: 31,
+    text: "（样例）神看着一切所造的都甚好。有晚上，有早晨，是第六日。",
   },
 ];
