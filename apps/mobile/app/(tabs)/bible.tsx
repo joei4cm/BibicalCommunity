@@ -597,6 +597,9 @@ export default function BibleScreen() {
                       : pack.installMode !== "external"
                         ? ` · ${pack.chapterRefs.length} ${t(locale, "reader.corpusCatalogChapters")}`
                         : ""}
+                    {pack.fullPackAvailable && pack.fullPackChapterCount
+                      ? ` · ${t(locale, "reader.corpusCatalogFullPack")} ${pack.fullPackChapterCount}`
+                      : ""}
                   </Text>
                 </View>
                 <View style={styles.catalogActions}>
@@ -610,7 +613,9 @@ export default function BibleScreen() {
                       <Text style={styles.btnGhostText}>
                         {busy
                           ? t(locale, "reader.corpusCatalogDownloading")
-                          : t(locale, "reader.corpusDownload")}
+                          : pack.fullPackAvailable
+                            ? t(locale, "reader.corpusDownloadFull")
+                            : t(locale, "reader.corpusDownload")}
                       </Text>
                     </Pressable>
                   ) : null}

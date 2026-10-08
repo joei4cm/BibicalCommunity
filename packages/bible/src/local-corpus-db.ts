@@ -32,8 +32,15 @@ export type DownloadableCorpusPack = {
   license: TranslationMeta["license"];
   /** Boot default = pre-seeded at first launch; downloadable = user action. */
   installMode: "boot" | "download" | "external";
-  /** Sample chapter refs included in the downloadable pack payload. */
+  /**
+   * Slim pack refs for boot seed / offline fixtures (not the full PD canon).
+   * Full PD text is advertised via `fullPackAvailable` + seeded to R2 separately.
+   */
   chapterRefs: string[];
+  /** True when a full Protestant pack can be pulled from R2 (PD tids only). */
+  fullPackAvailable?: boolean;
+  /** Expected chapter count for a full R2 pack (≈1189). */
+  fullPackChapterCount?: number;
   r2Prefix: string;
 };
 
@@ -290,17 +297,22 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
     }
 
     let chapterRefs: string[] = [];
-    if (PD_DENSE_IDS.has(t.id) && (installMode === "boot" || installMode === "download")) {
-      // Advertise full canon: R2 holds complete PD after seed-r2-pd-full; in-repo
-      // fixtures remain a dense key-chapter subset for offline smoke.
-      chapterRefs = listProtestantChapterRefs();
-    } else if (installMode === "boot") {
+    if (installMode === "boot") {
+      // Boot seed is always teaching-set slim (scope=boot), including WEB.
       chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
     } else if (installMode === "download") {
-      chapterRefs = TEACHING_SET_DOWNLOAD_IDS.has(t.id)
-        ? [...BOOT_TEACHING_CHAPTER_REFS]
-        : [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
+      if (PD_DENSE_IDS.has(t.id)) {
+        // In-repo dense key chapters; full canon is optional R2 full pack.
+        chapterRefs = [...PD_DENSE_CHAPTER_REFS];
+      } else if (TEACHING_SET_DOWNLOAD_IDS.has(t.id)) {
+        chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
+      } else {
+        chapterRefs = [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
+      }
     }
+
+    const fullPackAvailable = PD_DENSE_IDS.has(t.id) && installMode !== "external";
+    const fullPackChapterCount = fullPackAvailable ? listProtestantChapterRefs().length : undefined;
 
     packs.push({
       translationId: t.id,
@@ -310,6 +322,8 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       license: t.license,
       installMode,
       chapterRefs,
+      fullPackAvailable: fullPackAvailable || undefined,
+      fullPackChapterCount,
       r2Prefix: `bible/${t.id}/`,
     });
   }

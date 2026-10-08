@@ -644,6 +644,9 @@ export function BibleReader() {
                           : pack.installMode !== "external"
                             ? ` · ${pack.chapterRefs.length} ${t("reader.corpusCatalogChapters")}`
                             : ""}
+                        {pack.fullPackAvailable && pack.fullPackChapterCount
+                          ? ` · ${t("reader.corpusCatalogFullPack")} ${pack.fullPackChapterCount}`
+                          : ""}
                       </span>
                     </div>
                     <div className="corpus-catalog-actions">
@@ -655,7 +658,11 @@ export function BibleReader() {
                           disabled={busy}
                           onClick={() => void downloadCorpusPack(pack.translationId)}
                         >
-                          {busy ? t("reader.corpusCatalogDownloading") : t("reader.corpusDownload")}
+                          {busy
+                            ? t("reader.corpusCatalogDownloading")
+                            : pack.fullPackAvailable
+                              ? t("reader.corpusDownloadFull")
+                              : t("reader.corpusDownload")}
                         </button>
                       ) : null}
                       <button
