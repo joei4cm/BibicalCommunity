@@ -1,7 +1,47 @@
-/** Traditional Chinese Union–style Galatians 5 scaffold (not a licensed corpus dump). */
+/** Traditional Chinese Union–style denser Galatians 5 denser Spirit-walk scaffold (vv.16–26). (not a licensed corpus dump). */
 export const CUVT_GAL_5: { verse: number; text: string }[] = [
-  { verse: 16, text: "（樣例）我說，你們當順著聖靈而行，就不放縱肉體的情慾了。" },
-  { verse: 22, text: "（樣例）聖靈所結的果子，就是仁愛、喜樂、和平、忍耐、恩慈、良善、信實、" },
-  { verse: 23, text: "（樣例）溫柔、節制。這樣的事沒有律法禁止。" },
-  { verse: 25, text: "（樣例）我們若是靠聖靈得生，就當靠聖靈行事。" },
+  {
+    verse: 16,
+    text: "（樣例）我說，你們當順著聖靈而行，就不放縱肉體的情慾了。",
+  },
+  {
+    verse: 17,
+    text: "（樣例）因為情慾和聖靈相爭，聖靈和情慾相爭，這兩個是彼此相敵，使你們不能做所願意做的。",
+  },
+  {
+    verse: 18,
+    text: "（樣例）但你們若被聖靈引導，就不在律法以下。",
+  },
+  {
+    verse: 19,
+    text: "（樣例）情慾的事都是顯而易見的，就如姦淫、污穢、邪蕩、",
+  },
+  {
+    verse: 20,
+    text: "（樣例）拜偶像、邪術、仇恨、爭競、忌恨、惱怒、結黨、紛爭、異端、",
+  },
+  {
+    verse: 21,
+    text: "（樣例）嫉妒、醉酒、荒宴等類。我從前告訴你們，現在又告訴你們，行這樣事的人必不能承受神的國。",
+  },
+  {
+    verse: 22,
+    text: "（樣例）聖靈所結的果子，就是仁愛、喜樂、和平、忍耐、恩慈、良善、信實、",
+  },
+  {
+    verse: 23,
+    text: "（樣例）溫柔、節制。這樣的事沒有律法禁止。",
+  },
+  {
+    verse: 24,
+    text: "（樣例）凡屬基督耶穌的人，是已經把肉體連肉體的邪情私慾同釘在十字架上了。",
+  },
+  {
+    verse: 25,
+    text: "（樣例）我們若是靠聖靈得生，就當靠聖靈行事。",
+  },
+  {
+    verse: 26,
+    text: "（樣例）不要貪圖虛名，彼此惹氣，互相嫉妒。",
+  },
 ];
