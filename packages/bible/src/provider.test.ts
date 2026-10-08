@@ -571,20 +571,25 @@ test("loadChapter returns PD Acts.2 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Acts");
   assert.equal(web.chapter, 2);
-  assert.ok(web.verses.length >= 9);
+  assert.ok(web.verses.length >= 47);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 47);
   assert.match(web.verses[0]?.text ?? "", /Pentecost/i);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Holy Spirit|other languages/i);
   assert.match(web.verses.find((v) => v.verse === 38)?.text ?? "", /Repent.*baptized|Holy Spirit/i);
+  assert.match(web.verses.find((v) => v.verse === 47)?.text ?? "", /praising God|added to the assembly|day by day/i);
 
   const kjv = await loadChapter("kjv", { book: "Acts", chapter: 2 });
   assert.ok(!("external" in kjv));
-  assert.ok(kjv.verses.length >= 9);
+  assert.ok(kjv.verses.length >= 47);
   assert.match(kjv.verses.find((v) => v.verse === 38)?.text ?? "", /Repent.*baptized|Holy Ghost/i);
+  assert.match(kjv.verses.find((v) => v.verse === 41)?.text ?? "", /three thousand/i);
 
   const asv = await loadChapter("asv", { book: "acts", chapter: 2 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 9);
+  assert.ok(asv.verses.length >= 47);
   assert.match(asv.verses.find((v) => v.verse === 2)?.text ?? "", /rushing of a mighty wind/i);
+  assert.match(asv.verses.find((v) => v.verse === 47)?.text ?? "", /praising God|added to them day by day/i);
 });
 
 test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
@@ -603,14 +608,18 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   const cuvsActs = await loadChapter("cuvs", { book: "Acts", chapter: 2 });
   assert.ok(!("external" in cuvsActs));
   assert.equal(cuvsActs.book, "Acts");
-  assert.ok(cuvsActs.verses.length >= 9);
+  assert.ok(cuvsActs.verses.length >= 47);
+  assert.equal(cuvsActs.verses[cuvsActs.verses.length - 1]?.verse, 47);
   assert.match(cuvsActs.verses[0]?.text ?? "", /样例|五旬节/);
   assert.match(cuvsActs.verses.find((v) => v.verse === 38)?.text ?? "", /样例|悔改|受洗|圣灵/);
+  assert.match(cuvsActs.verses.find((v) => v.verse === 47)?.text ?? "", /样例|赞美神|得救的人|天天加给/);
 
   const kougoActs = await loadChapter("kougo", { book: "Acts", chapter: 2 });
   assert.ok(!("external" in kougoActs));
-  assert.ok(kougoActs.verses.length >= 9);
+  assert.ok(kougoActs.verses.length >= 47);
+  assert.equal(kougoActs.verses[kougoActs.verses.length - 1]?.verse, 47);
   assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
+  assert.match(kougoActs.verses.find((v) => v.verse === 47)?.text ?? "", /見本|さんび|日々|救われる者/);
 });
 
 test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.2 / Col.3 / Jas.1 / Matt.28 / Rev.21 scaffolds", async () => {
@@ -831,8 +840,12 @@ test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3
     const acts = await loadChapter(tid, { book: "Acts", chapter: 2 });
     assert.ok(!("external" in acts), tid);
     assert.equal(acts.book, "Acts");
-    assert.ok(acts.verses.length >= 9, tid);
+    assert.ok(acts.verses.length >= 47, tid);
+    assert.equal(acts.verses[0]?.verse, 1, tid);
+    assert.equal(acts.verses[acts.verses.length - 1]?.verse, 47, tid);
     assert.match(acts.verses[0]?.text ?? "", /样例|樣例|見本|五旬/);
+    assert.match(acts.verses.find((v) => v.verse === 38)?.text ?? "", /样例|樣例|見本|悔改|バプテスマ|受洗/);
+    assert.match(acts.verses.find((v) => v.verse === 47)?.text ?? "", /样例|樣例|見本|赞美|讚美|さんび|日々|得救|救われる/);
 
     const ps = await loadChapter(tid, { book: "Ps", chapter: 1 });
     assert.ok(!("external" in ps), tid);
