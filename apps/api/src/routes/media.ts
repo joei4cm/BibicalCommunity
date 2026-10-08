@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
+import { requireMedia } from "../media-binding";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -46,7 +47,10 @@ mediaRoutes.put("/put/*", async (c) => {
     return c.json({ error: "payload_too_large", maxBytes: MAX_UPLOAD_BYTES }, 413);
   }
 
-  await c.env.MEDIA.put(objectKey, body, {
+  const media = requireMedia(c);
+  if (media instanceof Response) return media;
+
+  await media.put(objectKey, body, {
     httpMetadata: { contentType },
   });
 
@@ -60,7 +64,9 @@ mediaRoutes.get("/*", async (c) => {
     return c.json({ error: "not_found" }, 404);
   }
 
-  const obj = await c.env.MEDIA.get(key);
+  const media = requireMedia(c);
+  if (media instanceof Response) return media;
+  const obj = await media.get(key);
   if (!obj) return c.json({ error: "not_found" }, 404);
 
   const headers = new Headers();

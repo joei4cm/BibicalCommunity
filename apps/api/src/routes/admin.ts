@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { createId, wipeCommandSchema } from "@logoshome/shared";
 import type { Env } from "../env";
+import { requireMedia } from "../media-binding";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { randomToken, sha256Hex } from "../services/crypto";
@@ -569,7 +570,9 @@ adminRoutes.get("/corpus/pd-status/:tid", async (c) => {
       400,
     );
   }
-  const status = await countPdCorpusObjects(c.env.MEDIA, tid);
+  const media = requireMedia(c);
+  if (media instanceof Response) return media;
+  const status = await countPdCorpusObjects(media, tid);
   return c.json({
     tid,
     ...status,
@@ -595,8 +598,11 @@ adminRoutes.post("/corpus/pd-seed", async (c) => {
     })
     .parse(await c.req.json());
 
+  const media = requireMedia(c);
+  if (media instanceof Response) return media;
+
   try {
-    const result = await seedPdBookToR2(c.env.MEDIA, body.tid, body.bookNr);
+    const result = await seedPdBookToR2(media, body.tid, body.bookNr);
     const nextBookNr = body.bookNr < 66 ? body.bookNr + 1 : null;
     return c.json({
       ok: true,

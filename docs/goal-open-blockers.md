@@ -25,5 +25,8 @@ local scaffolds/smokes already exist and must not be re-invented as PASS.
 
 Cloud Agent / PR CI has no Cloudflare production token, no partner IdP client secrets,
 no physical handset, and Signal does not publish an official Workers/browser libsignal.
-Temporary `wrangler deploy --temporary` preview accounts **cannot** create R2 buckets
-(auth 10000) — production account token is mandatory for `CORPUS_LIVE_R2_OK`.
+Temporary preview accounts **cannot** create R2 buckets — production account token is
+mandatory for `CORPUS_LIVE_R2_OK`. Preview **can** still host a live Worker without R2:
+`bash scripts/live-workers-temporary.sh` → `LIVE_WORKERS_TEMPORARY_OK` (optional MEDIA,
+D1 + sqlite DO on preview). Preview `workers.dev` may later serve Cloudflare bot
+challenges to datacenter IPs — treat post-challenge 403 as infra noise, not a gate close.

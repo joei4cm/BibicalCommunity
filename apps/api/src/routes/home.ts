@@ -10,6 +10,7 @@ import {
   securityModeSchema,
 } from "@logoshome/shared";
 import type { Env } from "../env";
+import { requireMedia } from "../media-binding";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import {
@@ -301,7 +302,9 @@ homeRoutes.post("/posts", async (c) => {
     return c.json({ error: "media_key_forbidden" }, 403);
   }
   if (body.mediaKey) {
-    const obj = await c.env.MEDIA.head(body.mediaKey);
+    const media = requireMedia(c);
+    if (media instanceof Response) return media;
+    const obj = await media.head(body.mediaKey);
     if (!obj) return c.json({ error: "media_key_not_found" }, 400);
   }
 

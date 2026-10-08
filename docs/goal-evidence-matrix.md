@@ -6,7 +6,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 
 | # | Requirement | Evidence (authoritative) | Status |
 |---|-------------|--------------------------|--------|
-| 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** + **`DEVICE_PRODUCT_CHAT_OK`** + **`DEVICE_HANDSET_SHAPED_OK`** (iPhone viewport Playwright); **`DEVICE_HANDSET_E2E_OPEN`** | PARTIAL — PWA+device crypto+handset-shaped PASS; physical handset E2E OPEN |
+| 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** + **`DEVICE_PRODUCT_CHAT_OK`** + **`DEVICE_HANDSET_OPENE2EE_PRODUCT_OK`** + **`DEVICE_HANDSET_SHAPED_OK`** (iPhone viewport Playwright + OpenE2EE product companion); **`DEVICE_HANDSET_E2E_OPEN`** | PARTIAL — PWA+device crypto+handset-shaped+OpenE2EE PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
 | 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **whole-Bible download→local DB**; boot **和合本+NASB** (**`CORPUS_BOOT_VS_FULL_OK`**); WeDevote-style reader `/bible/{tid}/{book}/{chapter}` + mist-study open-folio UI; denser cuvs John.1 boot demo; paged transport (**`CORPUS_PAGED_DOWNLOAD_OK`**); Web+Expo **corpus catalog**; admin getbible→R2 (**`ADMIN_PD_CORPUS_OK`**); ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — boot+whole-Bible+WeDevote reader PASS; production CF R2 OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
@@ -20,7 +20,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 11 | Encrypted storage | `STORAGE_SMOKE_OK`; mobile `secure-kv`; **`DEVICE_NOTE_CRYPTO_OK`** / **`DEVICE_PRODUCT_CHAT_OK`** / **`DEVICE_WEBCRYPTO_GATE_OK`** / **`DEVICE_HANDSET_SHAPED_OK`** | PARTIAL — roundtrip+SecureStore+product chat+handset-shaped PASS; physical handset E2E OPEN |
 | 12 | Auth-then-P2P | `KEYS_P2P_OK` + `KEYS_X3DH_CHAT_OK` | PASS |
 | 13 | i18n + themes | `I18N_KEYS_OK` + `I18N_PARITY_OK` + `I18N_AUDIT_OK` + `I18N_NATIVE_COPY_OK` + `PWA_THEME_OK` + `READER_SKINS_OK` | PARTIAL — key parity + native differ-check PASS; human native QA OPEN |
-| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations `0004_devotion_step` + `0005_platform_admin` + `0006_forum_media_key`); `DEPLOY_DRY_RUN_OK`; **`scripts/live-r2-bootstrap.sh`** → `CORPUS_LIVE_R2_OK` when CF secrets present else **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — preflight+dry-run+bootstrap script PASS; live account credentials OPEN |
+| 14 | CF Workers + D1 + R2 deploy | `DEPLOY_CHECK_OK` (incl. migrations `0004_devotion_step` + `0005_platform_admin` + `0006_forum_media_key`); `DEPLOY_DRY_RUN_OK`; **`LIVE_WORKERS_TEMPORARY_OK`** via `scripts/live-workers-temporary.sh` (preview Workers + D1, **no R2** / optional MEDIA); **`scripts/live-r2-bootstrap.sh`** → `CORPUS_LIVE_R2_OK` when CF secrets present else **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — preflight+dry-run+temp Worker PASS; production R2 credentials OPEN |
 | 15 | Hostile privacy floors / wipe | `HOME_HOSTILE_OK` + wipeToken; `ADMIN_REMOTE_WIPE_OK` + **`ADMIN_WIPE_R2_OK`** (R2 `media/{userId}/` delete + annotation ciphertext zero + cron expire); `SECURITY_AUDIT_OK` | PARTIAL — local wipe+R2 path PASS; live CF ops OPEN |
 
 ## Smoke tokens
@@ -52,7 +52,8 @@ bash scripts/smoke-curve25519.sh       # CURVE25519_X25519_OK
 bash scripts/smoke-libsignal-workers.sh # LIBSIGNAL_NATIVE_NODE_OK + LIBSIGNAL_WORKERS_FALLBACK_OK + LIBSIGNAL_OPENE2EE_PQXDH_OK + LIBSIGNAL_WORKERS_OPEN
 bash scripts/smoke-product-chat-signal.sh # PRODUCT_CHAT_SIGNAL_OK (app product facade; optional PRODUCT_CHAT_API_OK)
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK + DEVICE_PRODUCT_CHAT_OK (+ DEVICE_HANDSET_E2E_OPEN)
-bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
+bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_OPENE2EE_PRODUCT_OK + DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
+bash scripts/live-workers-temporary.sh # LIVE_WORKERS_TEMPORARY_OK (preview Worker+D1, no R2) + CORPUS_LIVE_R2_OPEN
 bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
 bash scripts/smoke-goal-open-gates.sh  # GOAL_OPEN_GATES_OK + remaining OPEN token count
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh

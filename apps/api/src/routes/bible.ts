@@ -24,6 +24,7 @@ import {
 } from "@logoshome/bible";
 import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
+import { requireMedia } from "../media-binding";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { decideLicensedChapterAccess } from "../services/bible-entitlement";
@@ -146,12 +147,14 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
 
   // Product install unit is whole-Bible. `scope=boot` still returns the full
   // translation pack for boot tids (和合本/NASB) — never a teaching-set subset.
-  if (scope === "boot" || scope === "full") {
+  // Temporary preview Workers omit MEDIA — fall through to demo pack.
+  const media = c.env.MEDIA;
+  if (media && (scope === "boot" || scope === "full")) {
     // Collect sorted chapter object keys under the prefix.
     const keys: string[] = [];
     let listCursor: string | undefined;
     for (;;) {
-      const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor: listCursor });
+      const listed = await media.list({ prefix, limit: 1000, cursor: listCursor });
       for (const obj of listed.objects) {
         const parsedKey = parseR2ChapterObjectKey(obj.key);
         if (!parsedKey || parsedKey.translationId !== translationId) continue;
@@ -173,7 +176,7 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     nextAfter = pageKeys.length ? pageKeys[pageKeys.length - 1]! : null;
 
     for (const key of pageKeys) {
-      const body = await c.env.MEDIA.get(key);
+      const body = await media.get(key);
       if (!body) continue;
       try {
         fromR2.push(parseR2ChapterJson(await body.text()));
@@ -194,7 +197,7 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
         const parsed = parseRef(ref);
         if (!parsed) continue;
         const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
-        const obj = await c.env.MEDIA.get(key);
+        const obj = await media.get(key);
         if (!obj) continue;
         try {
           fromR2.push(parseR2ChapterJson(await obj.text()));
@@ -315,8 +318,11 @@ bibleRoutes.get("/chapter", async (c) => {
       );
     }
 
+    const media = requireMedia(c);
+    if (media instanceof Response) return media;
+
     const key = r2ChapterObjectKey(translationId, ref.book, ref.chapter);
-    const obj = await c.env.MEDIA.get(key);
+    const obj = await media.get(key);
     if (obj) {
       let parsed;
       try {
