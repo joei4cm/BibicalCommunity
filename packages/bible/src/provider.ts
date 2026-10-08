@@ -231,6 +231,31 @@ import { SHIN_KYOUDOU_ISA_53 } from "./packs/shin-kyoudou-isa53.js";
 import { SHIN_KYOUDOU_ACTS_2 } from "./packs/shin-kyoudou-acts2.js";
 import { SHIN_KYOUDOU_PSALM_1 } from "./packs/shin-kyoudou-ps1.js";
 import { SHIN_KYOUDOU_PROV_3 } from "./packs/shin-kyoudou-prov3.js";
+
+import { CUVT_MARK_1 } from "./packs/cuvt-mark1.js";
+import { CUVT_EXOD_20 } from "./packs/cuvt-exod20.js";
+import { CUVT_LUKE_2 } from "./packs/cuvt-luke2.js";
+import { CUVT_DEUT_6 } from "./packs/cuvt-deut6.js";
+import { RCUV_MARK_1 } from "./packs/rcuv-mark1.js";
+import { RCUV_EXOD_20 } from "./packs/rcuv-exod20.js";
+import { RCUV_LUKE_2 } from "./packs/rcuv-luke2.js";
+import { RCUV_DEUT_6 } from "./packs/rcuv-deut6.js";
+import { CCB_MARK_1 } from "./packs/ccb-mark1.js";
+import { CCB_EXOD_20 } from "./packs/ccb-exod20.js";
+import { CCB_LUKE_2 } from "./packs/ccb-luke2.js";
+import { CCB_DEUT_6 } from "./packs/ccb-deut6.js";
+import { LZZ_MARK_1 } from "./packs/lzz-mark1.js";
+import { LZZ_EXOD_20 } from "./packs/lzz-exod20.js";
+import { LZZ_LUKE_2 } from "./packs/lzz-luke2.js";
+import { LZZ_DEUT_6 } from "./packs/lzz-deut6.js";
+import { SHINKAIYAKU_MARK_1 } from "./packs/shinkaiyaku-mark1.js";
+import { SHINKAIYAKU_EXOD_20 } from "./packs/shinkaiyaku-exod20.js";
+import { SHINKAIYAKU_LUKE_2 } from "./packs/shinkaiyaku-luke2.js";
+import { SHINKAIYAKU_DEUT_6 } from "./packs/shinkaiyaku-deut6.js";
+import { SHIN_KYOUDOU_MARK_1 } from "./packs/shin-kyoudou-mark1.js";
+import { SHIN_KYOUDOU_EXOD_20 } from "./packs/shin-kyoudou-exod20.js";
+import { SHIN_KYOUDOU_LUKE_2 } from "./packs/shin-kyoudou-luke2.js";
+import { SHIN_KYOUDOU_DEUT_6 } from "./packs/shin-kyoudou-deut6.js";
 import { WEB_MARK_1 } from "./packs/web-mark1.js";
 import { KJV_MARK_1 } from "./packs/kjv-mark1.js";
 import { ASV_MARK_1 } from "./packs/asv-mark1.js";
@@ -542,6 +567,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     isa: { 53: CUVT_ISA_53 },
     acts: { 2: CUVT_ACTS_2 },
     "1john": { 4: CUVT_1JOHN_4 },
+    mark: { 1: CUVT_MARK_1 },
+    exod: { 20: CUVT_EXOD_20 },
+    luke: { 2: CUVT_LUKE_2 },
+    deut: { 6: CUVT_DEUT_6 },
   },
   cuvs: {
     john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 14: CUVS_JOHN_14, 15: CUVS_JOHN_15 },
@@ -578,6 +607,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     isa: { 53: RCUV_ISA_53 },
     acts: { 2: RCUV_ACTS_2 },
     "1john": { 4: RCUV_1JOHN_4 },
+    mark: { 1: RCUV_MARK_1 },
+    exod: { 20: RCUV_EXOD_20 },
+    luke: { 2: RCUV_LUKE_2 },
+    deut: { 6: RCUV_DEUT_6 },
   },
   shinkaiyaku: {
     john: {
@@ -596,6 +629,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     isa: { 53: SHINKAIYAKU_ISA_53 },
     acts: { 2: SHINKAIYAKU_ACTS_2 },
     "1john": { 4: SHINKAIYAKU_1JOHN_4 },
+    mark: { 1: SHINKAIYAKU_MARK_1 },
+    exod: { 20: SHINKAIYAKU_EXOD_20 },
+    luke: { 2: SHINKAIYAKU_LUKE_2 },
+    deut: { 6: SHINKAIYAKU_DEUT_6 },
   },
   shinKyoudou: {
     john: {
@@ -614,6 +651,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     isa: { 53: SHIN_KYOUDOU_ISA_53 },
     acts: { 2: SHIN_KYOUDOU_ACTS_2 },
     "1john": { 4: SHIN_KYOUDOU_1JOHN_4 },
+    mark: { 1: SHIN_KYOUDOU_MARK_1 },
+    exod: { 20: SHIN_KYOUDOU_EXOD_20 },
+    luke: { 2: SHIN_KYOUDOU_LUKE_2 },
+    deut: { 6: SHIN_KYOUDOU_DEUT_6 },
   },
   ccb: {
     john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14, 15: CCB_JOHN_15 },
@@ -626,6 +667,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     isa: { 53: CCB_ISA_53 },
     acts: { 2: CCB_ACTS_2 },
     "1john": { 4: CCB_1JOHN_4 },
+    mark: { 1: CCB_MARK_1 },
+    exod: { 20: CCB_EXOD_20 },
+    luke: { 2: CCB_LUKE_2 },
+    deut: { 6: CCB_DEUT_6 },
   },
   lzz: {
     john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3, 14: LZZ_JOHN_14, 15: LZZ_JOHN_15 },
@@ -638,6 +683,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     isa: { 53: LZZ_ISA_53 },
     acts: { 2: LZZ_ACTS_2 },
     "1john": { 4: LZZ_1JOHN_4 },
+    mark: { 1: LZZ_MARK_1 },
+    exod: { 20: LZZ_EXOD_20 },
+    luke: { 2: LZZ_LUKE_2 },
+    deut: { 6: LZZ_DEUT_6 },
   },
 };
 

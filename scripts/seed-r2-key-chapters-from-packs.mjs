@@ -31,6 +31,10 @@ const KEY_REFS = [
   { book: "Heb", chapter: 11 },
   { book: "Isa", chapter: 53 },
   { book: "Acts", chapter: 2 },
+  { book: "Mark", chapter: 1 },
+  { book: "Exod", chapter: 20 },
+  { book: "Luke", chapter: 2 },
+  { book: "Deut", chapter: 6 },
   { book: "1John", chapter: 4 },
 ];
 
@@ -77,6 +81,6 @@ for (const tid of tids) {
 }
 
 console.log(`SEED_KEY_CHAPTERS_FROM_PACKS_OK seeded=${seeded} skipped=${skipped} tids=${tids.join(",")}`);
-if (seeded < 80) {
-  throw new Error(`expected >=80 seeded key chapters, got ${seeded}`);
+if (seeded < 100) {
+  throw new Error(`expected >=100 seeded key chapters, got ${seeded}`);
 }

@@ -509,6 +509,31 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
 });
 
+test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaffolds", async () => {
+  const peers = ["cuvt", "rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"] as const;
+  for (const tid of peers) {
+    const mark = await loadChapter(tid, { book: "Mark", chapter: 1 });
+    assert.ok(!("external" in mark), tid);
+    assert.equal(mark.book, "Mark");
+    assert.match(mark.verses[0]?.text ?? "", /样例|樣例|見本|福音|はじめ/);
+
+    const exod = await loadChapter(tid, { book: "Exod", chapter: 20 });
+    assert.ok(!("external" in exod), tid);
+    assert.equal(exod.book, "Exod");
+    assert.match(exod.verses.find((v) => v.verse === 3)?.text ?? "", /样例|樣例|見本|别的|別的|神としては/);
+
+    const luke = await loadChapter(tid, { book: "Luke", chapter: 2 });
+    assert.ok(!("external" in luke), tid);
+    assert.equal(luke.book, "Luke");
+    assert.match(luke.verses.find((v) => v.verse === 11)?.text ?? "", /样例|樣例|見本|救主|キリスト/);
+
+    const deut = await loadChapter(tid, { book: "Deut", chapter: 6 });
+    assert.ok(!("external" in deut), tid);
+    assert.equal(deut.book, "Deut");
+    assert.match(deut.verses.find((v) => v.verse === 4)?.text ?? "", /样例|樣例|見本|以色列|イスラエル|独一|唯一/);
+  }
+});
+
 test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3 scaffolds", async () => {
   const peers = ["cuvt", "rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"] as const;
   for (const tid of peers) {
