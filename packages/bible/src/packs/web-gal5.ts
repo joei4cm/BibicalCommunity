@@ -1,5 +1,65 @@
-/** Public-domain: WEB Galatians 5 denser Spirit-walk scaffold (vv.16–26). */
+/** Public-domain: WEB Galatians 5 denser full freedom/Spirit chapter scaffold (vv.1–26). */
 export const WEB_GAL_5: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "Stand firm therefore in the liberty by which Christ has made us free, and don't be entangled again with a yoke of bondage.",
+  },
+  {
+    verse: 2,
+    text: "Behold, I, Paul, tell you that if you receive circumcision, Christ will profit you nothing.",
+  },
+  {
+    verse: 3,
+    text: "Yes, I testify again to every man who receives circumcision that he is a debtor to do the whole law.",
+  },
+  {
+    verse: 4,
+    text: "You are alienated from Christ, you who desire to be justified by the law. You have fallen away from grace.",
+  },
+  {
+    verse: 5,
+    text: "For we through the Spirit, by faith wait for the hope of righteousness.",
+  },
+  {
+    verse: 6,
+    text: "For in Christ Jesus neither circumcision nor uncircumcision amounts to anything, but faith working through love.",
+  },
+  {
+    verse: 7,
+    text: "You were running well! Who interfered with you that you should not obey the truth?",
+  },
+  {
+    verse: 8,
+    text: "This persuasion is not from him who calls you.",
+  },
+  {
+    verse: 9,
+    text: "A little yeast grows through the whole lump.",
+  },
+  {
+    verse: 10,
+    text: "I have confidence toward you in the Lord that you will think no other way. But he who troubles you will bear his judgment, whoever he is.",
+  },
+  {
+    verse: 11,
+    text: "But I, brothers, if I still preach circumcision, why am I still persecuted? Then the stumbling block of the cross has been removed.",
+  },
+  {
+    verse: 12,
+    text: "I wish that those who disturb you would cut themselves off.",
+  },
+  {
+    verse: 13,
+    text: "For you, brothers, were called for freedom. Only don't use your freedom as an opportunity for the flesh, but through love be servants to one another.",
+  },
+  {
+    verse: 14,
+    text: "For the whole law is fulfilled in one word, in this: \"You shall love your neighbor as yourself.\"",
+  },
+  {
+    verse: 15,
+    text: "But if you bite and devour one another, be careful that you don't consume one another.",
+  },
   {
     verse: 16,
     text: "But I say, walk by the Spirit, and you won't fulfill the lust of the flesh.",

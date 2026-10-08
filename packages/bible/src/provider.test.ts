@@ -618,7 +618,10 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
   for (const tid of peers) {
     const gal = await loadChapter(tid, { book: "Gal", chapter: 5 });
     assert.ok(!("external" in gal), tid);
-    assert.ok(gal.verses.length >= 11, tid);
+    assert.ok(gal.verses.length >= 26, tid);
+    assert.equal(gal.verses[0]?.verse, 1, tid);
+    assert.equal(gal.verses[gal.verses.length - 1]?.verse, 26, tid);
+    assert.match(gal.verses.find((v) => v.verse === 1)?.text ?? "", /样例|樣例|見本|自由|解放/);
     assert.match(gal.verses.find((v) => v.verse === 22)?.text ?? "", /样例|樣例|見本|仁爱|仁愛|愛、喜び|御霊の実|聖霊の実|霊の結ぶ実/);
 
     const phil = await loadChapter(tid, { book: "Phil", chapter: 4 });
@@ -1081,17 +1084,24 @@ test("loadChapter returns PD Galatians.5 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Gal");
   assert.equal(web.chapter, 5);
-  assert.ok(web.verses.length >= 11);
+  assert.ok(web.verses.length >= 26);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 26);
+  assert.match(web.verses.find((v) => v.verse === 1)?.text ?? "", /liberty|free|yoke of bondage/i);
   assert.match(web.verses.find((v) => v.verse === 22)?.text ?? "", /fruit of the Spirit|love, joy, peace/i);
 
   const kjv = await loadChapter("kjv", { book: "Galatians", chapter: 5 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Gal");
+  assert.ok(kjv.verses.length >= 26);
   assert.match(kjv.verses.find((v) => v.verse === 16)?.text ?? "", /Walk in the Spirit/i);
+  assert.match(kjv.verses.find((v) => v.verse === 1)?.text ?? "", /liberty|yoke of bondage/i);
 
   const asv = await loadChapter("asv", { book: "gal", chapter: 5 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 26);
   assert.match(asv.verses.find((v) => v.verse === 23)?.text ?? "", /self-control|no law/i);
+  assert.match(asv.verses.find((v) => v.verse === 13)?.text ?? "", /called for freedom|love be servants/i);
 });
 
 test("loadChapter returns zh/ja Matt.6 and Galatians.5 scaffolds", async () => {
@@ -1113,12 +1123,14 @@ test("loadChapter returns zh/ja Matt.6 and Galatians.5 scaffolds", async () => {
   const cuvsGal = await loadChapter("cuvs", { book: "加拉太书", chapter: 5 });
   assert.ok(!("external" in cuvsGal));
   assert.equal(cuvsGal.book, "Gal");
-  assert.ok(cuvsGal.verses.length >= 11);
+  assert.ok(cuvsGal.verses.length >= 26);
+  assert.match(cuvsGal.verses.find((v) => v.verse === 1)?.text ?? "", /样例|自由|轭/);
   assert.match(cuvsGal.verses.find((v) => v.verse === 22)?.text ?? "", /样例|圣灵所结的果子|仁爱/);
 
   const kougoGal = await loadChapter("kougo", { book: "ガラテヤ", chapter: 5 });
   assert.ok(!("external" in kougoGal));
-  assert.ok(kougoGal.verses.length >= 11);
+  assert.ok(kougoGal.verses.length >= 26);
+  assert.match(kougoGal.verses.find((v) => v.verse === 1)?.text ?? "", /見本|自由|解放/);
   assert.match(kougoGal.verses.find((v) => v.verse === 22)?.text ?? "", /見本|御霊の実|愛、喜び/);
 });
 
