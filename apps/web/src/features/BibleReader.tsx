@@ -84,6 +84,7 @@ function displayVerseText(text: string): string {
     .replace(/[（(]\s*样例(?:[·・.\s]*fixture)?\s*[）)]/gi, "")
     .replace(/[（(]\s*fixture\s*[）)]/gi, "")
     .replace(/[（(]\s*見本\s*[）)]/g, "")
+    .replace(/[（(]\s*サンプル\s*[）)]/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -192,8 +193,8 @@ export function BibleReader() {
   const [dualPane, setDualPane] = useState(false);
   const [bookId, setBookId] = useState(routeBookId);
   const [chapterNum, setChapterNum] = useState(routeChapter);
-  const [fontSize, setFontSize] = useState(1.15);
-  const [lineHeight, setLineHeight] = useState(1.75);
+  const [fontSize, setFontSize] = useState(1.28);
+  const [lineHeight, setLineHeight] = useState(2.05);
   const [serif, setSerif] = useState(true);
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
@@ -241,9 +242,9 @@ export function BibleReader() {
   );
 
   const TYPO_PRESETS = {
-    compact: { fontSize: 1.0, lineHeight: 1.35, serif: false },
-    comfortable: { fontSize: 1.15, lineHeight: 1.75, serif: true },
-    spacious: { fontSize: 1.35, lineHeight: 2.1, serif: true },
+    compact: { fontSize: 1.05, lineHeight: 1.55, serif: false },
+    comfortable: { fontSize: 1.28, lineHeight: 2.05, serif: true },
+    spacious: { fontSize: 1.42, lineHeight: 2.25, serif: true },
   } as const;
 
   function applyPreset(id: keyof typeof TYPO_PRESETS) {
@@ -640,7 +641,7 @@ export function BibleReader() {
           <span className="bible-nav-target">{prevShort}</span>
         </Link>
       ) : (
-        <span className="bible-nav-link is-disabled">{t("reader.prevChapter")}</span>
+        <span className="bible-nav-link is-disabled">← {t("reader.prevChapter")}</span>
       )}
       {nextCursor ? (
         <Link
@@ -656,22 +657,24 @@ export function BibleReader() {
           <span className="bible-nav-target">{nextShort}</span>
         </Link>
       ) : (
-        <span className="bible-nav-link is-disabled">{t("reader.nextChapter")}</span>
+        <span className="bible-nav-link is-disabled bible-nav-link--next">{t("reader.nextChapter")} →</span>
       )}
     </nav>
   );
 
   return (
     <section className="bible-reader" data-testid="bible-reader">
-      {/* Primary composition: passage chrome + continuous prose only */}
+      {/* One reading composition: brand → passage → prose */}
       <header className="bible-reader-masthead">
+        <p className="bible-reader-brand" aria-label="圣言家 LogosHome">
+          圣言家
+        </p>
         <p className="bible-reader-translation" data-testid="reader-translation-label">
           {activeTranslation?.name[locale] ?? translationId}
         </p>
         <h1 className="bible-reader-title" data-testid="reader-passage-title">
           {passageTitle}
         </h1>
-        {renderChapterNav("reader", "top")}
         <div className="bible-passage-controls" data-testid="reader-passage-controls">
           <label className="bible-control">
             <span className="sr-only">{t("reader.translations")}</span>
@@ -687,6 +690,9 @@ export function BibleReader() {
               ))}
             </select>
           </label>
+          <span className="bible-control-sep" aria-hidden="true">
+            ·
+          </span>
           <label className="bible-control">
             <span className="sr-only">Book</span>
             <select
@@ -701,6 +707,9 @@ export function BibleReader() {
               ))}
             </select>
           </label>
+          <span className="bible-control-sep" aria-hidden="true">
+            ·
+          </span>
           <label className="bible-control bible-control--chapter">
             <span className="sr-only">Chapter</span>
             <select
@@ -716,6 +725,7 @@ export function BibleReader() {
             </select>
           </label>
         </div>
+        {renderChapterNav("reader", "top")}
       </header>
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
