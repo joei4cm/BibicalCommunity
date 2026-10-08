@@ -1,4 +1,4 @@
-/** Public-domain: ASV Genesis 1 denser creation days 1–3 scaffold (vv.1–13). */
+/** Public-domain: ASV Genesis 1 denser full creation-week scaffold (vv.1–31). */
 export const ASV_GEN_1: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -51,5 +51,77 @@ export const ASV_GEN_1: { verse: number; text: string }[] = [
   {
     verse: 13,
     text: "And there was evening and there was morning, a third day.",
+  },
+  {
+    verse: 14,
+    text: "And God said, Let there be lights in the firmament of heaven to divide the day from the night; and let them be for signs, and for seasons, and for days and years:",
+  },
+  {
+    verse: 15,
+    text: "and let them be for lights in the firmament of heaven to give light upon the earth: and it was so.",
+  },
+  {
+    verse: 16,
+    text: "And God made the two great lights; the greater light to rule the day, and the lesser light to rule the night: he made the stars also.",
+  },
+  {
+    verse: 17,
+    text: "And God set them in the firmament of heaven to give light upon the earth,",
+  },
+  {
+    verse: 18,
+    text: "and to rule over the day and over the night, and to divide the light from the darkness: and God saw that it was good.",
+  },
+  {
+    verse: 19,
+    text: "And there was evening and there was morning, a fourth day.",
+  },
+  {
+    verse: 20,
+    text: "And God said, Let the waters swarm with swarms of living creatures, and let birds fly above the earth in the open firmament of heaven.",
+  },
+  {
+    verse: 21,
+    text: "And God created the great sea-monsters, and every living creature that moveth, wherewith the waters swarmed, after their kind, and every winged bird after its kind: and God saw that it was good.",
+  },
+  {
+    verse: 22,
+    text: "And God blessed them, saying, Be fruitful, and multiply, and fill the waters in the seas, and let birds multiply on the earth.",
+  },
+  {
+    verse: 23,
+    text: "And there was evening and there was morning, a fifth day.",
+  },
+  {
+    verse: 24,
+    text: "And God said, Let the earth bring forth living creatures after their kind, cattle, and creeping things, and beasts of the earth after their kind: and it was so.",
+  },
+  {
+    verse: 25,
+    text: "And God made the beasts of the earth after their kind, and the cattle after their kind, and everything that creepeth upon the ground after its kind: and God saw that it was good.",
+  },
+  {
+    verse: 26,
+    text: "And God said, Let us make man in our image, after our likeness: and let them have dominion over the fish of the sea, and over the birds of the heavens, and over the cattle, and over all the earth, and over every creeping thing that creepeth upon the earth.",
+  },
+  {
+    verse: 27,
+    text: "And God created man in his own image, in the image of God created he him; male and female created he them.",
+  },
+  {
+    verse: 28,
+    text: "And God blessed them: and God said unto them, Be fruitful, and multiply, and replenish the earth, and subdue it; and have dominion over the fish of the sea, and over the birds of the heavens, and over every living thing that moveth upon the earth.",
+  },
+  {
+    verse: 29,
+    text: "And God said, Behold, I have given you every herb yielding seed, which is upon the face of all the earth, and every tree, in which is the fruit of a tree yielding seed; to you it shall be for food:",
+  },
+  {
+    verse: 30,
+    text: "and to every beast of the earth, and to every bird of the heavens, and to everything that creepeth upon the earth, wherein there is life, I have given every green herb for food: and it was so.",
+  },
+  {
+    verse: 31,
+    text: "And God saw everything that he had made, and, behold, it was very good. And there was evening and there was morning, the sixth day.",
   },
 ];
