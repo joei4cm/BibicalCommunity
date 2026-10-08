@@ -829,8 +829,10 @@ test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3
     const prov = await loadChapter(tid, { book: "Prov", chapter: 3 });
     assert.ok(!("external" in prov), tid);
     assert.equal(prov.book, "Prov");
-    assert.ok(prov.verses.length >= 8, tid);
-    assert.match(prov.verses.find((v) => v.verse === 5)?.text ?? "", /样例|樣例|見本|仰赖|仰賴|信頼|聪明|聰明|知識/);
+    assert.ok(prov.verses.length >= 35, tid);
+    assert.equal(prov.verses[prov.verses.length - 1]?.verse, 35, tid);
+    assert.match(prov.verses.find((v) => v.verse === 5)?.text ?? "", /样例|樣例|見本|仰赖|仰賴|信頼|聪明|聰明|知識|悟り|分別/);
+    assert.match(prov.verses.find((v) => v.verse === 35)?.text ?? "", /样例|樣例|見本|智慧|愚|誉|恥|羞辱|尊荣|尊榮/);
   }
 });
 
@@ -862,20 +864,24 @@ test("loadChapter returns PD Proverbs.3 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Prov");
   assert.equal(web.chapter, 3);
-  assert.ok(web.verses.length >= 8);
+  assert.ok(web.verses.length >= 35);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 35);
   assert.match(web.verses.find((v) => v.verse === 5)?.text ?? "", /Trust in Yahweh|own understanding/i);
   assert.match(web.verses.find((v) => v.verse === 8)?.text ?? "", /health|marrow|bones/i);
+  assert.match(web.verses.find((v) => v.verse === 35)?.text ?? "", /wise will inherit glory|shame.*fools/i);
 
   const kjv = await loadChapter("kjv", { book: "Proverbs", chapter: 3 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Prov");
-  assert.ok(kjv.verses.length >= 8);
+  assert.ok(kjv.verses.length >= 35);
   assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /Trust in the LORD|own understanding/i);
+  assert.match(kjv.verses.find((v) => v.verse === 35)?.text ?? "", /wise shall inherit glory|shame.*fools/i);
 
   const asv = await loadChapter("asv", { book: "prov", chapter: 3 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 8);
+  assert.ok(asv.verses.length >= 35);
   assert.match(asv.verses.find((v) => v.verse === 6)?.text ?? "", /acknowledge him|direct thy paths/i);
+  assert.match(asv.verses.find((v) => v.verse === 35)?.text ?? "", /wise shall inherit glory|shame.*fools/i);
 });
 
 test("loadChapter returns zh/ja Psalm.1 and Proverbs.3 scaffolds", async () => {
@@ -893,13 +899,17 @@ test("loadChapter returns zh/ja Psalm.1 and Proverbs.3 scaffolds", async () => {
   const cuvsProv = await loadChapter("cuvs", { book: "箴言", chapter: 3 });
   assert.ok(!("external" in cuvsProv));
   assert.equal(cuvsProv.book, "Prov");
-  assert.ok(cuvsProv.verses.length >= 8);
+  assert.ok(cuvsProv.verses.length >= 35);
+  assert.equal(cuvsProv.verses[cuvsProv.verses.length - 1]?.verse, 35);
   assert.match(cuvsProv.verses.find((v) => v.verse === 5)?.text ?? "", /样例|仰赖耶和华|自己的聪明/);
+  assert.match(cuvsProv.verses.find((v) => v.verse === 35)?.text ?? "", /样例|智慧人|愚昧|羞辱/);
 
   const kougoProv = await loadChapter("kougo", { book: "Proverbs", chapter: 3 });
   assert.ok(!("external" in kougoProv));
-  assert.ok(kougoProv.verses.length >= 8);
+  assert.ok(kougoProv.verses.length >= 35);
+  assert.equal(kougoProv.verses[kougoProv.verses.length - 1]?.verse, 35);
   assert.match(kougoProv.verses.find((v) => v.verse === 5)?.text ?? "", /見本|主に信頼|自分の知識/);
+  assert.match(kougoProv.verses.find((v) => v.verse === 35)?.text ?? "", /見本|知恵ある者|愚か|恥/);
 });
 
 test("loadChapter returns PD Mark.1 scaffolds (web/kjv/asv)", async () => {
