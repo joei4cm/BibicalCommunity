@@ -636,8 +636,10 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const eph = await loadChapter(tid, { book: "Eph", chapter: 2 });
     assert.ok(!("external" in eph), tid);
-    assert.ok(eph.verses.length >= 10, tid);
+    assert.ok(eph.verses.length >= 22, tid);
+    assert.equal(eph.verses[eph.verses.length - 1]?.verse, 22, tid);
     assert.match(eph.verses.find((v) => v.verse === 8)?.text ?? "", /样例|樣例|見本|本乎恩|恵み|信仰/);
+    assert.match(eph.verses.find((v) => v.verse === 14)?.text ?? "", /样例|樣例|見本|和睦|平和|墙|中垣/);
 
     const col = await loadChapter(tid, { book: "Col", chapter: 3 });
     assert.ok(!("external" in col), tid);
@@ -666,13 +668,18 @@ test("loadChapter returns PD Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds (web/kjv/a
   const eph = await loadChapter("web", { book: "Eph", chapter: 2 });
   assert.ok(!("external" in eph));
   assert.equal(eph.book, "Eph");
-  assert.ok(eph.verses.length >= 10);
+  assert.ok(eph.verses.length >= 22);
+  assert.equal(eph.verses[0]?.verse, 1);
+  assert.equal(eph.verses[eph.verses.length - 1]?.verse, 22);
   assert.match(eph.verses.find((v) => v.verse === 8)?.text ?? "", /by grace.*saved through faith|gift of God/i);
+  assert.match(eph.verses.find((v) => v.verse === 14)?.text ?? "", /he is our peace|middle wall/i);
+  assert.match(eph.verses.find((v) => v.verse === 20)?.text ?? "", /cornerstone|apostles and prophets/i);
 
   const kjvEph = await loadChapter("kjv", { book: "Ephesians", chapter: 2 });
   assert.ok(!("external" in kjvEph));
-  assert.ok(kjvEph.verses.length >= 10);
+  assert.ok(kjvEph.verses.length >= 22);
   assert.match(kjvEph.verses.find((v) => v.verse === 8)?.text ?? "", /by grace.*saved through faith|gift of God/i);
+  assert.match(kjvEph.verses.find((v) => v.verse === 22)?.text ?? "", /habitation of God|Spirit/i);
 
   const col = await loadChapter("web", { book: "Col", chapter: 3 });
   assert.ok(!("external" in col));
@@ -698,13 +705,15 @@ test("loadChapter returns PD Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds (web/kjv/a
 test("loadChapter returns zh/ja Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds", async () => {
   const cuvsEph = await loadChapter("cuvs", { book: "Eph", chapter: 2 });
   assert.ok(!("external" in cuvsEph));
-  assert.ok(cuvsEph.verses.length >= 10);
+  assert.ok(cuvsEph.verses.length >= 22);
   assert.match(cuvsEph.verses.find((v) => v.verse === 8)?.text ?? "", /样例|本乎恩|因着信/);
+  assert.match(cuvsEph.verses.find((v) => v.verse === 14)?.text ?? "", /样例|和睦|隔断的墙/);
 
   const kougoEph = await loadChapter("kougo", { book: "Eph", chapter: 2 });
   assert.ok(!("external" in kougoEph));
-  assert.ok(kougoEph.verses.length >= 10);
+  assert.ok(kougoEph.verses.length >= 22);
   assert.match(kougoEph.verses.find((v) => v.verse === 8)?.text ?? "", /見本|恵み|信仰/);
+  assert.match(kougoEph.verses.find((v) => v.verse === 14)?.text ?? "", /見本|平和|中垣/);
 
   const cuvsCol = await loadChapter("cuvs", { book: "Col", chapter: 3 });
   assert.ok(!("external" in cuvsCol));

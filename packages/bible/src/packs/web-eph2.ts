@@ -1,4 +1,4 @@
-/** Public-domain: WEB Ephesians 2 denser grace-by-faith scaffold (vv.1–10). */
+/** Public-domain: WEB Ephesians 2 denser full grace/peace chapter scaffold (vv.1–22). */
 export const WEB_EPH_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,5 +39,53 @@ export const WEB_EPH_2: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "For we are his workmanship, created in Christ Jesus for good works, which God prepared before that we would walk in them.",
+  },
+  {
+    verse: 11,
+    text: "Therefore remember that once you, the Gentiles in the flesh, who are called \"uncircumcision\" by that which is called \"circumcision\" (in the flesh, made by hands),",
+  },
+  {
+    verse: 12,
+    text: "that you were at that time separate from Christ, alienated from the commonwealth of Israel, and strangers from the covenants of the promise, having no hope and without God in the world.",
+  },
+  {
+    verse: 13,
+    text: "But now in Christ Jesus you who once were far off are made near in the blood of Christ.",
+  },
+  {
+    verse: 14,
+    text: "For he is our peace, who made both one, and broke down the middle wall of separation,",
+  },
+  {
+    verse: 15,
+    text: "having abolished in his flesh the hostility, the law of commandments contained in ordinances, that he might create in himself one new man of the two, making peace,",
+  },
+  {
+    verse: 16,
+    text: "and might reconcile them both in one body to God through the cross, having killed the hostility through it.",
+  },
+  {
+    verse: 17,
+    text: "He came and preached peace to you who were far off and to those who were near.",
+  },
+  {
+    verse: 18,
+    text: "For through him we both have our access in one Spirit to the Father.",
+  },
+  {
+    verse: 19,
+    text: "So then you are no longer strangers and foreigners, but you are fellow citizens with the saints and of the household of God,",
+  },
+  {
+    verse: 20,
+    text: "being built on the foundation of the apostles and prophets, Christ Jesus himself being the chief cornerstone;",
+  },
+  {
+    verse: 21,
+    text: "in whom the whole building, fitted together, grows into a holy temple in the Lord;",
+  },
+  {
+    verse: 22,
+    text: "in whom you also are built together for a habitation of God in the Spirit.",
   },
 ];
