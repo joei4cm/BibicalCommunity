@@ -1,4 +1,4 @@
-/** New Interconfessional–style Matthew 5 scaffold (not a licensed corpus dump). */
+/** New Interconfessional–style denser Matthew 5 Beatitudes scaffold (vv.1–12; not a licensed corpus dump). */
 export const SHIN_KYOUDOU_MATT_5: { verse: number; text: string }[] = [
   { verse: 1, text: "（見本）イエスはこの群衆を見て、山に登られた。座に着くと、弟子たちがそばに近寄って来た。" },
   { verse: 2, text: "（見本）そこで、イエスは口を開き、教えられた。" },
@@ -10,4 +10,12 @@ export const SHIN_KYOUDOU_MATT_5: { verse: number; text: string }[] = [
   { verse: 8, text: "（見本）心の清い人々は、幸いである、その人たちは神を見る。" },
   { verse: 9, text: "（見本）平和を実現する人々は、幸いである、その人たちは神の子と呼ばれる。" },
   { verse: 10, text: "（見本）義のために迫害される人々は、幸いである、天の国はその人たちのものである。" },
+  {
+    verse: 11,
+    text: "（見本）わたしに従って生きるために人々があなたがたをののしり、迫害し、ありもしないことで悪口を言うとき、あなたがたは幸いである。",
+  },
+  {
+    verse: 12,
+    text: "（見本）喜びなさい。大いに喜びなさい。天には大きな報いがある。あなたがたより前の預言者たちも、同じように迫害されたのである。」",
+  },
 ];

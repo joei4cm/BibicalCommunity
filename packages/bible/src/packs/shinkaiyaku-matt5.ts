@@ -1,4 +1,4 @@
-/** New Japanese Bible–style Matthew 5 scaffold (not a licensed corpus dump). */
+/** New Japanese Bible–style denser Matthew 5 Beatitudes scaffold (vv.1–12; not a licensed corpus dump). */
 export const SHINKAIYAKU_MATT_5: { verse: number; text: string }[] = [
   { verse: 1, text: "（見本）イエスはこの群衆を見て山に登り、座につかれると、弟子たちがみもとに来た。" },
   { verse: 2, text: "（見本）そこでイエスは口を開き、彼らを教えて言われた。" },
@@ -10,4 +10,12 @@ export const SHINKAIYAKU_MATT_5: { verse: number; text: string }[] = [
   { verse: 8, text: "（見本）心のきよい者は幸いです。その人たちは神を見るからです。" },
   { verse: 9, text: "（見本）平和をつくる者は幸いです。その人たちは神の子どもと呼ばれるからです。" },
   { verse: 10, text: "（見本）義のために迫害されている者は幸いです。天の御国はその人たちのものだからです。" },
+  {
+    verse: 11,
+    text: "（見本）わたしのために人々があなたがたをののしり、迫害し、ありもしないことで悪口を言うとき、あなたがたは幸いです。",
+  },
+  {
+    verse: 12,
+    text: "（見本）喜びなさい。大いに喜びなさい。天においてあなたがたの報いは大きいのです。あなたがたより前の預言者たちも、同じように迫害されたのです。」",
+  },
 ];
