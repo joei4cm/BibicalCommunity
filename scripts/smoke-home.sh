@@ -114,7 +114,47 @@ GROUP=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   "$BASE/v1/home/groups")
 echo "$GROUP" | head -c 160; echo
 echo "$GROUP" | grep -q '"id":"grp_'
+GID=$(echo "$GROUP" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+test -n "$GID"
 echo "HOME_GROUP_OK"
+
+echo "== home group board ACL + mediaKey + embed allowlist =="
+# Allowlisted youtube URL accepted
+YPOST=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"general\",\"title\":\"YT embed\",\"body\":\"watch\",\"externalMediaUrl\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}" \
+  "$BASE/v1/home/posts")
+echo "$YPOST" | grep -q '"id":"post_'
+# Disallowed host rejected
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"general\",\"title\":\"Bad embed\",\"body\":\"no\",\"externalMediaUrl\":\"https://evil.example/track\"}" \
+  "$BASE/v1/home/posts")
+test "$CODE" = "400"
+# R2 mediaKey on post
+UPLOAD=$(curl -sf -X POST -H "$AUTH" "$BASE/v1/media/upload-url")
+MKEY=$(echo "$UPLOAD" | sed -n 's/.*"key":"\([^"]*\)".*/\1/p')
+PUT=$(echo "$UPLOAD" | sed -n 's/.*"putUrl":"\([^"]*\)".*/\1/p')
+curl -sf -X PUT -H "$AUTH" -H 'content-type: application/octet-stream' \
+  --data-binary 'forum-attach' "$BASE$PUT" >/dev/null
+MPOST=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"general\",\"title\":\"With file\",\"body\":\"attached\",\"mediaKey\":\"$MKEY\"}" \
+  "$BASE/v1/home/posts")
+echo "$MPOST" | grep -q "\"mediaKey\":\"$MKEY\""
+# Group board requires membership in groupId
+GPOST=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"group\",\"groupId\":\"$GID\",\"title\":\"Group only\",\"body\":\"members\"}" \
+  "$BASE/v1/home/posts")
+echo "$GPOST" | grep -q '"id":"post_'
+GPID=$(echo "$GPOST" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+GLIST=$(curl -sf -H "$AUTH" "$BASE/v1/home/${CHURCH_ID}/posts?board=group")
+echo "$GLIST" | grep -q "$GPID"
+# Peer (not in group) cannot post to that group and cannot see it
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH2" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"group\",\"groupId\":\"$GID\",\"title\":\"Nope\",\"body\":\"x\"}" \
+  "$BASE/v1/home/posts")
+test "$CODE" = "403"
+PLIST=$(curl -sf -H "$AUTH2" "$BASE/v1/home/${CHURCH_ID}/posts?board=group")
+echo "$PLIST" | grep -vq "$GPID"
+echo "HOME_FORUM_MEDIA_ACL_OK"
 
 echo "== chat conversation archive =="
 if [[ -z "${CID:-}" ]]; then

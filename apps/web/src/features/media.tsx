@@ -1,3 +1,5 @@
+import { isAllowedExternalMediaUrl } from "@logoshome/shared";
+
 type MediaKind = "youtube" | "vimeo" | "audio" | "video" | "link";
 
 const AUDIO_EXT = /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i;
@@ -44,6 +46,13 @@ export function classifyMediaUrl(url: string): { kind: MediaKind; embedSrc?: str
 }
 
 export function ExternalMedia({ url }: { url: string }) {
+  if (!isAllowedExternalMediaUrl(url)) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer noopener">
+        {url}
+      </a>
+    );
+  }
   const media = classifyMediaUrl(url);
   if (media.kind === "youtube" || media.kind === "vimeo") {
     return (

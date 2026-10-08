@@ -153,6 +153,7 @@ export const forumPosts = sqliteTable("forum_posts", {
   title: text("title").notNull(),
   body: text("body").notNull(),
   externalMediaUrl: text("external_media_url"),
+  mediaKey: text("media_key"),
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 
