@@ -94,6 +94,7 @@ export default function BibleScreen() {
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>("default");
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
+  const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const skinPalette = readerSkinPalette(readerSkin);
 
   useEffect(() => {
@@ -222,6 +223,50 @@ export default function BibleScreen() {
       }
     })();
 
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, translationId, ref, locale]);
+
+  useEffect(() => {
+    if (!apiBase) {
+      setCorpusHint(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api<{
+          packs: Array<{
+            translationId: string;
+            provider: string;
+            available: boolean;
+            chapterRefs: string[];
+          }>;
+        }>("/v1/bible/corpus-packs");
+        if (cancelled) return;
+        const local = res.packs.find(
+          (p) => p.translationId === translationId && p.provider === "local" && p.available,
+        );
+        const licensed = res.packs.find(
+          (p) => p.translationId === translationId && p.provider === "r2",
+        );
+        if (local) {
+          const hasChapter = local.chapterRefs.includes(ref);
+          setCorpusHint(
+            hasChapter
+              ? `${t(locale, "reader.corpusLocal")} · ${local.chapterRefs.length}`
+              : `${t(locale, "reader.corpusPartial")} · ${local.chapterRefs.length}`,
+          );
+        } else if (licensed) {
+          setCorpusHint(t(locale, "reader.corpusLicensedStub"));
+        } else {
+          setCorpusHint(null);
+        }
+      } catch {
+        if (!cancelled) setCorpusHint(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -384,6 +429,11 @@ export default function BibleScreen() {
           );
         })}
       </ScrollView>
+      {corpusHint ? (
+        <Text style={styles.muted} testID="reader-corpus-hint">
+          {corpusHint}
+        </Text>
+      ) : null}
 
       <Text style={styles.label}>{t(locale, "reader.book")}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
