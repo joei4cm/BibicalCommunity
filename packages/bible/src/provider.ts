@@ -256,6 +256,55 @@ import { SHIN_KYOUDOU_MARK_1 } from "./packs/shin-kyoudou-mark1.js";
 import { SHIN_KYOUDOU_EXOD_20 } from "./packs/shin-kyoudou-exod20.js";
 import { SHIN_KYOUDOU_LUKE_2 } from "./packs/shin-kyoudou-luke2.js";
 import { SHIN_KYOUDOU_DEUT_6 } from "./packs/shin-kyoudou-deut6.js";
+
+import { CUVT_GAL_5 } from "./packs/cuvt-gal5.js";
+import { CUVT_PHIL_4 } from "./packs/cuvt-phil4.js";
+import { CUVT_1COR_13 } from "./packs/cuvt-1cor13.js";
+import { CUVT_EPH_2 } from "./packs/cuvt-eph2.js";
+import { CUVT_COL_3 } from "./packs/cuvt-col3.js";
+import { CUVT_JAMES_1 } from "./packs/cuvt-james1.js";
+import { CUVT_MATT_28 } from "./packs/cuvt-matt28.js";
+import { CUVT_REV_21 } from "./packs/cuvt-rev21.js";
+import { RCUV_GAL_5 } from "./packs/rcuv-gal5.js";
+import { RCUV_PHIL_4 } from "./packs/rcuv-phil4.js";
+import { RCUV_1COR_13 } from "./packs/rcuv-1cor13.js";
+import { RCUV_EPH_2 } from "./packs/rcuv-eph2.js";
+import { RCUV_COL_3 } from "./packs/rcuv-col3.js";
+import { RCUV_JAMES_1 } from "./packs/rcuv-james1.js";
+import { RCUV_MATT_28 } from "./packs/rcuv-matt28.js";
+import { RCUV_REV_21 } from "./packs/rcuv-rev21.js";
+import { CCB_GAL_5 } from "./packs/ccb-gal5.js";
+import { CCB_PHIL_4 } from "./packs/ccb-phil4.js";
+import { CCB_1COR_13 } from "./packs/ccb-1cor13.js";
+import { CCB_EPH_2 } from "./packs/ccb-eph2.js";
+import { CCB_COL_3 } from "./packs/ccb-col3.js";
+import { CCB_JAMES_1 } from "./packs/ccb-james1.js";
+import { CCB_MATT_28 } from "./packs/ccb-matt28.js";
+import { CCB_REV_21 } from "./packs/ccb-rev21.js";
+import { LZZ_GAL_5 } from "./packs/lzz-gal5.js";
+import { LZZ_PHIL_4 } from "./packs/lzz-phil4.js";
+import { LZZ_1COR_13 } from "./packs/lzz-1cor13.js";
+import { LZZ_EPH_2 } from "./packs/lzz-eph2.js";
+import { LZZ_COL_3 } from "./packs/lzz-col3.js";
+import { LZZ_JAMES_1 } from "./packs/lzz-james1.js";
+import { LZZ_MATT_28 } from "./packs/lzz-matt28.js";
+import { LZZ_REV_21 } from "./packs/lzz-rev21.js";
+import { SHINKAIYAKU_GAL_5 } from "./packs/shinkaiyaku-gal5.js";
+import { SHINKAIYAKU_PHIL_4 } from "./packs/shinkaiyaku-phil4.js";
+import { SHINKAIYAKU_1COR_13 } from "./packs/shinkaiyaku-1cor13.js";
+import { SHINKAIYAKU_EPH_2 } from "./packs/shinkaiyaku-eph2.js";
+import { SHINKAIYAKU_COL_3 } from "./packs/shinkaiyaku-col3.js";
+import { SHINKAIYAKU_JAMES_1 } from "./packs/shinkaiyaku-james1.js";
+import { SHINKAIYAKU_MATT_28 } from "./packs/shinkaiyaku-matt28.js";
+import { SHINKAIYAKU_REV_21 } from "./packs/shinkaiyaku-rev21.js";
+import { SHIN_KYOUDOU_GAL_5 } from "./packs/shin-kyoudou-gal5.js";
+import { SHIN_KYOUDOU_PHIL_4 } from "./packs/shin-kyoudou-phil4.js";
+import { SHIN_KYOUDOU_1COR_13 } from "./packs/shin-kyoudou-1cor13.js";
+import { SHIN_KYOUDOU_EPH_2 } from "./packs/shin-kyoudou-eph2.js";
+import { SHIN_KYOUDOU_COL_3 } from "./packs/shin-kyoudou-col3.js";
+import { SHIN_KYOUDOU_JAMES_1 } from "./packs/shin-kyoudou-james1.js";
+import { SHIN_KYOUDOU_MATT_28 } from "./packs/shin-kyoudou-matt28.js";
+import { SHIN_KYOUDOU_REV_21 } from "./packs/shin-kyoudou-rev21.js";
 import { WEB_MARK_1 } from "./packs/web-mark1.js";
 import { KJV_MARK_1 } from "./packs/kjv-mark1.js";
 import { ASV_MARK_1 } from "./packs/asv-mark1.js";
@@ -558,7 +607,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   },
   cuvt: {
     john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3, 14: CUVT_JOHN_14, 15: CUVT_JOHN_15 },
-    matt: { 5: CUVT_MATT_5, 6: CUVT_MATT_6 },
+    matt: { 5: CUVT_MATT_5, 6: CUVT_MATT_6, 28: CUVT_MATT_28 },
     gen: { 1: CUVT_GEN_1 },
     ps: { 1: CUVT_PSALM_1, 23: CUVT_PSALM_23 },
     prov: { 3: CUVT_PROV_3 },
@@ -570,6 +619,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     mark: { 1: CUVT_MARK_1 },
     exod: { 20: CUVT_EXOD_20 },
     luke: { 2: CUVT_LUKE_2 },
+    gal: { 5: CUVT_GAL_5 },
+    phil: { 4: CUVT_PHIL_4 },
+    "1cor": { 13: CUVT_1COR_13 },
+    rev: { 21: CUVT_REV_21 },
+    jas: { 1: CUVT_JAMES_1 },
+    col: { 3: CUVT_COL_3 },
+    eph: { 2: CUVT_EPH_2 },
     deut: { 6: CUVT_DEUT_6 },
   },
   cuvs: {
@@ -598,7 +654,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
 
   rcuv: {
     john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3, 14: RCUV_JOHN_14, 15: RCUV_JOHN_15 },
-    matt: { 5: RCUV_MATT_5, 6: RCUV_MATT_6 },
+    matt: { 5: RCUV_MATT_5, 6: RCUV_MATT_6, 28: RCUV_MATT_28 },
     gen: { 1: RCUV_GEN_1 },
     ps: { 1: RCUV_PSALM_1, 23: RCUV_PSALM_23 },
     prov: { 3: RCUV_PROV_3 },
@@ -610,6 +666,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     mark: { 1: RCUV_MARK_1 },
     exod: { 20: RCUV_EXOD_20 },
     luke: { 2: RCUV_LUKE_2 },
+    gal: { 5: RCUV_GAL_5 },
+    phil: { 4: RCUV_PHIL_4 },
+    "1cor": { 13: RCUV_1COR_13 },
+    rev: { 21: RCUV_REV_21 },
+    jas: { 1: RCUV_JAMES_1 },
+    col: { 3: RCUV_COL_3 },
+    eph: { 2: RCUV_EPH_2 },
     deut: { 6: RCUV_DEUT_6 },
   },
   shinkaiyaku: {
@@ -620,7 +683,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
       14: SHINKAIYAKU_JOHN_14,
       15: SHINKAIYAKU_JOHN_15,
     },
-    matt: { 5: SHINKAIYAKU_MATT_5, 6: SHINKAIYAKU_MATT_6 },
+    matt: { 5: SHINKAIYAKU_MATT_5, 6: SHINKAIYAKU_MATT_6, 28: SHINKAIYAKU_MATT_28 },
     gen: { 1: SHINKAIYAKU_GEN_1 },
     ps: { 1: SHINKAIYAKU_PSALM_1, 23: SHINKAIYAKU_PSALM_23 },
     prov: { 3: SHINKAIYAKU_PROV_3 },
@@ -632,6 +695,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     mark: { 1: SHINKAIYAKU_MARK_1 },
     exod: { 20: SHINKAIYAKU_EXOD_20 },
     luke: { 2: SHINKAIYAKU_LUKE_2 },
+    gal: { 5: SHINKAIYAKU_GAL_5 },
+    phil: { 4: SHINKAIYAKU_PHIL_4 },
+    "1cor": { 13: SHINKAIYAKU_1COR_13 },
+    rev: { 21: SHINKAIYAKU_REV_21 },
+    jas: { 1: SHINKAIYAKU_JAMES_1 },
+    col: { 3: SHINKAIYAKU_COL_3 },
+    eph: { 2: SHINKAIYAKU_EPH_2 },
     deut: { 6: SHINKAIYAKU_DEUT_6 },
   },
   shinKyoudou: {
@@ -642,7 +712,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
       14: SHIN_KYOUDOU_JOHN_14,
       15: SHIN_KYOUDOU_JOHN_15,
     },
-    matt: { 5: SHIN_KYOUDOU_MATT_5, 6: SHIN_KYOUDOU_MATT_6 },
+    matt: { 5: SHIN_KYOUDOU_MATT_5, 6: SHIN_KYOUDOU_MATT_6, 28: SHIN_KYOUDOU_MATT_28 },
     gen: { 1: SHIN_KYOUDOU_GEN_1 },
     ps: { 1: SHIN_KYOUDOU_PSALM_1, 23: SHIN_KYOUDOU_PSALM_23 },
     prov: { 3: SHIN_KYOUDOU_PROV_3 },
@@ -654,11 +724,18 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     mark: { 1: SHIN_KYOUDOU_MARK_1 },
     exod: { 20: SHIN_KYOUDOU_EXOD_20 },
     luke: { 2: SHIN_KYOUDOU_LUKE_2 },
+    gal: { 5: SHIN_KYOUDOU_GAL_5 },
+    phil: { 4: SHIN_KYOUDOU_PHIL_4 },
+    "1cor": { 13: SHIN_KYOUDOU_1COR_13 },
+    rev: { 21: SHIN_KYOUDOU_REV_21 },
+    jas: { 1: SHIN_KYOUDOU_JAMES_1 },
+    col: { 3: SHIN_KYOUDOU_COL_3 },
+    eph: { 2: SHIN_KYOUDOU_EPH_2 },
     deut: { 6: SHIN_KYOUDOU_DEUT_6 },
   },
   ccb: {
     john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14, 15: CCB_JOHN_15 },
-    matt: { 5: CCB_MATT_5, 6: CCB_MATT_6 },
+    matt: { 5: CCB_MATT_5, 6: CCB_MATT_6, 28: CCB_MATT_28 },
     gen: { 1: CCB_GEN_1 },
     ps: { 1: CCB_PSALM_1, 23: CCB_PSALM_23 },
     prov: { 3: CCB_PROV_3 },
@@ -670,11 +747,18 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     mark: { 1: CCB_MARK_1 },
     exod: { 20: CCB_EXOD_20 },
     luke: { 2: CCB_LUKE_2 },
+    gal: { 5: CCB_GAL_5 },
+    phil: { 4: CCB_PHIL_4 },
+    "1cor": { 13: CCB_1COR_13 },
+    rev: { 21: CCB_REV_21 },
+    jas: { 1: CCB_JAMES_1 },
+    col: { 3: CCB_COL_3 },
+    eph: { 2: CCB_EPH_2 },
     deut: { 6: CCB_DEUT_6 },
   },
   lzz: {
     john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3, 14: LZZ_JOHN_14, 15: LZZ_JOHN_15 },
-    matt: { 5: LZZ_MATT_5, 6: LZZ_MATT_6 },
+    matt: { 5: LZZ_MATT_5, 6: LZZ_MATT_6, 28: LZZ_MATT_28 },
     gen: { 1: LZZ_GEN_1 },
     ps: { 1: LZZ_PSALM_1, 23: LZZ_PSALM_23 },
     prov: { 3: LZZ_PROV_3 },
@@ -686,6 +770,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     mark: { 1: LZZ_MARK_1 },
     exod: { 20: LZZ_EXOD_20 },
     luke: { 2: LZZ_LUKE_2 },
+    gal: { 5: LZZ_GAL_5 },
+    phil: { 4: LZZ_PHIL_4 },
+    "1cor": { 13: LZZ_1COR_13 },
+    rev: { 21: LZZ_REV_21 },
+    jas: { 1: LZZ_JAMES_1 },
+    col: { 3: LZZ_COL_3 },
+    eph: { 2: LZZ_EPH_2 },
     deut: { 6: LZZ_DEUT_6 },
   },
 };
