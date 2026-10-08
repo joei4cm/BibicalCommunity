@@ -4,6 +4,7 @@ import {
   createSignalClient,
   LibsignalNotConfiguredError,
   LibsignalSignalClient,
+  probeLibsignalPackage,
   resolveSignalBackend,
 } from "./libsignal.js";
 
@@ -34,4 +35,16 @@ test("resolveSignalBackend respects prefer and env", () => {
   assert.equal(resolveSignalBackend(), "webcrypto");
   if (prev === undefined) delete g.LOGOSHOME_SIGNAL_BACKEND;
   else g.LOGOSHOME_SIGNAL_BACKEND = prev;
+});
+
+test("probeLibsignalPackage reports availability without enabling backend", async () => {
+  const probe = await probeLibsignalPackage();
+  assert.equal(probe.packageName, "@signalapp/libsignal-client");
+  assert.equal(typeof probe.available, "boolean");
+  if (!probe.available) assert.ok((probe.reason ?? "").length > 0);
+  // Probe must not change fail-closed factory behavior.
+  await assert.rejects(
+    () => createSignalClient("libsignal").generateIdentity(),
+    LibsignalNotConfiguredError,
+  );
 });

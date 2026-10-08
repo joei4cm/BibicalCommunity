@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Prove Signal backend resolve + libsignal fail-closed seam.
+ * Prove Signal backend resolve + libsignal fail-closed seam + package probe.
  * Production Curve25519 remains OPEN until @signalapp/libsignal-client is wired.
  */
 import {
   createSignalClient,
   LibsignalNotConfiguredError,
   LibsignalSignalClient,
+  probeLibsignalPackage,
   resolveSignalBackend,
   WebCryptoSignalClient,
 } from "../packages/crypto/dist/index.js";
@@ -39,6 +40,15 @@ try {
   threw = e instanceof LibsignalNotConfiguredError;
 }
 if (!threw) throw new Error("libsignal must fail closed with LibsignalNotConfiguredError");
+
+const probe = await probeLibsignalPackage();
+if (probe.available) {
+  console.log("LIBSIGNAL_PACKAGE_PROBE_OK package=" + probe.packageName);
+} else {
+  // Expected in this tree until the production package is provisioned.
+  console.log("LIBSIGNAL_PACKAGE_PROBE_OPEN package=" + probe.packageName);
+  console.log("LIBSIGNAL_PACKAGE_PROBE_REASON=" + (probe.reason ?? "unavailable").slice(0, 160));
+}
 
 console.log("LIBSIGNAL_SEAM_FAIL_CLOSED_OK");
 console.log("SIGNAL_BACKEND_RESOLVE_OK");
