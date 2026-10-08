@@ -119,7 +119,23 @@ import { RCUV_ROM_8 } from "./packs/rcuv-rom8.js";
 import { RCUV_ROM_12 } from "./packs/rcuv-rom12.js";
 import { RCUV_1JOHN_4 } from "./packs/rcuv-1john4.js";
 import { CCB_JOHN_14 } from "./packs/ccb-john14.js";
+import { CCB_JOHN_15 } from "./packs/ccb-john15.js";
+import { CCB_MATT_5 } from "./packs/ccb-matt5.js";
+import { CCB_MATT_6 } from "./packs/ccb-matt6.js";
+import { CCB_GEN_1 } from "./packs/ccb-gen1.js";
+import { CCB_PSALM_23 } from "./packs/ccb-ps23.js";
+import { CCB_ROM_8 } from "./packs/ccb-rom8.js";
+import { CCB_ROM_12 } from "./packs/ccb-rom12.js";
+import { CCB_1JOHN_4 } from "./packs/ccb-1john4.js";
 import { LZZ_JOHN_14 } from "./packs/lzz-john14.js";
+import { LZZ_JOHN_15 } from "./packs/lzz-john15.js";
+import { LZZ_MATT_5 } from "./packs/lzz-matt5.js";
+import { LZZ_MATT_6 } from "./packs/lzz-matt6.js";
+import { LZZ_GEN_1 } from "./packs/lzz-gen1.js";
+import { LZZ_PSALM_23 } from "./packs/lzz-ps23.js";
+import { LZZ_ROM_8 } from "./packs/lzz-rom8.js";
+import { LZZ_ROM_12 } from "./packs/lzz-rom12.js";
+import { LZZ_1JOHN_4 } from "./packs/lzz-1john4.js";
 import { SHINKAIYAKU_JOHN_14 } from "./packs/shinkaiyaku-john14.js";
 import { SHINKAIYAKU_JOHN_15 } from "./packs/shinkaiyaku-john15.js";
 import { SHINKAIYAKU_MATT_5 } from "./packs/shinkaiyaku-matt5.js";
@@ -553,10 +569,20 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     "1john": { 4: SHIN_KYOUDOU_1JOHN_4 },
   },
   ccb: {
-    john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14 },
+    john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14, 15: CCB_JOHN_15 },
+    matt: { 5: CCB_MATT_5, 6: CCB_MATT_6 },
+    gen: { 1: CCB_GEN_1 },
+    ps: { 23: CCB_PSALM_23 },
+    rom: { 8: CCB_ROM_8, 12: CCB_ROM_12 },
+    "1john": { 4: CCB_1JOHN_4 },
   },
   lzz: {
-    john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3, 14: LZZ_JOHN_14 },
+    john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3, 14: LZZ_JOHN_14, 15: LZZ_JOHN_15 },
+    matt: { 5: LZZ_MATT_5, 6: LZZ_MATT_6 },
+    gen: { 1: LZZ_GEN_1 },
+    ps: { 23: LZZ_PSALM_23 },
+    rom: { 8: LZZ_ROM_8, 12: LZZ_ROM_12 },
+    "1john": { 4: LZZ_1JOHN_4 },
   },
 };
 

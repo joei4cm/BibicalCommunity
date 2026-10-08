@@ -900,6 +900,30 @@ test("loadChapter returns zh/ja Matthew.5 Beatitudes scaffolds (cuvs/kougo)", as
   assert.match(kougo5.verses.find((v) => v.verse === 9)?.text ?? "", /平和|神の子/);
 });
 
+test("loadChapter returns ccb/lzz key-chapter scaffolds", async () => {
+  for (const tid of ["ccb", "lzz"] as const) {
+    const matt5 = await loadChapter(tid, { book: "Matt", chapter: 5 });
+    assert.ok(!("external" in matt5), tid);
+    assert.match(matt5.verses.find((v) => v.verse === 3)?.text ?? "", /有福|天国/);
+
+    const rom8 = await loadChapter(tid, { book: "Rom", chapter: 8 });
+    assert.ok(!("external" in rom8), tid);
+    assert.match(rom8.verses.find((v) => v.verse === 1)?.text ?? "", /基督耶稣|不定罪|不被定罪/);
+
+    const jn15 = await loadChapter(tid, { book: "John", chapter: 15 });
+    assert.ok(!("external" in jn15), tid);
+    assert.match(jn15.verses.find((v) => v.verse === 5)?.text ?? "", /葡萄树|枝子/);
+
+    const jn4 = await loadChapter(tid, { book: "1John", chapter: 4 });
+    assert.ok(!("external" in jn4), tid);
+    assert.match(jn4.verses.find((v) => v.verse === 8)?.text ?? "", /上帝就是爱|神就是爱|上帝就是愛/);
+
+    const ps23 = await loadChapter(tid, { book: "Ps", chapter: 23 });
+    assert.ok(!("external" in ps23), tid);
+    assert.match(ps23.verses.find((v) => v.verse === 1)?.text ?? "", /牧者|耶和华|永恒主/);
+  }
+});
+
 test("loadChapter returns expanded rcuv key-chapter scaffolds", async () => {
   const matt5 = await loadChapter("rcuv", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in matt5));
