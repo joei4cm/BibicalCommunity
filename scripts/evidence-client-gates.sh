@@ -59,8 +59,9 @@ echo "SCREEN_SHARE_GATE_OK"
 echo "== curve25519 x25519 path =="
 bash scripts/smoke-curve25519.sh
 
-echo "== corpus scaffold inventory + devotion packs =="
+echo "== corpus scaffold inventory + corpus/devotion packs =="
 bash scripts/smoke-corpus-inventory.sh
+bash scripts/smoke-corpus-packs.sh
 bash scripts/smoke-devotion-packs.sh
 echo "== translation resolve path (every registry id) =="
 bash scripts/smoke-translation-resolve.sh

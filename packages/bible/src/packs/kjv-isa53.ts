@@ -1,8 +1,12 @@
-/** Public-domain sample: KJV Isaiah 53 (excerpt for dual-pane scaffold). */
+/** Public-domain: KJV Isaiah 53 (servant song vv.1–12 for dual-pane / offline). */
 export const KJV_ISA_53: { verse: number; text: string }[] = [
   {
     verse: 1,
     text: "Who hath believed our report? and to whom is the arm of the LORD revealed?",
+  },
+  {
+    verse: 2,
+    text: "For he shall grow up before him as a tender plant, and as a root out of a dry ground: he hath no form nor comeliness; and when we shall see him, there is no beauty that we should desire him.",
   },
   {
     verse: 3,
@@ -19,5 +23,29 @@ export const KJV_ISA_53: { verse: number; text: string }[] = [
   {
     verse: 6,
     text: "All we like sheep have gone astray; we have turned every one to his own way; and the LORD hath laid on him the iniquity of us all.",
+  },
+  {
+    verse: 7,
+    text: "He was oppressed, and he was afflicted, yet he opened not his mouth: he is brought as a lamb to the slaughter, and as a sheep before her shearers is dumb, so he openeth not his mouth.",
+  },
+  {
+    verse: 8,
+    text: "He was taken from prison and from judgment: and who shall declare his generation? for he was cut off out of the land of the living: for the transgression of my people was he stricken.",
+  },
+  {
+    verse: 9,
+    text: "And he made his grave with the wicked, and with the rich in his death; because he had done no violence, neither was any deceit in his mouth.",
+  },
+  {
+    verse: 10,
+    text: "Yet it pleased the LORD to bruise him; he hath put him to grief: when thou shalt make his soul an offering for sin, he shall see his seed, he shall prolong his days, and the pleasure of the LORD shall prosper in his hand.",
+  },
+  {
+    verse: 11,
+    text: "He shall see of the travail of his soul, and shall be satisfied: by his knowledge shall my righteous servant justify many; for he shall bear their iniquities.",
+  },
+  {
+    verse: 12,
+    text: "Therefore will I divide him a portion with the great, and he shall divide the spoil with the strong; because he hath poured out his soul unto death: and he was numbered with the transgressors; and he bare the sin of many, and made intercession for the transgressors.",
   },
 ];

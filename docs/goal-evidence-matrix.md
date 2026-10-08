@@ -8,7 +8,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** (polyfill+note+session+x25519) | PARTIAL — PWA+automated WebCrypto gate PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; scaffolds through John.15/Rev.21 + Jas.1/Col.3 + Matt.28/Eph.2 + John.14/Rom.12/1John.4; **WEB/KJV/ASV John.3 vv.1–21** + **Rom.8 vv.1–17(+28/31/38–39)** denser PD; `MULTI_BOOK_*` + **`CORPUS_SCAFFOLD_INVENTORY_OK`** + **`TRANSLATION_RESOLVE_PATH_OK`** | PARTIAL — catalog + denser PD John.3/Rom.8 + resolve path PASS; full licensed corpora OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; scaffolds through John.15/Rev.21 + Jas.1/Col.3 + Matt.28/Eph.2 + John.14/Rom.12/1John.4; denser PD **John.3** / **Rom.8** / **Isa.53 vv.1–12**; **`CORPUS_PACK_PIPELINE_OK`** (local scaffolds + R2 licensed stubs); `MULTI_BOOK_*` + **`CORPUS_SCAFFOLD_INVENTORY_OK`** + **`TRANSLATION_RESOLVE_PATH_OK`** | PARTIAL — catalog + denser PD + corpus-pack pipeline PASS; full licensed R2 corpora OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
@@ -35,6 +35,7 @@ bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK
 bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-token)
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
 bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK / DEVOTION_MATERIALS_OK
+bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (local + R2 licensed stubs)
 bash scripts/smoke-translation-resolve.sh # TRANSLATION_RESOLVE_PATH_OK (every registry id)
 bash scripts/smoke-curve25519.sh       # CURVE25519_X25519_OK
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK

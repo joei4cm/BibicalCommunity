@@ -420,18 +420,25 @@ test("loadChapter returns PD Isaiah.53 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Isa");
   assert.equal(web.chapter, 53);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 12);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 12);
   assert.match(web.verses[0]?.text ?? "", /believed our message|Yahweh's arm/i);
   assert.match(web.verses.find((v) => v.verse === 5)?.text ?? "", /pierced for our transgressions|wounds we are healed/i);
+  assert.match(web.verses.find((v) => v.verse === 7)?.text ?? "", /lamb|slaughter/i);
 
   const kjv = await loadChapter("kjv", { book: "Isaiah", chapter: 53 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Isa");
+  assert.ok(kjv.verses.length >= 12);
   assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /wounded for our transgressions|stripes we are healed/i);
+  assert.match(kjv.verses.find((v) => v.verse === 12)?.text ?? "", /intercession for the transgressors/i);
 
   const asv = await loadChapter("asv", { book: "isa", chapter: 53 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 12);
   assert.match(asv.verses.find((v) => v.verse === 6)?.text ?? "", /sheep have gone astray|iniquity of us all/i);
+  assert.match(asv.verses.find((v) => v.verse === 11)?.text ?? "", /justify many|iniquities/i);
 });
 
 test("loadChapter returns PD Acts.2 scaffolds (web/kjv/asv)", async () => {

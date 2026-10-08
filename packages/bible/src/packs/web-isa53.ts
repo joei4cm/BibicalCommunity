@@ -1,8 +1,12 @@
-/** Public-domain sample: WEB Isaiah 53 (excerpt for dual-pane scaffold). */
+/** Public-domain: WEB Isaiah 53 (servant song vv.1–12 for dual-pane / offline). */
 export const WEB_ISA_53: { verse: number; text: string }[] = [
   {
     verse: 1,
     text: "Who has believed our message? To whom has Yahweh's arm been revealed?",
+  },
+  {
+    verse: 2,
+    text: "For he grew up before him as a tender plant, and as a root out of dry ground. He has no good looks or majesty. When we see him, there is no beauty that we should desire him.",
   },
   {
     verse: 3,
@@ -19,5 +23,29 @@ export const WEB_ISA_53: { verse: number; text: string }[] = [
   {
     verse: 6,
     text: "All we like sheep have gone astray. Everyone has turned to his own way; and Yahweh has laid on him the iniquity of us all.",
+  },
+  {
+    verse: 7,
+    text: "He was oppressed, yet when he was afflicted he didn't open his mouth. As a lamb that is led to the slaughter, and as a sheep that before its shearers is silent, so he didn't open his mouth.",
+  },
+  {
+    verse: 8,
+    text: "He was taken away by oppression and judgment. As for his generation, who considered that he was cut off out of the land of the living and stricken for the disobedience of my people?",
+  },
+  {
+    verse: 9,
+    text: "They made his grave with the wicked, and with a rich man in his death, although he had done no violence, nor was any deceit in his mouth.",
+  },
+  {
+    verse: 10,
+    text: "Yet it pleased Yahweh to bruise him. He has caused him to suffer. When you make his soul an offering for sin, he will see his offspring. He will prolong his days and Yahweh's pleasure will prosper in his hand.",
+  },
+  {
+    verse: 11,
+    text: "After the suffering of his soul, he will see the light and be satisfied. My righteous servant will justify many by the knowledge of himself; and he will bear their iniquities.",
+  },
+  {
+    verse: 12,
+    text: "Therefore I will give him a portion with the great. He will divide the plunder with the strong; because he poured out his soul to death and was numbered with the transgressors; yet he bore the sins of many and made intercession for the transgressors.",
   },
 ];
