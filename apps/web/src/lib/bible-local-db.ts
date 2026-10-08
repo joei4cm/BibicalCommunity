@@ -24,9 +24,10 @@ function enrichSparseChaptersFromDemo(
   translationId: string,
   chapters: R2ChapterJson[],
 ): R2ChapterJson[] {
-  const demoByKey = new Map(
-    buildDemoDownloadPack(translationId).chapters.map((c) => [`${c.book}.${c.chapter}`, c] as const),
-  );
+  const demoByKey = new Map<string, R2ChapterJson>();
+  for (const c of buildDemoDownloadPack(translationId).chapters) {
+    demoByKey.set(`${c.book}.${c.chapter}`, c);
+  }
   const seen = new Set<string>();
   const merged = chapters.map((ch) => {
     const key = `${ch.book}.${ch.chapter}`;
