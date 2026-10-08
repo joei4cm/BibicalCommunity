@@ -8,6 +8,8 @@ import {
   listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
+  type DownloadableCorpusPack,
+  type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
 import { api, getToken } from "../lib/api";
@@ -198,6 +200,11 @@ export function BibleReader() {
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [installedByTid, setInstalledByTid] = useState<
+    Record<string, InstalledTranslationSummary>
+  >({});
+  const [downloadingTid, setDownloadingTid] = useState<string | null>(null);
   const translations = listTranslations();
   const locale = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
   const bookNameLocale = bookLocaleKey(i18n.language || "zh-CN");
@@ -211,7 +218,24 @@ export function BibleReader() {
     () => listStudyMaterials({ language: bookNameLocale }),
     [bookNameLocale],
   );
+  const corpusCatalog = useMemo(() => listDownloadableCorpusCatalog(), []);
   const readerFont = serif ? "var(--lh-font-reader)" : "var(--lh-font-ui)";
+
+  const refreshInstalledCorpus = useCallback(async () => {
+    try {
+      const rows = await bibleLocalDb.listInstalled();
+      const map: Record<string, InstalledTranslationSummary> = {};
+      for (const row of rows) map[row.translationId] = row;
+      setInstalledByTid(map);
+    } catch {
+      setInstalledByTid({});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showCatalog) return;
+    void refreshInstalledCorpus();
+  }, [showCatalog, refreshInstalledCorpus]);
 
   useEffect(() => {
     void ensureBootCorpusSeeded(async (tid) => {
@@ -389,9 +413,10 @@ export function BibleReader() {
   }
 
   /** Download translation pack from API → install into IndexedDB local corpus DB (paged). */
-  async function downloadCorpusPack() {
+  async function downloadCorpusPack(targetTid = translationId) {
     try {
       setError(null);
+      setDownloadingTid(targetTid);
       let after: string | null = null;
       let installedTotal = 0;
       let pages = 0;
@@ -406,13 +431,13 @@ export function BibleReader() {
           nextAfter?: string | null;
           totalChapterKeys?: number;
           error?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(translationId)}?${qs.toString()}`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?${qs.toString()}`);
         if (!pack.chapters?.length && pages === 0) {
           setError("corpus_download_empty");
           return;
         }
         if (pack.chapters?.length) {
-          const { installed } = await installDownloadedPack(translationId, pack.chapters);
+          const { installed } = await installDownloadedPack(targetTid, pack.chapters);
           installedTotal += installed;
         }
         pages += 1;
@@ -422,21 +447,31 @@ export function BibleReader() {
         if (pack.done !== false || !pack.nextAfter) break;
         after = pack.nextAfter;
       }
-      setCorpusHint(`${t("reader.corpusLocalDb")} · ${installedTotal}`);
-      // Reload chapter from local DB.
-      const local = await readLocalChapter(translationId, bookId, chapterNum);
-      if (local) {
-        setChapter({
-          translationId,
-          book: local.book,
-          chapter: local.chapter,
-          verses: local.verses,
-          source: "local-db",
-        });
+      await refreshInstalledCorpus();
+      if (targetTid === translationId) {
+        setCorpusHint(`${t("reader.corpusLocalDb")} · ${installedTotal}`);
+        const local = await readLocalChapter(translationId, bookId, chapterNum);
+        if (local) {
+          setChapter({
+            translationId,
+            book: local.book,
+            chapter: local.chapter,
+            verses: local.verses,
+            source: "local-db",
+          });
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "error");
+    } finally {
+      setDownloadingTid(null);
     }
+  }
+
+  function catalogModeLabel(mode: DownloadableCorpusPack["installMode"]): string {
+    if (mode === "boot") return t("reader.corpusCatalogBoot");
+    if (mode === "download") return t("reader.corpusCatalogDownload");
+    return t("reader.corpusCatalogExternal");
   }
 
   async function addBookmark() {
@@ -563,15 +598,91 @@ export function BibleReader() {
           type="button"
           className="btn ghost"
           data-testid="reader-corpus-download"
+          disabled={downloadingTid === translationId}
           onClick={() => void downloadCorpusPack()}
         >
-          {t("reader.corpusDownload")}
+          {downloadingTid === translationId
+            ? t("reader.corpusCatalogDownloading")
+            : t("reader.corpusDownload")}
+        </button>
+        <button
+          type="button"
+          className={`btn ghost${showCatalog ? " active-toggle" : ""}`}
+          data-testid="reader-corpus-catalog-toggle"
+          onClick={() => setShowCatalog((v) => !v)}
+        >
+          {t("reader.corpusCatalog")}
         </button>
       </div>
       {corpusHint ? (
         <p className="muted" data-testid="reader-corpus-hint">
           {corpusHint}
         </p>
+      ) : null}
+
+      {showCatalog ? (
+        <div className="panel" data-testid="reader-corpus-catalog">
+          <h2 style={{ marginTop: 0 }}>{t("reader.corpusCatalog")}</h2>
+          <p className="muted">{t("reader.corpusCatalogHint")}</p>
+          <ul className="list">
+            {corpusCatalog.map((pack) => {
+              const installed = installedByTid[pack.translationId];
+              const busy = downloadingTid === pack.translationId;
+              const active = pack.translationId === translationId;
+              return (
+                <li key={pack.translationId} data-testid={`corpus-catalog-row-${pack.translationId}`}>
+                  <div className="corpus-catalog-row">
+                    <div className="corpus-catalog-meta">
+                      <strong>
+                        {pack.name[locale] ?? pack.translationId}
+                        {active ? " · ★" : ""}
+                      </strong>
+                      <span className="muted">
+                        {catalogModeLabel(pack.installMode)}
+                        {installed
+                          ? ` · ${t("reader.corpusCatalogInstalled")} ${installed.chapterCount} ${t("reader.corpusCatalogChapters")}`
+                          : pack.installMode !== "external"
+                            ? ` · ${pack.chapterRefs.length} ${t("reader.corpusCatalogChapters")}`
+                            : ""}
+                        {pack.fullPackAvailable && pack.fullPackChapterCount
+                          ? ` · ${t("reader.corpusCatalogFullPack")} ${pack.fullPackChapterCount}`
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="corpus-catalog-actions">
+                      {pack.installMode !== "external" ? (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          data-testid={`corpus-catalog-download-${pack.translationId}`}
+                          disabled={busy}
+                          onClick={() => void downloadCorpusPack(pack.translationId)}
+                        >
+                          {busy
+                            ? t("reader.corpusCatalogDownloading")
+                            : pack.fullPackAvailable
+                              ? t("reader.corpusDownloadFull")
+                              : t("reader.corpusDownload")}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        data-testid={`corpus-catalog-open-${pack.translationId}`}
+                        onClick={() => {
+                          setTranslationId(pack.translationId);
+                          setShowCatalog(false);
+                        }}
+                      >
+                        {t("reader.corpusCatalogOpen")}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : null}
 
       <div className="panel typography-panel">
