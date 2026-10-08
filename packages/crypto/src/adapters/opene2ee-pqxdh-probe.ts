@@ -10,9 +10,6 @@
  * LogosHome explicitly adopts OpenE2EE as the Workers protocol.
  */
 
-import { createRequire } from "node:module";
-import { dirname } from "node:path";
-import { pathToFileURL } from "node:url";
 import { isWorkersOrBrowserRuntime } from "./libsignal.js";
 
 export type OpenE2eePqxdhProbe = {
@@ -37,7 +34,27 @@ type HandshakeMod = {
   }>;
 };
 
+/**
+ * Load OpenE2EE internal handshake without static `node:` imports.
+ * Web tsconfig sets `types: ["vite/client"]` (no @types/node); static
+ * `node:module`/`node:path`/`node:url` imports break `pnpm --filter web build`.
+ */
 async function loadHandshake(): Promise<HandshakeMod> {
+  // Dynamic string specs keep this file typecheck-clean for browser consumers.
+  const nodeModule = ["node", "module"].join(":");
+  const nodePath = ["node", "path"].join(":");
+  const nodeUrl = ["node", "url"].join(":");
+  const { createRequire } = (await import(/* @vite-ignore */ nodeModule)) as {
+    createRequire: (url: string | URL) => {
+      resolve: (id: string) => string;
+    };
+  };
+  const { dirname } = (await import(/* @vite-ignore */ nodePath)) as {
+    dirname: (p: string) => string;
+  };
+  const { pathToFileURL } = (await import(/* @vite-ignore */ nodeUrl)) as {
+    pathToFileURL: (p: string) => { href: string };
+  };
   const require = createRequire(import.meta.url);
   const pkgJson = require.resolve("@open-e2ee/signal-protocol-sdk/package.json");
   const root = dirname(pkgJson);
