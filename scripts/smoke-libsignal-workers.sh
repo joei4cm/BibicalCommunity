@@ -155,12 +155,18 @@ console.log(
     }
     const as = await client.establishSession(a.privateState, b.publicBundle);
     const bs = await client.establishSession(b.privateState, a.publicBundle);
-    const enc = await client.encrypt(as, "opene2ee-product-workers");
-    if ((await client.decrypt(bs, enc)) !== "opene2ee-product-workers") {
+    const { pickProductChatRoles } = await import("./packages/crypto/dist/index.js");
+    const { initiator, responder } = pickProductChatRoles(as, bs);
+    const enc = await client.encrypt(initiator, "opene2ee-product-workers");
+    const header = JSON.parse(decodeURIComponent(escape(atob(enc.ratchetHeader))));
+    if (!header.usedPQXDH || !header.prekey) {
+      throw new Error("expected PQXDH prekey on first product ciphertext");
+    }
+    if ((await client.decrypt(responder, enc)) !== "opene2ee-product-workers") {
       throw new Error("OpenE2EE product roundtrip mismatch");
     }
     console.log(
-      "LIBSIGNAL_OPENE2EE_PRODUCT_OK backend=opene2ee workersShaped=true default=1 kyberBundle=1 roundtrip=1",
+      "LIBSIGNAL_OPENE2EE_PRODUCT_OK backend=opene2ee workersShaped=true default=1 kyberBundle=1 pqxdh=1 roundtrip=1",
     );
   } finally {
     if (prevPair === undefined) delete g.WebSocketPair;
