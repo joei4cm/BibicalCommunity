@@ -92,3 +92,32 @@ console.log(`SEED_KEY_CHAPTERS_FROM_PACKS_OK seeded=${seeded} skipped=${skipped}
 if (seeded < 150) {
   throw new Error(`expected >=150 seeded key chapters, got ${seeded}`);
 }
+
+/** Prove denser scaffolds land in pack→R2 seed (min verse floors after #45/#46). */
+const DENSER_FLOORS = [
+  { book: "Acts", chapter: 2, min: 9 },
+  { book: "Ps", chapter: 1, min: 6 },
+  { book: "Prov", chapter: 3, min: 8 },
+  { book: "Matt", chapter: 28, min: 15 },
+  { book: "Eph", chapter: 2, min: 10 },
+  { book: "Col", chapter: 3, min: 10 },
+  { book: "Jas", chapter: 1, min: 11 },
+  { book: "Rev", chapter: 21, min: 7 },
+];
+for (const floor of DENSER_FLOORS) {
+  const sampleTid = tids.includes("cuvs") ? "cuvs" : tids[0];
+  if (!sampleTid) break;
+  const chapter = await loadChapter(sampleTid, { book: floor.book, chapter: floor.chapter });
+  if ("external" in chapter) {
+    throw new Error(`denser floor external tid=${sampleTid} ${floor.book}.${floor.chapter}`);
+  }
+  if ((chapter.verses?.length ?? 0) < floor.min) {
+    throw new Error(
+      `denser floor fail tid=${sampleTid} ${floor.book}.${floor.chapter} got=${chapter.verses?.length ?? 0} min=${floor.min}`,
+    );
+  }
+  console.log(
+    `SEED_DENSER_FLOOR_OK tid=${sampleTid} ref=${floor.book}.${floor.chapter} verses=${chapter.verses.length} min=${floor.min}`,
+  );
+}
+console.log("SEED_DENSER_FLOORS_OK");
