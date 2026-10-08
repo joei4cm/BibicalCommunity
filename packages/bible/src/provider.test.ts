@@ -1328,51 +1328,61 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   assert.ok(!("external" in john14));
   assert.equal(john14.source, "local");
   assert.equal(john14.chapter, 14);
-  assert.ok(john14.verses.length >= 18);
+  assert.ok(john14.verses.length >= 31);
   assert.equal(john14.verses[0]?.verse, 1);
+  assert.equal(john14.verses[john14.verses.length - 1]?.verse, 31);
   assert.match(john14.verses.find((v) => v.verse === 6)?.text ?? "", /way, the truth, and the life/i);
   assert.match(john14.verses.find((v) => v.verse === 16)?.text ?? "", /Counselor|Comforter|Spirit/i);
+  assert.match(john14.verses.find((v) => v.verse === 26)?.text ?? "", /Counselor|Holy Spirit|teach you all/i);
   assert.match(john14.verses.find((v) => v.verse === 27)?.text ?? "", /Peace I leave with you/i);
+  assert.match(john14.verses.find((v) => v.verse === 31)?.text ?? "", /Arise.*go|let's go from here/i);
 
   const kjv14 = await loadChapter("kjv", { book: "John", chapter: 14 });
   assert.ok(!("external" in kjv14));
-  assert.ok(kjv14.verses.length >= 18);
+  assert.ok(kjv14.verses.length >= 31);
   assert.match(kjv14.verses.find((v) => v.verse === 2)?.text ?? "", /mansions|Father's house/i);
+  assert.match(kjv14.verses.find((v) => v.verse === 31)?.text ?? "", /Arise, let us go hence/i);
 
   const asv14 = await loadChapter("asv", { book: "John", chapter: 14 });
   assert.ok(!("external" in asv14));
-  assert.ok(asv14.verses.length >= 18);
+  assert.ok(asv14.verses.length >= 31);
   assert.match(asv14.verses.find((v) => v.verse === 17)?.text ?? "", /Spirit of truth/i);
 
   const cuvs14 = await loadChapter("cuvs", { book: "John", chapter: 14 });
   assert.ok(!("external" in cuvs14));
-  assert.ok(cuvs14.verses.length >= 18);
+  assert.ok(cuvs14.verses.length >= 31);
+  assert.equal(cuvs14.verses[cuvs14.verses.length - 1]?.verse, 31);
   assert.match(cuvs14.verses.find((v) => v.verse === 6)?.text ?? "", /道路|真理|生命/);
   assert.match(cuvs14.verses.find((v) => v.verse === 3)?.text ?? "", /再来|预备/);
   assert.match(cuvs14.verses.find((v) => v.verse === 27)?.text ?? "", /平安|忧愁|胆怯/);
+  assert.match(cuvs14.verses.find((v) => v.verse === 31)?.text ?? "", /样例|起来|走吧/);
   const kougo14 = await loadChapter("kougo", { book: "John", chapter: 14 });
   assert.ok(!("external" in kougo14));
-  assert.ok(kougo14.verses.length >= 18);
+  assert.ok(kougo14.verses.length >= 31);
+  assert.equal(kougo14.verses[kougo14.verses.length - 1]?.verse, 31);
   assert.match(kougo14.verses.find((v) => v.verse === 6)?.text ?? "", /道であり|真理|命である/);
   assert.match(kougo14.verses.find((v) => v.verse === 16)?.text ?? "", /助け主/);
+  assert.match(kougo14.verses.find((v) => v.verse === 31)?.text ?? "", /見本|立て|出かけて/);
 
   const cuvt14 = await loadChapter("cuvt", { book: "John", chapter: 14 });
   assert.ok(!("external" in cuvt14));
-  assert.ok(cuvt14.verses.length >= 18);
+  assert.ok(cuvt14.verses.length >= 31);
   assert.match(cuvt14.verses.find((v) => v.verse === 6)?.text ?? "", /道路|真理|生命/);
   assert.match(cuvt14.verses.find((v) => v.verse === 1)?.text ?? "", /心裏|憂愁|你們/);
 
   for (const tid of ["rcuv", "ccb", "lzz"] as const) {
     const ch = await loadChapter(tid, { book: "John", chapter: 14 });
     assert.ok(!("external" in ch), tid);
-    assert.ok(ch.verses.length >= 18, tid);
+    assert.ok(ch.verses.length >= 31, tid);
+    assert.equal(ch.verses[ch.verses.length - 1]?.verse, 31, tid);
     assert.match(ch.verses.find((v) => v.verse === 6)?.text ?? "", /道路|真理|生命/);
     assert.match(ch.verses.find((v) => v.verse === 16)?.text ?? "", /保惠师|圣灵|圣灵|保惠/);
   }
   for (const tid of ["shinkaiyaku", "shinKyoudou"] as const) {
     const ch = await loadChapter(tid, { book: "John", chapter: 14 });
     assert.ok(!("external" in ch), tid);
-    assert.ok(ch.verses.length >= 18, tid);
+    assert.ok(ch.verses.length >= 31, tid);
+    assert.equal(ch.verses[ch.verses.length - 1]?.verse, 31, tid);
     assert.match(ch.verses.find((v) => v.verse === 6)?.text ?? "", /道であり|真理|いのち|命である/);
   }
 

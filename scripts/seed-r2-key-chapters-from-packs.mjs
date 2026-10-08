@@ -115,6 +115,7 @@ const DENSER_FLOORS = [
   { book: "Matt", chapter: 28, min: 20 },
   { book: "Jas", chapter: 1, min: 27 },
   { book: "Luke", chapter: 2, min: 52 },
+  { book: "John", chapter: 14, min: 31 },
 ];
 for (const floor of DENSER_FLOORS) {
   const sampleTid = tids.includes("cuvs") ? "cuvs" : tids[0];
