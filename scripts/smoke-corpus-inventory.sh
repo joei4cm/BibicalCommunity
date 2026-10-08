@@ -31,10 +31,20 @@ const needRefs = [
   "Col.3",
   "Matt.28",
   "Eph.2",
+  "John.14",
+  "Rom.12",
+  "1John.4",
 ];
 for (const ref of needRefs) {
   if (!inv.some((r) => r.ref === ref && r.translationId === "web")) {
     throw new Error("missing web scaffold " + ref);
+  }
+}
+for (const tid of ["web", "kjv", "asv"]) {
+  for (const ref of ["John.14", "Rom.12", "1John.4"]) {
+    if (!inv.some((r) => r.ref === ref && r.translationId === tid)) {
+      throw new Error("missing PD triad scaffold " + tid + " " + ref);
+    }
   }
 }
 const devotion = listDevotionMaterials();

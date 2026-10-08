@@ -93,6 +93,15 @@ import { KJV_MATT_28 } from "./packs/kjv-matt28.js";
 import { ASV_MATT_28 } from "./packs/asv-matt28.js";
 import { CUVS_MATT_28 } from "./packs/cuvs-matt28.js";
 import { KOUGO_MATT_28 } from "./packs/kougo-matt28.js";
+import { WEB_JOHN_14 } from "./packs/web-john14.js";
+import { KJV_JOHN_14 } from "./packs/kjv-john14.js";
+import { ASV_JOHN_14 } from "./packs/asv-john14.js";
+import { WEB_ROM_12 } from "./packs/web-rom12.js";
+import { KJV_ROM_12 } from "./packs/kjv-rom12.js";
+import { ASV_ROM_12 } from "./packs/asv-rom12.js";
+import { WEB_1JOHN_4 } from "./packs/web-1john4.js";
+import { KJV_1JOHN_4 } from "./packs/kjv-1john4.js";
+import { ASV_1JOHN_4 } from "./packs/asv-1john4.js";
 import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
 import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
 import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
@@ -267,6 +276,16 @@ function normalizeBookKey(book: string): string | null {
   ) {
     return "eph";
   }
+  if (
+    b === "1john" ||
+    b === "1jn" ||
+    b === "1jo" ||
+    book === "约翰一书" ||
+    book === "約翰一書" ||
+    book === "ヨハネの第一の手紙"
+  ) {
+    return "1john";
+  }
   return null;
 }
 
@@ -312,6 +331,8 @@ function canonicalBookId(key: string): string {
       return "Col";
     case "eph":
       return "Eph";
+    case "1john":
+      return "1John";
     default:
       return key;
   }
@@ -323,7 +344,7 @@ function canonicalBookId(key: string): string {
  */
 const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> = {
   web: {
-    john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3, 15: WEB_JOHN_15 },
+    john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3, 14: WEB_JOHN_14, 15: WEB_JOHN_15 },
     gen: { 1: WEB_GEN_1 },
     matt: { 5: WEB_MATT_5, 6: WEB_MATT_6, 28: WEB_MATT_28 },
     gal: { 5: WEB_GAL_5 },
@@ -333,9 +354,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     jas: { 1: WEB_JAMES_1 },
     col: { 3: WEB_COL_3 },
     eph: { 2: WEB_EPH_2 },
+    "1john": { 4: WEB_1JOHN_4 },
     ps: { 1: WEB_PSALM_1, 23: WEB_PSALM_23 },
     prov: { 3: WEB_PROV_3 },
-    rom: { 8: WEB_ROM_8 },
+    rom: { 8: WEB_ROM_8, 12: WEB_ROM_12 },
     heb: { 11: WEB_HEB_11 },
     isa: { 53: WEB_ISA_53 },
     acts: { 2: WEB_ACTS_2 },
@@ -345,7 +367,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     deut: { 6: WEB_DEUT_6 },
   },
   kjv: {
-    john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3, 15: KJV_JOHN_15 },
+    john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3, 14: KJV_JOHN_14, 15: KJV_JOHN_15 },
     gen: { 1: KJV_GEN_1 },
     matt: { 5: KJV_MATT_5, 6: KJV_MATT_6, 28: KJV_MATT_28 },
     gal: { 5: KJV_GAL_5 },
@@ -355,9 +377,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     jas: { 1: KJV_JAMES_1 },
     col: { 3: KJV_COL_3 },
     eph: { 2: KJV_EPH_2 },
+    "1john": { 4: KJV_1JOHN_4 },
     ps: { 1: KJV_PSALM_1, 23: KJV_PSALM_23 },
     prov: { 3: KJV_PROV_3 },
-    rom: { 8: KJV_ROM_8 },
+    rom: { 8: KJV_ROM_8, 12: KJV_ROM_12 },
     heb: { 11: KJV_HEB_11 },
     isa: { 53: KJV_ISA_53 },
     acts: { 2: KJV_ACTS_2 },
@@ -367,7 +390,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     deut: { 6: KJV_DEUT_6 },
   },
   asv: {
-    john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3, 15: ASV_JOHN_15 },
+    john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3, 14: ASV_JOHN_14, 15: ASV_JOHN_15 },
     gen: { 1: ASV_GEN_1 },
     matt: { 5: ASV_MATT_5, 6: ASV_MATT_6, 28: ASV_MATT_28 },
     gal: { 5: ASV_GAL_5 },
@@ -377,9 +400,10 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     jas: { 1: ASV_JAMES_1 },
     col: { 3: ASV_COL_3 },
     eph: { 2: ASV_EPH_2 },
+    "1john": { 4: ASV_1JOHN_4 },
     ps: { 1: ASV_PSALM_1, 23: ASV_PSALM_23 },
     prov: { 3: ASV_PROV_3 },
-    rom: { 8: ASV_ROM_8 },
+    rom: { 8: ASV_ROM_8, 12: ASV_ROM_12 },
     heb: { 11: ASV_HEB_11 },
     isa: { 53: ASV_ISA_53 },
     acts: { 2: ASV_ACTS_2 },

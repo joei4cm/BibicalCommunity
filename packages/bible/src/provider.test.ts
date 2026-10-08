@@ -758,3 +758,22 @@ test("loadChapter returns zh/ja Philippians.4 and 1Corinthians.13 scaffolds", as
   assert.ok(!("external" in kougoCor));
   assert.match(kougoCor.verses.find((v) => v.verse === 13)?.text ?? "", /見本|最も大いなるものは、愛/);
 });
+
+test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)", async () => {
+  const john14 = await loadChapter("web", { book: "John", chapter: 14 });
+  assert.ok(!("external" in john14));
+  assert.equal(john14.source, "local");
+  assert.equal(john14.chapter, 14);
+  assert.match(john14.verses.find((v) => v.verse === 6)?.text ?? "", /way, the truth, and the life/i);
+
+  const rom12 = await loadChapter("kjv", { book: "Romans", chapter: 12 });
+  assert.ok(!("external" in rom12));
+  assert.equal(rom12.book, "Rom");
+  assert.match(rom12.verses.find((v) => v.verse === 1)?.text ?? "", /living sacrifice/i);
+
+  const jn4 = await loadChapter("asv", { book: "1John", chapter: 4 });
+  assert.ok(!("external" in jn4));
+  assert.equal(jn4.book, "1John");
+  assert.match(jn4.verses.find((v) => v.verse === 8)?.text ?? "", /God is love/i);
+  assert.match(jn4.verses.find((v) => v.verse === 19)?.text ?? "", /first loved us/i);
+});

@@ -59,6 +59,8 @@ bash scripts/smoke-curve25519.sh
 
 echo "== corpus scaffold inventory + devotion packs =="
 bash scripts/smoke-corpus-inventory.sh
+echo "== translation resolve path (every registry id) =="
+bash scripts/smoke-translation-resolve.sh
 rg -q 'READER_SKIN_IDS' apps/mobile/src/reader-skins.ts
 echo "MOBILE_READER_SKINS_OK"
 
