@@ -216,7 +216,9 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
     const chapterRefs =
       installMode === "external"
         ? []
-        : ["John.1", "John.3", "Ps.23"].map((r) => r);
+        : installMode === "boot" && t.id === "web"
+          ? ["John.1", "John.3", "John.14", "Ps.23", "Rom.8", "Matt.5", "Gen.1"]
+          : ["John.1", "John.3", "Ps.23"];
 
     packs.push({
       translationId: t.id,

@@ -11,7 +11,7 @@ fixtures/corpus/{translationId}/{Book}.{chapter}.json
 Examples:
 
 - `cuvs/John.1.json` — boot default (和合本简体)
-- `web/Ps.23.json` — boot default (WEB)
+- `web/Ps.23.json` — boot default (WEB); also John.14 / Rom.8 / Matt.5 / Gen.1 teaching samples
 - `shinKyoudou/John.3.json` — boot default (新共同訳)
 - `kougo/John.1.json` — downloadable sample
 - `cuvt` / `rcuv` / `ccb` / `lzz` / `shinkaiyaku` — downloadable peer demos

@@ -21,6 +21,7 @@ import { ensureBase64Globals, hasWebCrypto } from "../../src/crypto-polyfill";
 import { normalizeApiLocale, useLocale } from "../../src/locale";
 import { NOTE_KEY_STORAGE } from "../../src/note-crypto";
 import { humanizeStatus } from "../../src/status";
+import { clearBibleLocalDb } from "../../src/bible-local-db";
 import { KNOWN_SECRET_KEYS, kvGet, kvSet, wipeSecureSecrets } from "../../src/secure-kv";
 import {
   loadTheme,
@@ -74,6 +75,7 @@ type SearchHit = { id: string; uid: string; nickname: string | null };
 
 async function clearLocalStorage(): Promise<void> {
   await wipeSecureSecrets([...KNOWN_SECRET_KEYS, NOTE_KEY_STORAGE]);
+  await clearBibleLocalDb();
   const keys = await AsyncStorage.getAllKeys();
   const lhKeys = keys.filter((k) => k.startsWith("lh."));
   await Promise.all(lhKeys.map((k) => AsyncStorage.removeItem(k)));
