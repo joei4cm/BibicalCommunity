@@ -227,7 +227,9 @@ test("loadChapter returns zh/ja John.3 scaffolds (includes 3:16)", async () => {
   const cuvs = await loadChapter("cuvs", { book: "John", chapter: 3 });
   assert.ok(!("external" in cuvs));
   assert.equal(cuvs.chapter, 3);
+  assert.ok(cuvs.verses.length >= 21);
   assert.match(cuvs.verses[0]?.text ?? "", /尼哥底母|法利赛/);
+  assert.match(cuvs.verses.find((v) => v.verse === 3)?.text ?? "", /重生|神的国/);
   assert.match(cuvs.verses.find((v) => v.verse === 16)?.text ?? "", /神爱世人|独生子/);
 
   const cuvt = await loadChapter("cuvt", { book: "John", chapter: 3 });
