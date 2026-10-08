@@ -10,6 +10,13 @@ import { randomToken, sha256Hex } from "../services/crypto";
 import { assertChurchAdmin, loadAdminAccess } from "../services/admin-access";
 import { applyHostilePrivacyFloorsToChurch } from "../services/hostile-privacy";
 import { deleteUserMediaObjects } from "../services/wipe-media";
+import {
+  countPdCorpusObjects,
+  isPdSeedTranslationId,
+  osisForBookNr,
+  PD_SEED_TRANSLATION_IDS,
+  seedPdBookToR2,
+} from "../services/pd-corpus-seed";
 import { securityModeSchema } from "@logoshome/shared";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -543,5 +550,84 @@ adminRoutes.get("/wipe/pending", async (c) => {
         reasonCode: r.reasonCode,
         expiresAt: r.expiresAt,
       })),
+  });
+});
+
+/**
+ * Public-domain corpus inventory in R2 (platform_admin only).
+ * Corpora live on R2 / client local DB — never TypeScript packs.
+ */
+adminRoutes.get("/corpus/pd-status/:tid", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.platformAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const tid = c.req.param("tid");
+  if (!isPdSeedTranslationId(tid)) {
+    return c.json(
+      { error: "invalid_tid", allowed: [...PD_SEED_TRANSLATION_IDS] },
+      400,
+    );
+  }
+  const status = await countPdCorpusObjects(c.env.MEDIA, tid);
+  return c.json({
+    tid,
+    ...status,
+    /** Protestant canon ≈ 1189 chapters; allow small variance. */
+    fullPackLikely: status.objectCount >= 1100,
+    allowedTids: [...PD_SEED_TRANSLATION_IDS],
+  });
+});
+
+/**
+ * Seed one PD book (getbible → R2). Call bookNr 1..66 in a loop for full canon.
+ * platform_admin only; never licensed zh/ja.
+ */
+adminRoutes.post("/corpus/pd-seed", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.platformAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const body = z
+    .object({
+      tid: z.enum(["web", "kjv", "asv"]),
+      bookNr: z.number().int().min(1).max(66),
+    })
+    .parse(await c.req.json());
+
+  try {
+    const result = await seedPdBookToR2(c.env.MEDIA, body.tid, body.bookNr);
+    const nextBookNr = body.bookNr < 66 ? body.bookNr + 1 : null;
+    return c.json({
+      ok: true,
+      tid: body.tid,
+      bookNr: body.bookNr,
+      book: result.book,
+      chaptersPut: result.chaptersPut,
+      nextBookNr,
+      done: nextBookNr === null,
+      source: "getbible" as const,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "seed_failed";
+    return c.json({ error: "pd_seed_failed", detail: message }, 502);
+  }
+});
+
+/** List allowed PD seed tids + book map (platform_admin). */
+adminRoutes.get("/corpus/pd-seed", async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+  const access = await loadAdminAccess(db, c.get("userId"));
+  if (!access.platformAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const books = [];
+  for (let nr = 1; nr <= 66; nr += 1) {
+    const osis = osisForBookNr(nr);
+    if (osis) books.push({ bookNr: nr, book: osis });
+  }
+  return c.json({
+    allowedTids: [...PD_SEED_TRANSLATION_IDS],
+    books,
+    hint: "POST /v1/admin/corpus/pd-seed { tid, bookNr } once per book; loop 1..66 for full Protestant canon. Text stays on R2 — never TypeScript packs.",
   });
 });

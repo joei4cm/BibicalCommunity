@@ -57,4 +57,16 @@ node scripts/seed-r2-from-json-fixtures.mjs http://127.0.0.1:8787 "$TOKEN"
 | Download | `cuvt`, `kougo`, `kjv`, … | User taps Download → same local DB |
 | External | `esv`, `niv`, 恩道, 微读 | Deep link only |
 
+**Full public-domain canon** (WEB / KJV / ASV) is **not** stored in git or TypeScript. Platform admins seed it into R2:
+
+```bash
+# One book (Workers-safe) or loop 1..66
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"tid":"web","bookNr":43}' http://127.0.0.1:8787/v1/admin/corpus/pd-seed
+
+# Or CLI (requires platform_admin token)
+node scripts/seed-r2-pd-full.mjs http://127.0.0.1:8787 "$TOKEN" web
+bash scripts/smoke-admin-pd-corpus.sh
+```
+
 Licensed full corpora: place publisher-authorized JSON under this tree (or upload to R2 with entitlement); never commit unauthorized dumps.
