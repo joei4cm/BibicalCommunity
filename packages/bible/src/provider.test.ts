@@ -792,7 +792,14 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   const rom12 = await loadChapter("kjv", { book: "Romans", chapter: 12 });
   assert.ok(!("external" in rom12));
   assert.equal(rom12.book, "Rom");
+  assert.ok(rom12.verses.length >= 21);
   assert.match(rom12.verses.find((v) => v.verse === 1)?.text ?? "", /living sacrifice/i);
+  assert.match(rom12.verses.find((v) => v.verse === 21)?.text ?? "", /overcome evil with good/i);
+
+  const webRom12 = await loadChapter("web", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in webRom12));
+  assert.ok(webRom12.verses.length >= 21);
+  assert.match(webRom12.verses.find((v) => v.verse === 9)?.text ?? "", /without hypocrisy/i);
 
   const jn4 = await loadChapter("asv", { book: "1John", chapter: 4 });
   assert.ok(!("external" in jn4));

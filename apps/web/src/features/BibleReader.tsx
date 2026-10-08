@@ -190,6 +190,7 @@ export function BibleReader() {
   const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
+  const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const translations = listTranslations();
   const locale = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
   const bookNameLocale = bookLocaleKey(i18n.language || "zh-CN");
@@ -222,6 +223,46 @@ export function BibleReader() {
       cancelled = true;
     };
   }, [translationId, ref]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api<{
+          packs: Array<{
+            translationId: string;
+            provider: string;
+            available: boolean;
+            chapterRefs: string[];
+          }>;
+        }>("/v1/bible/corpus-packs");
+        if (cancelled) return;
+        const local = res.packs.find(
+          (p) => p.translationId === translationId && p.provider === "local" && p.available,
+        );
+        const licensed = res.packs.find(
+          (p) => p.translationId === translationId && p.provider === "r2",
+        );
+        if (local) {
+          const hasChapter = local.chapterRefs.includes(ref);
+          setCorpusHint(
+            hasChapter
+              ? `${t("reader.corpusLocal")} · ${local.chapterRefs.length}`
+              : `${t("reader.corpusPartial")} · ${local.chapterRefs.length}`,
+          );
+        } else if (licensed) {
+          setCorpusHint(t("reader.corpusLicensedStub"));
+        } else {
+          setCorpusHint(null);
+        }
+      } catch {
+        if (!cancelled) setCorpusHint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [translationId, ref, t]);
 
   useEffect(() => {
     if (!dualPane) {
@@ -440,6 +481,11 @@ export function BibleReader() {
           {t("reader.entitlement")}
         </button>
       </div>
+      {corpusHint ? (
+        <p className="muted" data-testid="reader-corpus-hint">
+          {corpusHint}
+        </p>
+      ) : null}
 
       <div className="panel typography-panel">
         <h2 style={{ marginTop: 0 }}>{t("reader.typography")}</h2>

@@ -22,6 +22,7 @@ const need = [
   "home.joinChurch","home.joinSlug","home.membersPending","plans.advanceDay",
   "plans.devotionPlan","plans.todayReading","me.pendingVerify",
   "admin.title","admin.sectionUsers","admin.sectionHomes","admin.sectionGroups","admin.sectionWipe",
+  "reader.corpusLocal","reader.corpusPartial","reader.corpusLicensedStub",
 ];
 let fail = 0;
 for (const loc of ["zh-CN","en","ja"]) {
