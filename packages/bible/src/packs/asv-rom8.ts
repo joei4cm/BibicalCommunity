@@ -1,4 +1,4 @@
-/** Public-domain: ASV Romans 8 (Spirit life vv.1–17 + assurance 28/31/38–39). */
+/** Public-domain: ASV Romans 8 denser full Spirit/assurance chapter scaffold (vv.1–39). */
 export const ASV_ROM_8: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -69,12 +69,84 @@ export const ASV_ROM_8: { verse: number; text: string }[] = [
     text: "and if children, then heirs; heirs of God, and joint-heirs with Christ; if so be that we suffer with him, that we may be also glorified with him.",
   },
   {
+    verse: 18,
+    text: "For I reckon that the sufferings of this present time are not worthy to be compared with the glory which shall be revealed to us-ward.",
+  },
+  {
+    verse: 19,
+    text: "For the earnest expectation of the creation waiteth for the revealing of the sons of God.",
+  },
+  {
+    verse: 20,
+    text: "For the creation was subjected to vanity, not of its own will, but by reason of him who subjected it, in hope",
+  },
+  {
+    verse: 21,
+    text: "that the creation itself also shall be delivered from the bondage of corruption into the liberty of the glory of the children of God.",
+  },
+  {
+    verse: 22,
+    text: "For we know that the whole creation groaneth and travaileth in pain together until now.",
+  },
+  {
+    verse: 23,
+    text: "And not only so, but ourselves also, who have the first-fruits of the Spirit, even we ourselves groan within ourselves, waiting for our adoption, to wit, the redemption of our body.",
+  },
+  {
+    verse: 24,
+    text: "For in hope were we saved: but hope that is seen is not hope: for who hopeth for that which he seeth?",
+  },
+  {
+    verse: 25,
+    text: "But if we hope for that which we see not, then do we with patience wait for it.",
+  },
+  {
+    verse: 26,
+    text: "And in like manner the Spirit also helpeth our infirmity: for we know not how to pray as we ought; but the Spirit himself maketh intercession for us with groanings which cannot be uttered;",
+  },
+  {
+    verse: 27,
+    text: "and he that searcheth the hearts knoweth what is the mind of the Spirit, because he maketh intercession for the saints according to the will of God.",
+  },
+  {
     verse: 28,
     text: "And we know that to them that love God all things work together for good, even to them that are called according to his purpose.",
   },
   {
+    verse: 29,
+    text: "For whom he foreknew, he also foreordained to be conformed to the image of his Son, that he might be the firstborn among many brethren:",
+  },
+  {
+    verse: 30,
+    text: "and whom he foreordained, them he also called: and whom he called, them he also justified: and whom he justified, them he also glorified.",
+  },
+  {
     verse: 31,
     text: "What then shall we say to these things? If God is for us, who is against us?",
+  },
+  {
+    verse: 32,
+    text: "He that spared not his own Son, but delivered him up for us all, how shall he not also with him freely give us all things?",
+  },
+  {
+    verse: 33,
+    text: "Who shall lay anything to the charge of God's elect? It is God that justifieth;",
+  },
+  {
+    verse: 34,
+    text: "who is he that condemneth? It is Christ Jesus that died, yea rather, that was raised from the dead, who is at the right hand of God, who also maketh intercession for us.",
+  },
+  {
+    verse: 35,
+    text: "Who shall separate us from the love of Christ? shall tribulation, or anguish, or persecution, or famine, or nakedness, or peril, or sword?",
+  },
+  {
+    verse: 36,
+    text: "Even as it is written, For thy sake we are killed all the day long; We were accounted as sheep for the slaughter.",
+  },
+  {
+    verse: 37,
+    text: "Nay, in all these things we are more than conquerors through him that loved us.",
   },
   {
     verse: 38,

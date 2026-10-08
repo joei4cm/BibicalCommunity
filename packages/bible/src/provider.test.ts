@@ -414,22 +414,30 @@ test("loadChapter returns PD Romans.8 scaffolds (web/kjv/asv)", async () => {
   assert.equal(web.source, "local");
   assert.equal(web.book, "Rom");
   assert.equal(web.chapter, 8);
-  assert.ok(web.verses.length >= 21);
+  assert.ok(web.verses.length >= 39);
   assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 39);
   assert.match(web.verses[0]?.text ?? "", /no condemnation/i);
   assert.match(web.verses.find((v) => v.verse === 14)?.text ?? "", /led by the Spirit/i);
+  assert.match(web.verses.find((v) => v.verse === 18)?.text ?? "", /sufferings.*glory|glory.*revealed/i);
+  assert.match(web.verses.find((v) => v.verse === 26)?.text ?? "", /Spirit.*helps|intercession|groanings/i);
   assert.match(web.verses.find((v) => v.verse === 28)?.text ?? "", /work together for good/i);
+  assert.match(web.verses.find((v) => v.verse === 37)?.text ?? "", /more than conquerors/i);
+  assert.match(web.verses.find((v) => v.verse === 39)?.text ?? "", /separate.*love|Christ Jesus our Lord/i);
 
   const kjv = await loadChapter("kjv", { book: "Romans", chapter: 8 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Rom");
-  assert.ok(kjv.verses.length >= 21);
+  assert.ok(kjv.verses.length >= 39);
+  assert.equal(kjv.verses[kjv.verses.length - 1]?.verse, 39);
   assert.match(kjv.verses.find((v) => v.verse === 15)?.text ?? "", /Abba/i);
   assert.match(kjv.verses.find((v) => v.verse === 31)?.text ?? "", /If God be for us/i);
+  assert.match(kjv.verses.find((v) => v.verse === 37)?.text ?? "", /more than conquerors/i);
 
   const asv = await loadChapter("asv", { book: "rom", chapter: 8 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 21);
+  assert.ok(asv.verses.length >= 39);
+  assert.equal(asv.verses[asv.verses.length - 1]?.verse, 39);
   assert.match(asv.verses.find((v) => v.verse === 16)?.text ?? "", /children of God/i);
   assert.match(asv.verses.find((v) => v.verse === 39)?.text ?? "", /love of God/i);
 });
@@ -466,16 +474,25 @@ test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => 
   const cuvsRom = await loadChapter("cuvs", { book: "Rom", chapter: 8 });
   assert.ok(!("external" in cuvsRom));
   assert.equal(cuvsRom.book, "Rom");
-  assert.ok(cuvsRom.verses.length >= 21);
+  assert.ok(cuvsRom.verses.length >= 39);
+  assert.equal(cuvsRom.verses[cuvsRom.verses.length - 1]?.verse, 39);
   assert.match(cuvsRom.verses[0]?.text ?? "", /样例|不定罪/);
   assert.match(cuvsRom.verses.find((v) => v.verse === 14)?.text ?? "", /神的儿子|被神的灵/);
+  assert.match(cuvsRom.verses.find((v) => v.verse === 18)?.text ?? "", /苦楚|荣耀/);
+  assert.match(cuvsRom.verses.find((v) => v.verse === 26)?.text ?? "", /圣灵|祷告|叹息/);
   assert.match(cuvsRom.verses.find((v) => v.verse === 28)?.text ?? "", /万事都互相效力|爱神的人/);
+  assert.match(cuvsRom.verses.find((v) => v.verse === 37)?.text ?? "", /得胜有余/);
+  assert.match(cuvsRom.verses.find((v) => v.verse === 39)?.text ?? "", /隔绝|基督耶稣/);
 
   const kougoRom = await loadChapter("kougo", { book: "Romans", chapter: 8 });
   assert.ok(!("external" in kougoRom));
-  assert.ok(kougoRom.verses.length >= 21);
+  assert.ok(kougoRom.verses.length >= 39);
+  assert.equal(kougoRom.verses[kougoRom.verses.length - 1]?.verse, 39);
   assert.match(kougoRom.verses[0]?.text ?? "", /見本|罪に定められることがない/);
   assert.match(kougoRom.verses.find((v) => v.verse === 15)?.text ?? "", /アバ|父よ/);
+  assert.match(kougoRom.verses.find((v) => v.verse === 26)?.text ?? "", /御霊|とりなし|うめき/);
+  assert.match(kougoRom.verses.find((v) => v.verse === 37)?.text ?? "", /勝ち得て余り/);
+  assert.match(kougoRom.verses.find((v) => v.verse === 39)?.text ?? "", /引き離す|神の愛/);
 
   const cuvsHeb = await loadChapter("cuvs", { book: "Heb", chapter: 11 });
   assert.ok(!("external" in cuvsHeb));
