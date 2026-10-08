@@ -54,6 +54,11 @@ for (const tid of ["cuvs", "kougo"]) {
     }
   }
 }
+for (const tid of ["rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"]) {
+  if (!inv.some((r) => r.ref === "John.14" && r.translationId === tid)) {
+    throw new Error("missing John.14 scaffold " + tid);
+  }
+}
 const devotion = listDevotionMaterials();
 if (devotion.length < 5) throw new Error("expected >=5 devotion materials, got " + devotion.length);
 for (const m of devotion) {

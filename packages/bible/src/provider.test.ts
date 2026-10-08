@@ -828,6 +828,17 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   assert.ok(!("external" in kougo14));
   assert.match(kougo14.verses.find((v) => v.verse === 6)?.text ?? "", /道であり|真理|命である/);
 
+  for (const tid of ["rcuv", "ccb", "lzz"] as const) {
+    const ch = await loadChapter(tid, { book: "John", chapter: 14 });
+    assert.ok(!("external" in ch), tid);
+    assert.match(ch.verses.find((v) => v.verse === 6)?.text ?? "", /道路|真理|生命/);
+  }
+  for (const tid of ["shinkaiyaku", "shinKyoudou"] as const) {
+    const ch = await loadChapter(tid, { book: "John", chapter: 14 });
+    assert.ok(!("external" in ch), tid);
+    assert.match(ch.verses.find((v) => v.verse === 6)?.text ?? "", /道であり|真理|いのち|命である/);
+  }
+
   const rom12 = await loadChapter("kjv", { book: "Romans", chapter: 12 });
   assert.ok(!("external" in rom12));
   assert.equal(rom12.book, "Rom");
