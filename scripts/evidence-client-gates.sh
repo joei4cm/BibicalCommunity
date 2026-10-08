@@ -58,6 +58,8 @@ echo "SCREEN_SHARE_GATE_OK"
 
 echo "== curve25519 x25519 path =="
 bash scripts/smoke-curve25519.sh
+echo "== libsignal workers/browser gap gate =="
+bash scripts/smoke-libsignal-workers.sh
 
 echo "== corpus scaffold inventory + corpus/devotion packs =="
 bash scripts/smoke-corpus-inventory.sh

@@ -4,12 +4,14 @@ import { drizzle } from "drizzle-orm/d1";
 import { and, eq, isNull, or, gt } from "drizzle-orm";
 import {
   getTranslation,
+  listCorpusPacks,
   listDevotionMaterials,
   listStudyMaterials,
   listTranslations,
   loadChapter,
   parseR2ChapterJson,
   parseRef,
+  probeCorpusPackPipeline,
   r2ChapterObjectKey,
 } from "@logoshome/bible";
 import { createId } from "@logoshome/shared";
@@ -40,6 +42,29 @@ bibleRoutes.get("/study", (c) => {
   return c.json({
     materials: listStudyMaterials(language ? { language } : undefined),
     devotion: listDevotionMaterials(),
+  });
+});
+
+/** Corpus-pack catalog: local scaffolds + licensed R2 stubs. */
+bibleRoutes.get("/corpus-packs", (c) => {
+  const availableOnly = c.req.query("availableOnly") === "1";
+  const provider = c.req.query("provider") as "local" | "r2" | undefined;
+  const language = c.req.query("language") as "zh" | "en" | "ja" | undefined;
+  const packs = listCorpusPacks({
+    availableOnly: availableOnly || undefined,
+    provider,
+    language,
+  });
+  const probe = probeCorpusPackPipeline();
+  return c.json({
+    packs,
+    probe: {
+      ok: probe.ok,
+      localCount: probe.localCount,
+      licensedStubCount: probe.licensedStubCount,
+      localChapterTotal: probe.localChapterTotal,
+      languages: probe.languages,
+    },
   });
 });
 

@@ -380,17 +380,24 @@ test("loadChapter returns PD Hebrews.11 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Heb");
   assert.equal(web.chapter, 11);
-  assert.ok(web.verses.length >= 3 && web.verses.length <= 5);
+  assert.ok(web.verses.length >= 12);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 12);
   assert.match(web.verses[0]?.text ?? "", /faith is assurance|hoped for/i);
+  assert.match(web.verses.find((v) => v.verse === 8)?.text ?? "", /Abraham/i);
 
   const kjv = await loadChapter("kjv", { book: "Hebrews", chapter: 11 });
   assert.ok(!("external" in kjv));
+  assert.ok(kjv.verses.length >= 12);
   assert.match(kjv.verses[0]?.text ?? "", /substance of things hoped for/i);
   assert.match(kjv.verses.find((v) => v.verse === 6)?.text ?? "", /impossible to please/i);
+  assert.match(kjv.verses.find((v) => v.verse === 7)?.text ?? "", /Noah/i);
 
   const asv = await loadChapter("asv", { book: "heb", chapter: 11 });
   assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 12);
   assert.match(asv.verses[0]?.text ?? "", /assurance of things hoped for/i);
+  assert.match(asv.verses.find((v) => v.verse === 5)?.text ?? "", /Enoch/i);
 });
 
 test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => {
