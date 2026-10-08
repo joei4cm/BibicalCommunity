@@ -1,8 +1,9 @@
 /**
  * Product chat path — apps encrypt/decrypt via `createProductSignalClient`
- * (Workers/browser → x25519; Node → native libsignal with x25519 soft-fallback).
+ * (Workers/browser → OpenE2EE default; Node → native libsignal with OpenE2EE soft-fallback).
  *
  * Server remains a ciphertext courier; private state never leaves the client.
+ * Official Signal WASM on Workers remains OPEN upstream.
  */
 
 import {

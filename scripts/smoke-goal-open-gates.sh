@@ -38,5 +38,5 @@ if grep -q 'DEVICE_HANDSET_E2E_OPEN' /tmp/goal-open-device.log; then
   echo "NEXT: DEVICE_HANDSET_E2E — attach physical handset (shaped Playwright already PASS)"
 fi
 if grep -q 'LIBSIGNAL_WORKERS_OPEN' /tmp/goal-open-libsignal.log; then
-  echo "NEXT: LIBSIGNAL_WORKERS — blocked upstream (no official Signal WASM/Workers build); product fallback=x25519"
+  echo "NEXT: LIBSIGNAL_WORKERS — blocked upstream (no official Signal WASM/Workers build); product_default=opene2ee"
 fi

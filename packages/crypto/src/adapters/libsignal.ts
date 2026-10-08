@@ -92,9 +92,10 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
 
 /**
  * Product default for LogosHome clients/Workers:
- * - Workers/browser → `x25519` (portable Curve25519; native libsignal unavailable)
+ * - Workers/browser → `opene2ee` (PQ-capable pure-TS; not official Signal WASM)
  * - Node → `libsignal` when env unset (native PQXDH when bindings load)
  * Env `LOGOSHOME_SIGNAL_BACKEND` still wins when set.
+ * Official `@signalapp/libsignal-client` on Workers remains OPEN upstream.
  */
 export function resolveProductSignalBackend(prefer?: SignalBackend): SignalBackend {
   if (prefer) return prefer;
@@ -106,7 +107,7 @@ export function resolveProductSignalBackend(prefer?: SignalBackend): SignalBacke
   if (env === "libsignal" || env === "x25519" || env === "webcrypto" || env === "opene2ee") {
     return env;
   }
-  if (isWorkersOrBrowserRuntime()) return "x25519";
+  if (isWorkersOrBrowserRuntime()) return "opene2ee";
   return "libsignal";
 }
 
@@ -157,9 +158,9 @@ export async function createSignalClientAsync(prefer?: SignalBackend): Promise<S
 }
 
 /**
- * Product factory: Workers/browser get X25519; Node prefers native libsignal.
- * If native bindings fail on Node, falls back to X25519 (never leave chat fail-closed).
- * Opt-in OpenE2EE Workers path via prefer/`LOGOSHOME_SIGNAL_BACKEND=opene2ee`.
+ * Product factory: Workers/browser default OpenE2EE; Node prefers native libsignal.
+ * If native bindings fail on Node, falls back to OpenE2EE then X25519 (never fail-closed).
+ * Override via prefer / `LOGOSHOME_SIGNAL_BACKEND`. Official Workers WASM still OPEN.
  */
 export async function createProductSignalClient(prefer?: SignalBackend): Promise<SignalClient> {
   const backend = resolveProductSignalBackend(prefer);
@@ -167,10 +168,10 @@ export async function createProductSignalClient(prefer?: SignalBackend): Promise
     const native = await loadNativeLibsignal();
     if (native) return native;
     // Soft fallback — production chat must work without native addon.
-    return new X25519SignalClient();
+    return new OpenE2eeSignalClient();
   }
-  if (backend === "x25519") return new X25519SignalClient();
   if (backend === "opene2ee") return new OpenE2eeSignalClient();
+  if (backend === "x25519") return new X25519SignalClient();
   return new WebCryptoSignalClient();
 }
 

@@ -140,10 +140,15 @@ await page.goto(WEB + "/app/me", { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 const backend = page.getByTestId("me-signal-backend");
 await backend.waitFor({ state: "visible", timeout: 10_000 });
+const defaultBackend = await backend.inputValue();
+if (defaultBackend !== "opene2ee") {
+  throw new Error("expected Me default signal backend opene2ee, got " + defaultBackend);
+}
+await backend.selectOption("x25519");
 await backend.selectOption("opene2ee");
 const upload = page.getByTestId("me-upload-keys");
 await upload.waitFor({ state: "visible", timeout: 10_000 });
-console.log("DEVICE_HANDSET_PRODUCT_KEYS_UI_OK backend=opene2ee");
+console.log("DEVICE_HANDSET_PRODUCT_KEYS_UI_OK backend_default=opene2ee");
 
 await browser.close();
 console.log("DEVICE_HANDSET_SHAPED_OK viewport=" + vp.width + "x" + vp.height);
