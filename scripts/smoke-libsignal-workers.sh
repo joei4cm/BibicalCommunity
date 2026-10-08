@@ -47,19 +47,21 @@ if (!(w instanceof WebCryptoSignalClient)) throw new Error("webcrypto client typ
   if ((await x.decrypt(aliceSession, reply)) !== "x25519-ack") throw new Error("x25519 ack mismatch");
 }
 
-// WebCrypto P-256 path: identity + session + encrypt (Workers-portable; decrypt parity tracked separately).
+// WebCrypto P-256 path: full peer encrypt/decrypt (Workers-portable mutual ECDH session).
 {
   const a = await w.generateIdentity();
   const b = await w.generateIdentity();
-  const session = await w.establishSession(a.privateState, b.publicBundle);
-  const enc = await w.encrypt(session, "webcrypto-workers-encrypt");
-  if (!enc?.ciphertext || String(enc.ciphertext).length < 8) {
-    throw new Error("webcrypto encrypt failed");
+  const as = await w.establishSession(a.privateState, b.publicBundle);
+  const bs = await w.establishSession(b.privateState, a.publicBundle);
+  const enc = await w.encrypt(as, "webcrypto-workers-fallback-payload");
+  const plain = await w.decrypt(bs, enc);
+  if (plain !== "webcrypto-workers-fallback-payload") {
+    throw new Error("webcrypto roundtrip mismatch");
   }
 }
 
 console.log("LIBSIGNAL_NATIVE_NODE_OK package=" + probe.packageName);
-console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(encrypt)");
+console.log("LIBSIGNAL_WORKERS_FALLBACK_OK backends=x25519(roundtrip),webcrypto(roundtrip)");
 // Explicit OPEN: Cloudflare Workers / browser still cannot load @signalapp/libsignal-client native addon.
 console.log("LIBSIGNAL_WORKERS_OPEN reason=no_native_addon_on_workers_or_browser fallback=x25519+webcrypto");
 '
