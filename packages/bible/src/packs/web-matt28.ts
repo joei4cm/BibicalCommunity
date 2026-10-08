@@ -1,4 +1,4 @@
-/** Public-domain: WEB Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). */
+/** Public-domain: WEB Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). */
 export const WEB_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,6 +39,26 @@ export const WEB_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "Then Jesus said to them, \"Don't be afraid. Go tell my brothers that they should go into Galilee, and there they will see me.\"",
+  },
+  {
+    verse: 11,
+    text: "Now while they were going, behold, some of the guards came into the city and told the chief priests all the things that had happened.",
+  },
+  {
+    verse: 12,
+    text: "When they were assembled with the elders and had taken counsel, they gave a large amount of silver to the soldiers,",
+  },
+  {
+    verse: 13,
+    text: "saying, \"Say that his disciples came by night and stole him away while we slept.",
+  },
+  {
+    verse: 14,
+    text: "If this comes to the governor's ears, we will persuade him and make you free of worry.\"",
+  },
+  {
+    verse: 15,
+    text: "So they took the money and did as they were told. This saying was spread abroad among the Jews, and continues until this day.",
   },
   {
     verse: 16,

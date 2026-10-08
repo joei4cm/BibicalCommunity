@@ -1,4 +1,4 @@
-/** New Japanese Bible–style denser Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). (not a licensed corpus dump). */
+/** New Japanese Bible–style denser Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). (not a licensed corpus dump). */
 export const SHINKAIYAKU_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -41,6 +41,26 @@ export const SHINKAIYAKU_MATT_28: { verse: number; text: string }[] = [
     text: "（見本）すると、イエスは言われた。「恐れることはありません。行って、わたしの兄弟たちに、ガリラヤに行くように言いなさい。そこでわたしに会えます。」",
   },
   {
+    verse: 11,
+    text: "（見本）女たちが行っている間に、番兵のうちの何人かが町に行って、起こったことをすべて祭司長たちに報告した。",
+  },
+  {
+    verse: 12,
+    text: "（見本）彼らは長老たちと集まって相談した末、兵士たちに多額の金を与えて、",
+  },
+  {
+    verse: 13,
+    text: "（見本）こう言った。「『弟子たちが夜中に来て、われわれの眠っている間に彼を盗んだ』と言いなさい。",
+  },
+  {
+    verse: 14,
+    text: "（見本）もしこのことが総督の耳に入っても、われわれが説得して、あなたがたに心配をかけないようにします。」",
+  },
+  {
+    verse: 15,
+    text: "（見本）そこで兵士たちは金を受け取って、教えられたとおりにした。この話は今日に至るまでユダヤ人の間に広がっている。",
+  },
+  {
     verse: 16,
     text: "（見本）さて、十一人の弟子たちはガリラヤへ行き、イエスが指定された山に登った。",
   },
@@ -50,14 +70,14 @@ export const SHINKAIYAKU_MATT_28: { verse: number; text: string }[] = [
   },
   {
     verse: 18,
-    text: "（見本）イエスは近づいて来て、彼らにこう言われた。「わたしには天においても地においても、いっさいの権威が与えられています。",
+    text: "（見本）イエスは近づいて来て、彼らに言われた。「わたしには天においても地においても、いっさいの権威が与えられています。",
   },
   {
     verse: 19,
-    text: "（見本）それゆえ、あなたがたは行って、あらゆる国の人々を弟子としなさい。父、子、聖霊の名によってバプテスマを授け、",
+    text: "（見本）ですから、あなたがたは行って、あらゆる国の人々を弟子としなさい。そして、父、子、聖霊の名によってバプテスマを授け、",
   },
   {
     verse: 20,
-    text: "（見本）あなたがたに命じておいたすべてのことを守るように教えなさい。見よ。わたし自身、世の終わりまで、いつもあなたがたとともにいます。」",
+    text: "（見本）あなたがたに命じておいたすべてのことを守るように教えなさい。見よ。わたしは世の終わりまで、いつもあなたがたと共にいます。」",
   },
 ];

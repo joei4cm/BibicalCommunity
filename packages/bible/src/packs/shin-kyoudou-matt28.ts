@@ -1,4 +1,4 @@
-/** New Interconfessional–style denser Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). (not a licensed corpus dump). */
+/** New Interconfessional–style denser Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). (not a licensed corpus dump). */
 export const SHIN_KYOUDOU_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -41,16 +41,36 @@ export const SHIN_KYOUDOU_MATT_28: { verse: number; text: string }[] = [
     text: "（見本）イエスは言われた。「恐れることはない。行って、わたしの兄弟たちにガリラヤへ行くように言いなさい。そこでわたしに会うことになる。」",
   },
   {
+    verse: 11,
+    text: "（見本）彼女たちが行っている間に、番兵のうち何人かが町に行き、起こったことをすべて祭司長たちに報告した。",
+  },
+  {
+    verse: 12,
+    text: "（見本）祭司長たちは長老たちと集まって相談し、兵士たちに多額の金を渡して、",
+  },
+  {
+    verse: 13,
+    text: "（見本）言った。「『弟子たちが夜中に来て、われわれの眠っている間に遺体を盗んだ』と言え。",
+  },
+  {
+    verse: 14,
+    text: "（見本）もしこのことが総督の耳に入っても、われわれが説得して、あなたがたに心配をかけないようにする。」",
+  },
+  {
+    verse: 15,
+    text: "（見本）兵士たちは金を受け取って、命じられたとおりにした。この話は今日に至るまでユダヤ人の間に広がっている。",
+  },
+  {
     verse: 16,
     text: "（見本）さて、十一人の弟子たちはガリラヤに行き、イエスが指示しておかれた山に登った。",
   },
   {
     verse: 17,
-    text: "（見本）そして、イエスを見て拝んだ。しかし、疑う者もいた。",
+    text: "（見本）そして、イエスに会って拝した。しかし、疑う者もいた。",
   },
   {
     verse: 18,
-    text: "（見本）イエスは近寄って来て言われた。「わたしは天と地の一切の権能を授かっている。",
+    text: "（見本）イエスは近づいて来て言われた。「わたしは天と地の一切の権能を授かっている。",
   },
   {
     verse: 19,

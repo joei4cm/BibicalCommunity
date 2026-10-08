@@ -1,4 +1,4 @@
-/** Chinese Contemporary Bible–style denser Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). (not a licensed corpus dump). */
+/** Chinese Contemporary Bible–style denser Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). (not a licensed corpus dump). */
 export const CCB_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,6 +39,26 @@ export const CCB_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "（样例）耶稣对她们说：「不要害怕！你们去告诉我的弟兄，叫他们往加利利去，在那里必见我。」",
+  },
+  {
+    verse: 11,
+    text: "（样例）她们去的时候，看守的兵有几个进城去，将所经历的事都报给祭司长。",
+  },
+  {
+    verse: 12,
+    text: "（样例）祭司长和长老聚集商议，就拿许多银钱给兵丁，说：",
+  },
+  {
+    verse: 13,
+    text: "（样例）「你们要这样说：『夜间我们睡觉的时候，他的门徒来把他偷去了。』",
+  },
+  {
+    verse: 14,
+    text: "（样例）倘若这话被巡抚听见，有我们劝他，保你们无事。」",
+  },
+  {
+    verse: 15,
+    text: "（样例）兵丁受了银钱，就照所嘱咐他们的去行。这话就传说在犹太人中间，直到今日。",
   },
   {
     verse: 16,

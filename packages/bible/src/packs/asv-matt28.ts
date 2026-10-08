@@ -1,4 +1,4 @@
-/** Public-domain: ASV Matthew 28 denser resurrection + commission scaffold (vv.1–10 + 16–20). */
+/** Public-domain: ASV Matthew 28 denser full resurrection + commission chapter scaffold (vv.1–20). */
 export const ASV_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -39,6 +39,26 @@ export const ASV_MATT_28: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "Then saith Jesus unto them, Fear not: go tell my brethren that they depart into Galilee, and there shall they see me.",
+  },
+  {
+    verse: 11,
+    text: "Now while they were going, behold, some of the guard came into the city, and told unto the chief priests all the things that were come to pass.",
+  },
+  {
+    verse: 12,
+    text: "And when they were assembled with the elders, and had taken counsel, they gave much money unto the soldiers,",
+  },
+  {
+    verse: 13,
+    text: "saying, Say ye, His disciples came by night, and stole him away while we slept.",
+  },
+  {
+    verse: 14,
+    text: "And if this come to the governor's ears, we will persuade him, and rid you of care.",
+  },
+  {
+    verse: 15,
+    text: "So they took the money, and did as they were taught: and this saying was spread abroad among the Jews, and continueth until this day.",
   },
   {
     verse: 16,
