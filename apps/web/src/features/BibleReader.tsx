@@ -81,10 +81,11 @@ function partnerSsoEnabled(chapter: { url: string; sso?: boolean }): boolean {
 /** Strip demo fixture markers so reading UI is not visually polluted. */
 function displayVerseText(text: string): string {
   return text
-    .replace(/[（(]\s*样例(?:[·・.\s]*fixture)?\s*[）)]/gi, "")
-    .replace(/[（(]\s*fixture\s*[）)]/gi, "")
-    .replace(/[（(]\s*見本\s*[）)]/g, "")
-    .replace(/[（(]\s*サンプル\s*[）)]/g, "")
+    .replace(/[（(]\s*样例[^）)]*[）)]/gi, "")
+    .replace(/[（(]\s*fixture[^）)]*[）)]/gi, "")
+    .replace(/[（(]\s*見本[^）)]*[）)]/g, "")
+    .replace(/[（(]\s*サンプル[^）)]*[）)]/g, "")
+    .replace(/\s*\(local-db(?:\s+demo)?\)\s*/gi, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -685,12 +686,13 @@ export function BibleReader() {
         <p className="bible-reader-brand" aria-label="圣言家 LogosHome">
           圣言家
         </p>
-        <p className="bible-reader-translation" data-testid="reader-translation-label">
-          {activeTranslation?.name[locale] ?? translationId}
-        </p>
         <h1 className="bible-reader-title" data-testid="reader-passage-title">
           {passageTitle}
         </h1>
+        {/* Visible translation name lives in the passage picker; keep label for tests/a11y */}
+        <p className="sr-only" data-testid="reader-translation-label">
+          {activeTranslation?.name[locale] ?? translationId}
+        </p>
         <div className="bible-passage-controls" data-testid="reader-passage-controls">
           <label className="bible-control">
             <span className="sr-only">{t("reader.translations")}</span>
