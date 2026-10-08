@@ -25,10 +25,12 @@ type Board = "notice" | "general" | "group";
 type ForumPost = {
   id: string;
   churchId: string;
+  groupId?: string | null;
   board: Board;
   title: string;
   body: string;
   externalMediaUrl?: string | null;
+  mediaKey?: string | null;
   createdAt: number;
 };
 
@@ -55,6 +57,8 @@ export function HomePage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaKey, setMediaKey] = useState<string | null>(null);
+  const [composeGroupId, setComposeGroupId] = useState("");
   const [busy, setBusy] = useState(false);
   const [verifyUserId, setVerifyUserId] = useState("");
   const [members, setMembers] = useState<ChurchMember[]>([]);
@@ -212,9 +216,41 @@ export function HomePage() {
     }
   }
 
+  async function uploadAttachment(file: File) {
+    if (!getToken()) {
+      setNote("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const minted = await api<{ key: string; putUrl: string }>("/v1/media/upload-url", {
+        method: "POST",
+      });
+      const putRes = await fetch(minted.putUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("media_upload_failed");
+      setMediaKey(minted.key);
+      setNote("media_uploaded");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function composePost() {
     if (!getToken() || !selectedChurchId) {
       setNote("login_required");
+      return;
+    }
+    if (board === "group" && !composeGroupId) {
+      setNote("group_required");
       return;
     }
     setBusy(true);
@@ -225,7 +261,9 @@ export function HomePage() {
         title: title.trim(),
         body: body.trim(),
       };
+      if (board === "group" && composeGroupId) payload.groupId = composeGroupId;
       if (mediaUrl.trim()) payload.externalMediaUrl = mediaUrl.trim();
+      if (mediaKey) payload.mediaKey = mediaKey;
       await api("/v1/home/posts", {
         method: "POST",
         body: JSON.stringify(payload),
@@ -233,6 +271,7 @@ export function HomePage() {
       setTitle("");
       setBody("");
       setMediaUrl("");
+      setMediaKey(null);
       await loadPosts();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -500,11 +539,34 @@ export function HomePage() {
                 <strong>{p.title}</strong>
                 <p style={{ margin: "0.35rem 0 0" }}>{p.body}</p>
                 {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
+                {p.mediaKey ? (
+                  <p className="muted">
+                    <a href={`/v1/media/${p.mediaKey}`} target="_blank" rel="noreferrer">
+                      {t("home.attachment")}
+                    </a>
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
 
           <h3 style={{ marginTop: "1.25rem" }}>{t("home.compose")}</h3>
+          {board === "group" && (
+            <div className="field">
+              <label>{t("home.board.group")}</label>
+              <select
+                value={composeGroupId}
+                onChange={(e) => setComposeGroupId(e.target.value)}
+              >
+                <option value="">{t("home.selectGroup")}</option>
+                {membershipGroups.map((gid) => (
+                  <option key={gid} value={gid}>
+                    {gid}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="field">
             <label>{t("home.postTitle")}</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -518,8 +580,20 @@ export function HomePage() {
             <input
               value={mediaUrl}
               onChange={(e) => setMediaUrl(e.target.value)}
-              placeholder="https://"
+              placeholder="https://www.youtube.com/watch?v=…"
             />
+          </div>
+          <div className="field">
+            <label>{t("home.attachment")}</label>
+            <input
+              type="file"
+              accept="image/*,audio/*,video/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadAttachment(f);
+              }}
+            />
+            {mediaKey ? <p className="muted">{mediaKey}</p> : null}
           </div>
           <button type="button" className="btn" disabled={busy} onClick={() => void composePost()}>
             {t("home.post")}

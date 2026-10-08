@@ -28,28 +28,37 @@ type ChurchMember = {
   verified: boolean;
 };
 
+type Board = "notice" | "general" | "group";
+
 type ForumPost = {
   id: string;
   board: string;
   title: string;
   body: string;
   externalMediaUrl?: string | null;
+  mediaKey?: string | null;
   createdAt: number;
 };
+
+type ChurchWithGroups = Church & { groups?: string[] };
 
 function isChurchAdmin(role: string): boolean {
   return role === "admin" || role === "security_officer";
 }
 
+const BOARDS: Board[] = ["notice", "general", "group"];
+
 export default function HomeChurchScreen() {
   const { locale } = useLocale();
   const router = useRouter();
-  const [churches, setChurches] = useState<Church[]>([]);
+  const [churches, setChurches] = useState<ChurchWithGroups[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [board, setBoard] = useState<Board>("general");
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [composeGroupId, setComposeGroupId] = useState("");
   const [joinSlug, setJoinSlug] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -72,15 +81,15 @@ export default function HomeChurchScreen() {
       setChurches([]);
       return;
     }
-    const r = await api<{ churches: Church[] }>("/v1/home/churches");
+    const r = await api<{ churches: ChurchWithGroups[] }>("/v1/home/churches");
     setChurches(r.churches);
     setNote(null);
     if (!selectedId && r.churches[0]) setSelectedId(r.churches[0].id);
   }, [selectedId]);
 
-  const loadPosts = useCallback(async (churchId: string) => {
+  const loadPosts = useCallback(async (churchId: string, boardId: Board) => {
     const r = await api<{ posts: ForumPost[] }>(
-      `/v1/home/${encodeURIComponent(churchId)}/posts?board=general`,
+      `/v1/home/${encodeURIComponent(churchId)}/posts?board=${encodeURIComponent(boardId)}`,
     );
     setPosts(r.posts ?? []);
   }, []);
@@ -104,16 +113,20 @@ export default function HomeChurchScreen() {
       setMembers([]);
       return;
     }
-    void loadPosts(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void loadPosts(selectedId, board).catch((e) => setNote(e instanceof Error ? e.message : "error"));
     if (canAdmin) {
       void loadMembers(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
     } else {
       setMembers([]);
     }
-  }, [selectedId, loadPosts, loadMembers, canAdmin]);
+  }, [selectedId, board, loadPosts, loadMembers, canAdmin]);
 
   async function createPost() {
     if (!selectedId || !title.trim() || !body.trim()) return;
+    if (board === "group" && !composeGroupId) {
+      setNote("group_required");
+      return;
+    }
     setBusy(true);
     try {
       await hydrateToken();
@@ -125,9 +138,10 @@ export default function HomeChurchScreen() {
         method: "POST",
         body: JSON.stringify({
           churchId: selectedId,
-          board: "general",
+          board,
           title: title.trim(),
           body: body.trim(),
+          ...(board === "group" && composeGroupId ? { groupId: composeGroupId } : {}),
           ...(mediaUrl.trim()
             ? { externalMediaUrl: mediaUrl.trim() }
             : {}),
@@ -137,7 +151,7 @@ export default function HomeChurchScreen() {
       setBody("");
       setMediaUrl("");
       setNote("saved");
-      await loadPosts(selectedId);
+      await loadPosts(selectedId, board);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -270,18 +284,39 @@ export default function HomeChurchScreen() {
       )}
 
       <Text style={styles.section}>{t(locale, "home.forum")}</Text>
+      <View style={styles.row}>
+        {BOARDS.map((b) => (
+          <Pressable
+            key={b}
+            style={[styles.chip, board === b && styles.chipActive]}
+            onPress={() => setBoard(b)}
+          >
+            <Text style={styles.chipText}>{t(locale, `home.board.${b}`)}</Text>
+          </Pressable>
+        ))}
+      </View>
       {posts.length === 0 && <Text style={styles.muted}>—</Text>}
       {posts.map((p) => (
         <View key={p.id} style={styles.item}>
           <Text style={styles.itemTitle}>{p.title}</Text>
           <Text style={styles.muted}>{p.body}</Text>
           {p.externalMediaUrl ? <Text style={styles.muted}>{p.externalMediaUrl}</Text> : null}
+          {p.mediaKey ? <Text style={styles.muted}>{p.mediaKey}</Text> : null}
         </View>
       ))}
 
       {selectedId && (
         <View style={{ marginTop: 16 }}>
           <Text style={styles.section}>{t(locale, "home.newPost")}</Text>
+          {board === "group" && (
+            <TextInput
+              style={styles.input}
+              value={composeGroupId}
+              onChangeText={setComposeGroupId}
+              autoCapitalize="none"
+              placeholder={t(locale, "home.selectGroup")}
+            />
+          )}
           <TextInput
             style={styles.input}
             value={title}
@@ -363,4 +398,15 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "600" },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cfc6b4",
+    backgroundColor: "#fffdf8",
+  },
+  chipActive: { borderColor: "#0f6b5c", backgroundColor: "#e7f3f0" },
+  chipText: { color: "#1c2b2a", fontWeight: "600", fontSize: 13 },
 });
