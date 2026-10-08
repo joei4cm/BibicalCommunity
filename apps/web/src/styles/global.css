@@ -193,8 +193,8 @@ body:has(.bible-reader)::before {
 }
 
 .app-main:has(.bible-reader) {
-  width: min(680px, 100%);
-  padding: 1rem 1.25rem 6.75rem;
+  width: min(760px, 100%);
+  padding: 1.1rem 1.35rem 6.75rem;
 }
 
 body:has(.bible-reader) .tab-bar {
