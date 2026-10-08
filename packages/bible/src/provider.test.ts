@@ -646,8 +646,10 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const col = await loadChapter(tid, { book: "Col", chapter: 3 });
     assert.ok(!("external" in col), tid);
-    assert.ok(col.verses.length >= 10, tid);
+    assert.ok(col.verses.length >= 25, tid);
+    assert.equal(col.verses[col.verses.length - 1]?.verse, 25, tid);
     assert.match(col.verses.find((v) => v.verse === 14)?.text ?? "", /样例|樣例|見本|爱心|愛心|愛を/);
+    assert.match(col.verses.find((v) => v.verse === 23)?.text ?? "", /样例|樣例|見本|心里|心から|主/);
 
     const jas = await loadChapter(tid, { book: "Jas", chapter: 1 });
     assert.ok(!("external" in jas), tid);
@@ -686,8 +688,12 @@ test("loadChapter returns PD Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds (web/kjv/a
 
   const col = await loadChapter("web", { book: "Col", chapter: 3 });
   assert.ok(!("external" in col));
-  assert.ok(col.verses.length >= 10);
+  assert.ok(col.verses.length >= 25);
+  assert.equal(col.verses[0]?.verse, 1);
+  assert.equal(col.verses[col.verses.length - 1]?.verse, 25);
   assert.match(col.verses.find((v) => v.verse === 14)?.text ?? "", /walk in love|bond of perfection/i);
+  assert.match(col.verses.find((v) => v.verse === 11)?.text ?? "", /Christ is all|Greek and Jew/i);
+  assert.match(col.verses.find((v) => v.verse === 23)?.text ?? "", /work heartily|as for the Lord/i);
 
   const jas = await loadChapter("web", { book: "Jas", chapter: 1 });
   assert.ok(!("external" in jas));
@@ -720,8 +726,14 @@ test("loadChapter returns zh/ja Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds", async
 
   const cuvsCol = await loadChapter("cuvs", { book: "Col", chapter: 3 });
   assert.ok(!("external" in cuvsCol));
-  assert.ok(cuvsCol.verses.length >= 10);
+  assert.ok(cuvsCol.verses.length >= 25);
   assert.match(cuvsCol.verses.find((v) => v.verse === 14)?.text ?? "", /样例|爱心|联络全德/);
+  assert.match(cuvsCol.verses.find((v) => v.verse === 23)?.text ?? "", /样例|心里做|给主做/);
+
+  const kougoCol = await loadChapter("kougo", { book: "Col", chapter: 3 });
+  assert.ok(!("external" in kougoCol));
+  assert.ok(kougoCol.verses.length >= 25);
+  assert.match(kougoCol.verses.find((v) => v.verse === 14)?.text ?? "", /見本|愛を|帯/);
 
   const cuvsJas = await loadChapter("cuvs", { book: "Jas", chapter: 1 });
   assert.ok(!("external" in cuvsJas));

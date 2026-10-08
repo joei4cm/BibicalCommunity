@@ -1,4 +1,4 @@
-/** Public-domain: KJV Colossians 3 denser put-on-love scaffold (vv.1–4 + 12–17). */
+/** Public-domain: KJV Colossians 3 denser full put-on-love chapter scaffold (vv.1–25). */
 export const KJV_COL_3: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -15,6 +15,34 @@ export const KJV_COL_3: { verse: number; text: string }[] = [
   {
     verse: 4,
     text: "When Christ, who is our life, shall appear, then shall ye also appear with him in glory.",
+  },
+  {
+    verse: 5,
+    text: "Mortify therefore your members which are upon the earth; fornication, uncleanness, inordinate affection, evil concupiscence, and covetousness, which is idolatry:",
+  },
+  {
+    verse: 6,
+    text: "For which things' sake the wrath of God cometh on the children of disobedience:",
+  },
+  {
+    verse: 7,
+    text: "In the which ye also walked some time, when ye lived in them.",
+  },
+  {
+    verse: 8,
+    text: "But now ye also put off all these; anger, wrath, malice, blasphemy, filthy communication out of your mouth.",
+  },
+  {
+    verse: 9,
+    text: "Lie not one to another, seeing that ye have put off the old man with his deeds;",
+  },
+  {
+    verse: 10,
+    text: "And have put on the new man, which is renewed in knowledge after the image of him that created him:",
+  },
+  {
+    verse: 11,
+    text: "Where there is neither Greek nor Jew, circumcision nor uncircumcision, Barbarian, Scythian, bond nor free: but Christ is all, and in all.",
   },
   {
     verse: 12,
@@ -39,5 +67,37 @@ export const KJV_COL_3: { verse: number; text: string }[] = [
   {
     verse: 17,
     text: "And whatsoever ye do in word or deed, do all in the name of the Lord Jesus, giving thanks to God and the Father by him.",
+  },
+  {
+    verse: 18,
+    text: "Wives, submit yourselves unto your own husbands, as it is fit in the Lord.",
+  },
+  {
+    verse: 19,
+    text: "Husbands, love your wives, and be not bitter against them.",
+  },
+  {
+    verse: 20,
+    text: "Children, obey your parents in all things: for this is well pleasing unto the Lord.",
+  },
+  {
+    verse: 21,
+    text: "Fathers, provoke not your children to anger, lest they be discouraged.",
+  },
+  {
+    verse: 22,
+    text: "Servants, obey in all things your masters according to the flesh; not with eyeservice, as menpleasers; but in singleness of heart, fearing God;",
+  },
+  {
+    verse: 23,
+    text: "And whatsoever ye do, do it heartily, as to the Lord, and not unto men;",
+  },
+  {
+    verse: 24,
+    text: "Knowing that of the Lord ye shall receive the reward of the inheritance: for ye serve the Lord Christ.",
+  },
+  {
+    verse: 25,
+    text: "But he that doeth wrong shall receive for the wrong which he hath done: and there is no respect of persons.",
   },
 ];

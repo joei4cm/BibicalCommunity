@@ -1,4 +1,4 @@
-/** Public-domain: ASV Colossians 3 denser put-on-love scaffold (vv.1–4 + 12–17). */
+/** Public-domain: ASV Colossians 3 denser full put-on-love chapter scaffold (vv.1–25). */
 export const ASV_COL_3: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -17,8 +17,36 @@ export const ASV_COL_3: { verse: number; text: string }[] = [
     text: "When Christ, who is our life, shall be manifested, then shall ye also with him be manifested in glory.",
   },
   {
+    verse: 5,
+    text: "Put to death therefore your members which are upon the earth: fornication, uncleanness, passion, evil desire, and covetousness, which is idolatry;",
+  },
+  {
+    verse: 6,
+    text: "for which things' sake cometh the wrath of God upon the sons of disobedience:",
+  },
+  {
+    verse: 7,
+    text: "wherein ye also once walked, when ye lived in these things;",
+  },
+  {
+    verse: 8,
+    text: "but now do ye also put them all away: anger, wrath, malice, railing, shameful speaking out of your mouth:",
+  },
+  {
+    verse: 9,
+    text: "lie not one to another; seeing that ye have put off the old man with his doings,",
+  },
+  {
+    verse: 10,
+    text: "and have put on the new man, that is being renewed unto knowledge after the image of him that created him:",
+  },
+  {
+    verse: 11,
+    text: "where there cannot be Greek and Jew, circumcision and uncircumcision, barbarian, Scythian, bondman, freeman; but Christ is all, and in all.",
+  },
+  {
     verse: 12,
-    text: "Put on therefore, as God’s elect, holy and beloved, a heart of compassion, kindness, lowliness, meekness, longsuffering;",
+    text: "Put on therefore, as God's elect, holy and beloved, a heart of compassion, kindness, lowliness, meekness, longsuffering;",
   },
   {
     verse: 13,
@@ -39,5 +67,37 @@ export const ASV_COL_3: { verse: number; text: string }[] = [
   {
     verse: 17,
     text: "And whatsoever ye do, in word or in deed, do all in the name of the Lord Jesus, giving thanks to God the Father through him.",
+  },
+  {
+    verse: 18,
+    text: "Wives, be in subjection to your husbands, as is fitting in the Lord.",
+  },
+  {
+    verse: 19,
+    text: "Husbands, love your wives, and be not bitter against them.",
+  },
+  {
+    verse: 20,
+    text: "Children, obey your parents in all things, for this is well-pleasing in the Lord.",
+  },
+  {
+    verse: 21,
+    text: "Fathers, provoke not your children, that they be not discouraged.",
+  },
+  {
+    verse: 22,
+    text: "Servants, obey in all things them that are your masters according to the flesh; not with eye-service, as men-pleasers, but in singleness of heart, fearing the Lord:",
+  },
+  {
+    verse: 23,
+    text: "whatsoever ye do, work heartily, as unto the Lord, and not unto men;",
+  },
+  {
+    verse: 24,
+    text: "knowing that from the Lord ye shall receive the recompense of the inheritance: ye serve the Lord Christ.",
+  },
+  {
+    verse: 25,
+    text: "For he that doeth wrong shall receive again for the wrong that he hath done: and there is no respect of persons.",
   },
 ];
