@@ -65,10 +65,15 @@ put_and_verify lzz John 1 "太初有道，道与神同在，道就是神。"
 put_and_verify shinkaiyaku John 1 "初めに言があった。言は神と共にあった。言は神であった。"
 put_and_verify shinKyoudou John 1 "初めに言があった。言は神と共にあった。言は神であった。"
 
-# Additional chapter put→get for denser dual-pane refs
+# Additional chapter put→get for denser dual-pane / teaching-set refs
 put_and_verify cuvs John 14 "你们心里不要忧愁；你们信神，也当信我。"
+put_and_verify cuvt John 14 "你們心裏不要憂愁；你們信神，也當信我。"
 put_and_verify rcuv Matt 5 "虚心的人有福了！因为天国是他们的。"
+put_and_verify ccb Rom 8 "所以，如今那些在基督耶稣里的人就不再被定罪了。"
 put_and_verify kougo Rom 8 "こういうわけで、今や、キリスト・イエスにある者は罪に定められることがない。"
+put_and_verify lzz Heb 11 "信就是所望之事的实底，是未见之事的确据。"
+put_and_verify shinkaiyaku Isa 53 "だれが私たちの聞いたことを信じたか。主の腕は、だれに現れたか。"
+put_and_verify shinKyoudou 1John 4 "愛する者たちよ。わたしたちは互に愛し合おうではないか。"
 
 # Pack catalog still lists licensed stubs for full-corpus entitlement path.
 CP=$(curl -sf "$BASE/v1/bible/corpus-packs?provider=r2")

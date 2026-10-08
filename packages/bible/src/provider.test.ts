@@ -496,8 +496,10 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   const cuvsIsa = await loadChapter("cuvs", { book: "Isa", chapter: 53 });
   assert.ok(!("external" in cuvsIsa));
   assert.equal(cuvsIsa.book, "Isa");
-  assert.ok(cuvsIsa.verses.length >= 3 && cuvsIsa.verses.length <= 5);
+  assert.ok(cuvsIsa.verses.length >= 12);
   assert.match(cuvsIsa.verses[0]?.text ?? "", /样例|我们所传的|膀臂/);
+  assert.match(cuvsIsa.verses.find((v) => v.verse === 5)?.text ?? "", /过犯|鞭伤|医治/);
+  assert.match(cuvsIsa.verses.find((v) => v.verse === 12)?.text ?? "", /代求|罪犯/);
 
   const kougoIsa = await loadChapter("kougo", { book: "Isaiah", chapter: 53 });
   assert.ok(!("external" in kougoIsa));
@@ -581,14 +583,16 @@ test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3
     const heb = await loadChapter(tid, { book: "Heb", chapter: 11 });
     assert.ok(!("external" in heb), tid);
     assert.equal(heb.book, "Heb");
-    assert.ok(heb.verses.length >= 5 && heb.verses.length <= 12, tid);
+    assert.ok(heb.verses.length >= 12, tid);
     assert.match(heb.verses[0]?.text ?? "", /样例|樣例|見本|信|信仰/);
+    assert.match(heb.verses.find((v) => v.verse === 12)?.text ?? "", /星|砂|沙|子孙|子孫|生まれ/);
 
     const isa = await loadChapter(tid, { book: "Isa", chapter: 53 });
     assert.ok(!("external" in isa), tid);
     assert.equal(isa.book, "Isa");
-    assert.ok(isa.verses.length >= 3 && isa.verses.length <= 8, tid);
+    assert.ok(isa.verses.length >= 12, tid);
     assert.match(isa.verses[0]?.text ?? "", /样例|樣例|見本|信|腕|膀臂/);
+    assert.match(isa.verses.find((v) => v.verse === 5)?.text ?? "", /过犯|過犯|鞭|傷|いや|砕/);
 
     const acts = await loadChapter(tid, { book: "Acts", chapter: 2 });
     assert.ok(!("external" in acts), tid);
@@ -989,10 +993,14 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
 
   const cuvsJn4 = await loadChapter("cuvs", { book: "1John", chapter: 4 });
   assert.ok(!("external" in cuvsJn4));
-  assert.match(cuvsJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神就是爱/);
+  assert.ok(cuvsJn4.verses.length >= 15);
+  assert.match(cuvsJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神就是爱|上帝就是爱/);
+  assert.match(cuvsJn4.verses.find((v) => v.verse === 18)?.text ?? "", /惧怕|完全/);
   const kougoJn4 = await loadChapter("kougo", { book: "1John", chapter: 4 });
   assert.ok(!("external" in kougoJn4));
+  assert.ok(kougoJn4.verses.length >= 15);
   assert.match(kougoJn4.verses.find((v) => v.verse === 8)?.text ?? "", /神は愛である/);
+  assert.match(kougoJn4.verses.find((v) => v.verse === 19)?.text ?? "", /まず|愛して/);
 });
 
 test("loadChapter returns zh/ja Matthew.5 Beatitudes scaffolds (cuvs/kougo)", async () => {
