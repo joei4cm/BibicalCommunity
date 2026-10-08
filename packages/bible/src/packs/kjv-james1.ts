@@ -1,5 +1,9 @@
-/** Public-domain: KJV James 1 denser faith-and-doers scaffold (vv.2–5 + 12 + 17–22). */
+/** Public-domain: KJV James 1 denser full faith-and-doers chapter scaffold (vv.1–27). */
 export const KJV_JAMES_1: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "James, a servant of God and of the Lord Jesus Christ, to the twelve tribes which are scattered abroad, greeting.",
+  },
   {
     verse: 2,
     text: "My brethren, count it all joy when ye fall into divers temptations;",
@@ -17,8 +21,48 @@ export const KJV_JAMES_1: { verse: number; text: string }[] = [
     text: "If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.",
   },
   {
+    verse: 6,
+    text: "But let him ask in faith, nothing wavering. For he that wavereth is like a wave of the sea driven with the wind and tossed.",
+  },
+  {
+    verse: 7,
+    text: "For let not that man think that he shall receive any thing of the Lord.",
+  },
+  {
+    verse: 8,
+    text: "A double minded man is unstable in all his ways.",
+  },
+  {
+    verse: 9,
+    text: "Let the brother of low degree rejoice in that he is exalted:",
+  },
+  {
+    verse: 10,
+    text: "But the rich, in that he is made low: because as the flower of the grass he shall pass away.",
+  },
+  {
+    verse: 11,
+    text: "For the sun is no sooner risen with a burning heat, but it withereth the grass, and the flower thereof falleth, and the grace of the fashion of it perisheth: so also shall the rich man fade away in his ways.",
+  },
+  {
     verse: 12,
     text: "Blessed is the man that endureth temptation: for when he is tried, he shall receive the crown of life, which the Lord hath promised to them that love him.",
+  },
+  {
+    verse: 13,
+    text: "Let no man say when he is tempted, I am tempted of God: for God cannot be tempted with evil, neither tempteth he any man:",
+  },
+  {
+    verse: 14,
+    text: "But every man is tempted, when he is drawn away of his own lust, and enticed.",
+  },
+  {
+    verse: 15,
+    text: "Then when lust hath conceived, it bringeth forth sin: and sin, when it is finished, bringeth forth death.",
+  },
+  {
+    verse: 16,
+    text: "Do not err, my beloved brethren.",
   },
   {
     verse: 17,
@@ -43,5 +87,25 @@ export const KJV_JAMES_1: { verse: number; text: string }[] = [
   {
     verse: 22,
     text: "But be ye doers of the word, and not hearers only, deceiving your own selves.",
+  },
+  {
+    verse: 23,
+    text: "For if any be a hearer of the word, and not a doer, he is like unto a man beholding his natural face in a glass:",
+  },
+  {
+    verse: 24,
+    text: "For he beholdeth himself, and goeth his way, and straightway forgetteth what manner of man he was.",
+  },
+  {
+    verse: 25,
+    text: "But whoso looketh into the perfect law of liberty, and continueth therein, he being not a forgetful hearer, but a doer of the work, this man shall be blessed in his deed.",
+  },
+  {
+    verse: 26,
+    text: "If any man among you seem to be religious, and bridleth not his tongue, but deceiveth his own heart, this man's religion is vain.",
+  },
+  {
+    verse: 27,
+    text: "Pure religion and undefiled before God and the Father is this, To visit the fatherless and widows in their affliction, and to keep himself unspotted from the world.",
   },
 ];

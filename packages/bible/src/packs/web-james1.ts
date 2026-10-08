@@ -1,5 +1,9 @@
-/** Public-domain: WEB James 1 denser faith-and-doers scaffold (vv.2–5 + 12 + 17–22). */
+/** Public-domain: WEB James 1 denser full faith-and-doers chapter scaffold (vv.1–27). */
 export const WEB_JAMES_1: { verse: number; text: string }[] = [
+  {
+    verse: 1,
+    text: "James, a servant of God and of the Lord Jesus Christ, to the twelve tribes which are in the Dispersion: Greetings.",
+  },
   {
     verse: 2,
     text: "Count it all joy, my brothers, when you fall into various temptations,",
@@ -17,8 +21,48 @@ export const WEB_JAMES_1: { verse: number; text: string }[] = [
     text: "But if any of you lacks wisdom, let him ask of God, who gives to all liberally and without reproach, and it will be given to him.",
   },
   {
+    verse: 6,
+    text: "But let him ask in faith, without any doubting, for he who doubts is like a wave of the sea, driven by the wind and tossed.",
+  },
+  {
+    verse: 7,
+    text: "For that man shouldn't think that he will receive anything from the Lord.",
+  },
+  {
+    verse: 8,
+    text: "He is a double-minded man, unstable in all his ways.",
+  },
+  {
+    verse: 9,
+    text: "Let the brother in humble circumstances glory in his high position;",
+  },
+  {
+    verse: 10,
+    text: "and the rich, in that he is made humble, because like the flower in the grass, he will pass away.",
+  },
+  {
+    verse: 11,
+    text: "For the sun arises with the scorching wind and withers the grass; and the flower in it falls, and the beauty of its appearance perishes. So the rich man will also fade away in his pursuits.",
+  },
+  {
     verse: 12,
     text: "Blessed is a person who endures temptation, for when he has been approved, he will receive the crown of life which the Lord promised to those who love him.",
+  },
+  {
+    verse: 13,
+    text: "Let no man say when he is tempted, \"I am tempted by God,\" for God can't be tempted by evil, and he himself tempts no one.",
+  },
+  {
+    verse: 14,
+    text: "But each one is tempted when he is drawn away by his own lust and enticed.",
+  },
+  {
+    verse: 15,
+    text: "Then the lust, when it has conceived, gives birth to sin. The sin, when it is full grown, produces death.",
+  },
+  {
+    verse: 16,
+    text: "Don't be deceived, my beloved brothers.",
   },
   {
     verse: 17,
@@ -43,5 +87,25 @@ export const WEB_JAMES_1: { verse: number; text: string }[] = [
   {
     verse: 22,
     text: "But be doers of the word, and not only hearers, deluding your own selves.",
+  },
+  {
+    verse: 23,
+    text: "For if anyone is a hearer of the word and not a doer, he is like a man looking at his natural face in a mirror;",
+  },
+  {
+    verse: 24,
+    text: "for he sees himself, and goes away, and immediately forgets what kind of man he was.",
+  },
+  {
+    verse: 25,
+    text: "But he who looks into the perfect law of freedom and continues, not being a hearer who forgets but a doer of the work, this man will be blessed in what he does.",
+  },
+  {
+    verse: 26,
+    text: "If anyone among you thinks himself to be religious while he doesn't bridle his tongue, but deceives his heart, this man's religion is worthless.",
+  },
+  {
+    verse: 27,
+    text: "Pure religion and undefiled before our God and Father is this: to visit the fatherless and widows in their affliction, and to keep oneself unstained by the world.",
   },
 ];

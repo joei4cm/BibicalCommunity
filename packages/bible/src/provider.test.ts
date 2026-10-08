@@ -653,8 +653,11 @@ test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.
 
     const jas = await loadChapter(tid, { book: "Jas", chapter: 1 });
     assert.ok(!("external" in jas), tid);
-    assert.ok(jas.verses.length >= 11, tid);
+    assert.ok(jas.verses.length >= 27, tid);
+    assert.equal(jas.verses[0]?.verse, 1, tid);
+    assert.equal(jas.verses[jas.verses.length - 1]?.verse, 27, tid);
     assert.match(jas.verses.find((v) => v.verse === 22)?.text ?? "", /样例|樣例|見本|行道|実行/);
+    assert.match(jas.verses.find((v) => v.verse === 27)?.text ?? "", /样例|樣例|見本|孤儿|孤兒|寡婦|寡妇|孤児|寡婦|世俗|世の汚れ/);
 
     const matt = await loadChapter(tid, { book: "Matt", chapter: 28 });
     assert.ok(!("external" in matt), tid);
@@ -702,12 +705,16 @@ test("loadChapter returns PD Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds (web/kjv/a
 
   const jas = await loadChapter("web", { book: "Jas", chapter: 1 });
   assert.ok(!("external" in jas));
-  assert.ok(jas.verses.length >= 11);
+  assert.ok(jas.verses.length >= 27);
+  assert.equal(jas.verses[0]?.verse, 1);
+  assert.equal(jas.verses[jas.verses.length - 1]?.verse, 27);
   assert.match(jas.verses.find((v) => v.verse === 22)?.text ?? "", /doers of the word|not only hearers/i);
+  assert.match(jas.verses.find((v) => v.verse === 27)?.text ?? "", /pure religion|fatherless and widows|unstained by the world/i);
 
   const asvJas = await loadChapter("asv", { book: "James", chapter: 1 });
   assert.ok(!("external" in asvJas));
-  assert.ok(asvJas.verses.length >= 11);
+  assert.ok(asvJas.verses.length >= 27);
+  assert.match(asvJas.verses.find((v) => v.verse === 1)?.text ?? "", /twelve tribes|Dispersion/i);
 
   const rev = await loadChapter("web", { book: "Rev", chapter: 21 });
   assert.ok(!("external" in rev));
@@ -746,13 +753,17 @@ test("loadChapter returns zh/ja Eph.2 / Col.3 / Jas.1 / Rev.21 scaffolds", async
 
   const cuvsJas = await loadChapter("cuvs", { book: "Jas", chapter: 1 });
   assert.ok(!("external" in cuvsJas));
-  assert.ok(cuvsJas.verses.length >= 11);
+  assert.ok(cuvsJas.verses.length >= 27);
+  assert.equal(cuvsJas.verses[cuvsJas.verses.length - 1]?.verse, 27);
   assert.match(cuvsJas.verses.find((v) => v.verse === 22)?.text ?? "", /样例|行道|听道/);
+  assert.match(cuvsJas.verses.find((v) => v.verse === 27)?.text ?? "", /样例|孤儿寡妇|不沾染世俗/);
 
   const kougoJas = await loadChapter("kougo", { book: "James", chapter: 1 });
   assert.ok(!("external" in kougoJas));
-  assert.ok(kougoJas.verses.length >= 11);
+  assert.ok(kougoJas.verses.length >= 27);
+  assert.equal(kougoJas.verses[kougoJas.verses.length - 1]?.verse, 27);
   assert.match(kougoJas.verses.find((v) => v.verse === 22)?.text ?? "", /見本|実行|聞くだけ/);
+  assert.match(kougoJas.verses.find((v) => v.verse === 27)?.text ?? "", /見本|孤児|寡婦|世の汚れ/);
 
   const cuvsRev = await loadChapter("cuvs", { book: "Rev", chapter: 21 });
   assert.ok(!("external" in cuvsRev));
