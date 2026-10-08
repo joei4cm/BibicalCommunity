@@ -1,0 +1,51 @@
+# Local-only: live-shaped partner IdP (PARTNER_SSO_MOCK=false).
+# Does not require real partner client secrets — /start returns authorize URLs
+# on oauth.edobible.com / open.weixin.qq.com. Token exchange still needs secrets.
+#
+#   wrangler dev -c wrangler.live-idp.toml --port 8788
+#   PARTNER_LIVE_IDP=1 bash scripts/smoke-partner-live-idp.sh http://127.0.0.1:8788
+#
+# Keep wrangler.toml (8787) on mock IdP for the rest of the smoke suite.
+
+name = "logoshome-api-live-idp"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "logoshome"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "logoshome-media"
+
+[durable_objects]
+bindings = [
+  { name = "CALL_ROOM", class_name = "CallRoomDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["CallRoomDO"]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+APP_NAME = "LogosHome"
+ENVIRONMENT = "development-live-idp"
+ENDAO_SSO_ENABLED = "true"
+WEREAD_SSO_ENABLED = "true"
+PARTNER_SSO_MOCK = "false"
+ENDAO_OAUTH_CLIENT_ID = "live-idp-probe-endao"
+WEREAD_OAUTH_CLIENT_ID = "live-idp-probe-weread"
+PARTNER_OAUTH_REDIRECT_BASE = "http://127.0.0.1:8788"
+ENDAO_OAUTH_AUTHORIZE_BASE = "https://oauth.edobible.com/authorize"
+WEREAD_OAUTH_AUTHORIZE_BASE = "https://open.weixin.qq.com/connect/oauth2/authorize"
+# Token URLs stay on real hosts; exchange will fail without secrets (expected).
+TURN_SECRET = "dev-turn-secret"
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
+PLATFORM_ADMIN_BOOTSTRAP_SECRET = "dev-platform-admin-bootstrap"

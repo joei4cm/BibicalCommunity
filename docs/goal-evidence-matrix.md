@@ -10,7 +10,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
 | 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **download→local DB**; boot `scope=boot` (**`CORPUS_BOOT_VS_FULL_OK`**); paged full (**`CORPUS_PAGED_DOWNLOAD_OK`**); Web+Expo **corpus catalog** (download other tids / `fullPackAvailable`); admin getbible→R2 (**`ADMIN_PD_CORPUS_OK`**); ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — slim boot + paged download + catalog UI PASS; production CF R2 OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
-| 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
+| 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OK`** via `wrangler.live-idp.toml` non-mock `/start` (oauth.edobible.com / open.weixin.qq.com); **`PARTNER_LIVE_TOKEN_EXCHANGE_OPEN`** until real client secrets | PARTIAL — live-shaped authorize start PASS; partner token exchange secrets OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
 | 7 | Church Home forums / embeds | `HOME_SMOKE_OK`; `HOME_MEMBERS_OK`; **`HOME_JOIN_SLUG_OK`**; **`HOME_FORUM_MEDIA_ACL_OK`** (R2 `mediaKey`, embed allowlist, group-board membership ACL) | PARTIAL — compose+roster+join+media/ACL PASS; live CF media ops OPEN |
 | 8 | E2EE chat TTL / archive | `KEYS_X3DH_CHAT_OK`; `KEYS_LIBSIGNAL_SEAM_OK` + **`LIBSIGNAL_PACKAGE_PROBE_OK`** + **`LIBSIGNAL_NATIVE_ROUNDTRIP_OK`** (Node); **`LIBSIGNAL_WORKERS_FALLBACK_OK`** (x25519 + webcrypto + **`createProductSignalClient`**) + **`LIBSIGNAL_WORKERS_OPEN`** (no official WASM/Workers build of `@signalapp/libsignal-client`; product default → x25519); **`PRODUCT_CHAT_SIGNAL_OK`** + **`PRODUCT_CHAT_API_OK`** (courier roundtrip); `CURVE25519_X25519_OK`; `TTL_TOMBSTONE_OK`; `ARCHIVE_OK`/`UNARCHIVE_OK`; IndexedDB `lh-secure` | PARTIAL — product chat path + API courier PASS; official Workers native/WASM libsignal OPEN |
@@ -53,7 +53,8 @@ bash scripts/smoke-libsignal-workers.sh # LIBSIGNAL_NATIVE_NODE_OK + LIBSIGNAL_W
 bash scripts/smoke-product-chat-signal.sh # PRODUCT_CHAT_SIGNAL_OK (app product facade; optional PRODUCT_CHAT_API_OK)
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK + DEVICE_PRODUCT_CHAT_OK (+ DEVICE_HANDSET_E2E_OPEN)
 bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
-bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
+bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (default mock API)
+bash scripts/run-live-idp-probe.sh     # PARTNER_LIVE_IDP_OK (+ TOKEN_EXCHANGE_OPEN)
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh
 ```
 
