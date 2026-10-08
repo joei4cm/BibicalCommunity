@@ -214,7 +214,17 @@ export function BibleReader() {
   const readerFont = serif ? "var(--lh-font-reader)" : "var(--lh-font-ui)";
 
   useEffect(() => {
-    void ensureBootCorpusSeeded();
+    void ensureBootCorpusSeeded(async (tid) => {
+      try {
+        const pack = await api<{
+          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+          source?: string;
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}`);
+        return { chapters: pack.chapters, source: pack.source };
+      } catch {
+        return null;
+      }
+    });
   }, []);
 
   useEffect(() => {

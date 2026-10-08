@@ -15,7 +15,8 @@ import {
 const DB_NAME = "lh-bible";
 const STORE = "chapters";
 const DB_VERSION = 1;
-const BOOT_FLAG = "lh.bible.bootSeeded";
+/** Bump when boot seed source changes (demo → download/R2 fixtures). */
+const BOOT_FLAG = "lh.bible.bootSeeded.v2";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -155,20 +156,48 @@ class IndexedDbCorpusStore implements LocalCorpusStore {
 const store = new IndexedDbCorpusStore();
 export const bibleLocalDb = new LocalCorpusDb(store);
 
-/** First launch: seed only boot-default translations into IndexedDB. */
-export async function ensureBootCorpusSeeded(): Promise<{ seeded: boolean; tids: string[] }> {
+export type BootSeedFetch = (translationId: string) => Promise<{
+  chapters: R2ChapterJson[];
+  source?: string;
+} | null>;
+
+/**
+ * First launch: seed only boot-default translations into IndexedDB.
+ * Prefer `/v1/bible/corpus-download/:tid` (R2/fixture JSON) over inline demo packs.
+ */
+export async function ensureBootCorpusSeeded(
+  fetchPack?: BootSeedFetch,
+): Promise<{ seeded: boolean; tids: string[]; sources: Record<string, string> }> {
+  const sources: Record<string, string> = {};
   if (typeof indexedDB === "undefined") {
-    return { seeded: false, tids: [] };
+    return { seeded: false, tids: [], sources };
   }
   if (localStorage.getItem(BOOT_FLAG) === "1") {
-    return { seeded: false, tids: [...BOOT_DEFAULT_TRANSLATION_IDS] };
+    return { seeded: false, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
   }
   for (const tid of BOOT_DEFAULT_TRANSLATION_IDS) {
-    const pack = buildDemoDownloadPack(tid);
-    await bibleLocalDb.installPack(tid, pack.chapters);
+    let chapters: R2ChapterJson[] | null = null;
+    let source = "demo";
+    if (fetchPack) {
+      try {
+        const pack = await fetchPack(tid);
+        if (pack?.chapters?.length) {
+          chapters = pack.chapters;
+          source = pack.source ?? "download";
+        }
+      } catch {
+        /* fall through to demo */
+      }
+    }
+    if (!chapters) {
+      chapters = buildDemoDownloadPack(tid).chapters;
+      source = "demo";
+    }
+    await bibleLocalDb.installPack(tid, chapters);
+    sources[tid] = source;
   }
   localStorage.setItem(BOOT_FLAG, "1");
-  return { seeded: true, tids: [...BOOT_DEFAULT_TRANSLATION_IDS] };
+  return { seeded: true, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
 }
 
 export async function installDownloadedPack(
