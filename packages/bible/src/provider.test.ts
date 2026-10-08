@@ -804,6 +804,20 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
   const jn4 = await loadChapter("asv", { book: "1John", chapter: 4 });
   assert.ok(!("external" in jn4));
   assert.equal(jn4.book, "1John");
+  assert.ok(jn4.verses.length >= 15);
+  assert.equal(jn4.verses[0]?.verse, 7);
+  assert.equal(jn4.verses[jn4.verses.length - 1]?.verse, 21);
   assert.match(jn4.verses.find((v) => v.verse === 8)?.text ?? "", /God is love/i);
+  assert.match(jn4.verses.find((v) => v.verse === 18)?.text ?? "", /perfect love|casteth out fear|casts out fear/i);
   assert.match(jn4.verses.find((v) => v.verse === 19)?.text ?? "", /first loved us/i);
+
+  const webJn4 = await loadChapter("web", { book: "1John", chapter: 4 });
+  assert.ok(!("external" in webJn4));
+  assert.ok(webJn4.verses.length >= 15);
+  assert.match(webJn4.verses.find((v) => v.verse === 10)?.text ?? "", /atoning sacrifice|propitiation/i);
+
+  const kjvJn4 = await loadChapter("kjv", { book: "1John", chapter: 4 });
+  assert.ok(!("external" in kjvJn4));
+  assert.ok(kjvJn4.verses.length >= 15);
+  assert.match(kjvJn4.verses.find((v) => v.verse === 21)?.text ?? "", /love his brother/i);
 });
