@@ -1,4 +1,4 @@
-/** Public-domain: ASV Luke 2 denser nativity scaffold (vv.1–14). */
+/** Public-domain: ASV Luke 2 denser full nativity chapter scaffold (vv.1–52). */
 export const ASV_LUKE_2: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -56,4 +56,156 @@ export const ASV_LUKE_2: { verse: number; text: string }[] = [
     verse: 14,
     text: "Glory to God in the highest, And on earth peace among men in whom he is well pleased.",
   },
+  {
+    verse: 15,
+    text: "And it came to pass, when the angels went away from them into heaven, the shepherds said one to another, Let us now go even unto Bethlehem, and see this thing that is come to pass, which the Lord hath made known unto us.",
+  },
+  {
+    verse: 16,
+    text: "And they came with haste, and found both Mary and Joseph, and the babe lying in the manger.",
+  },
+  {
+    verse: 17,
+    text: "And when they saw it, they made known concerning the saying which was spoken to them about this child.",
+  },
+  {
+    verse: 18,
+    text: "And all that heard it wondered at the things which were spoken unto them by the shepherds.",
+  },
+  {
+    verse: 19,
+    text: "But Mary kept all these sayings, pondering them in her heart.",
+  },
+  {
+    verse: 20,
+    text: "And the shepherds returned, glorifying and praising God for all the things that they had heard and seen, even as it was spoken unto them.",
+  },
+  {
+    verse: 21,
+    text: "And when eight days were fulfilled for circumcising him, his name was called JESUS, which was so called by the angel before he was conceived in the womb.",
+  },
+  {
+    verse: 22,
+    text: "And when the days of their purification according to the law of Moses were fulfilled, they brought him up to Jerusalem, to present him to the Lord",
+  },
+  {
+    verse: 23,
+    text: "(as it is written in the law of the Lord, Every male that openeth the womb shall be called holy to the Lord),",
+  },
+  {
+    verse: 24,
+    text: "and to offer a sacrifice according to that which is said in the law of the Lord, A pair of turtledoves, or two young pigeons.",
+  },
+  {
+    verse: 25,
+    text: "And behold, there was a man in Jerusalem, whose name was Simeon; and this man was righteous and devout, looking for the consolation of Israel: and the Holy Spirit was upon him.",
+  },
+  {
+    verse: 26,
+    text: "And it had been revealed unto him by the Holy Spirit, that he should not see death, before he had seen the Lord's Christ.",
+  },
+  {
+    verse: 27,
+    text: "And he came in the Spirit into the temple: and when the parents brought in the child Jesus, that they might do concerning him after the custom of the law,",
+  },
+  {
+    verse: 28,
+    text: "then he received him into his arms, and blessed God, and said,",
+  },
+  {
+    verse: 29,
+    text: "Now lettest thou thy servant depart, Lord, According to thy word, in peace;",
+  },
+  {
+    verse: 30,
+    text: "For mine eyes have seen thy salvation,",
+  },
+  {
+    verse: 31,
+    text: "Which thou hast prepared before the face of all peoples;",
+  },
+  {
+    verse: 32,
+    text: "A light for revelation to the Gentiles, And the glory of thy people Israel.",
+  },
+  {
+    verse: 33,
+    text: "And his father and his mother were marvelling at the things which were spoken concerning him;",
+  },
+  {
+    verse: 34,
+    text: "and Simeon blessed them, and said unto Mary his mother, Behold, this child is set for the falling and the rising of many in Israel; and for a sign which is spoken against;",
+  },
+  {
+    verse: 35,
+    text: "yea and a sword shall pierce through thine own soul; that thoughts out of many hearts may be revealed.",
+  },
+  {
+    verse: 36,
+    text: "And there was one Anna, a prophetess, the daughter of Phanuel, of the tribe of Asher (she was of a great age, having lived with a husband seven years from her virginity,",
+  },
+  {
+    verse: 37,
+    text: "and she had been a widow even unto fourscore and four years), who departed not from the temple, worshipping with fastings and supplications night and day.",
+  },
+  {
+    verse: 38,
+    text: "And coming up at that very hour she gave thanks unto God, and spake of him to all them that were looking for the redemption of Jerusalem.",
+  },
+  {
+    verse: 39,
+    text: "And when they had accomplished all things that were according to the law of the Lord, they returned into Galilee, to their own city Nazareth.",
+  },
+  {
+    verse: 40,
+    text: "And the child grew, and waxed strong, filled with wisdom: and the grace of God was upon him.",
+  },
+  {
+    verse: 41,
+    text: "And his parents went every year to Jerusalem at the feast of the passover.",
+  },
+  {
+    verse: 42,
+    text: "And when he was twelve years old, they went up after the custom of the feast;",
+  },
+  {
+    verse: 43,
+    text: "and when they had fulfilled the days, as they were returning, the boy Jesus tarried behind in Jerusalem; and his parents knew it not;",
+  },
+  {
+    verse: 44,
+    text: "but supposing him to be in the company, they went a day's journey; and they sought for him among their kinsfolk and acquaintance:",
+  },
+  {
+    verse: 45,
+    text: "and when they found him not, they returned to Jerusalem, seeking for him.",
+  },
+  {
+    verse: 46,
+    text: "And it came to pass, after three days they found him in the temple, sitting in the midst of the teachers, both hearing them, and asking them questions:",
+  },
+  {
+    verse: 47,
+    text: "and all that heard him were amazed at his understanding and his answers.",
+  },
+  {
+    verse: 48,
+    text: "And when they saw him, they were astonished; and his mother said unto him, Son, why hast thou thus dealt with us? behold, thy father and I sought thee sorrowing.",
+  },
+  {
+    verse: 49,
+    text: "And he said unto them, How is it that ye sought me? knew ye not that I must be in my Father's house?",
+  },
+  {
+    verse: 50,
+    text: "And they understood not the saying which he spake unto them.",
+  },
+  {
+    verse: 51,
+    text: "And he went down with them, and came to Nazareth; and he was subject unto them: and his mother kept all these sayings in her heart.",
+  },
+  {
+    verse: 52,
+    text: "And Jesus advanced in wisdom and stature, and in favor with God and men.",
+  }
 ];
