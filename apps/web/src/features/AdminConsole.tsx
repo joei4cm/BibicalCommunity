@@ -394,83 +394,89 @@ export function AdminConsole() {
         </ul>
       </div>
 
-      {section === "homes" && selected && (
+      {section === "homes" && (
         <div className="panel" data-testid="admin-homes-panel">
           <h2 style={{ marginTop: 0 }}>{t("admin.sectionHomes")}</h2>
-          <div className="field">
-            <label>{t("home.churchName")}</label>
-            <input
-              value={churchName}
-              onChange={(e) => setChurchName(e.target.value)}
-              data-testid="admin-church-name"
-            />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void saveChurch()}>
-            {t("me.save")}
-          </button>
-          <h3 style={{ marginTop: "1.25rem" }}>{t("home.securityMode")}</h3>
-          <div className="toolbar">
-            <button
-              type="button"
-              className={`btn ghost${selected.securityMode === "standard" ? " active-toggle" : ""}`}
-              disabled={busy || selected.securityMode === "standard"}
-              onClick={() => void setSecurityMode("standard")}
-            >
-              {t("home.securityMode.standard")}
-            </button>
-            <button
-              type="button"
-              className={`btn ghost${selected.securityMode === "hostile" ? " active-toggle" : ""}`}
-              disabled={busy || selected.securityMode === "hostile"}
-              onClick={() => void setSecurityMode("hostile")}
-            >
-              {t("home.securityMode.hostile")}
-            </button>
-          </div>
+          {!selected ? (
+            <p className="muted">—</p>
+          ) : (
+            <>
+              <div className="field">
+                <label>{t("home.churchName")}</label>
+                <input
+                  value={churchName}
+                  onChange={(e) => setChurchName(e.target.value)}
+                  data-testid="admin-church-name"
+                />
+              </div>
+              <button type="button" className="btn" disabled={busy} onClick={() => void saveChurch()}>
+                {t("me.save")}
+              </button>
+              <h3 style={{ marginTop: "1.25rem" }}>{t("home.securityMode")}</h3>
+              <div className="toolbar">
+                <button
+                  type="button"
+                  className={`btn ghost${selected.securityMode === "standard" ? " active-toggle" : ""}`}
+                  disabled={busy || selected.securityMode === "standard"}
+                  onClick={() => void setSecurityMode("standard")}
+                >
+                  {t("home.securityMode.standard")}
+                </button>
+                <button
+                  type="button"
+                  className={`btn ghost${selected.securityMode === "hostile" ? " active-toggle" : ""}`}
+                  disabled={busy || selected.securityMode === "hostile"}
+                  onClick={() => void setSecurityMode("hostile")}
+                >
+                  {t("home.securityMode.hostile")}
+                </button>
+              </div>
 
-          <h3 style={{ marginTop: "1.25rem" }}>{t("admin.members")}</h3>
-          <ul className="list" data-testid="admin-member-list">
-            {members.map((m) => (
-              <li key={m.userId}>
-                <strong>{m.uid ?? m.userId}</strong>
-                <div className="muted">
-                  {m.role}
-                  {m.verified ? ` · ${t("me.verified")}` : ` · ${t("me.pendingVerify")}`}
-                  {m.tombstoned ? ` · ${t("admin.tombstoned")}` : ""}
-                </div>
-                <div className="toolbar" style={{ marginTop: "0.5rem" }}>
-                  <select
-                    value={m.role}
-                    disabled={busy}
-                    aria-label={t("admin.memberRole")}
-                    onChange={(e) => void patchMember(m.userId, { role: e.target.value })}
-                  >
-                    <option value="member">member</option>
-                    <option value="admin">admin</option>
-                    <option value="security_officer">security_officer</option>
-                  </select>
-                  {!m.verified && (
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy}
-                      onClick={() => void patchMember(m.userId, { verified: true })}
-                    >
-                      {t("home.verify")}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn danger"
-                    disabled={busy}
-                    onClick={() => void removeMember(m.userId)}
-                  >
-                    {t("admin.removeMember")}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+              <h3 style={{ marginTop: "1.25rem" }}>{t("admin.members")}</h3>
+              <ul className="list" data-testid="admin-member-list">
+                {members.map((m) => (
+                  <li key={m.userId}>
+                    <strong>{m.uid ?? m.userId}</strong>
+                    <div className="muted">
+                      {m.role}
+                      {m.verified ? ` · ${t("me.verified")}` : ` · ${t("me.pendingVerify")}`}
+                      {m.tombstoned ? ` · ${t("admin.tombstoned")}` : ""}
+                    </div>
+                    <div className="toolbar" style={{ marginTop: "0.5rem" }}>
+                      <select
+                        value={m.role}
+                        disabled={busy}
+                        aria-label={t("admin.memberRole")}
+                        onChange={(e) => void patchMember(m.userId, { role: e.target.value })}
+                      >
+                        <option value="member">member</option>
+                        <option value="admin">admin</option>
+                        <option value="security_officer">security_officer</option>
+                      </select>
+                      {!m.verified && (
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={busy}
+                          onClick={() => void patchMember(m.userId, { verified: true })}
+                        >
+                          {t("home.verify")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn danger"
+                        disabled={busy}
+                        onClick={() => void removeMember(m.userId)}
+                      >
+                        {t("admin.removeMember")}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
 

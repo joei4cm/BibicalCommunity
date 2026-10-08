@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 
 export function TabBar() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
@@ -23,14 +24,20 @@ export function TabBar() {
     }
     void check();
     const onFocus = () => void check();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "lh.token") void check();
+    };
+    // Same-tab login updates localStorage without a StorageEvent — poll briefly.
+    const id = window.setInterval(() => void check(), 4000);
     window.addEventListener("focus", onFocus);
-    const id = window.setInterval(() => void check(), 15000);
+    window.addEventListener("storage", onStorage);
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("storage", onStorage);
       window.clearInterval(id);
     };
-  }, []);
+  }, [location.pathname]);
 
   const tabs = [
     { to: "/app", label: t("nav.bible"), end: true },
