@@ -1,4 +1,4 @@
-/** Revised CUV-style Matthew 5 scaffold (not a licensed corpus dump). */
+/** Revised CUV-style denser Matthew 5 Beatitudes scaffold (vv.1–12; not a licensed corpus dump). */
 export const RCUV_MATT_5: { verse: number; text: string }[] = [
   { verse: 1, text: "（样例）耶稣看见这许多的人，就上了山，既已坐下，门徒到他跟前来，" },
   { verse: 2, text: "（样例）他就开口教训他们，说：" },
@@ -10,4 +10,12 @@ export const RCUV_MATT_5: { verse: number; text: string }[] = [
   { verse: 8, text: "（样例）清心的人有福了！因为他们必得见神。" },
   { verse: 9, text: "（样例）使人和睦的人有福了！因为他们必称为神的儿子。" },
   { verse: 10, text: "（样例）为义受逼迫的人有福了！因为天国是他们的。" },
+  {
+    verse: 11,
+    text: "（样例）人若因我辱骂你们，逼迫你们，捏造各样坏话毁谤你们，你们就有福了！",
+  },
+  {
+    verse: 12,
+    text: "（样例）应当欢喜快乐，因为你们在天上的赏赐是大的。在你们以前的先知，人也是这样逼迫他们。",
+  },
 ];

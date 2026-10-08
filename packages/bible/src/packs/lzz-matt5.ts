@@ -1,4 +1,4 @@
-/** 吕振中译本–style Matthew 5 scaffold (not a licensed corpus dump). */
+/** 吕振中译本–style denser Matthew 5 Beatitudes scaffold (vv.1–12; not a licensed corpus dump). */
 export const LZZ_MATT_5: { verse: number; text: string }[] = [
   { verse: 1, text: "（样例）耶稣看见群众，就上了山；既已坐下，门徒就到他跟前来；" },
   { verse: 2, text: "（样例）他就开口教训他们说：" },
@@ -10,4 +10,12 @@ export const LZZ_MATT_5: { verse: number; text: string }[] = [
   { verse: 8, text: "（样例）心里洁净的人有福啊！因为他们必得见上帝。" },
   { verse: 9, text: "（样例）使人和平的人有福啊！因为他们必称为上帝的儿子。" },
   { verse: 10, text: "（样例）为义受逼迫的人有福啊！因为天国是他们的。" },
+  {
+    verse: 11,
+    text: "（样例）人若因我辱骂你们，逼迫你们，捏造各样坏话毁谤你们，你们就有福啊！",
+  },
+  {
+    verse: 12,
+    text: "（样例）应当欢喜快乐，因为你们在天上的赏赐是大的；在你们以前的先知，人也是这样逼迫他们。",
+  },
 ];

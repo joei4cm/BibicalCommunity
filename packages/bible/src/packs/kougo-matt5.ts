@@ -1,4 +1,4 @@
-/** Japanese colloquial-style Matthew 5 scaffold (not a licensed corpus dump). */
+/** Japanese colloquial-style denser Matthew 5 Beatitudes scaffold (vv.1–12; not a licensed corpus dump). */
 export const KOUGO_MATT_5: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -36,5 +36,13 @@ export const KOUGO_MATT_5: { verse: number; text: string }[] = [
   {
     verse: 10,
     text: "（見本）義のために迫害されてきた人たちは、さいわいである、天国は彼らのものである。",
+  },
+  {
+    verse: 11,
+    text: "（見本）わたしのために人々があなたがたをののしり、迫害し、わざとらしく悪口を言う時には、あなたがたは、さいわいである。",
+  },
+  {
+    verse: 12,
+    text: "（見本）喜び、よろこべ、天においてあなたがたの受ける報いは大きい。あなたがたより前の預言者たちも、同じように迫害されたのである。』",
   },
 ];
