@@ -3,15 +3,21 @@ import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq, isNull, or, gt } from "drizzle-orm";
 import {
+  BOOT_DEFAULT_TRANSLATION_IDS,
+  buildDemoDownloadPack,
+  buildDownloadPackPayloadJson,
   getTranslation,
   listCorpusPacks,
   listDevotionMaterials,
+  listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
   loadChapter,
+  parseDownloadPackPayload,
   parseR2ChapterJson,
   parseRef,
   probeCorpusPackPipeline,
+  probeLocalCorpusPipeline,
   r2ChapterObjectKey,
 } from "@logoshome/bible";
 import { createId } from "@logoshome/shared";
@@ -66,6 +72,87 @@ bibleRoutes.get("/corpus-packs", (c) => {
       localChapterTotal: probe.localChapterTotal,
       languages: probe.languages,
     },
+  });
+});
+
+/**
+ * Download-oriented corpus catalog.
+ * Boot ships only a few tids (和合本 / WEB / 新共同訳); rest are download or external.
+ * Full verse text is NOT bundled in TypeScript — clients install packs into a local DB.
+ */
+bibleRoutes.get("/corpus-catalog", async (c) => {
+  const catalog = listDownloadableCorpusCatalog();
+  const probe = await probeLocalCorpusPipeline();
+  return c.json({
+    bootDefaults: [...BOOT_DEFAULT_TRANSLATION_IDS],
+    catalog,
+    probe: {
+      ok: probe.ok,
+      bootDefaults: probe.bootDefaults,
+      downloadableCount: probe.downloadableCount,
+      externalCount: probe.externalCount,
+      installedAfterBoot: probe.installedAfterBoot,
+      sampleR2Key: probe.sampleR2Key,
+    },
+  });
+});
+
+/**
+ * Download a translation pack as JSON for install into the client local DB.
+ * Prefer R2 chapter objects when present; otherwise serve a small demo pack
+ * (not a licensed full dump — real corpora land via R2 entitlement).
+ */
+bibleRoutes.get("/corpus-download/:translationId", async (c) => {
+  const translationId = c.req.param("translationId");
+  const meta = getTranslation(translationId);
+  if (!meta) return c.json({ error: "unknown_translation" }, 404);
+  if (meta.provider === "external") {
+    return c.json(
+      {
+        error: "external_translation",
+        hint: "Open via partner deep-link; cannot download into local DB",
+        url: meta.externalUrlTemplate,
+      },
+      400,
+    );
+  }
+
+  const catalogEntry = listDownloadableCorpusCatalog().find(
+    (p) => p.translationId === translationId,
+  );
+  const refs = catalogEntry?.chapterRefs?.length
+    ? catalogEntry.chapterRefs
+    : ["John.1", "John.3", "Ps.23"];
+
+  const fromR2: { book: string; chapter: number; verses: { verse: number; text: string }[] }[] =
+    [];
+  for (const ref of refs) {
+    const parsed = parseRef(ref);
+    if (!parsed) continue;
+    const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
+    const obj = await c.env.MEDIA.get(key);
+    if (!obj) continue;
+    try {
+      fromR2.push(parseR2ChapterJson(await obj.text()));
+    } catch {
+      /* skip invalid */
+    }
+  }
+
+  if (fromR2.length > 0) {
+    const payload = {
+      translationId,
+      version: 1,
+      chapters: fromR2,
+      source: "r2" as const,
+    };
+    return c.json(payload);
+  }
+
+  const demo = buildDemoDownloadPack(translationId);
+  return c.json({
+    ...parseDownloadPackPayload(buildDownloadPackPayloadJson(demo)),
+    source: "demo" as const,
   });
 });
 

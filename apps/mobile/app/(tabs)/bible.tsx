@@ -237,29 +237,29 @@ export default function BibleScreen() {
     void (async () => {
       try {
         const res = await api<{
-          packs: Array<{
+          bootDefaults?: string[];
+          catalog?: Array<{
+            translationId: string;
+            installMode: "boot" | "download" | "external";
+            chapterRefs: string[];
+          }>;
+          packs?: Array<{
             translationId: string;
             provider: string;
             available: boolean;
             chapterRefs: string[];
           }>;
-        }>("/v1/bible/corpus-packs");
+        }>("/v1/bible/corpus-catalog");
         if (cancelled) return;
-        const local = res.packs.find(
-          (p) => p.translationId === translationId && p.provider === "local" && p.available,
-        );
-        const licensed = res.packs.find(
-          (p) => p.translationId === translationId && p.provider === "r2",
-        );
-        if (local) {
-          const hasChapter = local.chapterRefs.includes(ref);
+        const entry = res.catalog?.find((p) => p.translationId === translationId);
+        if (entry?.installMode === "boot") {
           setCorpusHint(
-            hasChapter
-              ? `${t(locale, "reader.corpusLocal")} · ${local.chapterRefs.length}`
-              : `${t(locale, "reader.corpusPartial")} · ${local.chapterRefs.length}`,
+            `${t(locale, "reader.corpusLocalDb")} · ${entry.chapterRefs.length || "boot"}`,
           );
-        } else if (licensed) {
-          setCorpusHint(t(locale, "reader.corpusLicensedStub"));
+        } else if (entry?.installMode === "download") {
+          setCorpusHint(t(locale, "reader.corpusDownloadable"));
+        } else if (entry?.installMode === "external") {
+          setCorpusHint(t(locale, "reader.corpusExternal"));
         } else {
           setCorpusHint(null);
         }

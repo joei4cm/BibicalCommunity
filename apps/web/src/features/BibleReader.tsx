@@ -5,6 +5,7 @@ import {
   getBook,
   isPartnerId,
   listBooks,
+  listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
   type TranslationMeta,
@@ -18,6 +19,12 @@ import {
   READER_SKIN_IDS,
   type ReaderSkinId,
 } from "../lib/reader-skins";
+import {
+  bibleLocalDb,
+  ensureBootCorpusSeeded,
+  installDownloadedPack,
+  readLocalChapter,
+} from "../lib/bible-local-db";
 
 type AnnotationRow = {
   id: string;
@@ -207,10 +214,26 @@ export function BibleReader() {
   const readerFont = serif ? "var(--lh-font-reader)" : "var(--lh-font-ui)";
 
   useEffect(() => {
+    void ensureBootCorpusSeeded();
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setError(null);
+        // Prefer client local DB (download/boot install) over network/TS scaffolds.
+        const local = await readLocalChapter(translationId, bookId, chapterNum);
+        if (local && !cancelled) {
+          setChapter({
+            translationId,
+            book: local.book,
+            chapter: local.chapter,
+            verses: local.verses,
+            source: "local-db",
+          });
+          return;
+        }
         const data = await api<ChapterPayload>(
           `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
         );
@@ -222,36 +245,30 @@ export function BibleReader() {
     return () => {
       cancelled = true;
     };
-  }, [translationId, ref]);
+  }, [translationId, ref, bookId, chapterNum]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api<{
-          packs: Array<{
-            translationId: string;
-            provider: string;
-            available: boolean;
-            chapterRefs: string[];
-          }>;
-        }>("/v1/bible/corpus-packs");
+        const catalog = listDownloadableCorpusCatalog();
+        const entry = catalog.find((p) => p.translationId === translationId);
+        const installed = await bibleLocalDb.listInstalled();
+        const localRow = installed.find((r) => r.translationId === translationId);
         if (cancelled) return;
-        const local = res.packs.find(
-          (p) => p.translationId === translationId && p.provider === "local" && p.available,
-        );
-        const licensed = res.packs.find(
-          (p) => p.translationId === translationId && p.provider === "r2",
-        );
-        if (local) {
-          const hasChapter = local.chapterRefs.includes(ref);
+        if (localRow) {
+          const hasChapter = localRow.chapterRefs.includes(ref);
           setCorpusHint(
             hasChapter
-              ? `${t("reader.corpusLocal")} · ${local.chapterRefs.length}`
-              : `${t("reader.corpusPartial")} · ${local.chapterRefs.length}`,
+              ? `${t("reader.corpusLocalDb")} · ${localRow.chapterCount}`
+              : `${t("reader.corpusPartial")} · ${localRow.chapterCount}`,
           );
-        } else if (licensed) {
-          setCorpusHint(t("reader.corpusLicensedStub"));
+        } else if (entry?.installMode === "download") {
+          setCorpusHint(t("reader.corpusDownloadable"));
+        } else if (entry?.installMode === "external") {
+          setCorpusHint(t("reader.corpusExternal"));
+        } else if (entry?.installMode === "boot") {
+          setCorpusHint(t("reader.corpusBootPending"));
         } else {
           setCorpusHint(null);
         }
@@ -355,6 +372,39 @@ export function BibleReader() {
         body: JSON.stringify({ translationId }),
       });
       setNoteMsg("entitlement_ok");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "error");
+    }
+  }
+
+  /** Download translation pack from API → install into IndexedDB local corpus DB. */
+  async function downloadCorpusPack() {
+    try {
+      setError(null);
+      const pack = await api<{
+        translationId: string;
+        chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+        source?: string;
+        error?: string;
+      }>(`/v1/bible/corpus-download/${encodeURIComponent(translationId)}`);
+      if (!pack.chapters?.length) {
+        setError("corpus_download_empty");
+        return;
+      }
+      const { installed } = await installDownloadedPack(translationId, pack.chapters);
+      setNoteMsg(`corpus_installed:${installed}`);
+      setCorpusHint(`${t("reader.corpusLocalDb")} · ${installed}`);
+      // Reload chapter from local DB.
+      const local = await readLocalChapter(translationId, bookId, chapterNum);
+      if (local) {
+        setChapter({
+          translationId,
+          book: local.book,
+          chapter: local.chapter,
+          verses: local.verses,
+          source: "local-db",
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "error");
     }
@@ -479,6 +529,14 @@ export function BibleReader() {
         </button>
         <button type="button" className="btn ghost" onClick={() => void grantEntitlement()}>
           {t("reader.entitlement")}
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          data-testid="reader-corpus-download"
+          onClick={() => void downloadCorpusPack()}
+        >
+          {t("reader.corpusDownload")}
         </button>
       </div>
       {corpusHint ? (

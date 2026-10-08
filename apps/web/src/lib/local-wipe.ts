@@ -13,7 +13,7 @@ export async function wipeLocalClientState(): Promise<WipeLocalResult> {
     clearMessageDb: async () => {
       if (typeof indexedDB === "undefined") return;
       // Best-effort: delete known LogosHome DBs if present.
-      const known = ["lh-secure", "lh-messages", "lh-notes", "logoshome"];
+      const known = ["lh-secure", "lh-bible", "lh-messages", "lh-notes", "logoshome"];
       await Promise.all(
         known.map(
           (name) =>
