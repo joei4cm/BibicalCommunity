@@ -114,6 +114,51 @@ export const DEVOTION_MATERIALS: DevotionMaterial[] = [
     },
     license: "cc0",
   },
+  {
+    id: "evening-examen",
+    title: {
+      "zh-CN": "晚祷省察",
+      en: "Evening Examen",
+      ja: "夜の省察",
+    },
+    steps: ["pause", "read", "reflect", "pray"],
+    body: {
+      "zh-CN": "回顾今日蒙恩与软弱，读一节安慰经文，将忧虑交给主，以感恩结束。",
+      en: "Review the day’s gifts and struggles. Read a comforting verse. Entrust worries to God and close with thanksgiving.",
+      ja: "一日の恵みと弱さを振り返り、慰めの聖句を読み、思い煩いを主に委ね、感謝をもって終わります。",
+    },
+    license: "cc0",
+  },
+  {
+    id: "psalm-prayer",
+    title: {
+      "zh-CN": "诗篇祈祷",
+      en: "Psalm Prayer",
+      ja: "詩篇の祈り",
+    },
+    steps: ["pause", "read", "pray", "act"],
+    body: {
+      "zh-CN": "选一首诗篇慢读，把其中的呼求化作你自己的祷告，并决定一项回应行动。",
+      en: "Pray a psalm slowly. Make its cry your own, then choose one responsive action.",
+      ja: "詩篇をゆっくり祈り読み、その叫びを自分の祈りとし、応答の一歩を選びます。",
+    },
+    license: "cc0",
+  },
+  {
+    id: "weekly-review",
+    title: {
+      "zh-CN": "周复盘灵修",
+      en: "Weekly Review",
+      ja: "週次の振り返り",
+    },
+    steps: ["pause", "read", "reflect", "pray", "act"],
+    body: {
+      "zh-CN": "回顾本周经文脉络，记下主的提醒，为下周定下读经与爱邻舍的具体计划。",
+      en: "Trace the week’s readings. Note what God highlighted. Plan next week’s reading and one act of neighbor-love.",
+      ja: "一週間の聖句の流れを振り返り、主の促しを記し、来週の読書と隣人愛の一歩を計画します。",
+    },
+    license: "cc0",
+  },
 ];
 
 export function listDevotionMaterials(): DevotionMaterial[] {

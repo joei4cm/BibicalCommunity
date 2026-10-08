@@ -464,3 +464,33 @@ export async function loadChapter(
     source: "local",
   };
 }
+
+export type LocalScaffoldRef = {
+  translationId: string;
+  book: string;
+  chapter: number;
+  ref: string;
+};
+
+/** Inventory of in-repo dual-pane / offline chapter scaffolds (not full corpora). */
+export function listLocalScaffoldInventory(): LocalScaffoldRef[] {
+  const out: LocalScaffoldRef[] = [];
+  for (const [translationId, books] of Object.entries(LOCAL_SAMPLES)) {
+    for (const [bookKey, chapters] of Object.entries(books)) {
+      for (const chapter of Object.keys(chapters).map(Number)) {
+        const book = canonicalBookId(bookKey);
+        out.push({
+          translationId,
+          book,
+          chapter,
+          ref: `${book}.${chapter}`,
+        });
+      }
+    }
+  }
+  return out.sort((a, b) =>
+    a.translationId === b.translationId
+      ? a.ref.localeCompare(b.ref)
+      : a.translationId.localeCompare(b.translationId),
+  );
+}

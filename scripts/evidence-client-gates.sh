@@ -56,6 +56,11 @@ echo "SCREEN_SHARE_GATE_OK"
 echo "== curve25519 x25519 path =="
 bash scripts/smoke-curve25519.sh
 
+echo "== corpus scaffold inventory + devotion packs =="
+bash scripts/smoke-corpus-inventory.sh
+rg -q 'READER_SKIN_IDS' apps/mobile/src/reader-skins.ts
+echo "MOBILE_READER_SKINS_OK"
+
 echo "== PWA gate =="
 test -f apps/web/public/icon.svg
 rg -q 'VitePWA' apps/web/vite.config.ts

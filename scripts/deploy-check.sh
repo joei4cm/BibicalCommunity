@@ -132,13 +132,19 @@ else
   bad "no *.sql files under migrations/"
 fi
 
-for expected in 0001_init.sql 0002_groups_favorites.sql 0003_entitlements_prekeys.sql; do
+for expected in 0001_init.sql 0002_groups_favorites.sql 0003_entitlements_prekeys.sql 0004_devotion_step.sql; do
   if [[ -f "$MIG/$expected" ]]; then
     ok "migration $expected"
   else
     bad "missing migration $expected"
   fi
 done
+
+if rg -q 'devotion_step' "$MIG/0004_devotion_step.sql"; then
+  ok "0004 includes devotion_step column"
+else
+  bad "0004_devotion_step.sql must define devotion_step"
+fi
 
 # ── Supporting docs / scripts ────────────────────────────────────────────────
 for f in "$ROOT/docs/DEPLOY.md" "$API/DEPLOY.md" "$ROOT/scripts/seed-r2-chapters.sh"; do
