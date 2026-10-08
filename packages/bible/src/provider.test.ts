@@ -509,6 +509,43 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
 });
 
+test("loadChapter returns licensed-peer pastoral Gal.5 / Phil.4 / 1Cor.13 / Eph.2 / Col.3 / Jas.1 / Matt.28 / Rev.21 scaffolds", async () => {
+  const peers = ["cuvt", "rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"] as const;
+  for (const tid of peers) {
+    const gal = await loadChapter(tid, { book: "Gal", chapter: 5 });
+    assert.ok(!("external" in gal), tid);
+    assert.match(gal.verses.find((v) => v.verse === 22)?.text ?? "", /样例|樣例|見本|仁爱|仁愛|愛、喜び|御霊の実|聖霊の実/);
+
+    const phil = await loadChapter(tid, { book: "Phil", chapter: 4 });
+    assert.ok(!("external" in phil), tid);
+    assert.match(phil.verses.find((v) => v.verse === 4)?.text ?? "", /样例|樣例|見本|喜乐|喜樂|喜び/);
+
+    const cor = await loadChapter(tid, { book: "1Cor", chapter: 13 });
+    assert.ok(!("external" in cor), tid);
+    assert.match(cor.verses.find((v) => v.verse === 13)?.text ?? "", /样例|樣例|見本|最大的是爱|最大的是愛|愛である/);
+
+    const eph = await loadChapter(tid, { book: "Eph", chapter: 2 });
+    assert.ok(!("external" in eph), tid);
+    assert.match(eph.verses.find((v) => v.verse === 8)?.text ?? "", /样例|樣例|見本|本乎恩|恵み|信仰/);
+
+    const col = await loadChapter(tid, { book: "Col", chapter: 3 });
+    assert.ok(!("external" in col), tid);
+    assert.match(col.verses.find((v) => v.verse === 14)?.text ?? "", /样例|樣例|見本|爱心|愛心|愛を/);
+
+    const jas = await loadChapter(tid, { book: "Jas", chapter: 1 });
+    assert.ok(!("external" in jas), tid);
+    assert.match(jas.verses.find((v) => v.verse === 22)?.text ?? "", /样例|樣例|見本|行道|実行/);
+
+    const matt = await loadChapter(tid, { book: "Matt", chapter: 28 });
+    assert.ok(!("external" in matt), tid);
+    assert.match(matt.verses.find((v) => v.verse === 19)?.text ?? "", /样例|樣例|見本|门徒|門徒|弟子/);
+
+    const rev = await loadChapter(tid, { book: "Rev", chapter: 21 });
+    assert.ok(!("external" in rev), tid);
+    assert.match(rev.verses[0]?.text ?? "", /样例|樣例|見本|新天|新しい天/);
+  }
+});
+
 test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaffolds", async () => {
   const peers = ["cuvt", "rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"] as const;
   for (const tid of peers) {
