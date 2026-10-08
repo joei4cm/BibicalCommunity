@@ -14,8 +14,11 @@ import {
   getBook,
   isPartnerId,
   listBooks,
+  listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
+  type DownloadableCorpusPack,
+  type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
 import { t } from "@logoshome/shared";
@@ -100,7 +103,29 @@ export default function BibleScreen() {
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>("default");
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [installedByTid, setInstalledByTid] = useState<
+    Record<string, InstalledTranslationSummary>
+  >({});
+  const [downloadingTid, setDownloadingTid] = useState<string | null>(null);
+  const corpusCatalog = useMemo(() => listDownloadableCorpusCatalog(), []);
   const skinPalette = readerSkinPalette(readerSkin);
+
+  const refreshInstalledCorpus = useCallback(async () => {
+    try {
+      const rows = await bibleLocalDb.listInstalled();
+      const map: Record<string, InstalledTranslationSummary> = {};
+      for (const row of rows) map[row.translationId] = row;
+      setInstalledByTid(map);
+    } catch {
+      setInstalledByTid({});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showCatalog) return;
+    void refreshInstalledCorpus();
+  }, [showCatalog, refreshInstalledCorpus]);
 
   useEffect(() => {
     void loadReaderSkin().then(setReaderSkin);
@@ -430,36 +455,47 @@ export default function BibleScreen() {
     }
   }
 
-  async function downloadCorpusPack() {
+  async function downloadCorpusPack(targetTid = translationId) {
     if (!apiBase) {
       setAnnMsg("EXPO_PUBLIC_API_BASE not set");
       return;
     }
     setAnnBusy(true);
+    setDownloadingTid(targetTid);
     setAnnMsg(null);
     try {
       const pack = await api<{
         chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
         source?: string;
-      }>(`/v1/bible/corpus-download/${encodeURIComponent(translationId)}`);
+      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}`);
       if (!pack.chapters?.length) {
         setAnnMsg("corpus_download_empty");
         return;
       }
-      const { installed } = await installDownloadedPack(translationId, pack.chapters);
+      const { installed } = await installDownloadedPack(targetTid, pack.chapters);
       setAnnMsg(`corpus_installed:${installed}`);
-      setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installed}`);
-      const local = await readLocalChapter(translationId, bookId, chapterNum);
-      if (local) {
-        setExternal(null);
-        setVerses(local.verses);
-        setChapterLabel(`${local.book} ${local.chapter} (local-db)`);
+      await refreshInstalledCorpus();
+      if (targetTid === translationId) {
+        setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installed}`);
+        const local = await readLocalChapter(translationId, bookId, chapterNum);
+        if (local) {
+          setExternal(null);
+          setVerses(local.verses);
+          setChapterLabel(`${local.book} ${local.chapter} (local-db)`);
+        }
       }
     } catch (e) {
       setAnnMsg(e instanceof Error ? e.message : "error");
     } finally {
       setAnnBusy(false);
+      setDownloadingTid(null);
     }
+  }
+
+  function catalogModeLabel(mode: DownloadableCorpusPack["installMode"]): string {
+    if (mode === "boot") return t(locale, "reader.corpusCatalogBoot");
+    if (mode === "download") return t(locale, "reader.corpusCatalogDownload");
+    return t(locale, "reader.corpusCatalogExternal");
   }
 
   const externalLabel =
@@ -497,6 +533,78 @@ export default function BibleScreen() {
         <Text style={styles.muted} testID="reader-corpus-hint">
           {corpusHint}
         </Text>
+      ) : null}
+      <View style={styles.annActions}>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, showCatalog && styles.chipActive]}
+          testID="reader-corpus-catalog-toggle"
+          onPress={() => setShowCatalog((v) => !v)}
+        >
+          <Text style={[styles.btnGhostText, showCatalog && styles.chipTextActive]}>
+            {t(locale, "reader.corpusCatalog")}
+          </Text>
+        </Pressable>
+      </View>
+      {showCatalog ? (
+        <View style={styles.catalogPanel} testID="reader-corpus-catalog">
+          <Text style={styles.section}>{t(locale, "reader.corpusCatalog")}</Text>
+          <Text style={styles.muted}>{t(locale, "reader.corpusCatalogHint")}</Text>
+          {corpusCatalog.map((pack) => {
+            const installed = installedByTid[pack.translationId];
+            const busy = downloadingTid === pack.translationId;
+            const active = pack.translationId === translationId;
+            return (
+              <View
+                key={pack.translationId}
+                style={styles.catalogRow}
+                testID={`corpus-catalog-row-${pack.translationId}`}
+              >
+                <View style={styles.catalogMeta}>
+                  <Text style={styles.catalogTitle}>
+                    {pack.name[locale] ?? pack.translationId}
+                    {active ? " · ★" : ""}
+                  </Text>
+                  <Text style={styles.muted}>
+                    {catalogModeLabel(pack.installMode)}
+                    {installed
+                      ? ` · ${t(locale, "reader.corpusCatalogInstalled")} ${installed.chapterCount} ${t(locale, "reader.corpusCatalogChapters")}`
+                      : pack.installMode !== "external"
+                        ? ` · ${pack.chapterRefs.length} ${t(locale, "reader.corpusCatalogChapters")}`
+                        : ""}
+                  </Text>
+                </View>
+                <View style={styles.catalogActions}>
+                  {pack.installMode !== "external" ? (
+                    <Pressable
+                      style={[styles.btn, styles.btnGhost, (busy || annBusy) && styles.btnDisabled]}
+                      disabled={busy || annBusy}
+                      testID={`corpus-catalog-download-${pack.translationId}`}
+                      onPress={() => void downloadCorpusPack(pack.translationId)}
+                    >
+                      <Text style={styles.btnGhostText}>
+                        {busy
+                          ? t(locale, "reader.corpusCatalogDownloading")
+                          : t(locale, "reader.corpusDownload")}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    style={[styles.btn, styles.btnGhost]}
+                    testID={`corpus-catalog-open-${pack.translationId}`}
+                    onPress={() => {
+                      setTranslationId(pack.translationId);
+                      setShowCatalog(false);
+                    }}
+                  >
+                    <Text style={styles.btnGhostText}>
+                      {t(locale, "reader.corpusCatalogOpen")}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })}
+        </View>
       ) : null}
 
       <Text style={styles.label}>{t(locale, "reader.book")}</Text>
@@ -689,11 +797,15 @@ export default function BibleScreen() {
             </Pressable>
             <Pressable
               style={[styles.btn, styles.btnGhost, annBusy && styles.btnDisabled]}
-              disabled={annBusy}
+              disabled={annBusy || downloadingTid === translationId}
               testID="reader-corpus-download"
               onPress={() => void downloadCorpusPack()}
             >
-              <Text style={styles.btnGhostText}>{t(locale, "reader.corpusDownload")}</Text>
+              <Text style={styles.btnGhostText}>
+                {downloadingTid === translationId
+                  ? t(locale, "reader.corpusCatalogDownloading")
+                  : t(locale, "reader.corpusDownload")}
+              </Text>
             </Pressable>
           </View>
           <Text style={styles.label}>{t(locale, "reader.highlight")}</Text>
@@ -849,4 +961,21 @@ const styles = StyleSheet.create({
   },
   studyItem: { marginTop: 10 },
   studyTitle: { color: "#0f6b5c", fontWeight: "600", fontSize: 16 },
+  catalogPanel: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#cfc7b6",
+    backgroundColor: "#fff",
+  },
+  catalogRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#ddd5c4",
+  },
+  catalogMeta: { marginBottom: 8 },
+  catalogTitle: { color: "#1c2b2a", fontWeight: "700", fontSize: 15 },
+  catalogActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
 });
