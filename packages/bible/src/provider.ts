@@ -110,6 +110,14 @@ import { ASV_JOHN_14 } from "./packs/asv-john14.js";
 import { CUVS_JOHN_14 } from "./packs/cuvs-john14.js";
 import { KOUGO_JOHN_14 } from "./packs/kougo-john14.js";
 import { RCUV_JOHN_14 } from "./packs/rcuv-john14.js";
+import { RCUV_JOHN_15 } from "./packs/rcuv-john15.js";
+import { RCUV_MATT_5 } from "./packs/rcuv-matt5.js";
+import { RCUV_MATT_6 } from "./packs/rcuv-matt6.js";
+import { RCUV_GEN_1 } from "./packs/rcuv-gen1.js";
+import { RCUV_PSALM_23 } from "./packs/rcuv-ps23.js";
+import { RCUV_ROM_8 } from "./packs/rcuv-rom8.js";
+import { RCUV_ROM_12 } from "./packs/rcuv-rom12.js";
+import { RCUV_1JOHN_4 } from "./packs/rcuv-1john4.js";
 import { CCB_JOHN_14 } from "./packs/ccb-john14.js";
 import { LZZ_JOHN_14 } from "./packs/lzz-john14.js";
 import { SHINKAIYAKU_JOHN_14 } from "./packs/shinkaiyaku-john14.js";
@@ -493,7 +501,12 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
   },
 
   rcuv: {
-    john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3, 14: RCUV_JOHN_14 },
+    john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3, 14: RCUV_JOHN_14, 15: RCUV_JOHN_15 },
+    matt: { 5: RCUV_MATT_5, 6: RCUV_MATT_6 },
+    gen: { 1: RCUV_GEN_1 },
+    ps: { 23: RCUV_PSALM_23 },
+    rom: { 8: RCUV_ROM_8, 12: RCUV_ROM_12 },
+    "1john": { 4: RCUV_1JOHN_4 },
   },
   shinkaiyaku: {
     john: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3, 14: SHINKAIYAKU_JOHN_14 },
