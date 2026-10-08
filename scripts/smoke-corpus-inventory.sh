@@ -8,7 +8,7 @@ node --input-type=module -e '
 import { listLocalScaffoldInventory, listTranslations, listDevotionMaterials } from "./packages/bible/dist/index.js";
 
 const inv = listLocalScaffoldInventory();
-if (inv.length < 80) throw new Error("expected >=80 local scaffold chapters, got " + inv.length);
+if (inv.length < 100) throw new Error("expected >=100 local scaffold chapters, got " + inv.length);
 
 const byLang = { zh: 0, en: 0, ja: 0 };
 const metas = Object.fromEntries(listTranslations().map((t) => [t.id, t]));
@@ -20,13 +20,12 @@ if (byLang.en < 20) throw new Error("en scaffolds too few: " + byLang.en);
 if (byLang.zh < 10) throw new Error("zh scaffolds too few: " + byLang.zh);
 if (byLang.ja < 10) throw new Error("ja scaffolds too few: " + byLang.ja);
 
-const needRefs = ["John.15", "Rev.21", "Phil.4", "1Cor.13", "Matt.6", "Gal.5"];
+const needRefs = ["John.15", "Rev.21", "Phil.4", "1Cor.13", "Matt.6", "Gal.5", "Jas.1", "Col.3"];
 for (const ref of needRefs) {
   if (!inv.some((r) => r.ref === ref && r.translationId === "web")) {
     throw new Error("missing web scaffold " + ref);
   }
 }
-
 const devotion = listDevotionMaterials();
 if (devotion.length < 5) throw new Error("expected >=5 devotion materials, got " + devotion.length);
 for (const m of devotion) {
