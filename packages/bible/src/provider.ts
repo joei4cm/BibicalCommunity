@@ -200,6 +200,37 @@ import { KJV_PROV_3 } from "./packs/kjv-prov3.js";
 import { ASV_PROV_3 } from "./packs/asv-prov3.js";
 import { CUVS_PROV_3 } from "./packs/cuvs-prov3.js";
 import { KOUGO_PROV_3 } from "./packs/kougo-prov3.js";
+
+import { CUVT_HEB_11 } from "./packs/cuvt-heb11.js";
+import { CUVT_ISA_53 } from "./packs/cuvt-isa53.js";
+import { CUVT_ACTS_2 } from "./packs/cuvt-acts2.js";
+import { CUVT_PSALM_1 } from "./packs/cuvt-ps1.js";
+import { CUVT_PROV_3 } from "./packs/cuvt-prov3.js";
+import { RCUV_HEB_11 } from "./packs/rcuv-heb11.js";
+import { RCUV_ISA_53 } from "./packs/rcuv-isa53.js";
+import { RCUV_ACTS_2 } from "./packs/rcuv-acts2.js";
+import { RCUV_PSALM_1 } from "./packs/rcuv-ps1.js";
+import { RCUV_PROV_3 } from "./packs/rcuv-prov3.js";
+import { CCB_HEB_11 } from "./packs/ccb-heb11.js";
+import { CCB_ISA_53 } from "./packs/ccb-isa53.js";
+import { CCB_ACTS_2 } from "./packs/ccb-acts2.js";
+import { CCB_PSALM_1 } from "./packs/ccb-ps1.js";
+import { CCB_PROV_3 } from "./packs/ccb-prov3.js";
+import { LZZ_HEB_11 } from "./packs/lzz-heb11.js";
+import { LZZ_ISA_53 } from "./packs/lzz-isa53.js";
+import { LZZ_ACTS_2 } from "./packs/lzz-acts2.js";
+import { LZZ_PSALM_1 } from "./packs/lzz-ps1.js";
+import { LZZ_PROV_3 } from "./packs/lzz-prov3.js";
+import { SHINKAIYAKU_HEB_11 } from "./packs/shinkaiyaku-heb11.js";
+import { SHINKAIYAKU_ISA_53 } from "./packs/shinkaiyaku-isa53.js";
+import { SHINKAIYAKU_ACTS_2 } from "./packs/shinkaiyaku-acts2.js";
+import { SHINKAIYAKU_PSALM_1 } from "./packs/shinkaiyaku-ps1.js";
+import { SHINKAIYAKU_PROV_3 } from "./packs/shinkaiyaku-prov3.js";
+import { SHIN_KYOUDOU_HEB_11 } from "./packs/shin-kyoudou-heb11.js";
+import { SHIN_KYOUDOU_ISA_53 } from "./packs/shin-kyoudou-isa53.js";
+import { SHIN_KYOUDOU_ACTS_2 } from "./packs/shin-kyoudou-acts2.js";
+import { SHIN_KYOUDOU_PSALM_1 } from "./packs/shin-kyoudou-ps1.js";
+import { SHIN_KYOUDOU_PROV_3 } from "./packs/shin-kyoudou-prov3.js";
 import { WEB_MARK_1 } from "./packs/web-mark1.js";
 import { KJV_MARK_1 } from "./packs/kjv-mark1.js";
 import { ASV_MARK_1 } from "./packs/asv-mark1.js";
@@ -504,8 +535,12 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3, 14: CUVT_JOHN_14, 15: CUVT_JOHN_15 },
     matt: { 5: CUVT_MATT_5, 6: CUVT_MATT_6 },
     gen: { 1: CUVT_GEN_1 },
-    ps: { 23: CUVT_PSALM_23 },
+    ps: { 1: CUVT_PSALM_1, 23: CUVT_PSALM_23 },
+    prov: { 3: CUVT_PROV_3 },
     rom: { 8: CUVT_ROM_8, 12: CUVT_ROM_12 },
+    heb: { 11: CUVT_HEB_11 },
+    isa: { 53: CUVT_ISA_53 },
+    acts: { 2: CUVT_ACTS_2 },
     "1john": { 4: CUVT_1JOHN_4 },
   },
   cuvs: {
@@ -536,8 +571,12 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3, 14: RCUV_JOHN_14, 15: RCUV_JOHN_15 },
     matt: { 5: RCUV_MATT_5, 6: RCUV_MATT_6 },
     gen: { 1: RCUV_GEN_1 },
-    ps: { 23: RCUV_PSALM_23 },
+    ps: { 1: RCUV_PSALM_1, 23: RCUV_PSALM_23 },
+    prov: { 3: RCUV_PROV_3 },
     rom: { 8: RCUV_ROM_8, 12: RCUV_ROM_12 },
+    heb: { 11: RCUV_HEB_11 },
+    isa: { 53: RCUV_ISA_53 },
+    acts: { 2: RCUV_ACTS_2 },
     "1john": { 4: RCUV_1JOHN_4 },
   },
   shinkaiyaku: {
@@ -550,8 +589,12 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     },
     matt: { 5: SHINKAIYAKU_MATT_5, 6: SHINKAIYAKU_MATT_6 },
     gen: { 1: SHINKAIYAKU_GEN_1 },
-    ps: { 23: SHINKAIYAKU_PSALM_23 },
+    ps: { 1: SHINKAIYAKU_PSALM_1, 23: SHINKAIYAKU_PSALM_23 },
+    prov: { 3: SHINKAIYAKU_PROV_3 },
     rom: { 8: SHINKAIYAKU_ROM_8, 12: SHINKAIYAKU_ROM_12 },
+    heb: { 11: SHINKAIYAKU_HEB_11 },
+    isa: { 53: SHINKAIYAKU_ISA_53 },
+    acts: { 2: SHINKAIYAKU_ACTS_2 },
     "1john": { 4: SHINKAIYAKU_1JOHN_4 },
   },
   shinKyoudou: {
@@ -564,24 +607,36 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     },
     matt: { 5: SHIN_KYOUDOU_MATT_5, 6: SHIN_KYOUDOU_MATT_6 },
     gen: { 1: SHIN_KYOUDOU_GEN_1 },
-    ps: { 23: SHIN_KYOUDOU_PSALM_23 },
+    ps: { 1: SHIN_KYOUDOU_PSALM_1, 23: SHIN_KYOUDOU_PSALM_23 },
+    prov: { 3: SHIN_KYOUDOU_PROV_3 },
     rom: { 8: SHIN_KYOUDOU_ROM_8, 12: SHIN_KYOUDOU_ROM_12 },
+    heb: { 11: SHIN_KYOUDOU_HEB_11 },
+    isa: { 53: SHIN_KYOUDOU_ISA_53 },
+    acts: { 2: SHIN_KYOUDOU_ACTS_2 },
     "1john": { 4: SHIN_KYOUDOU_1JOHN_4 },
   },
   ccb: {
     john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14, 15: CCB_JOHN_15 },
     matt: { 5: CCB_MATT_5, 6: CCB_MATT_6 },
     gen: { 1: CCB_GEN_1 },
-    ps: { 23: CCB_PSALM_23 },
+    ps: { 1: CCB_PSALM_1, 23: CCB_PSALM_23 },
+    prov: { 3: CCB_PROV_3 },
     rom: { 8: CCB_ROM_8, 12: CCB_ROM_12 },
+    heb: { 11: CCB_HEB_11 },
+    isa: { 53: CCB_ISA_53 },
+    acts: { 2: CCB_ACTS_2 },
     "1john": { 4: CCB_1JOHN_4 },
   },
   lzz: {
     john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3, 14: LZZ_JOHN_14, 15: LZZ_JOHN_15 },
     matt: { 5: LZZ_MATT_5, 6: LZZ_MATT_6 },
     gen: { 1: LZZ_GEN_1 },
-    ps: { 23: LZZ_PSALM_23 },
+    ps: { 1: LZZ_PSALM_1, 23: LZZ_PSALM_23 },
+    prov: { 3: LZZ_PROV_3 },
     rom: { 8: LZZ_ROM_8, 12: LZZ_ROM_12 },
+    heb: { 11: LZZ_HEB_11 },
+    isa: { 53: LZZ_ISA_53 },
+    acts: { 2: LZZ_ACTS_2 },
     "1john": { 4: LZZ_1JOHN_4 },
   },
 };

@@ -509,6 +509,38 @@ test("loadChapter returns zh/ja Isaiah.53 and Acts.2 scaffolds", async () => {
   assert.match(kougoActs.verses[0]?.text ?? "", /見本|五旬節/);
 });
 
+test("loadChapter returns licensed-peer Heb.11 / Isa.53 / Acts.2 / Ps.1 / Prov.3 scaffolds", async () => {
+  const peers = ["cuvt", "rcuv", "ccb", "lzz", "shinkaiyaku", "shinKyoudou"] as const;
+  for (const tid of peers) {
+    const heb = await loadChapter(tid, { book: "Heb", chapter: 11 });
+    assert.ok(!("external" in heb), tid);
+    assert.equal(heb.book, "Heb");
+    assert.ok(heb.verses.length >= 5 && heb.verses.length <= 12, tid);
+    assert.match(heb.verses[0]?.text ?? "", /样例|樣例|見本|信|信仰/);
+
+    const isa = await loadChapter(tid, { book: "Isa", chapter: 53 });
+    assert.ok(!("external" in isa), tid);
+    assert.equal(isa.book, "Isa");
+    assert.ok(isa.verses.length >= 3 && isa.verses.length <= 8, tid);
+    assert.match(isa.verses[0]?.text ?? "", /样例|樣例|見本|信|腕|膀臂/);
+
+    const acts = await loadChapter(tid, { book: "Acts", chapter: 2 });
+    assert.ok(!("external" in acts), tid);
+    assert.equal(acts.book, "Acts");
+    assert.match(acts.verses[0]?.text ?? "", /样例|樣例|見本|五旬/);
+
+    const ps = await loadChapter(tid, { book: "Ps", chapter: 1 });
+    assert.ok(!("external" in ps), tid);
+    assert.equal(ps.book, "Ps");
+    assert.match(ps.verses[0]?.text ?? "", /样例|樣例|見本|恶|惡|福|さいわい|幸い/);
+
+    const prov = await loadChapter(tid, { book: "Prov", chapter: 3 });
+    assert.ok(!("external" in prov), tid);
+    assert.equal(prov.book, "Prov");
+    assert.match(prov.verses.find((v) => v.verse === 5)?.text ?? "", /样例|樣例|見本|仰赖|仰賴|信頼|聪明|聰明|知識/);
+  }
+});
+
 test("loadChapter returns PD Psalm.1 scaffolds (web/kjv/asv)", async () => {
   const web = await loadChapter("web", { book: "Ps", chapter: 1 });
   assert.ok(!("external" in web));
