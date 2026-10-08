@@ -121,7 +121,23 @@ import { RCUV_1JOHN_4 } from "./packs/rcuv-1john4.js";
 import { CCB_JOHN_14 } from "./packs/ccb-john14.js";
 import { LZZ_JOHN_14 } from "./packs/lzz-john14.js";
 import { SHINKAIYAKU_JOHN_14 } from "./packs/shinkaiyaku-john14.js";
+import { SHINKAIYAKU_JOHN_15 } from "./packs/shinkaiyaku-john15.js";
+import { SHINKAIYAKU_MATT_5 } from "./packs/shinkaiyaku-matt5.js";
+import { SHINKAIYAKU_MATT_6 } from "./packs/shinkaiyaku-matt6.js";
+import { SHINKAIYAKU_GEN_1 } from "./packs/shinkaiyaku-gen1.js";
+import { SHINKAIYAKU_PSALM_23 } from "./packs/shinkaiyaku-ps23.js";
+import { SHINKAIYAKU_ROM_8 } from "./packs/shinkaiyaku-rom8.js";
+import { SHINKAIYAKU_ROM_12 } from "./packs/shinkaiyaku-rom12.js";
+import { SHINKAIYAKU_1JOHN_4 } from "./packs/shinkaiyaku-1john4.js";
 import { SHIN_KYOUDOU_JOHN_14 } from "./packs/shin-kyoudou-john14.js";
+import { SHIN_KYOUDOU_JOHN_15 } from "./packs/shin-kyoudou-john15.js";
+import { SHIN_KYOUDOU_MATT_5 } from "./packs/shin-kyoudou-matt5.js";
+import { SHIN_KYOUDOU_MATT_6 } from "./packs/shin-kyoudou-matt6.js";
+import { SHIN_KYOUDOU_GEN_1 } from "./packs/shin-kyoudou-gen1.js";
+import { SHIN_KYOUDOU_PSALM_23 } from "./packs/shin-kyoudou-ps23.js";
+import { SHIN_KYOUDOU_ROM_8 } from "./packs/shin-kyoudou-rom8.js";
+import { SHIN_KYOUDOU_ROM_12 } from "./packs/shin-kyoudou-rom12.js";
+import { SHIN_KYOUDOU_1JOHN_4 } from "./packs/shin-kyoudou-1john4.js";
 import { WEB_ROM_12 } from "./packs/web-rom12.js";
 import { KJV_ROM_12 } from "./packs/kjv-rom12.js";
 import { ASV_ROM_12 } from "./packs/asv-rom12.js";
@@ -509,7 +525,18 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     "1john": { 4: RCUV_1JOHN_4 },
   },
   shinkaiyaku: {
-    john: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3, 14: SHINKAIYAKU_JOHN_14 },
+    john: {
+      1: SHINKAIYAKU_JOHN_1,
+      2: SHINKAIYAKU_JOHN_2,
+      3: SHINKAIYAKU_JOHN_3,
+      14: SHINKAIYAKU_JOHN_14,
+      15: SHINKAIYAKU_JOHN_15,
+    },
+    matt: { 5: SHINKAIYAKU_MATT_5, 6: SHINKAIYAKU_MATT_6 },
+    gen: { 1: SHINKAIYAKU_GEN_1 },
+    ps: { 23: SHINKAIYAKU_PSALM_23 },
+    rom: { 8: SHINKAIYAKU_ROM_8, 12: SHINKAIYAKU_ROM_12 },
+    "1john": { 4: SHINKAIYAKU_1JOHN_4 },
   },
   shinKyoudou: {
     john: {
@@ -517,7 +544,13 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
       2: SHIN_KYOUDOU_JOHN_2,
       3: SHIN_KYOUDOU_JOHN_3,
       14: SHIN_KYOUDOU_JOHN_14,
+      15: SHIN_KYOUDOU_JOHN_15,
     },
+    matt: { 5: SHIN_KYOUDOU_MATT_5, 6: SHIN_KYOUDOU_MATT_6 },
+    gen: { 1: SHIN_KYOUDOU_GEN_1 },
+    ps: { 23: SHIN_KYOUDOU_PSALM_23 },
+    rom: { 8: SHIN_KYOUDOU_ROM_8, 12: SHIN_KYOUDOU_ROM_12 },
+    "1john": { 4: SHIN_KYOUDOU_1JOHN_4 },
   },
   ccb: {
     john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3, 14: CCB_JOHN_14 },

@@ -922,6 +922,30 @@ test("loadChapter returns expanded rcuv key-chapter scaffolds", async () => {
   assert.match(ps23.verses.find((v) => v.verse === 1)?.text ?? "", /耶和华|牧者/);
 });
 
+test("loadChapter returns shinkaiyaku/shinKyoudou key-chapter scaffolds", async () => {
+  for (const tid of ["shinkaiyaku", "shinKyoudou"] as const) {
+    const matt5 = await loadChapter(tid, { book: "Matt", chapter: 5 });
+    assert.ok(!("external" in matt5), tid);
+    assert.match(matt5.verses.find((v) => v.verse === 3)?.text ?? "", /心の貧しい|幸い|天/);
+
+    const rom8 = await loadChapter(tid, { book: "Rom", chapter: 8 });
+    assert.ok(!("external" in rom8), tid);
+    assert.match(rom8.verses.find((v) => v.verse === 1)?.text ?? "", /キリスト・イエス|罪に定め/);
+
+    const jn15 = await loadChapter(tid, { book: "John", chapter: 15 });
+    assert.ok(!("external" in jn15), tid);
+    assert.match(jn15.verses.find((v) => v.verse === 5)?.text ?? "", /ぶどうの木|枝/);
+
+    const jn4 = await loadChapter(tid, { book: "1John", chapter: 4 });
+    assert.ok(!("external" in jn4), tid);
+    assert.match(jn4.verses.find((v) => v.verse === 8)?.text ?? "", /神は愛/);
+
+    const ps23 = await loadChapter(tid, { book: "Ps", chapter: 23 });
+    assert.ok(!("external" in ps23), tid);
+    assert.match(ps23.verses.find((v) => v.verse === 1)?.text ?? "", /羊飼い|牧者|欠けることがない|乏しい/);
+  }
+});
+
 test("loadChapter returns expanded cuvt key-chapter scaffolds", async () => {
   const matt5 = await loadChapter("cuvt", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in matt5));
