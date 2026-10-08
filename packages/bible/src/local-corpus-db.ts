@@ -7,6 +7,7 @@
  * everything else is downloaded on demand.
  */
 
+import { listBooks } from "./books.js";
 import { r2ChapterObjectKey, type R2ChapterJson } from "./r2-format.js";
 import { getTranslation, listTranslations, type TranslationMeta } from "./translations.js";
 
@@ -31,9 +32,16 @@ export type DownloadableCorpusPack = {
   license: TranslationMeta["license"];
   /** Boot default = pre-seeded at first launch; downloadable = user action. */
   installMode: "boot" | "download" | "external";
-  /** Sample chapter refs included in the downloadable pack payload. */
+  /**
+   * Slim sample / teaching refs shipped as fixtures (not the full canon).
+   * Full PD text is advertised via `fullPackAvailable` + seeded to R2 separately.
+   */
   chapterRefs: string[];
   r2Prefix: string;
+  /** True when a full Protestant pack can be downloaded from R2 (PD tids). */
+  fullPackAvailable?: boolean;
+  /** Expected chapter count when `fullPackAvailable` (≈1189). */
+  fullPackChapterCount?: number;
 };
 
 /** Persistence backend — Map in tests, IndexedDB on web/mobile. */
@@ -202,6 +210,49 @@ export const BOOT_TEACHING_CHAPTER_REFS = [
 /** Slim sample refs for downloadable peers that only ship a few fixtures. */
 export const DOWNLOAD_SAMPLE_CHAPTER_REFS = ["John.1", "John.3", "Ps.23"] as const;
 
+/**
+ * Key-chapter public-domain sample set kept in-repo under fixtures/corpus.
+ * Full Protestant canon for WEB/KJV/ASV is seeded to R2 via admin PD seed /
+ * `scripts/seed-r2-pd-full.mjs` — never TypeScript packs / never licensed dumps.
+ */
+export const PD_DENSE_CHAPTER_REFS = [
+  "Gen.1",
+  "Exod.20",
+  "Ps.1",
+  "Ps.23",
+  "Prov.3",
+  "Isa.53",
+  "Matt.5",
+  "Matt.6",
+  "Matt.28",
+  "Mark.1",
+  "Luke.2",
+  "John.1",
+  "John.3",
+  "John.14",
+  "John.15",
+  "Acts.2",
+  "Rom.8",
+  "Rom.12",
+  "1Cor.13",
+  "Eph.2",
+  "Phil.4",
+  "Col.3",
+  "Heb.11",
+  "Jas.1",
+  "1John.4",
+  "Rev.21",
+] as const;
+
+/** Full Protestant canon refs (for PD tids whose R2 prefix holds complete text). */
+export function listProtestantChapterRefs(): string[] {
+  const refs: string[] = [];
+  for (const b of listBooks()) {
+    for (let c = 1; c <= b.chapters; c += 1) refs.push(`${b.id}.${c}`);
+  }
+  return refs;
+}
+
 /** Extra licensed/PD ids users may download into the local DB (not bundled). */
 export const DOWNLOADABLE_TRANSLATION_IDS = [
   "cuvt",
@@ -217,6 +268,9 @@ export const DOWNLOADABLE_TRANSLATION_IDS = [
 
 /** Downloadable tids that advertise the full teaching-set refs (fixtures present). */
 const TEACHING_SET_DOWNLOAD_IDS = new Set(["kjv", "asv", "cuvt", "kougo"]);
+
+/** PD tids that can advertise a full Protestant R2 pack (never licensed dumps). */
+const PD_FULL_PACK_IDS = new Set(["web", "kjv", "asv"]);
 
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const packs: DownloadableCorpusPack[] = [];
@@ -235,12 +289,20 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
 
     let chapterRefs: string[] = [];
     if (installMode === "boot") {
+      // Catalog lists slim boot teaching refs; full PD pack is separate.
       chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
     } else if (installMode === "download") {
-      chapterRefs = TEACHING_SET_DOWNLOAD_IDS.has(t.id)
-        ? [...BOOT_TEACHING_CHAPTER_REFS]
-        : [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
+      if (PD_FULL_PACK_IDS.has(t.id)) {
+        chapterRefs = [...PD_DENSE_CHAPTER_REFS];
+      } else {
+        chapterRefs = TEACHING_SET_DOWNLOAD_IDS.has(t.id)
+          ? [...BOOT_TEACHING_CHAPTER_REFS]
+          : [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
+      }
     }
+
+    const fullPackAvailable = PD_FULL_PACK_IDS.has(t.id) && installMode !== "external";
+    const fullPackChapterCount = fullPackAvailable ? listProtestantChapterRefs().length : undefined;
 
     packs.push({
       translationId: t.id,
@@ -251,6 +313,8 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       installMode,
       chapterRefs,
       r2Prefix: `bible/${t.id}/`,
+      fullPackAvailable: fullPackAvailable || undefined,
+      fullPackChapterCount,
     });
   }
 

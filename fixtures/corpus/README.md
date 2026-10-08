@@ -57,6 +57,8 @@ node scripts/seed-r2-from-json-fixtures.mjs http://127.0.0.1:8787 "$TOKEN"
 | Download | `cuvt`, `kougo`, `kjv`, … | User taps Download → same local DB |
 | External | `esv`, `niv`, 恩道, 微读 | Deep link only |
 
+Clients download with `scope=boot` (slim teaching-set) or paged `scope=full&limit=100&after=…` — never one giant TypeScript pack.
+
 **Full public-domain canon** (WEB / KJV / ASV) is **not** stored in git or TypeScript. Platform admins seed it into R2:
 
 ```bash

@@ -8,7 +8,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** (polyfill+note+session+x25519) | PARTIAL — PWA+automated WebCrypto gate PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **download→local DB**; boot **cuvs/web/shinKyoudou** teaching-set; PD full via **admin getbible→R2** (`POST /v1/admin/corpus/pd-seed`, **`ADMIN_PD_CORPUS_OK`**) + `seed-r2-pd-full.mjs`; ESV/partners **external**; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — slim boot + admin PD→R2 path PASS; licensed full text + production CF R2 OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **download→local DB**; boot `scope=boot` teaching-set (**`CORPUS_BOOT_VS_FULL_OK`**); paged full PD (**`CORPUS_PAGED_DOWNLOAD_OK`** / ~1189); catalog `fullPackAvailable`; admin getbible→R2 (**`ADMIN_PD_CORPUS_OK`**); ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — slim boot + paged full + admin PD→R2 PASS; production CF R2 OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OPEN`** gate documents live-IdP skip | PARTIAL — local exchange E2E PASS; live partner IdP OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
@@ -31,6 +31,9 @@ bash scripts/smoke-me.sh             # ME_PROFILE_OK / ME_SEARCH_OK / ME_PRIVACY
 bash scripts/smoke-admin.sh          # ADMIN_CONSOLE_OK / ADMIN_REMOTE_WIPE_OK / …
 bash scripts/smoke-admin-pd-corpus.sh # ADMIN_PD_CORPUS_OK (getbible→R2; not TS packs)
 node scripts/seed-r2-pd-full.mjs …    # PD_FULL_R2_SEED_OK (platform_admin; full WEB/KJV/ASV)
+bash scripts/smoke-corpus-boot-scope.sh # CORPUS_BOOT_VS_FULL_OK (boot slim vs full)
+bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after walk)
+bash scripts/smoke-corpus-live-r2.sh   # CORPUS_LIVE_R2_OPEN (or OK with LIVE_R2=1)
 bash scripts/smoke-storage.sh        # STORAGE_SMOKE_OK (session-aes / note / field / annotation)
 bash scripts/smoke-home.sh           # HOME_JOIN_SLUG_OK / HOME_MEMBERS_OK / …
 bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK

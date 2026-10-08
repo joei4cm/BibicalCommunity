@@ -5,9 +5,11 @@ import {
   BOOT_TEACHING_CHAPTER_REFS,
   LocalCorpusDb,
   MemoryLocalCorpusStore,
+  PD_DENSE_CHAPTER_REFS,
   buildDemoDownloadPack,
   buildDownloadPackPayloadJson,
   listDownloadableCorpusCatalog,
+  listProtestantChapterRefs,
   parseDownloadPackPayload,
   probeLocalCorpusPipeline,
 } from "./local-corpus-db.js";
@@ -22,6 +24,11 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   );
   for (const b of boot) {
     assert.deepEqual(b.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], b.translationId);
+    // Boot catalog lists slim refs; WEB still advertises optional full PD pack.
+    if (b.translationId === "web") {
+      assert.equal(b.fullPackAvailable, true);
+      assert.equal(b.fullPackChapterCount, listProtestantChapterRefs().length);
+    }
   }
   const esv = catalog.find((p) => p.translationId === "esv");
   assert.ok(esv);
@@ -30,10 +37,16 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   assert.ok(downloadable.length >= 5);
   assert.ok(downloadable.some((p) => p.translationId === "cuvt"));
   assert.ok(downloadable.some((p) => p.translationId === "kougo"));
-  for (const tid of ["kjv", "asv", "cuvt", "kougo"]) {
+  for (const tid of ["cuvt", "kougo"]) {
     const row = downloadable.find((p) => p.translationId === tid);
     assert.ok(row, tid);
     assert.deepEqual(row.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], tid);
+  }
+  for (const tid of ["kjv", "asv"]) {
+    const row = downloadable.find((p) => p.translationId === tid);
+    assert.ok(row, tid);
+    assert.deepEqual(row.chapterRefs, [...PD_DENSE_CHAPTER_REFS], tid);
+    assert.equal(row.fullPackAvailable, true);
   }
 });
 

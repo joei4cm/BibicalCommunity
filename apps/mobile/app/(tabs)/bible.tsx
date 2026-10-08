@@ -192,10 +192,11 @@ export default function BibleScreen() {
     if (!apiBase) return;
     void ensureBootCorpusSeeded(async (tid) => {
       try {
+        // Boot must stay slim (teaching-set), even when R2 holds full PD WEB.
         const pack = await api<{
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=boot`);
         return { chapters: pack.chapters, source: pack.source };
       } catch {
         return null;
@@ -438,17 +439,41 @@ export default function BibleScreen() {
     setAnnBusy(true);
     setAnnMsg(null);
     try {
-      const pack = await api<{
-        chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
-        source?: string;
-      }>(`/v1/bible/corpus-download/${encodeURIComponent(translationId)}`);
-      if (!pack.chapters?.length) {
-        setAnnMsg("corpus_download_empty");
-        return;
+      let after: string | null = null;
+      let installedTotal = 0;
+      let pages = 0;
+      let finished = false;
+      while (!finished) {
+        const qs =
+          "scope=full&limit=100" + (after ? `&after=${encodeURIComponent(after)}` : "");
+        const pack: {
+          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+          source?: string;
+          done?: boolean;
+          nextAfter?: string | null;
+          totalChapterKeys?: number;
+        } = await api(
+          `/v1/bible/corpus-download/${encodeURIComponent(translationId)}?${qs}`,
+        );
+        if (!pack.chapters?.length && pages === 0) {
+          setAnnMsg("corpus_download_empty");
+          return;
+        }
+        if (pack.chapters?.length) {
+          const { installed } = await installDownloadedPack(translationId, pack.chapters);
+          installedTotal += installed;
+        }
+        pages += 1;
+        setAnnMsg(
+          `corpus_installed:${installedTotal}${pack.totalChapterKeys ? `/${pack.totalChapterKeys}` : ""}`,
+        );
+        if (pack.done !== false || !pack.nextAfter) {
+          finished = true;
+        } else {
+          after = pack.nextAfter;
+        }
       }
-      const { installed } = await installDownloadedPack(translationId, pack.chapters);
-      setAnnMsg(`corpus_installed:${installed}`);
-      setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installed}`);
+      setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installedTotal}`);
       const local = await readLocalChapter(translationId, bookId, chapterNum);
       if (local) {
         setExternal(null);
