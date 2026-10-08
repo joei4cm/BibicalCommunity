@@ -18,6 +18,7 @@ import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
+import { decideLicensedChapterAccess } from "../services/bible-entitlement";
 import { sha256Hex } from "../services/crypto";
 
 export const bibleRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -119,20 +120,26 @@ bibleRoutes.get("/chapter", async (c) => {
   if (!meta) return c.json({ error: "unknown_translation" }, 404);
 
   if (meta.provider === "r2") {
-    const isDev = c.env.ENVIRONMENT === "development";
-    if (meta.license === "licensed" && !isDev) {
-      const userId = await resolveOptionalUserId(c);
-      if (!userId) return c.json({ error: "unauthorized" }, 401);
-      const entitled = await hasEntitlement(c.env, userId, translationId);
-      if (!entitled) {
-        return c.json(
-          {
-            error: "entitlement_required",
-            hint: `Grant entitlement via POST /v1/bible/entitlements with translationId=${translationId}`,
-          },
-          403,
-        );
-      }
+    const userId = await resolveOptionalUserId(c);
+    const entitled = userId ? await hasEntitlement(c.env, userId, translationId) : false;
+    const access = decideLicensedChapterAccess({
+      license: meta.license,
+      environment: c.env.ENVIRONMENT,
+      userId,
+      entitled,
+    });
+    if (!access.ok) {
+      return c.json(
+        {
+          error: access.error,
+          ...(access.error === "entitlement_required"
+            ? {
+                hint: `Grant entitlement via POST /v1/bible/entitlements with translationId=${translationId}`,
+              }
+            : {}),
+        },
+        access.status,
+      );
     }
 
     const key = r2ChapterObjectKey(translationId, ref.book, ref.chapter);
