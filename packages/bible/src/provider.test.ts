@@ -748,7 +748,7 @@ test("loadChapter returns licensed-peer Mark.1 / Exod.20 / Luke.2 / Deut.6 scaff
     const deut = await loadChapter(tid, { book: "Deut", chapter: 6 });
     assert.ok(!("external" in deut), tid);
     assert.equal(deut.book, "Deut");
-    assert.ok(deut.verses.length >= 6, tid);
+    assert.ok(deut.verses.length >= 25, tid);
     assert.match(deut.verses.find((v) => v.verse === 4)?.text ?? "", /样例|樣例|見本|以色列|イスラエル|独一|唯一/);
   }
 });
@@ -951,19 +951,19 @@ test("loadChapter returns PD Deuteronomy.6 scaffolds (web/kjv/asv)", async () =>
   assert.ok(!("external" in web));
   assert.equal(web.book, "Deut");
   assert.equal(web.chapter, 6);
-  assert.ok(web.verses.length >= 6);
+  assert.ok(web.verses.length >= 25);
   assert.match(web.verses.find((v) => v.verse === 4)?.text ?? "", /Hear.*Israel|Yahweh is one/i);
   assert.match(web.verses.find((v) => v.verse === 9)?.text ?? "", /door posts|gates/i);
 
   const kjv = await loadChapter("kjv", { book: "Deuteronomy", chapter: 6 });
   assert.ok(!("external" in kjv));
   assert.equal(kjv.book, "Deut");
-  assert.ok(kjv.verses.length >= 6);
+  assert.ok(kjv.verses.length >= 25);
   assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /love the LORD thy God/i);
 
   const asv = await loadChapter("asv", { book: "Dt", chapter: 6 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 6);
+  assert.ok(asv.verses.length >= 25);
   assert.match(asv.verses.find((v) => v.verse === 4)?.text ?? "", /Jehovah our God|one Jehovah/i);
 });
 
@@ -981,13 +981,13 @@ test("loadChapter returns zh/ja Luke.2 and Deuteronomy.6 scaffolds", async () =>
   const cuvsDeut = await loadChapter("cuvs", { book: "申命记", chapter: 6 });
   assert.ok(!("external" in cuvsDeut));
   assert.equal(cuvsDeut.book, "Deut");
-  assert.ok(cuvsDeut.verses.length >= 6);
+  assert.ok(cuvsDeut.verses.length >= 25);
   assert.match(cuvsDeut.verses.find((v) => v.verse === 4)?.text ?? "", /样例|以色列|独一的主/);
   assert.match(cuvsDeut.verses.find((v) => v.verse === 9)?.text ?? "", /门框|城门/);
 
   const kougoDeut = await loadChapter("kougo", { book: "申命記", chapter: 6 });
   assert.ok(!("external" in kougoDeut));
-  assert.ok(kougoDeut.verses.length >= 6);
+  assert.ok(kougoDeut.verses.length >= 25);
   assert.match(kougoDeut.verses.find((v) => v.verse === 4)?.text ?? "", /見本|イスラエル|唯一の主/);
   assert.match(kougoDeut.verses.find((v) => v.verse === 9)?.text ?? "", /入口|門/);
 });

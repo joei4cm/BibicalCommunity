@@ -99,6 +99,7 @@ if (seeded < 150) {
 const DENSER_FLOORS = [
   { book: "John", chapter: 1, min: 14 },
   { book: "Gen", chapter: 1, min: 31 },
+  { book: "Deut", chapter: 6, min: 25 },
   { book: "John", chapter: 2, min: 11 },
   { book: "Acts", chapter: 2, min: 9 },
   { book: "Ps", chapter: 1, min: 6 },
