@@ -37,7 +37,7 @@ bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-tok
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
 bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK / DEVOTION_MATERIALS_OK
 bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (local + R2 licensed stubs)
-bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + John.14/Matt.5/Rom.8 put→get)
+bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + John.14/15/Matt.5/Rom.8/12 put→get)
 bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK (pack→R2 key chapters)
 bash scripts/smoke-bible-entitlement.sh # BIBLE_ENTITLEMENT_DEV_SKIP_OK / BIBLE_ENTITLEMENT_GRANT_OK
 bash scripts/smoke-translation-resolve.sh # TRANSLATION_RESOLVE_PATH_OK (every registry id)
