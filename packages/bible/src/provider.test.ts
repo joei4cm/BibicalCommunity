@@ -338,20 +338,29 @@ test("loadChapter returns PD Matthew.5 scaffolds (web/kjv/asv)", async () => {
   assert.ok(!("external" in web));
   assert.equal(web.book, "Matt");
   assert.equal(web.chapter, 5);
-  assert.ok(web.verses.length >= 12);
-  assert.equal(web.verses[web.verses.length - 1]?.verse, 12);
+  assert.ok(web.verses.length >= 48);
+  assert.equal(web.verses[0]?.verse, 1);
+  assert.equal(web.verses[web.verses.length - 1]?.verse, 48);
   assert.match(web.verses.find((v) => v.verse === 3)?.text ?? "", /poor in spirit/i);
   assert.match(web.verses.find((v) => v.verse === 9)?.text ?? "", /peacemakers|children of God/i);
+  assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /salt of the earth/i);
+  assert.match(web.verses.find((v) => v.verse === 14)?.text ?? "", /light of the world/i);
+  assert.match(web.verses.find((v) => v.verse === 44)?.text ?? "", /love your enemies/i);
+  assert.match(web.verses.find((v) => v.verse === 48)?.text ?? "", /perfect/i);
 
   const kjv = await loadChapter("kjv", { book: "Matthew", chapter: 5 });
   assert.ok(!("external" in kjv));
-  assert.ok(kjv.verses.length >= 12);
+  assert.ok(kjv.verses.length >= 48);
+  assert.equal(kjv.verses[kjv.verses.length - 1]?.verse, 48);
   assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /meek|inherit the earth/i);
+  assert.match(kjv.verses.find((v) => v.verse === 48)?.text ?? "", /perfect/i);
 
   const asv = await loadChapter("asv", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in asv));
-  assert.ok(asv.verses.length >= 12);
+  assert.ok(asv.verses.length >= 48);
+  assert.equal(asv.verses[asv.verses.length - 1]?.verse, 48);
   assert.match(asv.verses.find((v) => v.verse === 4)?.text ?? "", /mourn|comforted/i);
+  assert.match(asv.verses.find((v) => v.verse === 48)?.text ?? "", /perfect/i);
 });
 
 test("loadChapter returns Psalm.23 scaffolds (web/kjv/asv + zh/ja)", async () => {
@@ -1473,46 +1482,58 @@ test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)"
 test("loadChapter returns zh/ja Matthew.5 Beatitudes scaffolds (cuvs/kougo)", async () => {
   const cuvs5 = await loadChapter("cuvs", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in cuvs5));
-  assert.ok(cuvs5.verses.length >= 12);
+  assert.ok(cuvs5.verses.length >= 48);
+  assert.equal(cuvs5.verses[cuvs5.verses.length - 1]?.verse, 48);
   assert.match(cuvs5.verses.find((v) => v.verse === 3)?.text ?? "", /虚心|有福/);
   assert.match(cuvs5.verses.find((v) => v.verse === 9)?.text ?? "", /和睦|神的儿子/);
   assert.match(cuvs5.verses.find((v) => v.verse === 11)?.text ?? "", /辱骂|逼迫|毁谤/);
   assert.match(cuvs5.verses.find((v) => v.verse === 12)?.text ?? "", /欢喜快乐|赏赐/);
+  assert.match(cuvs5.verses.find((v) => v.verse === 13)?.text ?? "", /世上的盐|盐/);
+  assert.match(cuvs5.verses.find((v) => v.verse === 44)?.text ?? "", /爱.*仇敌|仇敌/);
+  assert.match(cuvs5.verses.find((v) => v.verse === 48)?.text ?? "", /完全/);
 
   const cuvt5 = await loadChapter("cuvt", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in cuvt5));
-  assert.ok(cuvt5.verses.length >= 12);
+  assert.ok(cuvt5.verses.length >= 48);
+  assert.equal(cuvt5.verses[cuvt5.verses.length - 1]?.verse, 48);
   assert.match(cuvt5.verses.find((v) => v.verse === 12)?.text ?? "", /歡喜快樂|賞賜/);
+  assert.match(cuvt5.verses.find((v) => v.verse === 48)?.text ?? "", /完全/);
 
   const rcuv5 = await loadChapter("rcuv", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in rcuv5));
-  assert.ok(rcuv5.verses.length >= 12);
+  assert.ok(rcuv5.verses.length >= 48);
 
   const ccb5 = await loadChapter("ccb", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in ccb5));
-  assert.ok(ccb5.verses.length >= 12);
-  assert.match(ccb5.verses.find((v) => v.verse === 11)?.text ?? "", /迫害|辱骂/);
+  assert.ok(ccb5.verses.length >= 48);
+  assert.match(ccb5.verses.find((v) => v.verse === 11)?.text ?? "", /迫害|辱骂|逼迫/);
 
   const lzz5 = await loadChapter("lzz", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in lzz5));
-  assert.ok(lzz5.verses.length >= 12);
+  assert.ok(lzz5.verses.length >= 48);
 
   const kougo5 = await loadChapter("kougo", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in kougo5));
-  assert.ok(kougo5.verses.length >= 12);
+  assert.ok(kougo5.verses.length >= 48);
+  assert.equal(kougo5.verses[kougo5.verses.length - 1]?.verse, 48);
   assert.match(kougo5.verses.find((v) => v.verse === 3)?.text ?? "", /心の貧しい|さいわい/);
   assert.match(kougo5.verses.find((v) => v.verse === 9)?.text ?? "", /平和|神の子/);
   assert.match(kougo5.verses.find((v) => v.verse === 12)?.text ?? "", /報い|預言者/);
+  assert.match(kougo5.verses.find((v) => v.verse === 13)?.text ?? "", /塩/);
+  assert.match(kougo5.verses.find((v) => v.verse === 44)?.text ?? "", /敵を愛し/);
+  assert.match(kougo5.verses.find((v) => v.verse === 48)?.text ?? "", /完全/);
 
   const shinkaiyaku5 = await loadChapter("shinkaiyaku", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in shinkaiyaku5));
-  assert.ok(shinkaiyaku5.verses.length >= 12);
+  assert.ok(shinkaiyaku5.verses.length >= 48);
   assert.match(shinkaiyaku5.verses.find((v) => v.verse === 12)?.text ?? "", /報い|預言者/);
+  assert.match(shinkaiyaku5.verses.find((v) => v.verse === 48)?.text ?? "", /完全/);
 
   const shinKyoudou5 = await loadChapter("shinKyoudou", { book: "Matt", chapter: 5 });
   assert.ok(!("external" in shinKyoudou5));
-  assert.ok(shinKyoudou5.verses.length >= 12);
+  assert.ok(shinKyoudou5.verses.length >= 48);
   assert.match(shinKyoudou5.verses.find((v) => v.verse === 12)?.text ?? "", /報い|預言者/);
+  assert.match(shinKyoudou5.verses.find((v) => v.verse === 48)?.text ?? "", /完全/);
 });
 
 test("loadChapter returns ccb/lzz key-chapter scaffolds", async () => {
