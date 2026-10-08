@@ -76,6 +76,21 @@ if curl -sf "$BASE/health" >/dev/null 2>&1; then
     echo "$BOOT_DL" | grep -q '"chapters"'
     echo "CORPUS_BOOT_DOWNLOAD_OK tid=$tid"
   done
+
+  # Prefix pack: put an extra chapter then download must include it via R2 list
+  HANDLE2="prefixpack$(date +%s)"
+  REG2=$(curl -sf -X POST "$BASE/v1/auth/register" -H 'content-type: application/json' \
+    -d "{\"handle\":\"$HANDLE2\",\"password\":\"PrefixPackPass123!\",\"nickname\":\"Prefix\",\"locale\":\"en\"}")
+  TOKEN2=$(echo "$REG2" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+  EXTRA='{"book":"Matt","chapter":5,"verses":[{"verse":3,"text":"Blessed are the poor in spirit (prefix-pack)."}]}'
+  curl -sf -X PUT "$BASE/v1/media/put/bible/web/Matt.5.json" \
+    -H "Authorization: Bearer $TOKEN2" -H 'content-type: application/json' -d "$EXTRA" >/dev/null
+  WEB_PACK=$(curl -sf "$BASE/v1/bible/corpus-download/web")
+  echo "$WEB_PACK" | grep -q '"source":"r2"'
+  echo "$WEB_PACK" | grep -q 'Matt'
+  echo "$WEB_PACK" | grep -q 'prefix-pack'
+  echo "$WEB_PACK" | grep -q 'r2Prefix'
+  echo "CORPUS_R2_PREFIX_PACK_OK tid=web"
 else
   echo "CORPUS_CATALOG_SKIP (api not running at $BASE)"
   echo "CORPUS_DOWNLOAD_SKIP (api not running at $BASE)"

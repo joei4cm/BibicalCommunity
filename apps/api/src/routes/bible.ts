@@ -15,10 +15,12 @@ import {
   loadChapter,
   parseDownloadPackPayload,
   parseR2ChapterJson,
+  parseR2ChapterObjectKey,
   parseRef,
   probeCorpusPackPipeline,
   probeLocalCorpusPipeline,
   r2ChapterObjectKey,
+  r2CorpusPrefix,
 } from "@logoshome/bible";
 import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
@@ -99,8 +101,8 @@ bibleRoutes.get("/corpus-catalog", async (c) => {
 
 /**
  * Download a translation pack as JSON for install into the client local DB.
- * Prefer R2 chapter objects when present; otherwise serve a small demo pack
- * (not a licensed full dump — real corpora land via R2 entitlement).
+ * Lists all R2 objects under `bible/{tid}/` (full prefix pack), falling back
+ * to catalog sample refs, then a small demo pack. Not a TypeScript densify path.
  */
 bibleRoutes.get("/corpus-download/:translationId", async (c) => {
   const translationId = c.req.param("translationId");
@@ -117,42 +119,78 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     );
   }
 
-  const catalogEntry = listDownloadableCorpusCatalog().find(
-    (p) => p.translationId === translationId,
-  );
-  const refs = catalogEntry?.chapterRefs?.length
-    ? catalogEntry.chapterRefs
-    : ["John.1", "John.3", "Ps.23"];
-
   const fromR2: { book: string; chapter: number; verses: { verse: number; text: string }[] }[] =
     [];
-  for (const ref of refs) {
-    const parsed = parseRef(ref);
-    if (!parsed) continue;
-    const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
-    const obj = await c.env.MEDIA.get(key);
-    if (!obj) continue;
-    try {
-      fromR2.push(parseR2ChapterJson(await obj.text()));
-    } catch {
-      /* skip invalid */
+  const seen = new Set<string>();
+
+  // 1) Full prefix listing — every chapter object under bible/{tid}/
+  const prefix = r2CorpusPrefix(translationId);
+  let cursor: string | undefined;
+  for (;;) {
+    const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor });
+    for (const obj of listed.objects) {
+      const parsedKey = parseR2ChapterObjectKey(obj.key);
+      if (!parsedKey || parsedKey.translationId !== translationId) continue;
+      const refKey = `${parsedKey.book}.${parsedKey.chapter}`;
+      if (seen.has(refKey)) continue;
+      const body = await c.env.MEDIA.get(obj.key);
+      if (!body) continue;
+      try {
+        const chapter = parseR2ChapterJson(await body.text());
+        fromR2.push(chapter);
+        seen.add(refKey);
+      } catch {
+        /* skip invalid */
+      }
+    }
+    if (!listed.truncated) break;
+    cursor = listed.cursor;
+  }
+
+  // 2) Fallback: known catalog sample refs (when list empty / partial)
+  if (fromR2.length === 0) {
+    const catalogEntry = listDownloadableCorpusCatalog().find(
+      (p) => p.translationId === translationId,
+    );
+    const refs = catalogEntry?.chapterRefs?.length
+      ? catalogEntry.chapterRefs
+      : ["John.1", "John.3", "Ps.23"];
+    for (const ref of refs) {
+      const parsed = parseRef(ref);
+      if (!parsed) continue;
+      const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
+      const obj = await c.env.MEDIA.get(key);
+      if (!obj) continue;
+      try {
+        fromR2.push(parseR2ChapterJson(await obj.text()));
+      } catch {
+        /* skip invalid */
+      }
     }
   }
 
+  fromR2.sort((a, b) =>
+    `${a.book}.${a.chapter}`.localeCompare(`${b.book}.${b.chapter}`, undefined, {
+      numeric: true,
+    }),
+  );
+
   if (fromR2.length > 0) {
-    const payload = {
+    return c.json({
       translationId,
       version: 1,
       chapters: fromR2,
       source: "r2" as const,
-    };
-    return c.json(payload);
+      r2Prefix: prefix,
+      chapterCount: fromR2.length,
+    });
   }
 
   const demo = buildDemoDownloadPack(translationId);
   return c.json({
     ...parseDownloadPackPayload(buildDownloadPackPayloadJson(demo)),
     source: "demo" as const,
+    chapterCount: demo.chapters.length,
   });
 });
 
