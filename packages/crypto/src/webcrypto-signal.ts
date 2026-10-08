@@ -5,12 +5,11 @@
  */
 
 import {
-  generateEphemeralKeyPair,
   generateIdentityKeyPair,
   generateOneTimePrekeys,
   generateSignedPrekey,
   toPrekeyBundle,
-  x3dhInitiate,
+  verifySignedPrekey,
   x3dhRespond,
   type IdentityKeyPair,
   type OneTimePrekey,
@@ -24,6 +23,29 @@ import {
   type RatchetSessionState,
 } from "./double-ratchet.js";
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "./signal-stub.js";
+
+const ECDH_ALG = { name: "ECDH", namedCurve: "P-256" } as const;
+
+async function ecdhBits(privateJwk: JsonWebKey, publicJwk: JsonWebKey): Promise<ArrayBuffer> {
+  const priv = await crypto.subtle.importKey("jwk", privateJwk, ECDH_ALG, false, ["deriveBits"]);
+  const pub = await crypto.subtle.importKey("jwk", publicJwk, ECDH_ALG, true, []);
+  return crypto.subtle.deriveBits({ name: "ECDH", public: pub }, priv, 256);
+}
+
+function concatBuffers(...parts: ArrayBuffer[]): ArrayBuffer {
+  const total = parts.reduce((n, p) => n + p.byteLength, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const p of parts) {
+    out.set(new Uint8Array(p), offset);
+    offset += p.byteLength;
+  }
+  return out.buffer;
+}
+
+function fingerprintEcdhPub(jwk: JsonWebKey): string {
+  return `${jwk.x ?? ""}:${jwk.y ?? ""}`;
+}
 
 type PrivateBundle = {
   identity: IdentityKeyPair;
@@ -86,36 +108,45 @@ export class WebCryptoSignalClient implements SignalClient {
     };
   }
 
+  /**
+   * Symmetric peer session (both sides call with local private + remote pub).
+   * Mutual P-256 ECDH + role by identity fingerprint so send/recv chains mesh,
+   * matching X25519SignalClient.establishSession usage in Workers/browser.
+   */
   async establishSession(localPrivate: string, remote: DevicePublicKeys): Promise<SecureSession> {
     const priv = decodeJson<PrivateBundle>(localPrivate);
     const remoteId = parseIdentityPub(remote.identityKeyPub);
-    const ephemeral = await generateEphemeralKeyPair();
-    const shared = await x3dhInitiate(
-      { identity: priv.identity, ephemeral },
-      {
-        identityKey: remoteId.ecdh,
-        identitySigningKey: remoteId.signing,
-        signedPrekey: JSON.parse(remote.signedPrekeyPub) as JsonWebKey,
-        signedPrekeyId: remote.signedPrekeyId,
-        signedPrekeySignature: remote.signedPrekeySig,
-        oneTimePrekey: remote.oneTimePrekeyPub
-          ? (JSON.parse(remote.oneTimePrekeyPub) as JsonWebKey)
-          : undefined,
-        oneTimePrekeyId: remote.oneTimePrekeyId,
-        registrationId: remote.registrationId,
-      },
+    const remoteSpk = JSON.parse(remote.signedPrekeyPub) as JsonWebKey;
+    const sigOk = await verifySignedPrekey(
+      remoteId.signing,
+      remoteSpk,
+      remote.signedPrekeySig,
     );
-    const ratchet = await initRatchetSession(shared, "initiator");
-    const blob: SessionBlob = { ratchet, role: "initiator" };
+    if (!sigOk) throw new Error("webcrypto_signed_prekey_invalid");
+
+    const localIkFp = fingerprintEcdhPub(priv.identity.publicKey);
+    const remoteIkFp = fingerprintEcdhPub(remoteId.ecdh);
+    const ordered = localIkFp < remoteIkFp;
+
+    const dhIk = await ecdhBits(priv.identity.privateKey, remoteId.ecdh);
+    const dhLocalIkRemoteSpk = await ecdhBits(priv.identity.privateKey, remoteSpk);
+    const dhLocalSpkRemoteIk = await ecdhBits(priv.signedPrekey.privateKey, remoteId.ecdh);
+    const mid = ordered
+      ? [dhLocalIkRemoteSpk, dhLocalSpkRemoteIk]
+      : [dhLocalSpkRemoteIk, dhLocalIkRemoteSpk];
+    const shared = concatBuffers(dhIk, ...mid);
+
+    // Lower fingerprint is initiator so both peers pick complementary ratchet roles.
+    const role: "initiator" | "responder" = ordered ? "initiator" : "responder";
+    const ratchet = await initRatchetSession(shared, role);
+    const blob: SessionBlob = { ratchet, role };
     return {
       remoteUserId: "peer",
       remoteDeviceId: String(remote.registrationId),
       stateBlob: encodeJson({
         ...blob,
-        // Carry Alice publics so Bob can respond via establishResponderSession.
+        // Still expose identity pubs for establishResponderSession callers / tests.
         aliceIdentityPub: priv.identity.publicKey,
-        aliceEphemeralPub: ephemeral.publicKey,
-        sharedSeed: encodeJson([...new Uint8Array(shared)]),
       }),
     };
   }
