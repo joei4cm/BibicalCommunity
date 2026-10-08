@@ -414,11 +414,29 @@ test("loadChapter returns zh/ja Romans.8 and Hebrews.11 scaffolds", async () => 
   const cuvsHeb = await loadChapter("cuvs", { book: "Heb", chapter: 11 });
   assert.ok(!("external" in cuvsHeb));
   assert.equal(cuvsHeb.book, "Heb");
+  assert.ok(cuvsHeb.verses.length >= 10);
   assert.match(cuvsHeb.verses[0]?.text ?? "", /样例|信就是|实底/);
+  assert.match(cuvsHeb.verses.find((v) => v.verse === 8)?.text ?? "", /亚伯拉罕/);
 
   const kougoHeb = await loadChapter("kougo", { book: "Hebrews", chapter: 11 });
   assert.ok(!("external" in kougoHeb));
+  assert.ok(kougoHeb.verses.length >= 10);
   assert.match(kougoHeb.verses[0]?.text ?? "", /見本|信仰とは/);
+  assert.match(kougoHeb.verses.find((v) => v.verse === 7)?.text ?? "", /ノア/);
+});
+
+test("loadChapter returns zh/ja Romans.12 scaffolds", async () => {
+  const cuvs = await loadChapter("cuvs", { book: "Rom", chapter: 12 });
+  assert.ok(!("external" in cuvs));
+  assert.ok(cuvs.verses.length >= 8);
+  assert.match(cuvs.verses.find((v) => v.verse === 1)?.text ?? "", /活祭/);
+  assert.match(cuvs.verses.find((v) => v.verse === 21)?.text ?? "", /以善胜恶/);
+
+  const kougo = await loadChapter("kougo", { book: "Romans", chapter: 12 });
+  assert.ok(!("external" in kougo));
+  assert.ok(kougo.verses.length >= 8);
+  assert.match(kougo.verses.find((v) => v.verse === 2)?.text ?? "", /造りかえられ|心を新たに/);
+  assert.match(kougo.verses.find((v) => v.verse === 21)?.text ?? "", /善をもって悪に勝ち/);
 });
 
 test("loadChapter returns PD Isaiah.53 scaffolds (web/kjv/asv)", async () => {

@@ -48,7 +48,7 @@ for (const tid of ["web", "kjv", "asv"]) {
   }
 }
 for (const tid of ["cuvs", "kougo"]) {
-  for (const ref of ["John.14", "1John.4"]) {
+  for (const ref of ["John.14", "1John.4", "Rom.12", "Heb.11"]) {
     if (!inv.some((r) => r.ref === ref && r.translationId === tid)) {
       throw new Error("missing zh/ja scaffold " + tid + " " + ref);
     }

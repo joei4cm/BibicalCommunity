@@ -122,6 +122,8 @@ import { KJV_HEB_11 } from "./packs/kjv-heb11.js";
 import { ASV_HEB_11 } from "./packs/asv-heb11.js";
 import { CUVS_HEB_11 } from "./packs/cuvs-heb11.js";
 import { KOUGO_HEB_11 } from "./packs/kougo-heb11.js";
+import { CUVS_ROM_12 } from "./packs/cuvs-rom12.js";
+import { KOUGO_ROM_12 } from "./packs/kougo-rom12.js";
 import { WEB_ISA_53 } from "./packs/web-isa53.js";
 import { KJV_ISA_53 } from "./packs/kjv-isa53.js";
 import { ASV_ISA_53 } from "./packs/asv-isa53.js";
@@ -433,7 +435,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     eph: { 2: KOUGO_EPH_2 },
     ps: { 1: KOUGO_PSALM_1, 23: KOUGO_PSALM_23 },
     prov: { 3: KOUGO_PROV_3 },
-    rom: { 8: KOUGO_ROM_8 },
+    rom: { 8: KOUGO_ROM_8, 12: KOUGO_ROM_12 },
     heb: { 11: KOUGO_HEB_11 },
     isa: { 53: KOUGO_ISA_53 },
     acts: { 2: KOUGO_ACTS_2 },
@@ -459,7 +461,7 @@ const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> 
     eph: { 2: CUVS_EPH_2 },
     ps: { 1: CUVS_PSALM_1, 23: CUVS_PSALM_23 },
     prov: { 3: CUVS_PROV_3 },
-    rom: { 8: CUVS_ROM_8 },
+    rom: { 8: CUVS_ROM_8, 12: CUVS_ROM_12 },
     heb: { 11: CUVS_HEB_11 },
     isa: { 53: CUVS_ISA_53 },
     acts: { 2: CUVS_ACTS_2 },
