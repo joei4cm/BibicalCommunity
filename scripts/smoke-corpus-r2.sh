@@ -74,6 +74,10 @@ put_and_verify kougo Rom 8 "こういうわけで、今や、キリスト・イ�
 put_and_verify lzz Heb 11 "信就是所望之事的实底，是未见之事的确据。"
 put_and_verify shinkaiyaku Isa 53 "だれが私たちの聞いたことを信じたか。主の腕は、だれに現れたか。"
 put_and_verify shinKyoudou 1John 4 "愛する者たちよ。わたしたちは互に愛し合おうではないか。"
+put_and_verify cuvs John 15 "我是真葡萄树，我父是栽培的人。"
+put_and_verify cuvt Rom 12 "所以弟兄們，我以神的慈悲勸你們，將身體獻上，當作活祭"
+put_and_verify kougo John 15 "わたしはまことのぶどうの木、わたしの父は栽培者である。"
+put_and_verify rcuv Rom 12 "所以弟兄们，我以神的慈悲劝你们，将身体献上，当作活祭"
 
 # Pack catalog still lists licensed stubs for full-corpus entitlement path.
 CP=$(curl -sf "$BASE/v1/bible/corpus-packs?provider=r2")

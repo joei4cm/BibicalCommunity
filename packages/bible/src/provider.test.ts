@@ -940,6 +940,42 @@ test("loadChapter returns zh/ja Philippians.4 and 1Corinthians.13 scaffolds", as
   assert.match(kougoCor.verses.find((v) => v.verse === 13)?.text ?? "", /見本|最も大いなるものは、愛/);
 });
 
+test("loadChapter returns denser John.15 vine scaffolds (PD + licensed peers)", async () => {
+  const web = await loadChapter("web", { book: "John", chapter: 15 });
+  assert.ok(!("external" in web));
+  assert.ok(web.verses.length >= 17);
+  assert.match(web.verses.find((v) => v.verse === 1)?.text ?? "", /true vine/i);
+  assert.match(web.verses.find((v) => v.verse === 5)?.text ?? "", /branches|apart from me/i);
+  assert.match(web.verses.find((v) => v.verse === 13)?.text ?? "", /lay down his life|friends/i);
+  assert.match(web.verses.find((v) => v.verse === 17)?.text ?? "", /love one another/i);
+
+  const kjv = await loadChapter("kjv", { book: "John", chapter: 15 });
+  assert.ok(!("external" in kjv));
+  assert.ok(kjv.verses.length >= 17);
+  assert.match(kjv.verses.find((v) => v.verse === 5)?.text ?? "", /ye are the branches|without me/i);
+
+  const asv = await loadChapter("asv", { book: "John", chapter: 15 });
+  assert.ok(!("external" in asv));
+  assert.ok(asv.verses.length >= 17);
+  assert.match(asv.verses.find((v) => v.verse === 5)?.text ?? "", /apart from me/i);
+
+  for (const tid of ["cuvs", "cuvt", "rcuv", "ccb", "lzz"] as const) {
+    const ch = await loadChapter(tid, { book: "John", chapter: 15 });
+    assert.ok(!("external" in ch), tid);
+    assert.ok(ch.verses.length >= 17, tid);
+    assert.match(ch.verses.find((v) => v.verse === 5)?.text ?? "", /葡萄|枝/, tid);
+    assert.match(ch.verses.find((v) => v.verse === 13)?.text ?? "", /舍命|捨命|朋友/, tid);
+  }
+
+  for (const tid of ["kougo", "shinkaiyaku", "shinKyoudou"] as const) {
+    const ch = await loadChapter(tid, { book: "John", chapter: 15 });
+    assert.ok(!("external" in ch), tid);
+    assert.ok(ch.verses.length >= 17, tid);
+    assert.match(ch.verses.find((v) => v.verse === 5)?.text ?? "", /ぶどう|枝/, tid);
+    assert.match(ch.verses.find((v) => v.verse === 13)?.text ?? "", /命|友/, tid);
+  }
+});
+
 test("loadChapter returns PD John.14 / Rom.12 / 1John.4 scaffolds (web/kjv/asv)", async () => {
   const john14 = await loadChapter("web", { book: "John", chapter: 14 });
   assert.ok(!("external" in john14));
