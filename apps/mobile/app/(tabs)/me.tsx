@@ -11,15 +11,15 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { t, type LocaleCode, type PrivacySettings } from "@logoshome/shared";
-import {
-  generateIdentityKeyPair,
-  generateOneTimePrekeys,
-  generateSignedPrekey,
-} from "@logoshome/crypto";
 import { api, getApiBase, getToken, hydrateToken, setToken } from "../../src/api";
 import { ensureBase64Globals, hasWebCrypto } from "../../src/crypto-polyfill";
 import { normalizeApiLocale, useLocale } from "../../src/locale";
 import { NOTE_KEY_STORAGE } from "../../src/note-crypto";
+import {
+  hasProductIdentity,
+  mintProductIdentityForUpload,
+  PRODUCT_PRIV_KEY,
+} from "../../src/product-signal-chat";
 import { humanizeStatus } from "../../src/status";
 import { clearBibleLocalDb } from "../../src/bible-local-db";
 import { KNOWN_SECRET_KEYS, kvGet, kvSet, wipeSecureSecrets } from "../../src/secure-kv";
@@ -145,7 +145,8 @@ export default function MeScreen() {
       const stored = await loadTheme();
       setThemeState(stored);
       const { value: priv } = await kvGet(DEVICE_PRIV_KEY);
-      setHasDeviceKey(Boolean(priv));
+      const product = await hasProductIdentity();
+      setHasDeviceKey(Boolean(priv) || product);
       await refresh().catch(() => undefined);
       await checkPendingWipe();
     })();
@@ -250,45 +251,30 @@ export default function MeScreen() {
     }
     setKeyBusy(true);
     try {
-      const identity = await generateIdentityKeyPair();
-      const signedPrekey = await generateSignedPrekey(identity, 1);
-      const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
-      const registrationId = Math.floor(Math.random() * 16380) + 1;
-
-      await kvSet(
-        DEVICE_PRIV_KEY,
-        JSON.stringify({
-          identity,
-          signedPrekey,
-          oneTimePrekeys,
-          registrationId,
-          createdAt: Date.now(),
-        }),
-      );
+      // Product path: createProductSignalClient (Expo → x25519).
+      const bundle = await mintProductIdentityForUpload();
 
       await api("/v1/keys/bundle", {
         method: "PUT",
         body: JSON.stringify({
-          identityKeyPub: JSON.stringify({
-            ecdh: identity.publicKey,
-            signing: identity.signingPublicKey,
-          }),
-          signedPrekeyPub: JSON.stringify(signedPrekey.publicKey),
-          signedPrekeySig: signedPrekey.signature,
-          signedPrekeyId: signedPrekey.id,
-          registrationId,
+          identityKeyPub: bundle.identityKeyPub,
+          signedPrekeyPub: bundle.signedPrekeyPub,
+          signedPrekeySig: bundle.signedPrekeySig,
+          signedPrekeyId: bundle.signedPrekeyId,
+          registrationId: bundle.registrationId,
         }),
       });
 
-      await api("/v1/keys/prekeys", {
-        method: "PUT",
-        body: JSON.stringify({
-          prekeys: oneTimePrekeys.map((pk) => ({
-            id: pk.id,
-            pub: JSON.stringify(pk.publicKey),
-          })),
-        }),
-      });
+      if (bundle.oneTimePrekeyPub != null && bundle.oneTimePrekeyId != null) {
+        await api("/v1/keys/prekeys", {
+          method: "PUT",
+          body: JSON.stringify({
+            prekeys: [{ id: bundle.oneTimePrekeyId, pub: bundle.oneTimePrekeyPub }],
+          }),
+        });
+      }
+
+      await kvSet(DEVICE_PRIV_KEY, `product:${PRODUCT_PRIV_KEY}`);
 
       setHasDeviceKey(true);
       setMsg("keys_uploaded");

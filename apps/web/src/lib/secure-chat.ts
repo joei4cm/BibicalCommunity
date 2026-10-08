@@ -17,6 +17,10 @@ import {
   type SignedPrekey,
 } from "@logoshome/crypto";
 import { api } from "./api";
+import {
+  tryDecryptProductChatMessage,
+  tryEncryptProductChatMessage,
+} from "./product-signal-chat";
 import { migrateSecureFromLocalStorage, secureGet, secureRemove, secureSet } from "./secure-kv";
 
 const STATE_PREFIX = "lh.ratchet.";
@@ -218,8 +222,12 @@ export async function encryptChatMessage(
   conversationId: string,
   plaintext: string,
   peerUserId?: string | null,
-): Promise<{ ratchetHeader: string; ciphertext: string; mode: "x3dh" | "degraded" }> {
+): Promise<{ ratchetHeader: string; ciphertext: string; mode: "product" | "x3dh" | "degraded" }> {
   await ensureMigrated();
+  // Prefer product SignalClient (browser → x25519) when both peers uploaded product keys.
+  const product = await tryEncryptProductChatMessage(conversationId, plaintext, peerUserId);
+  if (product) return product;
+
   let state = await ensureRatchet(conversationId, peerUserId);
   const modeRaw = (await secureGet(X3DH_PREFIX + conversationId)) as
     | "x3dh"
@@ -248,7 +256,16 @@ export async function decryptChatMessage(
   conversationId: string,
   ratchetHeader: string,
   ciphertextBlob: string,
+  peerUserId?: string | null,
 ): Promise<string> {
+  const productPlain = await tryDecryptProductChatMessage(
+    conversationId,
+    ratchetHeader,
+    ciphertextBlob,
+    peerUserId,
+  );
+  if (productPlain != null) return productPlain;
+
   let state = await loadState(conversationId);
   let header: RatchetMessage["header"];
   let preamble: X3dhPreamble | undefined;
