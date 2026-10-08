@@ -1,4 +1,4 @@
-/** Public-domain: KJV Exodus 20 denser Decalogue scaffold (vv.1–17). */
+/** Public-domain: KJV Exodus 20 denser full Decalogue / altar chapter scaffold (vv.1–26). */
 export const KJV_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -14,7 +14,7 @@ export const KJV_EXOD_20: { verse: number; text: string }[] = [
   },
   {
     verse: 4,
-    text: "Thou shalt not make unto thee any graven image, or any likeness of any thing that is in heaven above, or that is in the earth beneath, or that is in the water under the earth:",
+    text: "Thou shalt not make unto thee any graven image, or any likeness of any thing that is in heaven above, or that is in the earth beneath, or that is in the water under the earth.",
   },
   {
     verse: 5,
@@ -67,5 +67,41 @@ export const KJV_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 17,
     text: "Thou shalt not covet thy neighbour's house, thou shalt not covet thy neighbour's wife, nor his manservant, nor his maidservant, nor his ox, nor his ass, nor any thing that is thy neighbour's.",
+  },
+  {
+    verse: 18,
+    text: "And all the people saw the thunderings, and the lightnings, and the noise of the trumpet, and the mountain smoking: and when the people saw it, they removed, and stood afar off.",
+  },
+  {
+    verse: 19,
+    text: "And they said unto Moses, Speak thou with us, and we will hear: but let not God speak with us, lest we die.",
+  },
+  {
+    verse: 20,
+    text: "And Moses said unto the people, Fear not: for God is come to prove you, and that his fear may be before your faces, that ye sin not.",
+  },
+  {
+    verse: 21,
+    text: "And the people stood afar off, and Moses drew near unto the thick darkness where God was.",
+  },
+  {
+    verse: 22,
+    text: "And the LORD said unto Moses, Thus thou shalt say unto the children of Israel, Ye have seen that I have talked with you from heaven.",
+  },
+  {
+    verse: 23,
+    text: "Ye shall not make with me gods of silver, neither shall ye make unto you gods of gold.",
+  },
+  {
+    verse: 24,
+    text: "An altar of earth thou shalt make unto me, and shalt sacrifice thereon thy burnt offerings, and thy peace offerings, thy sheep, and thine oxen: in all places where I record my name I will come unto thee, and I will bless thee.",
+  },
+  {
+    verse: 25,
+    text: "And if thou wilt make me an altar of stone, thou shalt not build it of hewn stone: for if thou lift up thy tool upon it, thou hast polluted it.",
+  },
+  {
+    verse: 26,
+    text: "Neither shalt thou go up by steps unto mine altar, that thy nakedness be not discovered thereon.",
   },
 ];

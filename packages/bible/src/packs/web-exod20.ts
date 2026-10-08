@@ -1,4 +1,4 @@
-/** Public-domain: WEB Exodus 20 denser Decalogue scaffold (vv.1–17). */
+/** Public-domain: WEB Exodus 20 denser full Decalogue / altar chapter scaffold (vv.1–26). */
 export const WEB_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 1,
@@ -67,5 +67,41 @@ export const WEB_EXOD_20: { verse: number; text: string }[] = [
   {
     verse: 17,
     text: "\"You shall not covet your neighbor's house. You shall not covet your neighbor's wife, nor his male servant, nor his female servant, nor his ox, nor his donkey, nor anything that is your neighbor's.\"",
+  },
+  {
+    verse: 18,
+    text: "All the people perceived the thunderings, the lightnings, the sound of the trumpet, and the mountain smoking. When the people saw it, they trembled, and stayed at a distance.",
+  },
+  {
+    verse: 19,
+    text: "They said to Moses, \"Speak with us yourself, and we will listen; but don't let God speak with us, lest we die.\"",
+  },
+  {
+    verse: 20,
+    text: "Moses said to the people, \"Don't be afraid, for God has come to test you, and that his fear may be before you, that you won't sin.\"",
+  },
+  {
+    verse: 21,
+    text: "The people stayed at a distance, and Moses drew near to the thick darkness where God was.",
+  },
+  {
+    verse: 22,
+    text: "Yahweh said to Moses, \"This is what you shall tell the children of Israel: 'You yourselves have seen that I have talked with you from heaven.",
+  },
+  {
+    verse: 23,
+    text: "You shall most certainly not make alongside of me gods of silver, or gods of gold for yourselves.",
+  },
+  {
+    verse: 24,
+    text: "You shall make an altar of earth for me, and shall sacrifice on it your burnt offerings and your peace offerings, your sheep and your cattle. In every place where I record my name I will come to you and I will bless you.",
+  },
+  {
+    verse: 25,
+    text: "If you make me an altar of stone, you shall not build it of cut stones; for if you lift up your tool on it, you have polluted it.",
+  },
+  {
+    verse: 26,
+    text: "Neither shall you go up by steps to my altar, that your nakedness may not be exposed to it.'\"",
   },
 ];
