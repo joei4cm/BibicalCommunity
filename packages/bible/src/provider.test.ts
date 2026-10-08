@@ -9,9 +9,10 @@ test("loadChapter returns verses for web John.1", async () => {
   assert.equal(result.source, "local");
   assert.equal(result.translationId, "web");
   assert.equal(result.chapter, 1);
-  assert.ok(result.verses.length > 0);
+  assert.ok(result.verses.length >= 14);
   assert.equal(result.verses[0]?.verse, 1);
   assert.match(result.verses[0]?.text ?? "", /In the beginning was the Word/);
+  assert.match(result.verses.find((v) => v.verse === 14)?.text ?? "", /Word became flesh|grace and truth/i);
 });
 
 test("loadChapter returns verses for kjv John.1", async () => {
@@ -20,18 +21,23 @@ test("loadChapter returns verses for kjv John.1", async () => {
   assert.equal(result.source, "local");
   assert.equal(result.translationId, "kjv");
   assert.equal(result.chapter, 1);
-  assert.ok(result.verses.length > 0);
+  assert.ok(result.verses.length >= 14);
   assert.equal(result.verses[0]?.verse, 1);
   assert.match(result.verses[0]?.text ?? "", /In the beginning was the Word/);
   assert.match(result.verses.find((v) => v.verse === 5)?.text ?? "", /comprehended/);
+  assert.match(result.verses.find((v) => v.verse === 14)?.text ?? "", /Word was made flesh|grace and truth/i);
 });
 
 test("loadChapter returns verses for asv John.1", async () => {
   const result = await loadChapter("asv", { book: "John", chapter: 1 });
   assert.ok(!("external" in result));
   assert.equal(result.source, "local");
-  assert.ok(result.verses.length > 0);
-  assert.match(result.verses.find((v) => v.verse === 5)?.text ?? "", /apprehended/);
+  assert.equal(result.translationId, "asv");
+  assert.equal(result.chapter, 1);
+  assert.ok(result.verses.length >= 14);
+  assert.equal(result.verses[0]?.verse, 1);
+  assert.match(result.verses[0]?.text ?? "", /In the beginning was the Word/);
+  assert.match(result.verses.find((v) => v.verse === 14)?.text ?? "", /Word became flesh|grace and truth/i);
 });
 
 test("loadChapter returns verses for web John.2 (wedding at Cana)", async () => {
@@ -100,8 +106,9 @@ test("loadChapter returns verses for kougoyaku-pd John.1", async () => {
   const result = await loadChapter("kougoyaku-pd", { book: "John", chapter: 1 });
   assert.ok(!("external" in result));
   assert.equal(result.source, "local");
-  assert.ok(result.verses.length > 0);
+  assert.ok(result.verses.length >= 14);
   assert.match(result.verses[0]?.text ?? "", /太初に言あり/);
+  assert.match(result.verses.find((v) => v.verse === 14)?.text ?? "", /言は肉となり|榮光|恩と眞/);
 });
 
 test("local PD translations are marked available", () => {
@@ -170,8 +177,9 @@ test("loadChapter returns cuvs scaffold John.1", async () => {
 test("loadChapter returns lzz scaffold John.1", async () => {
   const result = await loadChapter("lzz", { book: "John", chapter: 1 });
   assert.ok(!("external" in result));
-  assert.ok(result.verses.length > 0);
-  assert.match(result.verses[0]?.text ?? "", /起初有道|太初有道/);
+  assert.ok(result.verses.length >= 14);
+  assert.match(result.verses[0]?.text ?? "", /样例|太初有道/);
+  assert.match(result.verses.find((v) => v.verse === 14)?.text ?? "", /样例|道成了肉身|恩典和真理|荣光/);
 });
 
 test("loadChapter returns cuvs/kougo/kjv/asv John.2 scaffolds", async () => {

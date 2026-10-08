@@ -18,6 +18,8 @@ if (!TOKEN) {
 }
 
 const KEY_REFS = [
+  { book: "John", chapter: 1 },
+  { book: "John", chapter: 2 },
   { book: "John", chapter: 14 },
   { book: "John", chapter: 15 },
   { book: "Matt", chapter: 5 },
@@ -95,6 +97,8 @@ if (seeded < 150) {
 
 /** Prove denser scaffolds land in pack→R2 seed (min verse floors after #45/#46). */
 const DENSER_FLOORS = [
+  { book: "John", chapter: 1, min: 14 },
+  { book: "John", chapter: 2, min: 11 },
   { book: "Acts", chapter: 2, min: 9 },
   { book: "Ps", chapter: 1, min: 6 },
   { book: "Prov", chapter: 3, min: 8 },
