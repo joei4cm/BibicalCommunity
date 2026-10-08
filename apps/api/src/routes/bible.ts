@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { and, eq, isNull, or, gt } from "drizzle-orm";
 import {
   BOOT_DEFAULT_TRANSLATION_IDS,
+  BOOT_TEACHING_CHAPTER_REFS,
   buildDemoDownloadPack,
   buildDownloadPackPayloadJson,
   getTranslation,
@@ -104,11 +105,17 @@ bibleRoutes.get("/corpus-catalog", async (c) => {
 
 /**
  * Download a translation pack as JSON for install into the client local DB.
- * Lists all R2 objects under `bible/{tid}/` (full prefix pack), falling back
- * to catalog sample refs, then a small demo pack. Not a TypeScript densify path.
+ *
+ * Query `scope`:
+ * - `boot` — slim teaching-set only (first-launch seed; never the full PD canon)
+ * - `full` (default) — every R2 object under `bible/{tid}/`
+ *
+ * Not a TypeScript densify path.
  */
 bibleRoutes.get("/corpus-download/:translationId", async (c) => {
   const translationId = c.req.param("translationId");
+  const scopeRaw = (c.req.query("scope") ?? "full").toLowerCase();
+  const scope = scopeRaw === "boot" ? "boot" : "full";
   const meta = getTranslation(translationId);
   if (!meta) return c.json({ error: "unknown_translation" }, 404);
   if (meta.provider === "external") {
@@ -125,40 +132,12 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
   const fromR2: { book: string; chapter: number; verses: { verse: number; text: string }[] }[] =
     [];
   const seen = new Set<string>();
-
-  // 1) Full prefix listing — every chapter object under bible/{tid}/
+  const bootAllow = new Set<string>(BOOT_TEACHING_CHAPTER_REFS);
   const prefix = r2CorpusPrefix(translationId);
-  let cursor: string | undefined;
-  for (;;) {
-    const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor });
-    for (const obj of listed.objects) {
-      const parsedKey = parseR2ChapterObjectKey(obj.key);
-      if (!parsedKey || parsedKey.translationId !== translationId) continue;
-      const refKey = `${parsedKey.book}.${parsedKey.chapter}`;
-      if (seen.has(refKey)) continue;
-      const body = await c.env.MEDIA.get(obj.key);
-      if (!body) continue;
-      try {
-        const chapter = parseR2ChapterJson(await body.text());
-        fromR2.push(chapter);
-        seen.add(refKey);
-      } catch {
-        /* skip invalid */
-      }
-    }
-    if (!listed.truncated) break;
-    cursor = listed.cursor;
-  }
 
-  // 2) Fallback: known catalog sample refs (when list empty / partial)
-  if (fromR2.length === 0) {
-    const catalogEntry = listDownloadableCorpusCatalog().find(
-      (p) => p.translationId === translationId,
-    );
-    const refs = catalogEntry?.chapterRefs?.length
-      ? catalogEntry.chapterRefs
-      : ["John.1", "John.3", "Ps.23"];
-    for (const ref of refs) {
+  if (scope === "boot") {
+    // Slim first-launch pack: only teaching-set refs, even if R2 holds full PD.
+    for (const ref of BOOT_TEACHING_CHAPTER_REFS) {
       const parsed = parseRef(ref);
       if (!parsed) continue;
       const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
@@ -166,8 +145,54 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
       if (!obj) continue;
       try {
         fromR2.push(parseR2ChapterJson(await obj.text()));
+        seen.add(ref);
       } catch {
         /* skip invalid */
+      }
+    }
+  } else {
+    // Full prefix listing — every chapter object under bible/{tid}/
+    let cursor: string | undefined;
+    for (;;) {
+      const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor });
+      for (const obj of listed.objects) {
+        const parsedKey = parseR2ChapterObjectKey(obj.key);
+        if (!parsedKey || parsedKey.translationId !== translationId) continue;
+        const refKey = `${parsedKey.book}.${parsedKey.chapter}`;
+        if (seen.has(refKey)) continue;
+        const body = await c.env.MEDIA.get(obj.key);
+        if (!body) continue;
+        try {
+          const chapter = parseR2ChapterJson(await body.text());
+          fromR2.push(chapter);
+          seen.add(refKey);
+        } catch {
+          /* skip invalid */
+        }
+      }
+      if (!listed.truncated) break;
+      cursor = listed.cursor;
+    }
+
+    // Fallback: known catalog sample refs (when list empty / partial)
+    if (fromR2.length === 0) {
+      const catalogEntry = listDownloadableCorpusCatalog().find(
+        (p) => p.translationId === translationId,
+      );
+      const refs = catalogEntry?.chapterRefs?.length
+        ? catalogEntry.chapterRefs.slice(0, 32)
+        : ["John.1", "John.3", "Ps.23"];
+      for (const ref of refs) {
+        const parsed = parseRef(ref);
+        if (!parsed) continue;
+        const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
+        const obj = await c.env.MEDIA.get(key);
+        if (!obj) continue;
+        try {
+          fromR2.push(parseR2ChapterJson(await obj.text()));
+        } catch {
+          /* skip invalid */
+        }
       }
     }
   }
@@ -184,8 +209,11 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
       version: 1,
       chapters: fromR2,
       source: "r2" as const,
+      scope,
       r2Prefix: prefix,
       chapterCount: fromR2.length,
+      bootTeachingOnly: scope === "boot",
+      bootTeachingRefs: scope === "boot" ? [...bootAllow] : undefined,
     });
   }
 
@@ -193,7 +221,9 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
   return c.json({
     ...parseDownloadPackPayload(buildDownloadPackPayloadJson(demo)),
     source: "demo" as const,
+    scope,
     chapterCount: demo.chapters.length,
+    bootTeachingOnly: scope === "boot",
   });
 });
 

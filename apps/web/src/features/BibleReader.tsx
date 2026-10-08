@@ -240,10 +240,11 @@ export function BibleReader() {
   useEffect(() => {
     void ensureBootCorpusSeeded(async (tid) => {
       try {
+        // Boot must stay slim (teaching-set), even when R2 holds full PD WEB.
         const pack = await api<{
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=boot`);
         return { chapters: pack.chapters, source: pack.source };
       } catch {
         return null;
@@ -421,7 +422,7 @@ export function BibleReader() {
         chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
         source?: string;
         error?: string;
-      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}`);
+      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?scope=full`);
       if (!pack.chapters?.length) {
         setError("corpus_download_empty");
         return;

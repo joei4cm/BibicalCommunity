@@ -217,10 +217,11 @@ export default function BibleScreen() {
     if (!apiBase) return;
     void ensureBootCorpusSeeded(async (tid) => {
       try {
+        // Boot must stay slim (teaching-set), even when R2 holds full PD WEB.
         const pack = await api<{
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=boot`);
         return { chapters: pack.chapters, source: pack.source };
       } catch {
         return null;
@@ -467,7 +468,7 @@ export default function BibleScreen() {
       const pack = await api<{
         chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
         source?: string;
-      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}`);
+      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?scope=full`);
       if (!pack.chapters?.length) {
         setAnnMsg("corpus_download_empty");
         return;
