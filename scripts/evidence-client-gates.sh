@@ -44,6 +44,23 @@ console.log("I18N_KEYS_OK count=" + zh.length);
 console.log("I18N_PARITY_OK");
 '
 
+echo "== reader skins + screen-share gate =="
+rg -q 'READER_SKIN_IDS' apps/web/src/lib/reader-skins.ts
+rg -q 'data-reader-skin' apps/web/src/styles/global.css
+rg -q 'reader.skin' packages/shared/src/i18n/catalogs.ts
+rg -q 'probeDisplayMedia|canStartScreenShare' apps/web/src/lib/screen-share.ts
+rg -q 'canStartScreenShare' apps/web/src/features/ChatPanel.tsx
+echo "READER_SKINS_OK"
+echo "SCREEN_SHARE_GATE_OK"
+
+echo "== curve25519 x25519 path =="
+bash scripts/smoke-curve25519.sh
+
+echo "== corpus scaffold inventory + devotion packs =="
+bash scripts/smoke-corpus-inventory.sh
+rg -q 'READER_SKIN_IDS' apps/mobile/src/reader-skins.ts
+echo "MOBILE_READER_SKINS_OK"
+
 echo "== PWA gate =="
 test -f apps/web/public/icon.svg
 rg -q 'VitePWA' apps/web/vite.config.ts

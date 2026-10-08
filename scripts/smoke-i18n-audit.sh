@@ -29,6 +29,23 @@ for (const k of all) {
     }
   }
 }
+// Native copy QA: brand-adjacent keys must differ across locales (catch untranslated paste).
+const mustDiffer = [
+  "nav.bible","nav.plans","nav.home","nav.me",
+  "reader.typography","reader.skin","chat.screenShare","plans.devotion",
+  "landing.headline","landing.support",
+];
+for (const k of mustDiffer) {
+  const zh = catalogs["zh-CN"]?.[k];
+  const en = catalogs.en?.[k];
+  const ja = catalogs.ja?.[k];
+  if (!zh || !en || !ja) { console.error("NATIVE_MISSING", k); fail++; continue; }
+  if (zh === en || zh === ja || en === ja) {
+    console.error("NATIVE_UNTRANSLATED", k, { zh, en, ja });
+    fail++;
+  }
+}
 if (fail) process.exit(1);
 console.log("I18N_AUDIT_OK keys=" + all.size);
+console.log("I18N_NATIVE_COPY_OK");
 '

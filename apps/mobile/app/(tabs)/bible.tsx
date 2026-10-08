@@ -23,6 +23,13 @@ import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../../src/api";
 import { useLocale } from "../../src/locale";
 import { decryptJson, encryptJson } from "../../src/note-crypto";
+import {
+  loadReaderSkin,
+  READER_SKIN_IDS,
+  readerSkinPalette,
+  saveReaderSkin,
+  type ReaderSkinId,
+} from "../../src/reader-skins";
 import { humanizeStatus } from "../../src/status";
 
 type ChapterPayload = {
@@ -85,7 +92,13 @@ export default function BibleScreen() {
   const [lineHeight, setLineHeight] = useState(1.65);
   const [serif, setSerif] = useState(true);
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
+  const [readerSkin, setReaderSkin] = useState<ReaderSkinId>("default");
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
+  const skinPalette = readerSkinPalette(readerSkin);
+
+  useEffect(() => {
+    void loadReaderSkin().then(setReaderSkin);
+  }, []);
 
   function applyPreset(id: "compact" | "comfortable" | "spacious") {
     const presets = {
@@ -466,6 +479,23 @@ export default function BibleScreen() {
           </Text>
         </Pressable>
       </View>
+      <Text style={styles.label}>{t(locale, "reader.skin")}</Text>
+      <View style={styles.annActions}>
+        {READER_SKIN_IDS.map((id) => (
+          <Pressable
+            key={id}
+            style={[styles.btn, styles.btnGhost, readerSkin === id && styles.chipActive]}
+            onPress={() => {
+              setReaderSkin(id);
+              void saveReaderSkin(id);
+            }}
+          >
+            <Text style={[styles.btnGhostText, readerSkin === id && styles.chipTextActive]}>
+              {t(locale, `reader.skin.${id}`)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <Text style={styles.label}>
         {t(locale, "reader.lineHeight")}: {lineHeight.toFixed(2)}
       </Text>
@@ -503,6 +533,7 @@ export default function BibleScreen() {
               onPress={() => setSelectedVerse(v.verse)}
               style={[
                 styles.verseRow,
+                { backgroundColor: skinPalette.readerBg },
                 selected && styles.verseSelected,
                 hl ? { backgroundColor: hl } : null,
               ]}
@@ -514,10 +545,11 @@ export default function BibleScreen() {
                     fontSize,
                     lineHeight: fontSize * lineHeight,
                     fontFamily: serif ? "Georgia" : "Helvetica Neue",
+                    color: skinPalette.verseColor,
                   },
                 ]}
               >
-                <Text style={styles.num}>{v.verse} </Text>
+                <Text style={[styles.num, { color: skinPalette.verseNum }]}>{v.verse} </Text>
                 {v.text}
               </Text>
             </Pressable>

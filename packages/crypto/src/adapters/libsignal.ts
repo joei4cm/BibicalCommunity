@@ -8,11 +8,12 @@
 
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "../signal-stub.js";
 import { WebCryptoSignalClient } from "../webcrypto-signal.js";
+import { X25519SignalClient } from "../x25519-signal.js";
 
 export class LibsignalNotConfiguredError extends Error {
   constructor() {
     super(
-      "libsignal adapter not configured — use WebCryptoSignalClient until Curve25519/libsignal is provisioned",
+      "libsignal adapter not configured — use WebCryptoSignalClient or X25519SignalClient until @signalapp/libsignal-client is provisioned",
     );
     this.name = "LibsignalNotConfiguredError";
   }
@@ -41,12 +42,12 @@ export class LibsignalSignalClient implements SignalClient {
   }
 }
 
-export type SignalBackend = "webcrypto" | "libsignal";
+export type SignalBackend = "webcrypto" | "libsignal" | "x25519";
 
 /**
  * Resolve backend from explicit prefer, else `LOGOSHOME_SIGNAL_BACKEND`
- * (`webcrypto` | `libsignal`) on `globalThis` or Node `process.env`.
- * Defaults to webcrypto (portable P-256).
+ * (`webcrypto` | `libsignal` | `x25519`) on `globalThis` or Node `process.env`.
+ * Defaults to webcrypto (portable P-256). `x25519` selects Curve25519 WebCrypto path.
  */
 export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   if (prefer) return prefer;
@@ -56,11 +57,14 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   };
   const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
   if (env === "libsignal") return "libsignal";
+  if (env === "x25519") return "x25519";
   return "webcrypto";
 }
 
 /** Factory used by apps to pick the active client. */
 export function createSignalClient(prefer?: SignalBackend): SignalClient {
-  if (resolveSignalBackend(prefer) === "libsignal") return new LibsignalSignalClient();
+  const backend = resolveSignalBackend(prefer);
+  if (backend === "libsignal") return new LibsignalSignalClient();
+  if (backend === "x25519") return new X25519SignalClient();
   return new WebCryptoSignalClient();
 }

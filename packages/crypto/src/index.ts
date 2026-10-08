@@ -1,6 +1,7 @@
 export * from "./envelope.js";
 export * from "./signal-stub.js";
 export * from "./webcrypto-signal.js";
+export * from "./x25519-signal.js";
 export * from "./adapters/libsignal.js";
 export * from "./session-aes.js";
 export * from "./wipe.js";
