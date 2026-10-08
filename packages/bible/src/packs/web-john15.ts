@@ -1,6 +1,9 @@
-/** Public-domain: WEB John 15 denser vine / abide discourse (vv.1–17). */
+/** Public-domain: WEB John 15 denser full vine / abide chapter scaffold (vv.1–27). */
 export const WEB_JOHN_15: { verse: number; text: string }[] = [
-  { verse: 1, text: '"I am the true vine, and my Father is the farmer.' },
+  {
+    verse: 1,
+    text: "I am the true vine, and my Father is the farmer.",
+  },
   {
     verse: 2,
     text: "Every branch in me that doesn't bear fruit, he takes away. Every branch that bears fruit, he prunes, that it may bear more fruit.",
@@ -27,7 +30,7 @@ export const WEB_JOHN_15: { verse: number; text: string }[] = [
   },
   {
     verse: 8,
-    text: 'In this my Father is glorified, that you bear much fruit; and so you will be my disciples.',
+    text: "In this my Father is glorified, that you bear much fruit; and so you will be my disciples.",
   },
   {
     verse: 9,
@@ -43,7 +46,7 @@ export const WEB_JOHN_15: { verse: number; text: string }[] = [
   },
   {
     verse: 12,
-    text: '"This is my commandment, that you love one another, even as I have loved you.',
+    text: "This is my commandment, that you love one another, even as I have loved you.",
   },
   {
     verse: 13,
@@ -63,6 +66,46 @@ export const WEB_JOHN_15: { verse: number; text: string }[] = [
   },
   {
     verse: 17,
-    text: 'I command these things to you, that you may love one another."',
+    text: "I command these things to you, that you may love one another.",
   },
+  {
+    verse: 18,
+    text: "If the world hates you, you know that it has hated me before it hated you.",
+  },
+  {
+    verse: 19,
+    text: "If you were of the world, the world would love its own. But because you are not of the world, since I chose you out of the world, therefore the world hates you.",
+  },
+  {
+    verse: 20,
+    text: "Remember the word that I said to you: 'A servant is not greater than his lord.' If they persecuted me, they will also persecute you. If they kept my word, they will also keep yours.",
+  },
+  {
+    verse: 21,
+    text: "But they will do all these things to you for my name's sake, because they don't know him who sent me.",
+  },
+  {
+    verse: 22,
+    text: "If I had not come and spoken to them, they would not have had sin; but now they have no excuse for their sin.",
+  },
+  {
+    verse: 23,
+    text: "He who hates me, hates my Father also.",
+  },
+  {
+    verse: 24,
+    text: "If I hadn't done among them the works which no one else did, they wouldn't have had sin. But now they have seen and also hated both me and my Father.",
+  },
+  {
+    verse: 25,
+    text: "But this happened so that the word may be fulfilled which was written in their law, 'They hated me without a cause.'",
+  },
+  {
+    verse: 26,
+    text: "When the Counselor has come, whom I will send to you from the Father, the Spirit of truth who proceeds from the Father, he will testify about me.",
+  },
+  {
+    verse: 27,
+    text: "You will also testify, because you have been with me from the beginning.",
+  }
 ];

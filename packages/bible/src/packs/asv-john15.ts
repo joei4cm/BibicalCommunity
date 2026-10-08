@@ -1,6 +1,9 @@
-/** Public-domain: ASV John 15 denser vine / abide discourse (vv.1–17). */
+/** Public-domain: ASV John 15 denser full vine / abide chapter scaffold (vv.1–27). */
 export const ASV_JOHN_15: { verse: number; text: string }[] = [
-  { verse: 1, text: "I am the true vine, and my Father is the husbandman." },
+  {
+    verse: 1,
+    text: "I am the true vine, and my Father is the husbandman.",
+  },
   {
     verse: 2,
     text: "Every branch in me that beareth not fruit, he taketh it away: and every branch that beareth fruit, he cleanseth it, that it may bear more fruit.",
@@ -65,4 +68,44 @@ export const ASV_JOHN_15: { verse: number; text: string }[] = [
     verse: 17,
     text: "These things I command you, that ye may love one another.",
   },
+  {
+    verse: 18,
+    text: "If the world hateth you, ye know that it hath hated me before it hated you.",
+  },
+  {
+    verse: 19,
+    text: "If ye were of the world, the world would love its own: but because ye are not of the world, but I chose you out of the world, therefore the world hateth you.",
+  },
+  {
+    verse: 20,
+    text: "Remember the word that I said unto you, A servant is not greater than his lord. If they persecuted me, they will also persecute you; if they kept my word, they will keep yours also.",
+  },
+  {
+    verse: 21,
+    text: "But all these things will they do unto you for my name's sake, because they know not him that sent me.",
+  },
+  {
+    verse: 22,
+    text: "If I had not come and spoken unto them, they had not had sin: but now they have no excuse for their sin.",
+  },
+  {
+    verse: 23,
+    text: "He that hateth me hateth my Father also.",
+  },
+  {
+    verse: 24,
+    text: "If I had not done among them the works which none other did, they had not had sin: but now have they both seen and hated both me and my Father.",
+  },
+  {
+    verse: 25,
+    text: "But this cometh to pass, that the word may be fulfilled that is written in their law, They hated me without a cause.",
+  },
+  {
+    verse: 26,
+    text: "But when the Comforter is come, whom I will send unto you from the Father, even the Spirit of truth, which proceedeth from the Father, he shall bear witness of me:",
+  },
+  {
+    verse: 27,
+    text: "and ye also bear witness, because ye have been with me from the beginning.",
+  }
 ];
