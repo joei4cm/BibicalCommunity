@@ -139,9 +139,10 @@ select {
 
 .reader {
   background: var(--lh-reader-bg);
+  color: var(--lh-reader-verse, inherit);
   border-radius: var(--lh-radius);
   padding: 1.25rem 1.1rem 1.5rem;
-  border: 1px solid var(--lh-border);
+  border: 1px solid var(--lh-reader-border, var(--lh-border));
   font-family: var(--lh-font-reader);
   transition: background 220ms ease, color 220ms ease, box-shadow 220ms ease;
 }
@@ -196,7 +197,7 @@ select {
 .verse-num {
   font-size: 0.75em;
   vertical-align: super;
-  color: var(--lh-accent);
+  color: var(--lh-reader-verse-num, var(--lh-accent));
   margin-right: 0.25rem;
   font-family: var(--lh-font-ui);
 }
