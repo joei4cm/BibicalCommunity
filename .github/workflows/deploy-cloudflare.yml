@@ -65,11 +65,12 @@ jobs:
         id: deploy_api
         working-directory: apps/api
         run: |
+          set -euo pipefail
           pnpm exec wrangler deploy -c wrangler.production.ci.toml | tee /tmp/cf-deploy-api.log
           BASE=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' /tmp/cf-deploy-api.log | head -1 || true)
           if [ -z "$BASE" ]; then
-            BASE="https://logoshome-api.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
-            echo "WARN: Worker URL not parsed; guessing $BASE"
+            echo "FAIL: could not parse workers.dev URL from wrangler deploy output"
+            exit 1
           fi
           echo "api_base=$BASE" >> "$GITHUB_OUTPUT"
           echo "LIVE_API_BASE=$BASE"

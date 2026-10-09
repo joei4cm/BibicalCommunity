@@ -51,7 +51,7 @@ require_line 'binding\s*=\s*"MEDIA"' 'R2 binding MEDIA'
 require_line 'bucket_name\s*=' 'R2 bucket_name set'
 require_line 'name\s*=\s*"CALL_ROOM"' 'Durable Object binding CALL_ROOM'
 require_line 'class_name\s*=\s*"CallRoomDO"' 'CallRoomDO class binding'
-require_line 'new_classes\s*=\s*\["CallRoomDO"\]' 'DO migration registers CallRoomDO'
+require_line 'new_sqlite_classes\s*=\s*\["CallRoomDO"\]' 'DO migration registers CallRoomDO (sqlite / free plan)'
 
 # Production vars / secret documentation
 require_line 'ENVIRONMENT\s*=\s*"production"' 'ENVIRONMENT=production'
