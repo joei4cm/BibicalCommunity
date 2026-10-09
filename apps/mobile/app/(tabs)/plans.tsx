@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -7,7 +7,8 @@ import {
   Pressable,
   ScrollView,
 } from "react-native";
-import { parsePlanCsv } from "@logoshome/bible";
+import { useRouter } from "expo-router";
+import { getBook, parsePlanCsv, parseRef } from "@logoshome/bible";
 import { t } from "@logoshome/shared";
 import {
   DEVOTION_STEPS,
@@ -26,6 +27,8 @@ type PlanRow = {
   dayCount?: number;
 };
 
+type PlanDay = { day: number; ref: string; title?: string; note?: string };
+
 type Subscription = {
   subscriptionId?: string;
   planId: string;
@@ -33,10 +36,12 @@ type Subscription = {
   progressDay: number;
   devotionStep?: DevotionStep;
   devotionMaterialId?: string | null;
+  days?: PlanDay[];
 };
 
 export default function PlansScreen() {
   const { locale } = useLocale();
+  const router = useRouter();
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
   const [step, setStep] = useState<DevotionStep>("pause");
   const [message, setMessage] = useState<string | null>(null);
@@ -46,6 +51,28 @@ export default function PlansScreen() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const progress = devotionProgress(step);
   const apiConfigured = Boolean(getApiBase());
+  const activeSub = subscriptions[0] ?? null;
+  const todayDay = useMemo(() => {
+    if (!activeSub) return null;
+    const dayNum = (activeSub.progressDay ?? 0) + 1;
+    return (activeSub.days ?? []).find((d) => d.day === dayNum) ?? null;
+  }, [activeSub]);
+
+  function openTodayReading() {
+    if (!todayDay) return;
+    const parsed = parseRef(todayDay.ref);
+    if (!parsed) return;
+    const book = getBook(parsed.book);
+    const bookId = book?.id ?? parsed.book;
+    router.push({
+      pathname: "/(tabs)/bible",
+      params: {
+        book: bookId,
+        chapter: String(parsed.chapter),
+        ...(parsed.verseStart ? { verse: String(parsed.verseStart) } : {}),
+      },
+    });
+  }
 
   const refreshLists = useCallback(async () => {
     await hydrateToken();
@@ -210,6 +237,19 @@ export default function PlansScreen() {
       ))}
 
       <Text style={styles.section}>{t(locale, "plans.subscriptions")}</Text>
+      {todayDay && (
+        <Pressable
+          style={styles.todayCard}
+          onPress={openTodayReading}
+          testID="plans-today-ref-link"
+        >
+          <Text style={styles.muted}>{t(locale, "plans.todayReading")}</Text>
+          <Text style={styles.todayRef}>
+            {todayDay.ref}
+            {todayDay.title ? ` · ${todayDay.title}` : ""}
+          </Text>
+        </Pressable>
+      )}
       {subscriptions.length === 0 && <Text style={styles.muted}>—</Text>}
       {subscriptions.map((s) => (
         <View key={s.subscriptionId ?? s.planId} style={styles.card}>
@@ -304,6 +344,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#fffdf8",
   },
   cardTitle: { fontWeight: "700", color: "#1c2b2a" },
+  todayCard: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#0f6b5c",
+    backgroundColor: "#fffdf8",
+  },
+  todayRef: { marginTop: 4, fontWeight: "700", color: "#0f6b5c", fontSize: 16 },
   input: {
     marginTop: 10,
     minHeight: 120,

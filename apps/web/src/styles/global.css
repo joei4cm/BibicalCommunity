@@ -527,6 +527,18 @@ body:has(.app-folio) .tab-bar a {
   gap: 1rem;
 }
 
+.plans-today-ref {
+  color: var(--lh-accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-accent) 35%, transparent);
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.plans-today-ref:hover {
+  color: var(--lh-ink);
+  border-bottom-color: var(--lh-accent);
+}
+
 .plans-advanced > summary {
   cursor: pointer;
   font-weight: 650;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   adjacentChapter,
@@ -335,10 +335,17 @@ export function BibleReader() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const params = useParams<{ tid?: string; bookSlug?: string; chapter?: string }>();
+  const [searchParams] = useSearchParams();
   const books = useMemo(() => listBooks(), []);
   const routeTid = params.tid && listTranslations().some((tr) => tr.id === params.tid) ? params.tid : "cuvs";
   const routeBookId = bookIdFromSlug(params.bookSlug ?? "john") ?? "John";
   const routeChapter = Math.max(1, Number(params.chapter ?? "1") || 1);
+  const routeVerse = (() => {
+    const raw = searchParams.get("verse");
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+  })();
 
   const [translationId, setTranslationId] = useState(routeTid);
   const [secondTranslationId, setSecondTranslationId] = useState("web");
@@ -953,6 +960,11 @@ export function BibleReader() {
       setError(e instanceof Error ? e.message : "error");
     }
   }
+
+  useEffect(() => {
+    if (routeVerse == null) return;
+    setFocusVerse(routeVerse);
+  }, [routeTid, routeBookId, routeChapter, routeVerse]);
 
   useEffect(() => {
     if (focusVerse == null) return;

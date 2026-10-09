@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { listDevotionMaterials, listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
+import {
+  bookSlug,
+  listDevotionMaterials,
+  listStudyMaterials,
+  parsePlanCsv,
+  parseRef,
+} from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import {
@@ -40,6 +46,16 @@ function isSubscriptionComplete(sub: Subscription): boolean {
   const total = sub.days?.length ?? 0;
   if (total <= 0) return false;
   return (sub.progressDay ?? 0) >= total;
+}
+
+/** Deep-link today's plan ref into the WeDevote-shaped Bible reader. */
+function bibleHrefFromPlanRef(ref: string): string | null {
+  const parsed = parseRef(ref);
+  if (!parsed) return null;
+  const slug = bookSlug(parsed.book);
+  if (!slug) return null;
+  const base = `/app/bible/cuvs/${slug}/${parsed.chapter}`;
+  return parsed.verseStart ? `${base}?verse=${parsed.verseStart}` : base;
 }
 
 export function PlansPage() {
@@ -358,9 +374,27 @@ export function PlansPage() {
                 </select>
               </div>
               {todayDay && (
-                <p className="muted">
-                  {t("plans.todayReading")}: <strong>{todayDay.ref}</strong>
-                  {todayDay.title ? ` · ${todayDay.title}` : ""}
+                <p className="muted" data-testid="plans-today-reading">
+                  {t("plans.todayReading")}:{" "}
+                  {(() => {
+                    const href = bibleHrefFromPlanRef(todayDay.ref);
+                    const label = (
+                      <>
+                        <strong>{todayDay.ref}</strong>
+                        {todayDay.title ? ` · ${todayDay.title}` : ""}
+                      </>
+                    );
+                    if (!href) return label;
+                    return (
+                      <Link
+                        className="plans-today-ref"
+                        to={href}
+                        data-testid="plans-today-ref-link"
+                      >
+                        {label}
+                      </Link>
+                    );
+                  })()}
                 </p>
               )}
               {activeMaterial && (
