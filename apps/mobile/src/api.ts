@@ -1,14 +1,47 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const TOKEN_KEY = "lh.token";
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? "";
+const API_BASE_KEY = "lh.apiBase";
+const ENV_API_BASE = (process.env.EXPO_PUBLIC_API_BASE ?? "").replace(/\/$/, "");
+
+/** Runtime override (Me screen) wins over build-time EXPO_PUBLIC_API_BASE. */
+let memoryApiBase: string | null = null;
+let apiBaseHydrated = false;
 
 /** In-memory cache so callers can use sync getToken() like the web client. */
 let memoryToken: string | null = null;
-let hydrated = false;
+let tokenHydrated = false;
+
+function normalizeBase(url: string): string {
+  return url.trim().replace(/\/$/, "");
+}
 
 export function getApiBase(): string {
-  return API_BASE;
+  if (memoryApiBase) return memoryApiBase;
+  return ENV_API_BASE;
+}
+
+export async function hydrateApiBase(): Promise<void> {
+  if (apiBaseHydrated) return;
+  try {
+    const stored = await AsyncStorage.getItem(API_BASE_KEY);
+    if (stored) memoryApiBase = normalizeBase(stored);
+  } catch {
+    /* keep env fallback */
+  }
+  apiBaseHydrated = true;
+}
+
+/** Persist deployed API origin, e.g. https://api.example.com */
+export async function setApiBase(url: string | null): Promise<void> {
+  const cleaned = url ? normalizeBase(url) : "";
+  memoryApiBase = cleaned || null;
+  try {
+    if (cleaned) await AsyncStorage.setItem(API_BASE_KEY, cleaned);
+    else await AsyncStorage.removeItem(API_BASE_KEY);
+  } catch {
+    /* memory still applies */
+  }
 }
 
 export function getToken(): string | null {
@@ -16,13 +49,14 @@ export function getToken(): string | null {
 }
 
 export async function hydrateToken(): Promise<void> {
-  if (hydrated) return;
+  await hydrateApiBase();
+  if (tokenHydrated) return;
   try {
     memoryToken = await AsyncStorage.getItem(TOKEN_KEY);
   } catch {
     memoryToken = null;
   }
-  hydrated = true;
+  tokenHydrated = true;
 }
 
 export async function setToken(token: string | null): Promise<void> {
@@ -36,8 +70,10 @@ export async function setToken(token: string | null): Promise<void> {
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if (!API_BASE) {
-    throw new Error("EXPO_PUBLIC_API_BASE not set");
+  await hydrateApiBase();
+  const base = getApiBase();
+  if (!base) {
+    throw new Error("api_base_required");
   }
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
@@ -45,7 +81,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${base}${path}`, { ...init, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error((err as { error?: string }).error ?? "request_failed");

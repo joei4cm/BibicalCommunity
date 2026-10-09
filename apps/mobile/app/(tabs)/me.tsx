@@ -11,7 +11,14 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { t, type LocaleCode, type PrivacySettings } from "@logoshome/shared";
-import { api, getApiBase, getToken, hydrateToken, setToken } from "../../src/api";
+import {
+  api,
+  getApiBase,
+  getToken,
+  hydrateToken,
+  setApiBase,
+  setToken,
+} from "../../src/api";
 import { ensureBase64Globals, hasWebCrypto } from "../../src/crypto-polyfill";
 import { normalizeApiLocale, useLocale } from "../../src/locale";
 import { NOTE_KEY_STORAGE } from "../../src/note-crypto";
@@ -77,12 +84,14 @@ async function clearLocalStorage(): Promise<void> {
   await wipeSecureSecrets([...KNOWN_SECRET_KEYS, NOTE_KEY_STORAGE]);
   await clearBibleLocalDb();
   const keys = await AsyncStorage.getAllKeys();
-  const lhKeys = keys.filter((k) => k.startsWith("lh."));
+  // Keep lh.apiBase so the handset still knows which server to re-login against.
+  const lhKeys = keys.filter((k) => k.startsWith("lh.") && k !== "lh.apiBase");
   await Promise.all(lhKeys.map((k) => AsyncStorage.removeItem(k)));
 }
 
 export default function MeScreen() {
   const { locale, setLocale } = useLocale();
+  const [serverUrl, setServerUrl] = useState("");
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
@@ -142,6 +151,8 @@ export default function MeScreen() {
 
   useEffect(() => {
     void (async () => {
+      await hydrateToken();
+      setServerUrl(getApiBase());
       const stored = await loadTheme();
       setThemeState(stored);
       const { value: priv } = await kvGet(DEVICE_PRIV_KEY);
@@ -152,9 +163,24 @@ export default function MeScreen() {
     })();
   }, []);
 
+  async function saveServerUrl() {
+    const next = serverUrl.trim();
+    if (!next) {
+      setMsg("api_base_required");
+      return;
+    }
+    if (!/^https?:\/\//i.test(next)) {
+      setMsg("api_base_required");
+      return;
+    }
+    await setApiBase(next);
+    setServerUrl(getApiBase());
+    setMsg("server_saved");
+  }
+
   async function register() {
     if (!getApiBase()) {
-      setMsg("EXPO_PUBLIC_API_BASE not set");
+      setMsg("api_base_required");
       return;
     }
     try {
@@ -177,7 +203,7 @@ export default function MeScreen() {
 
   async function login() {
     if (!getApiBase()) {
-      setMsg("EXPO_PUBLIC_API_BASE not set");
+      setMsg("api_base_required");
       return;
     }
     try {
@@ -354,6 +380,23 @@ export default function MeScreen() {
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t(locale, "nav.me")}</Text>
 
+      <Text style={styles.section}>{t(locale, "me.serverUrl")}</Text>
+      <Text style={styles.muted}>{t(locale, "me.serverUrlHint")}</Text>
+      <Text style={styles.label}>{t(locale, "me.serverUrl")}</Text>
+      <TextInput
+        style={styles.input}
+        value={serverUrl}
+        onChangeText={setServerUrl}
+        placeholder="https://…"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+      <Pressable style={[styles.btn, { marginTop: 12 }]} onPress={() => void saveServerUrl()}>
+        <Text style={styles.btnText}>{t(locale, "me.serverUrlSave")}</Text>
+      </Pressable>
+
+      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "auth.login")}</Text>
       <Text style={styles.label}>Handle / UID</Text>
       <TextInput style={styles.input} value={handle} onChangeText={setHandle} autoCapitalize="none" />
       <Text style={styles.label}>Password</Text>

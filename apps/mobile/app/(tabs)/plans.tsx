@@ -114,7 +114,7 @@ export default function PlansScreen() {
     try {
       await hydrateToken();
       if (!getApiBase()) {
-        setMessage("EXPO_PUBLIC_API_BASE not set");
+        setMessage("api_base_required");
         return;
       }
       if (!getToken()) {
@@ -245,7 +245,7 @@ export default function PlansScreen() {
           <Text style={styles.btnText}>{t(locale, "plans.create")}</Text>
         </Pressable>
       ) : (
-        <Text style={styles.muted}>CSV paste stub — set EXPO_PUBLIC_API_BASE to create via API.</Text>
+        <Text style={styles.muted}>CSV paste stub — set server URL on Me to create via API.</Text>
       )}
       {message && <Text style={styles.muted}>{humanizeStatus(locale, message)}</Text>}
 

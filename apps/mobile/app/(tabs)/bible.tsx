@@ -348,7 +348,7 @@ export default function BibleScreen() {
   async function requireAuth(): Promise<boolean> {
     await hydrateToken();
     if (!getApiBase()) {
-      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      setAnnMsg("api_base_required");
       return false;
     }
     if (!getToken()) {
@@ -460,7 +460,7 @@ export default function BibleScreen() {
 
   async function downloadCorpusPack(targetTid = translationId) {
     if (!apiBase) {
-      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      setAnnMsg("api_base_required");
       return;
     }
     setAnnBusy(true);

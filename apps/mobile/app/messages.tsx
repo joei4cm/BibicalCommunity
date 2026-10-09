@@ -87,7 +87,7 @@ export default function MessagesScreen() {
   const refresh = useCallback(async () => {
     await hydrateToken();
     if (!getApiBase()) {
-      setNote("EXPO_PUBLIC_API_BASE not set");
+      setNote("api_base_required");
       return;
     }
     if (!getToken()) {
