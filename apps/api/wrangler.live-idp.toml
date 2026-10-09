@@ -27,9 +27,10 @@ bindings = [
   { name = "CALL_ROOM", class_name = "CallRoomDO" }
 ]
 
+# Free-plan Durable Objects require SQLite-backed classes (new_sqlite_classes).
 [[migrations]]
 tag = "v1"
-new_classes = ["CallRoomDO"]
+new_sqlite_classes = ["CallRoomDO"]
 
 [triggers]
 crons = ["*/5 * * * *"]
