@@ -60,20 +60,40 @@ has_bucket() {
   local json_file="$1"
   BUCKET="$BUCKET" python3 - "$json_file" <<'PY'
 import json, os, sys
+
 path = sys.argv[1]
 want = os.environ["BUCKET"]
+
 try:
-    rows = json.load(open(path))
+    data = json.load(open(path))
 except Exception:
-    rows = []
-if isinstance(rows, dict):
-    rows = rows.get("buckets") or rows.get("result") or []
-for row in rows if isinstance(rows, list) else []:
-    if isinstance(row, dict) and (row.get("name") or row.get("Name")) == want:
-        print("1")
-        raise SystemExit
-print("0")
+    print("0")
+    raise SystemExit
+
+def matches(node):
+    if isinstance(node, str):
+        return node == want
+    if isinstance(node, dict):
+        name = node.get("name") or node.get("Name") or node.get("bucket_name")
+        if name == want:
+            return True
+        return any(matches(v) for v in node.values())
+    if isinstance(node, list):
+        return any(matches(v) for v in node)
+    return False
+
+print("1" if matches(data) else "0")
 PY
+}
+
+r2_bucket_ready() {
+  # Prefer direct info when available (avoids brittle list JSON shapes).
+  if pnpm exec wrangler r2 bucket info "$BUCKET" >/tmp/cf-r2-info.log 2>&1; then
+    return 0
+  fi
+  pnpm exec wrangler r2 bucket list --json >/tmp/cf-r2-list.json 2>/tmp/cf-r2-list.err \
+    || echo "[]" >/tmp/cf-r2-list.json
+  [[ "$(has_bucket /tmp/cf-r2-list.json)" == "1" ]]
 }
 
 echo "== ensure D1 database ($DB_NAME) =="
@@ -93,19 +113,26 @@ fi
 echo "OK: D1 $DB_NAME → $DB_ID"
 
 echo "== ensure R2 bucket ($BUCKET) =="
-pnpm exec wrangler r2 bucket list --json > /tmp/cf-r2-list.json 2>/tmp/cf-r2-list.err || echo "[]" > /tmp/cf-r2-list.json
-if [[ "$(has_bucket /tmp/cf-r2-list.json)" != "1" ]]; then
+if r2_bucket_ready; then
+  echo "OK: R2 $BUCKET (already present)"
+else
   echo "INFO: creating R2 bucket $BUCKET"
-  if ! pnpm exec wrangler r2 bucket create "$BUCKET"; then
-    pnpm exec wrangler r2 bucket list --json > /tmp/cf-r2-list.json 2>/tmp/cf-r2-list.err || echo "[]" > /tmp/cf-r2-list.json
-    if [[ "$(has_bucket /tmp/cf-r2-list.json)" != "1" ]]; then
-      echo "FAIL: R2 bucket $BUCKET missing after create"
-      echo "CF_PREPARE_FAIL"
-      exit 1
-    fi
+  set +e
+  pnpm exec wrangler r2 bucket create "$BUCKET" >/tmp/cf-r2-create.log 2>&1
+  create_rc=$?
+  set -e
+  cat /tmp/cf-r2-create.log
+  # Cloudflare returns code 10004 when the bucket already exists (owned by us).
+  # Treat that as success even if list/info JSON shapes are awkward.
+  if [[ $create_rc -eq 0 ]] \
+    || grep -qiE 'already exists|code: 10004' /tmp/cf-r2-create.log; then
+    echo "OK: R2 $BUCKET"
+  else
+    echo "FAIL: R2 bucket create failed for $BUCKET"
+    echo "CF_PREPARE_FAIL"
+    exit 1
   fi
 fi
-echo "OK: R2 $BUCKET"
 
 echo "== write $OUT =="
 ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" DB_ID="$DB_ID" SRC="$SRC" OUT="$OUT" python3 <<'PY'
