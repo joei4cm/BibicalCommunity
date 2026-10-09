@@ -1,0 +1,177 @@
+{
+  "schema": "logoshome-mhcc-zh-chapter-v1",
+  "commentary": "mhcc-zh",
+  "source": "Matthew Henry Concise (PD EN) → zh-CN machine translation",
+  "license": "Public Domain source; Chinese rendering CC0 for LogosHome pack",
+  "language": "zh",
+  "book": 29,
+  "name": "Joel",
+  "chapter": 2,
+  "entries": [
+    {
+      "book": 29,
+      "chapter": 2,
+      "verse": 1,
+      "verses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "osis": "Joel.2.1",
+      "text": "God's judgments. (Joel 2:1-14) Exhortations to fasting and prayer; blessings promised. (Joel 2:15-27) A promise of the Holy Spirit, and of future mercies. (Joel 2:28-32) * Verses 1-14 * The priests were to alarm the people with the near approach of the Divine judgments.\nIt is the work of ministers to warn of the fatal consequences of sin, and to reveal the wrath from heaven against the ungodliness and unrighteousness of men. The striking description which follows, shows what would attend the devastations of locusts, but may also describe the effects from the ravaging of the land by the Chaldeans.\nIf the alarm of temporal judgments is given to offending nations, how much more should sinners be warned to seek deliverance from the wrath to come! Our business therefore on earth must especially be, to secure an interest in our Lord Jesus Christ; and we should seek to be weaned from objects which will soon be torn from all who now make idols of them.\nThere must be outward expressions of sorrow and shame, fasting, weeping, and mourning; tears for trouble must be turned into tears for the sin that caused it. But rending the garments would be vain, except their hearts were rent by abasement and self-abhorrence; by sorrow for their sins, and separation from them.\nThere is no question but that if we truly repent of our sins, God will forgive them; but whether he will remove affliction is not promised, yet the probability of it should encourage us to repent.",
+      "references": [
+        {
+          "text": "Joel 2:1-14",
+          "ref": "Joel 2:1-14",
+          "osis": "Joel.2.1",
+          "book": 29,
+          "chapter": 2,
+          "verse": 1,
+          "verses": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ]
+        },
+        {
+          "text": "Joel 2:15-27",
+          "ref": "Joel 2:15-27",
+          "osis": "Joel.2.15",
+          "book": 29,
+          "chapter": 2,
+          "verse": 15,
+          "verses": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ]
+        },
+        {
+          "text": "Joel 2:28-32",
+          "ref": "Joel 2:28-32",
+          "osis": "Joel.2.28",
+          "book": 29,
+          "chapter": 2,
+          "verse": 28,
+          "verses": [
+            28,
+            29,
+            30,
+            31,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "book": 29,
+      "chapter": 2,
+      "verse": 15,
+      "verses": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "osis": "Joel.2.15",
+      "text": "* Verses 15-27 * The priests and rulers are to appoint a solemn fast. The sinner's supplication is, Spare us, good Lord. God is ready to succour his people; and he waits to be gracious. They prayed that God would spare them, and he answered them. His promises are real answers to the prayers of faith; with him saying and doing are not two things.\nSome understand these promises figuratively, as pointing to gospel grace, and as fulfilled in the abundant comforts treasured up for believers in the covenant of grace.",
+      "references": [
+        {
+          "text": "Verses 15-27",
+          "ref": "Joel 2:15-27",
+          "osis": "Joel.2.15",
+          "book": 29,
+          "chapter": 2,
+          "verse": 15,
+          "verses": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ]
+        }
+      ]
+    },
+    {
+      "book": 29,
+      "chapter": 2,
+      "verse": 28,
+      "verses": [
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "osis": "Joel.2.28",
+      "text": "* Verses 28-32 * The promise began to be fulfilled on the day of Pentecost, when the Holy Spirit was poured out, and it was continued in the converting grace and miraculous gifts conferred on both Jews and Gentiles. The judgments of God upon a sinful world, only go before the judgment of the world in the last day.\nCalling on God supposes knowledge of him, faith in him, desire toward him, dependence on him, and, as evidence of the sincerity of all this, conscientious obedience to him. Those only shall be delivered in the great day, who are now effectually called from sin to God, from self to Christ, from things below to things above.",
+      "references": [
+        {
+          "text": "Verses 28-32",
+          "ref": "Joel 2:28-32",
+          "osis": "Joel.2.28",
+          "book": 29,
+          "chapter": 2,
+          "verse": 28,
+          "verses": [
+            28,
+            29,
+            30,
+            31,
+            32
+          ]
+        }
+      ]
+    }
+  ]
+}

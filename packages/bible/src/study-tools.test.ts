@@ -94,11 +94,12 @@ test("crossRefsForVerse flattens TSK structured references", () => {
   assert.equal(verseStrongsKey("John", 14, 6), "John.14.6");
 });
 
-test("STUDY_COMMENTARIES includes Clarke, JFB, and Barnes", () => {
+test("STUDY_COMMENTARIES includes Clarke, JFB, Barnes, and Wesley", () => {
   const ids = STUDY_COMMENTARIES.map((c) => c.id);
   assert.ok(ids.includes("clarke"));
   assert.ok(ids.includes("jfb"));
   assert.ok(ids.includes("barnes"));
+  assert.ok(ids.includes("wesley"));
   assert.ok(ids.includes("mhcc-zh"));
 });
 
