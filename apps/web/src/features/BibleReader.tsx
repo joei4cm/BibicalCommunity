@@ -306,7 +306,7 @@ export function BibleReader() {
   const routeChapter = Math.max(1, Number(params.chapter ?? "1") || 1);
 
   const [translationId, setTranslationId] = useState(routeTid);
-  const [secondTranslationId, setSecondTranslationId] = useState("nasb");
+  const [secondTranslationId, setSecondTranslationId] = useState("web");
   const [dualPane, setDualPane] = useState(false);
   const [tidPickerOpen, setTidPickerOpen] = useState(false);
   const [bookId, setBookId] = useState(routeBookId);
