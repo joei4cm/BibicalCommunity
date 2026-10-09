@@ -968,9 +968,14 @@ export function BibleReader() {
 
   useEffect(() => {
     if (focusVerse == null) return;
+    // Wait until chapter prose is mounted so ?verse= survives the load race.
+    if (!chapter || "external" in chapter || !("verses" in chapter)) return;
     const el = document.querySelector(`[data-testid="reader-prose"] [data-verse="${focusVerse}"]`);
     if (el instanceof HTMLElement) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
+      selectVerse(focusVerse);
+    } else {
+      // Verse absent from this pack — still select so dock/study have a target.
       selectVerse(focusVerse);
     }
     setFocusVerse(null);
