@@ -114,12 +114,17 @@ export async function probeCorpusJsonImport(
     : "";
   const roundtripOk = Boolean(cuvs && parseCorpusFixtureChapter(roundtripRaw).verses.length >= 1);
 
+  // cuvs stays sample fixtures; web may be denser public-domain full-chapter text.
+  const webOk =
+    Boolean(web?.verses[0]?.text) &&
+    ((web?.verses[0]?.text.includes("fixture") ?? false) || (web?.verses.length ?? 0) >= 40);
+
   const ok =
     translationIds.includes("cuvs") &&
     translationIds.includes("web") &&
     totalChapters >= 6 &&
     (cuvs?.verses[0]?.text.includes("fixture") ?? false) &&
-    (web?.verses[0]?.text.includes("fixture") ?? false) &&
+    webOk &&
     roundtripOk;
 
   return {
