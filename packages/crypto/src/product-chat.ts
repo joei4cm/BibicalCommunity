@@ -101,8 +101,41 @@ export async function productChatDecrypt(
   return client.decrypt(session, message);
 }
 
+/** True when session already holds shared material (PQXDH initiator / mutual ECDH). */
+export function sessionHasSharedMaterial(session: SecureSession): boolean {
+  try {
+    const raw = session.stateBlob;
+    // OpenE2EE encodes JSON as base64; X25519 may use plain JSON.
+    let parsed: { sharedMaterial?: string; sharedSecret?: string };
+    try {
+      parsed = JSON.parse(decodeURIComponent(escape(atob(raw)))) as {
+        sharedMaterial?: string;
+        sharedSecret?: string;
+      };
+    } catch {
+      parsed = JSON.parse(raw) as { sharedMaterial?: string; sharedSecret?: string };
+    }
+    return Boolean(parsed.sharedMaterial || parsed.sharedSecret);
+  } catch {
+    return false;
+  }
+}
+
+/** Pick PQXDH initiator (has shared material) vs responder for first ciphertext. */
+export function pickProductChatRoles(
+  a: SecureSession,
+  b: SecureSession,
+): { initiator: SecureSession; responder: SecureSession } {
+  if (sessionHasSharedMaterial(a)) return { initiator: a, responder: b };
+  if (sessionHasSharedMaterial(b)) return { initiator: b, responder: a };
+  // Mutual ECDH / x25519: either side can start.
+  return { initiator: a, responder: b };
+}
+
 /**
  * Full A↔B roundtrip through the product factory — used by smokes and app self-tests.
+ * For OpenE2EE PQXDH, the first ciphertext must come from the deterministic initiator
+ * (lower identity pub); the responder completes agreement on decrypt.
  */
 export async function productChatPeerRoundtrip(
   plaintext: string,
@@ -114,11 +147,12 @@ export async function productChatPeerRoundtrip(
   const b = await client.generateIdentity();
   const as = await client.establishSession(a.privateState, b.publicBundle);
   const bs = await client.establishSession(b.privateState, a.publicBundle);
-  const enc = await client.encrypt(as, plaintext);
-  const plain = await client.decrypt(bs, enc);
+  const { initiator, responder } = pickProductChatRoles(as, bs);
+  const enc = await client.encrypt(initiator, plaintext);
+  const plain = await client.decrypt(responder, enc);
   if (plain !== plaintext) throw new Error("product_chat_roundtrip_mismatch");
-  const reply = await client.encrypt(bs, `${plaintext}:ack`);
-  if ((await client.decrypt(as, reply)) !== `${plaintext}:ack`) {
+  const reply = await client.encrypt(responder, `${plaintext}:ack`);
+  if ((await client.decrypt(initiator, reply)) !== `${plaintext}:ack`) {
     throw new Error("product_chat_ack_mismatch");
   }
   return { backend, ok: true };

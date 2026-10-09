@@ -41,8 +41,13 @@ probe_host() {
 
 HOST_OK=0
 # Default Endao hosts are currently NXDOMAIN globally — partner must set ENDAO_OAUTH_AUTHORIZE_BASE.
+# Extra candidates are probed for discovery only; none claim PARTNER_LIVE_IDP_OK.
 probe_host ENDAO "https://oauth.edobible.com/authorize" && HOST_OK=$((HOST_OK + 1)) || true
 probe_host ENDAO_WWW "https://www.edobible.com/" && HOST_OK=$((HOST_OK + 1)) || true
+probe_host ENDAO_ID "https://id.edobible.com/authorize" && HOST_OK=$((HOST_OK + 1)) || true
+probe_host ENDAO_SSO "https://sso.edobible.com/authorize" && HOST_OK=$((HOST_OK + 1)) || true
+probe_host ENDAO_LOGIN "https://login.edobible.com/" && HOST_OK=$((HOST_OK + 1)) || true
+probe_host ENDAO_ACCOUNT "https://account.edobible.com/" && HOST_OK=$((HOST_OK + 1)) || true
 if [[ "$HOST_OK" -eq 0 ]]; then
   echo "PARTNER_ENDAO_DNS_OPEN reason=nxdomain_need_ENDAO_OAUTH_AUTHORIZE_BASE"
 fi

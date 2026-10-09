@@ -35,11 +35,13 @@ if (!a.publicBundle.kyberPrekeyPub || !b.publicBundle.kyberPrekeyPub) {
 }
 const as = await client.establishSession(a.privateState, b.publicBundle);
 const bs = await client.establishSession(b.privateState, a.publicBundle);
-const enc = await client.encrypt(as, "handset-opene2ee-product");
-if ((await client.decrypt(bs, enc)) !== "handset-opene2ee-product") {
+const { pickProductChatRoles } = await import("./packages/crypto/dist/index.js");
+const { initiator, responder } = pickProductChatRoles(as, bs);
+const enc = await client.encrypt(initiator, "handset-opene2ee-product");
+if ((await client.decrypt(responder, enc)) !== "handset-opene2ee-product") {
   throw new Error("OpenE2EE product roundtrip mismatch");
 }
-console.log("DEVICE_HANDSET_OPENE2EE_PRODUCT_OK backend=opene2ee kyberBundle=1 roundtrip=1");
+console.log("DEVICE_HANDSET_OPENE2EE_PRODUCT_OK backend=opene2ee kyberBundle=1 pqxdh=1 roundtrip=1");
 '
 
 if ! curl -sf "$API_BASE/health" >/dev/null; then

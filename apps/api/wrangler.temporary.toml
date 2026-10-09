@@ -12,7 +12,7 @@ binding = "DB"
 database_name = "logoshome"
 # Preview-account D1 created via `wrangler d1 create` with temporary token.
 # Re-create if the temporary account expires; CORPUS_LIVE_R2 still needs prod R2.
-database_id = "ea781ae0-e7d4-4a3b-90f5-7da06d4a122c"
+database_id = "0f4efd7c-810d-4230-8767-30cda64e3e07"
 migrations_dir = "migrations"
 
 [durable_objects]
