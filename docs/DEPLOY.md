@@ -4,6 +4,48 @@ Short path from zero to production for LogosHome API (Workers + D1 + R2 + CallRo
 
 API-focused readiness notes (dry-run / blockers): [`apps/api/DEPLOY.md`](../apps/api/DEPLOY.md).
 
+## GitHub Actions (recommended)
+
+Workflow: [`.github/workflows/deploy-cloudflare.yml`](../.github/workflows/deploy-cloudflare.yml)
+
+### Required repository secrets
+
+| Secret | Purpose |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Workers / D1 / R2 / Pages edit |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
+
+### Optional repository secrets (synced onto the Worker when set)
+
+| Secret | Purpose |
+| --- | --- |
+| `HANDLE_PEPPER` | Auth handle hashing |
+| `KEK_MASTER` | Field encryption (≥32 chars) |
+| `TURN_SECRET` | TURN HMAC |
+| `PLATFORM_ADMIN_BOOTSTRAP_SECRET` | One-time platform admin bootstrap |
+
+Without the optional Worker secrets, deploy still succeeds, but login/crypto/TURN will fail until you add them (Actions re-run syncs them, or use `wrangler secret put`).
+
+### What the workflow does
+
+1. `scripts/cf-prepare-prod-config.sh` — create/find D1 `logoshome` + R2 `logoshome-media`, write `wrangler.production.ci.toml` (gitignored)
+2. Remote D1 migrations
+3. `wrangler deploy` API Worker
+4. Sync optional Worker secrets
+5. Health check `/health`
+6. Build web with `VITE_API_BASE=<worker>` and `wrangler pages deploy` → `logoshome-web`
+
+Trigger: **Actions → Deploy Cloudflare → Run workflow**, or push to `main`.
+
+Local equivalent (with the same two env vars):
+
+```bash
+export CLOUDFLARE_API_TOKEN=…
+export CLOUDFLARE_ACCOUNT_ID=…
+bash scripts/cf-prepare-prod-config.sh
+# Expect: CF_PREPARE_OK
+```
+
 ## 0. Preflight (local, non-destructive)
 
 ```bash
@@ -15,9 +57,13 @@ bash scripts/deploy-check.sh
 
 - Cloudflare account with Workers, D1, R2, Durable Objects, Pages enabled
 - `pnpm` + Node 20+
-- Copy `.env.example` → `.env` for local; production secrets go via Wrangler / Pages, not git
+- Copy `.env.example` → `.env` for local; production secrets go via Wrangler / Pages / GitHub Actions secrets, not git
 
 ## 2. Create cloud resources
+
+**Prefer CI:** the Deploy Cloudflare workflow provisions D1 + R2 automatically via `cf-prepare-prod-config.sh`.
+
+Manual:
 
 ```bash
 cd apps/api
@@ -28,7 +74,7 @@ pnpm wrangler r2 bucket create logoshome-media
 # → set bucket_name in wrangler.production.toml
 ```
 
-Fill placeholders in `apps/api/wrangler.production.toml` (`account_id`, `database_id`, routes).
+Fill placeholders in `apps/api/wrangler.production.toml` (`account_id`, `database_id`, routes) — or rely on the generated `wrangler.production.ci.toml` from the prepare script.
 
 ## 3. Migrate D1
 
@@ -45,6 +91,9 @@ cd apps/api
 pnpm wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
 pnpm wrangler secret put KEK_MASTER -c wrangler.production.toml
 pnpm wrangler secret put TURN_SECRET -c wrangler.production.toml
+# Optional Cloudflare Calls TURN (preferred real relay):
+# pnpm wrangler secret put TURN_CF_KEY_ID -c wrangler.production.toml
+# pnpm wrangler secret put TURN_CF_API_TOKEN -c wrangler.production.toml
 ```
 
 Generate long random values (≥32 chars for `KEK_MASTER`). Never commit them.
@@ -52,6 +101,8 @@ Generate long random values (≥32 chars for `KEK_MASTER`). Never commit them.
 **Sessions / JWT:** Auth uses opaque Bearer session tokens hashed in D1 (`sessions.token_hash`). There is **no** `JWT_SECRET` (or similar) to configure. Identity hashing uses `HANDLE_PEPPER`; field encryption uses `KEK_MASTER`.
 
 **Bindings (must exist in production toml):** `DB` (D1), `MEDIA` (R2), `CALL_ROOM` → `CallRoomDO`.
+
+**Calls / TURN:** Set `TURN_URIS` to include `turn:` / `turns:` hosts (with matching `TURN_SECRET` for coturn HMAC), **or** set `TURN_CF_KEY_ID` + `TURN_CF_API_TOKEN` for Cloudflare Calls TURN. STUN-only configs work for LAN/same-NAT demos but fail on many mobile networks.
 
 Non-secret `[vars]`: `ENDAO_SSO_ENABLED`, `WEREAD_SSO_ENABLED`, `PARTNER_SSO_MOCK` (must be `"false"` in production), `TURN_URIS`. For real partner authorize URLs also set `ENDAO_OAUTH_CLIENT_ID` / `WEREAD_OAUTH_CLIENT_ID` and `PARTNER_OAUTH_REDIRECT_BASE` (see `wrangler.production.toml` comments). Keep partner SSO flags false until real OAuth client credentials and token exchange are wired.
 

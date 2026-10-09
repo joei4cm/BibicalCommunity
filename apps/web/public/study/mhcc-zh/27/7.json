@@ -1,0 +1,183 @@
+{
+  "schema": "logoshome-mhcc-zh-chapter-v1",
+  "commentary": "mhcc-zh",
+  "source": "Matthew Henry Concise (PD EN) → zh-CN machine translation",
+  "license": "Public Domain source; Chinese rendering CC0 for LogosHome pack",
+  "language": "zh",
+  "book": 27,
+  "name": "Daniel",
+  "chapter": 7,
+  "entries": [
+    {
+      "book": 27,
+      "chapter": 7,
+      "verse": 1,
+      "verses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "osis": "Dan.7.1",
+      "text": "Daniel's vision of the four beasts. (Dn 7:1-8) and of Christ's kingdom. (Dn 7:9-14) The interpretation. (Dn 7:15-28) * Verses 1-8 * This vision contains the same prophetic representations with Nebuchadnezzar's dream. The great sea agitated by the winds, represented the earth and the dwellers on it troubled by ambitious princes and conquerors.\nThe four beasts signified the same four empires, as the four parts of Nebuchadnezzar's image. Mighty conquerors are but instruments of God's vengeance on a guilty world. The savage beast represents the hateful features of their characters. But the dominion given to each has a limit; their wrath shall be made to praise the Lord, and the remainder of it he will restrain.",
+      "references": [
+        {
+          "text": "Dn 7:1-8",
+          "ref": "Daniel 7:1-8",
+          "osis": "Dan.7.1",
+          "book": 27,
+          "chapter": 7,
+          "verse": 1,
+          "verses": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "text": "Dn 7:9-14",
+          "ref": "Daniel 7:9-14",
+          "osis": "Dan.7.9",
+          "book": 27,
+          "chapter": 7,
+          "verse": 9,
+          "verses": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ]
+        },
+        {
+          "text": "Dn 7:15-28",
+          "ref": "Daniel 7:15-28",
+          "osis": "Dan.7.15",
+          "book": 27,
+          "chapter": 7,
+          "verse": 15,
+          "verses": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "book": 27,
+      "chapter": 7,
+      "verse": 9,
+      "verses": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "osis": "Dan.7.9",
+      "text": "* Verses 9-14 * These verses are for the comfort and support of the people of God, in reference to the persecutions that would come upon them. Many New Testament predictions of the judgment to come, have plain allusion to this vision; especially Rev. 20:11,12. The Messiah is here called the Son of man; he was made in the likeness of sinful flesh, and was found in fashion as a man, but he is the Son of God.\nThe great event foretold in this passage, is Christ's glorious coming, to destroy every antichristian power, and to render his own kingdom universal upon earth.\nBut ere the solemn time arrives, for manifesting the glory of God to all worlds in his dealings with his creatures, we may expect that the doom of each of us will be determined at the hour of our death; and before the end shall come, the Father will openly give to his incarnate Son, our Mediator and Judge, the inheritance of the nations as his willing subjects.",
+      "references": [
+        {
+          "text": "Verses 9-14",
+          "ref": "Daniel 7:9-14",
+          "osis": "Dan.7.9",
+          "book": 27,
+          "chapter": 7,
+          "verse": 9,
+          "verses": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ]
+        },
+        {
+          "text": "Rev. 20:11,12",
+          "ref": "Revelation 20:11-12",
+          "osis": "Rev.20.11",
+          "book": 66,
+          "chapter": 20,
+          "verse": 11,
+          "verses": [
+            11,
+            12
+          ]
+        }
+      ]
+    },
+    {
+      "book": 27,
+      "chapter": 7,
+      "verse": 15,
+      "verses": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "osis": "Dan.7.15",
+      "text": "* Verses 15-28 * It is desirable to obtain the right and full sense of what we see and hear from God; and those that would know, must ask by faithful and fervent prayer. The angel told Daniel plainly. He especially desired to know respecting the little horn, which made war with the saints, and prevailed against them. Here is foretold the rage of papal Rome against true Christians. St.\nJohn, in his visions and prophecies, which point in the first place at Rome, has plain reference to these visions. Daniel had a joyful prospect of the prevalence of God's kingdom among men. This refers to the second coming of our blessed Lord, when the saints shall triumph in the complete fall of Satan's kingdom. The saints of the Most High shall possess the kingdom for ever.\nFar be it from us to infer from hence, that dominion is founded on grace. It promises that the gospel kingdom shall be set up; a kingdom of light, holiness, and love; a kingdom of grace, the privileges and comforts of which shall be the earnest and first-fruits of the kingdom of glory. But the full accomplishment will be in the everlasting happiness of the saints, the kingdom that cannot be moved.\nThe gathering together the whole family of God will be a blessedness of Christ's coming.",
+      "references": [
+        {
+          "text": "Verses 15-28",
+          "ref": "Daniel 7:15-28",
+          "osis": "Dan.7.15",
+          "book": 27,
+          "chapter": 7,
+          "verse": 15,
+          "verses": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28
+          ]
+        }
+      ]
+    }
+  ]
+}

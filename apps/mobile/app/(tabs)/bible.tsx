@@ -9,6 +9,7 @@ import {
   Linking,
   TextInput,
 } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import {
   adjacentChapter,
   buildPartnerAuthUrl,
@@ -82,6 +83,11 @@ function isExternalChapter(data: ChapterResponse): data is ExternalChapter {
 
 export default function BibleScreen() {
   const { locale } = useLocale();
+  const routeParams = useLocalSearchParams<{
+    book?: string;
+    chapter?: string;
+    verse?: string;
+  }>();
   const translations = listTranslations();
   const books = useMemo(() => listBooks(), []);
   /** Boot defaults: 和合本 + NASB only (whole-Bible). */
@@ -123,6 +129,26 @@ export default function BibleScreen() {
       setInstalledByTid({});
     }
   }, []);
+
+  useEffect(() => {
+    const rawBook = typeof routeParams.book === "string" ? routeParams.book : null;
+    const rawChapter = typeof routeParams.chapter === "string" ? routeParams.chapter : null;
+    const rawVerse = typeof routeParams.verse === "string" ? routeParams.verse : null;
+    if (!rawBook && !rawChapter) return;
+    if (rawBook) {
+      const book = getBook(rawBook);
+      if (book) setBookId(book.id);
+      else setBookId(rawBook);
+    }
+    if (rawChapter) {
+      const n = Number(rawChapter);
+      if (Number.isFinite(n) && n >= 1) setChapterNum(Math.floor(n));
+    }
+    if (rawVerse) {
+      const n = Number(rawVerse);
+      if (Number.isFinite(n) && n >= 1) setSelectedVerse(Math.floor(n));
+    }
+  }, [routeParams.book, routeParams.chapter, routeParams.verse]);
 
   useEffect(() => {
     if (!showCatalog) return;
@@ -348,7 +374,7 @@ export default function BibleScreen() {
   async function requireAuth(): Promise<boolean> {
     await hydrateToken();
     if (!getApiBase()) {
-      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      setAnnMsg("api_base_required");
       return false;
     }
     if (!getToken()) {
@@ -460,7 +486,7 @@ export default function BibleScreen() {
 
   async function downloadCorpusPack(targetTid = translationId) {
     if (!apiBase) {
-      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      setAnnMsg("api_base_required");
       return;
     }
     setAnnBusy(true);
@@ -534,8 +560,6 @@ export default function BibleScreen() {
   const chapterAnnotations = annotations.filter(
     (a) => a.book === bookId && a.chapter === chapterNum,
   );
-  const bookNameLocale = bookLocaleKey(locale);
-  const currentBook = getBook(bookId) ?? books[0];
   const passageTitle = `${currentBook?.name[bookNameLocale] ?? bookId} ${chapterNum}`;
   const prevCursor = useMemo(() => adjacentChapter(bookId, chapterNum, -1), [bookId, chapterNum]);
   const nextCursor = useMemo(() => adjacentChapter(bookId, chapterNum, 1), [bookId, chapterNum]);

@@ -2,6 +2,7 @@
  * Mobile product Signal chat — `createProductSignalClient`
  * (Expo default → x25519; opt-in OpenE2EE via `lh.signalBackend`).
  * Private identity/session blobs prefer SecureStore via secure-kv.
+ * Sessions are peer-scoped so group fan-out keeps one chain per member.
  */
 import {
   createProductChatIdentity,
@@ -53,6 +54,10 @@ export async function hasProductIdentity(): Promise<boolean> {
   return Boolean(value);
 }
 
+function productSessionKey(conversationId: string, peerUserId: string): string {
+  return `${PRODUCT_SESSION_PREFIX}${conversationId}:${peerUserId}`;
+}
+
 async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicKeys | null> {
   const prefer = await loadProductSignalPrefer();
   try {
@@ -86,10 +91,12 @@ async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicK
 
 async function loadOrEstablishSession(
   conversationId: string,
+  peerUserId: string,
   localPrivate: string,
   remote: DevicePublicKeys,
 ): Promise<SecureSession> {
-  const { value: raw } = await kvGet(PRODUCT_SESSION_PREFIX + conversationId);
+  const key = productSessionKey(conversationId, peerUserId);
+  const { value: raw } = await kvGet(key);
   if (raw) {
     try {
       return JSON.parse(raw) as SecureSession;
@@ -100,7 +107,7 @@ async function loadOrEstablishSession(
   const prefer = productBackendFromIdentityPub(remote.identityKeyPub);
   const client = await getProductSignalClient(prefer);
   const session = await productChatEstablish(client, localPrivate, remote);
-  await kvSet(PRODUCT_SESSION_PREFIX + conversationId, JSON.stringify(session));
+  await kvSet(key, JSON.stringify(session));
   return session;
 }
 
@@ -113,7 +120,7 @@ export async function tryEncryptProductMobileMessage(
   plaintext: string,
   peerUserId?: string | null,
   expiresAt?: number,
-): Promise<{ ratchetHeader: string; ciphertext: string } | null> {
+): Promise<{ ratchetHeader: string; ciphertext: string; mode: "product" } | null> {
   if (!peerUserId) return null;
   const { value: localPrivate } = await kvGet(PRODUCT_PRIV_KEY);
   if (!localPrivate) return null;
@@ -122,12 +129,13 @@ export async function tryEncryptProductMobileMessage(
 
   const prefer = productBackendFromIdentityPub(remote.identityKeyPub);
   const client = await getProductSignalClient(prefer);
-  const session = await loadOrEstablishSession(conversationId, localPrivate, remote);
+  const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
   const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
-  await kvSet(PRODUCT_SESSION_PREFIX + conversationId, JSON.stringify(session));
+  await kvSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
   return {
     ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
     ciphertext: enc.ciphertext,
+    mode: "product",
   };
 }
 
@@ -140,13 +148,15 @@ export async function tryDecryptProductMobileMessage(
   if (!isProductRatchetHeader(ratchetHeader)) return null;
   const { value: localPrivate } = await kvGet(PRODUCT_PRIV_KEY);
   if (!localPrivate) return null;
+  if (!peerUserId) return null;
 
-  let { value: sessionRaw } = await kvGet(PRODUCT_SESSION_PREFIX + conversationId);
-  if (!sessionRaw && peerUserId) {
+  const key = productSessionKey(conversationId, peerUserId);
+  let { value: sessionRaw } = await kvGet(key);
+  if (!sessionRaw) {
     const remote = await fetchPeerProductBundle(peerUserId);
     if (remote) {
-      await loadOrEstablishSession(conversationId, localPrivate, remote);
-      ({ value: sessionRaw } = await kvGet(PRODUCT_SESSION_PREFIX + conversationId));
+      await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
+      ({ value: sessionRaw } = await kvGet(key));
     }
   }
   if (!sessionRaw) return null;
@@ -167,7 +177,7 @@ export async function tryDecryptProductMobileMessage(
       ciphertext,
       contentType: "msg",
     });
-    await kvSet(PRODUCT_SESSION_PREFIX + conversationId, JSON.stringify(session));
+    await kvSet(key, JSON.stringify(session));
     return plain;
   } catch {
     return null;

@@ -7,10 +7,16 @@ import {
 } from "@logoshome/crypto";
 import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
+import {
+  decryptGroupFanout,
+  encryptGroupFanout,
+  isGroupFanoutHeader,
+} from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
 import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
+import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
 
 type Conversation = {
   id: string;
@@ -59,6 +65,7 @@ export function ChatPanel() {
   const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
+  const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const callRef = useRef<CallSession | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -77,13 +84,25 @@ export function ChatPanel() {
     setNote(null);
   }, []);
 
-  const peerFor = useCallback(
+  useEffect(() => {
+    if (!getToken()) return;
+    void api<{ id?: string; userId?: string }>("/v1/me")
+      .then((me) => setSelfUserId(me.id ?? me.userId ?? null))
+      .catch(() => setSelfUserId(null));
+  }, []);
+
+  const peersFor = useCallback(
     (conversationId: string | null) => {
-      if (!conversationId) return null;
+      if (!conversationId) return [] as string[];
       const c = conversations.find((x) => x.id === conversationId);
-      return c?.peerUserIds?.[0] ?? null;
+      return (c?.peerUserIds ?? []).filter(Boolean);
     },
     [conversations],
+  );
+
+  const peerFor = useCallback(
+    (conversationId: string | null) => peersFor(conversationId)[0] ?? null,
+    [peersFor],
   );
 
   const loadMessages = useCallback(
@@ -99,12 +118,21 @@ export function ChatPanel() {
       const decoded: Record<string, string> = {};
       for (const m of live) {
         try {
-          decoded[m.id] = await decryptChatMessage(
-            conversationId,
-            m.ratchetHeader,
-            m.ciphertext,
-            peer,
-          );
+          if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
+            decoded[m.id] = await decryptGroupFanout({
+              conversationId,
+              ratchetHeader: m.ratchetHeader,
+              ciphertext: m.ciphertext,
+              selfUserId,
+            });
+          } else {
+            decoded[m.id] = await decryptChatMessage(
+              conversationId,
+              m.ratchetHeader,
+              m.ciphertext,
+              peer,
+            );
+          }
         } catch {
           try {
             decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
@@ -115,7 +143,7 @@ export function ChatPanel() {
       }
       setPlaintexts(decoded);
     },
-    [peerFor],
+    [peerFor, selfUserId],
   );
 
   const loadFavorites = useCallback(async () => {
@@ -181,23 +209,46 @@ export function ChatPanel() {
     setBusy(true);
     try {
       const text = draft.trim();
-      const enc = await encryptChatMessage(selectedId, text, peerFor(selectedId));
+      const peers = peersFor(selectedId);
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;
+
+      let ratchetHeader: string;
+      let ciphertext: string;
+      let mode: string;
+
+      if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
+        const fanout = await encryptGroupFanout({
+          conversationId: selectedId,
+          plaintext: text,
+          fromUserId: selfUserId,
+          peerUserIds: peers,
+          expiresAt,
+        });
+        ratchetHeader = fanout.ratchetHeader;
+        ciphertext = fanout.ciphertext;
+        mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
+      } else {
+        const enc = await encryptChatMessage(selectedId, text, peers[0] ?? null);
+        ratchetHeader = enc.ratchetHeader;
+        ciphertext = enc.ciphertext;
+        mode = enc.mode;
+      }
+
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
         body: JSON.stringify({
-          ratchetHeader: enc.ratchetHeader,
-          ciphertext: enc.ciphertext,
+          ratchetHeader,
+          ciphertext,
           contentType: "msg",
           expiresAt,
         }),
       });
       localStorage.setItem(`lh.msg.${res.id}`, text);
-      if (enc.mode === "degraded") {
+      if (mode === "degraded") {
         setNote("chat_degraded_no_peer_keys");
-      } else if (enc.mode === "product") {
+      } else {
         setNote(null);
       }
       setDraft("");
@@ -266,16 +317,20 @@ export function ChatPanel() {
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
         const turn = await api<{
-          username: string;
-          credential: string;
+          username?: string;
+          credential?: string;
           uris: string[];
           ttl: number;
+          iceServers?: RTCIceServer[];
+          hasRelay?: boolean;
+          note?: string;
         }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-        iceServers = [
-          ...iceServers,
-          { urls: turn.uris, username: turn.username, credential: turn.credential },
-        ];
-        setCallNote(`TURN ttl=${turn.ttl}s · ${turn.uris.join(",")}`);
+        iceServers = buildIceServersFromTurnResponse(turn, iceServers);
+        setCallNote(
+          turn.hasRelay
+            ? `TURN relay · ttl=${turn.ttl}s · ${turn.uris.join(",")}`
+            : `STUN-only · ttl=${turn.ttl}s · ${t("chat.turnRelayMissing")}`,
+        );
       } catch {
         /* STUN-only fallback */
       }
@@ -345,21 +400,17 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="panel">
-      <h2 style={{ marginTop: 0 }}>{t("home.messages")}</h2>
-      <p className="muted">
-        AES-GCM session crypto · {t("chat.disappearing")} · {t("chat.call")}
-      </p>
+    <div className="panel" data-testid="home-chat-panel">
+      <h2>{t("home.messages")}</h2>
+      <p className="muted">{t("chat.cryptoHint")}</p>
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
       <div className="field">
         <label>{t("chat.newConversation")}</label>
-        <div className="toolbar">
-          <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
-            <option value="dm">{t("chat.dm")}</option>
-            <option value="group">{t("chat.group")}</option>
-          </select>
-        </div>
+        <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
+          <option value="dm">{t("chat.dm")}</option>
+          <option value="group">{t("chat.group")}</option>
+        </select>
       </div>
       {kind === "group" && (
         <div className="field">
@@ -372,7 +423,7 @@ export function ChatPanel() {
         <input
           value={memberIds}
           onChange={(e) => setMemberIds(e.target.value)}
-          placeholder="user_…"
+          placeholder={t("chat.selfNote")}
         />
       </div>
       <button type="button" className="btn" disabled={busy} onClick={() => void createConversation()}>
@@ -385,15 +436,17 @@ export function ChatPanel() {
           <li key={c.id}>
             <button
               type="button"
-              className="btn ghost"
-              style={{ width: "100%", textAlign: "start" }}
+              className={`convo-row${selectedId === c.id ? " is-selected" : ""}`}
               onClick={() => setSelectedId(c.id)}
             >
-              <strong>{c.title || c.kind}</strong>
+              <strong>
+                {c.title || (c.kind === "group" ? t("chat.group") : t("chat.dm"))}
+              </strong>
               <div className="muted">
-                {c.id}
-                {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
-                {c.membership.archived ? " · archived" : ""}
+                {c.disappearingTtlSec
+                  ? ` · ${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
+                  : ""}
+                {c.membership.archived ? ` · ${t("chat.archived")}` : ""}
                 {selectedId === c.id ? ` · ${t("chat.selected")}` : ""}
               </div>
             </button>
@@ -441,17 +494,17 @@ export function ChatPanel() {
               {t("chat.screenShare")}
             </button>
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
-              Stop share
+              {t("chat.stopShare")}
             </button>
             <button type="button" className="btn ghost" onClick={hangup}>
-              Hang up
+              {t("chat.hangup")}
             </button>
             <button
               type="button"
               className="btn ghost"
               onClick={() => void archiveConversation(!selected.membership.archived)}
             >
-              {selected.membership.archived ? "Unarchive" : t("chat.archive")}
+              {selected.membership.archived ? t("chat.unarchive") : t("chat.archive")}
             </button>
           </div>
           {callNote && <p className="muted">{callNote}</p>}
@@ -460,24 +513,26 @@ export function ChatPanel() {
             autoPlay
             playsInline
             muted={false}
-            style={{ width: "100%", maxHeight: 240, background: "#0e1514", borderRadius: 8 }}
+            style={{ width: "100%", maxHeight: 240, background: "#18232b" }}
           />
 
-          <ul className="list">
-            {messages.length === 0 && <li className="muted">{t("chat.noMessages")}</li>}
+          <div className="chat-thread">
+            {messages.length === 0 && <p className="muted">{t("chat.noMessages")}</p>}
             {messages.map((m) => (
-              <li key={m.id}>
-                <div>{plaintexts[m.id] ?? "…"}</div>
-                <div className="muted">
+              <div key={m.id} className="chat-bubble">
+                <p className="chat-bubble-text">{plaintexts[m.id] ?? t("common.loading")}</p>
+                <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
                   {new Date(m.createdAt).toLocaleString()}
-                  {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
+                  {m.expiresAt
+                    ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
+                    : ""}
                 </div>
                 <button type="button" className="btn ghost" onClick={() => void favoriteMessage(m)}>
                   {t("chat.favorite")}
                 </button>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
 
           <div className="field">
             <label>{t("chat.message")}</label>

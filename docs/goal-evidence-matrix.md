@@ -44,6 +44,9 @@ bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK (JSON fixt
 bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (boot=2 cuvs+nasb; downloadable R2; noTsPacks)
 bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK / CORPUS_DOWNLOAD_OK (whole-Bible download→DB)
 bash scripts/smoke-corpus-json-import.sh # CORPUS_JSON_FIXTURE_OK / CORPUS_JSON_IMPORT_OK (fixtures→R2/local DB)
+# Foundation denser PD fixtures (#83/#84): in-repo WEB/KJV/ASV key chapters + optional full R2 walk
+node scripts/fetch-pd-corpus-fixtures.mjs  # refresh in-repo WEB/KJV/ASV key-chapter fixtures (optional)
+bash scripts/smoke-corpus-pd-full-r2.sh    # CORPUS_PD_FULL_R2_OK (full WEB→local R2→download, not git)
 bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + denser Acts.2/Ps.1/Prov.3/Matt.28/Eph.2/Col.3/Jas.1/Rev.21 put→get)
 bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK (JSON fixtures→R2; no TS packs)
 bash scripts/smoke-bible-entitlement.sh # BIBLE_ENTITLEMENT_DEV_SKIP_OK / BIBLE_ENTITLEMENT_GRANT_OK

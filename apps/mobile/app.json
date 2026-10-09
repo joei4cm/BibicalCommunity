@@ -8,6 +8,20 @@
     "userInterfaceStyle": "automatic",
     "platforms": ["ios", "android"],
     "plugins": ["expo-router"],
+    "ios": {
+      "infoPlist": {
+        "NSCameraUsageDescription": "LogosHome needs the camera for video calls.",
+        "NSMicrophoneUsageDescription": "LogosHome needs the microphone for voice and video calls."
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.INTERNET"
+      ]
+    },
     "experiments": {
       "typedRoutes": true
     }

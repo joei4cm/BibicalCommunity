@@ -37,18 +37,23 @@ if [[ -n "${LIVE_API_BASE:-}" && "${LIVE_R2_SKIP_DEPLOY:-}" == "1" ]]; then
   BASE="$LIVE_API_BASE"
   echo "INFO: using existing LIVE_API_BASE=$BASE (skip deploy)"
 else
-  # Refuse to deploy with YOUR_* placeholders still present.
-  if rg -q 'YOUR_CLOUDFLARE_ACCOUNT_ID|YOUR_D1_DATABASE_ID' "$CFG"; then
-    echo "INFO: wrangler.production.toml still has YOUR_* placeholders"
-    echo "INFO: Create resources then paste IDs:"
-    echo "  cd apps/api && pnpm exec wrangler d1 create logoshome"
-    echo "  cd apps/api && pnpm exec wrangler r2 bucket create logoshome-media"
-    echo "CORPUS_LIVE_R2_OPEN"
-    exit 0
+  # Prefer generated CI toml (fills account_id + D1 id from live account).
+  CI_CFG="$API/wrangler.production.ci.toml"
+  if [[ ! -f "$CI_CFG" ]] || rg -q 'YOUR_CLOUDFLARE_ACCOUNT_ID|YOUR_D1_DATABASE_ID' "$CFG"; then
+    echo "INFO: preparing production config via cf-prepare-prod-config.sh"
+    if ! bash "$ROOT/scripts/cf-prepare-prod-config.sh"; then
+      echo "INFO: prepare failed — create resources manually or fix CLOUDFLARE_* credentials"
+      echo "CORPUS_LIVE_R2_OPEN"
+      exit 0
+    fi
+  fi
+  DEPLOY_CFG="$CI_CFG"
+  if [[ ! -f "$DEPLOY_CFG" ]]; then
+    DEPLOY_CFG="$CFG"
   fi
 
-  echo "== deploy Worker (production toml) =="
-  (cd "$API" && pnpm exec wrangler deploy -c wrangler.production.toml) | tee /tmp/live-r2-deploy.log
+  echo "== deploy Worker ($DEPLOY_CFG) =="
+  (cd "$API" && pnpm exec wrangler deploy -c "$(basename "$DEPLOY_CFG")") | tee /tmp/live-r2-deploy.log
   BASE=$(rg -o 'https://[a-zA-Z0-9._-]+\.workers\.dev' /tmp/live-r2-deploy.log | head -1 || true)
   if [[ -z "$BASE" && -n "${LIVE_API_BASE:-}" ]]; then
     BASE="$LIVE_API_BASE"

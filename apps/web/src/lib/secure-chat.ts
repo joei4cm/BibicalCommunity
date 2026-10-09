@@ -70,9 +70,27 @@ async function ensureMigrated(): Promise<void> {
   migrated = true;
 }
 
-async function loadState(conversationId: string): Promise<RatchetSessionState | null> {
+/** Peer-scoped ratchet so group fan-out keeps independent chains per member. */
+function ratchetStateKey(conversationId: string, peerUserId?: string | null): string {
+  return peerUserId ? `${STATE_PREFIX}${conversationId}:${peerUserId}` : STATE_PREFIX + conversationId;
+}
+
+function x3dhModeKey(conversationId: string, peerUserId?: string | null): string {
+  return peerUserId ? `${X3DH_PREFIX}${conversationId}:${peerUserId}` : X3DH_PREFIX + conversationId;
+}
+
+function x3dhPreambleKey(conversationId: string, peerUserId?: string | null): string {
+  return peerUserId
+    ? `${X3DH_PREAMBLE_PREFIX}${conversationId}:${peerUserId}`
+    : X3DH_PREAMBLE_PREFIX + conversationId;
+}
+
+async function loadState(
+  conversationId: string,
+  peerUserId?: string | null,
+): Promise<RatchetSessionState | null> {
   await ensureMigrated();
-  const raw = await secureGet(STATE_PREFIX + conversationId);
+  const raw = await secureGet(ratchetStateKey(conversationId, peerUserId));
   if (!raw) return null;
   try {
     return JSON.parse(raw) as RatchetSessionState;
@@ -81,9 +99,13 @@ async function loadState(conversationId: string): Promise<RatchetSessionState | 
   }
 }
 
-async function saveState(conversationId: string, state: RatchetSessionState): Promise<void> {
+async function saveState(
+  conversationId: string,
+  state: RatchetSessionState,
+  peerUserId?: string | null,
+): Promise<void> {
   await ensureMigrated();
-  await secureSet(STATE_PREFIX + conversationId, JSON.stringify(state));
+  await secureSet(ratchetStateKey(conversationId, peerUserId), JSON.stringify(state));
 }
 
 async function loadLocalPriv(): Promise<LocalDevicePriv | null> {
@@ -144,8 +166,8 @@ async function bootstrapFromX3dh(
     },
   );
   const state = await initRatchetSession(shared, "initiator");
-  await saveState(conversationId, state);
-  await secureSet(X3DH_PREFIX + conversationId, "initiator");
+  await saveState(conversationId, state, peerUserId);
+  await secureSet(x3dhModeKey(conversationId, peerUserId), "initiator");
   const preamble: X3dhPreamble = {
     v: 1,
     ik: local.identity.publicKey,
@@ -153,16 +175,22 @@ async function bootstrapFromX3dh(
     spkId: peer.signedPrekeyId,
     opkId: peer.oneTimePrekey?.id,
   };
-  await secureSet(X3DH_PREAMBLE_PREFIX + conversationId, JSON.stringify(preamble));
+  await secureSet(x3dhPreambleKey(conversationId, peerUserId), JSON.stringify(preamble));
   return { state, preamble };
 }
 
-async function bootstrapDegraded(conversationId: string): Promise<RatchetSessionState> {
-  const seed = new TextEncoder().encode(`logoshome-bootstrap:${conversationId}`);
+async function bootstrapDegraded(
+  conversationId: string,
+  peerUserId?: string | null,
+): Promise<RatchetSessionState> {
+  const seedMaterial = peerUserId
+    ? `logoshome-bootstrap:${conversationId}:${peerUserId}`
+    : `logoshome-bootstrap:${conversationId}`;
+  const seed = new TextEncoder().encode(seedMaterial);
   const ab = seed.buffer.slice(seed.byteOffset, seed.byteOffset + seed.byteLength);
   const state = await initRatchetSession(ab, "initiator");
-  await saveState(conversationId, state);
-  await secureSet(X3DH_PREFIX + conversationId, "degraded");
+  await saveState(conversationId, state, peerUserId);
+  await secureSet(x3dhModeKey(conversationId, peerUserId), "degraded");
   return state;
 }
 
@@ -171,18 +199,19 @@ export async function ensureRatchet(
   conversationId: string,
   peerUserId?: string | null,
 ): Promise<RatchetSessionState> {
-  const existing = await loadState(conversationId);
+  const existing = await loadState(conversationId, peerUserId);
   if (existing) return existing;
   if (peerUserId) {
     const x3dh = await bootstrapFromX3dh(conversationId, peerUserId);
     if (x3dh) return x3dh.state;
   }
-  return bootstrapDegraded(conversationId);
+  return bootstrapDegraded(conversationId, peerUserId);
 }
 
 async function ensureResponderFromPreamble(
   conversationId: string,
   preamble: X3dhPreamble,
+  peerUserId?: string | null,
 ): Promise<RatchetSessionState | null> {
   const local = await loadLocalPriv();
   if (!local) return null;
@@ -197,8 +226,8 @@ async function ensureResponderFromPreamble(
     preamble.ek,
   );
   const state = await initRatchetSession(shared, "responder");
-  await saveState(conversationId, state);
-  await secureSet(X3DH_PREFIX + conversationId, "responder");
+  await saveState(conversationId, state, peerUserId);
+  await secureSet(x3dhModeKey(conversationId, peerUserId), "responder");
   return state;
 }
 
@@ -229,7 +258,7 @@ export async function encryptChatMessage(
   if (product) return product;
 
   let state = await ensureRatchet(conversationId, peerUserId);
-  const modeRaw = (await secureGet(X3DH_PREFIX + conversationId)) as
+  const modeRaw = (await secureGet(x3dhModeKey(conversationId, peerUserId))) as
     | "x3dh"
     | "degraded"
     | "initiator"
@@ -238,13 +267,13 @@ export async function encryptChatMessage(
   const mode = modeRaw ?? "degraded";
   let preamble: X3dhPreamble | null = null;
   if (mode === "initiator") {
-    const raw = await secureGet(X3DH_PREAMBLE_PREFIX + conversationId);
+    const raw = await secureGet(x3dhPreambleKey(conversationId, peerUserId));
     if (raw) preamble = JSON.parse(raw) as X3dhPreamble;
     // Attach preamble only once (first outbound after bootstrap).
-    await secureRemove(X3DH_PREAMBLE_PREFIX + conversationId);
+    await secureRemove(x3dhPreambleKey(conversationId, peerUserId));
   }
   const { message, state: next } = await ratchetEncrypt(state, plaintext);
-  await saveState(conversationId, next);
+  await saveState(conversationId, next, peerUserId);
   return {
     ratchetHeader: encodeHeader(message, preamble),
     ciphertext: JSON.stringify({ iv: message.iv, ciphertext: message.ciphertext }),
@@ -266,7 +295,7 @@ export async function decryptChatMessage(
   );
   if (productPlain != null) return productPlain;
 
-  let state = await loadState(conversationId);
+  let state = await loadState(conversationId, peerUserId);
   let header: RatchetMessage["header"];
   let preamble: X3dhPreamble | undefined;
   let body: { iv: string; ciphertext: string };
@@ -278,10 +307,10 @@ export async function decryptChatMessage(
   }
 
   if (!state && preamble) {
-    state = await ensureResponderFromPreamble(conversationId, preamble);
+    state = await ensureResponderFromPreamble(conversationId, preamble, peerUserId);
   }
   if (!state) {
-    state = await ensureRatchet(conversationId);
+    state = await ensureRatchet(conversationId, peerUserId);
   }
 
   const msg: RatchetMessage = {
@@ -290,6 +319,6 @@ export async function decryptChatMessage(
     ciphertext: body.ciphertext,
   };
   const { plaintext, state: next } = await ratchetDecrypt(state, msg);
-  await saveState(conversationId, next);
+  await saveState(conversationId, next, peerUserId);
   return plaintext;
 }

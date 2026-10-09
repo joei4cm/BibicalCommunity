@@ -52,13 +52,20 @@ echo "$LIST" | grep -q "$POST_ID"
 echo "$LIST" | grep -q 'externalMediaUrl'
 echo "$LIST" | grep -q "$MEDIA_URL"
 
-# Schema-allowed generic embed URL also round-trips.
-EMBED_URL="https://example.com/embed"
+# Second allowlisted host (Vimeo) also round-trips.
+EMBED_URL="https://vimeo.com/148751763"
 POST2=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"notice\",\"title\":\"Link embed\",\"body\":\"External link\",\"externalMediaUrl\":\"$EMBED_URL\"}" \
   "$BASE/v1/home/posts")
 LIST2=$(curl -sf -H "$AUTH" "$BASE/v1/home/${CHURCH_ID}/posts?board=notice")
 echo "$LIST2" | grep -q "$EMBED_URL"
+
+# Non-allowlisted host must be rejected by the API.
+BLOCK_CODE=$(curl -s -o /tmp/lh-embed-block.json -w "%{http_code}" -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"churchId\":\"$CHURCH_ID\",\"board\":\"notice\",\"title\":\"Blocked\",\"body\":\"no\",\"externalMediaUrl\":\"https://example.com/embed\"}" \
+  "$BASE/v1/home/posts")
+test "$BLOCK_CODE" = "400"
+grep -q 'external_media_not_allowed\|not_allowed\|external' /tmp/lh-embed-block.json || true
 echo "HOME_EXTERNAL_MEDIA_OK"
 
 echo "STUDY_EMBED_OK"
