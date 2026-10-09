@@ -19,11 +19,15 @@ import {
   fetchCrossRefs,
   entriesForVerse,
   loadStrongsDictionary,
-  loadNtVerseStrongs,
+  loadVerseStrongs,
+  loadEastonDictionary,
   searchStrongs,
+  searchEaston,
   strongsForVerse,
   type CommentaryEntry,
   type CrossRefHit,
+  type EastonDictionary,
+  type EastonHit,
   type StudyCommentaryId,
   type StrongsDictionary,
   type StrongsEntry,
@@ -357,9 +361,11 @@ export function BibleReader() {
   const [studyEntries, setStudyEntries] = useState<CommentaryEntry[]>([]);
   const [studyCrossRefs, setStudyCrossRefs] = useState<CrossRefHit[]>([]);
   const [strongsDict, setStrongsDict] = useState<StrongsDictionary | null>(null);
-  const [ntVerseStrongs, setNtVerseStrongs] = useState<Record<string, string[]> | null>(null);
+  const [verseStrongsMap, setVerseStrongsMap] = useState<Record<string, string[]> | null>(null);
+  const [eastonDict, setEastonDict] = useState<EastonDictionary | null>(null);
   const [dictQuery, setDictQuery] = useState("");
   const [dictFocusId, setDictFocusId] = useState<string | null>(null);
+  const [eastonFocus, setEastonFocus] = useState<EastonHit | null>(null);
 
   /** Keep URL in WeDevote shape: /app/bible/{tid}/{book}/{chapter} */
   const goToPassage = useCallback(
@@ -527,9 +533,9 @@ export function BibleReader() {
   }, [studyLang]);
   const studyVerse = selection?.start ?? 1;
   const verseDictIds = useMemo(() => {
-    if (!ntVerseStrongs) return [] as string[];
-    return strongsForVerse(ntVerseStrongs, bookId, chapterNum, studyVerse);
-  }, [ntVerseStrongs, bookId, chapterNum, studyVerse]);
+    if (!verseStrongsMap) return [] as string[];
+    return strongsForVerse(verseStrongsMap, bookId, chapterNum, studyVerse);
+  }, [verseStrongsMap, bookId, chapterNum, studyVerse]);
   const verseDictEntries = useMemo(() => {
     const dict = strongsDict;
     if (!dict) return [] as Array<{ id: string; entry: StrongsEntry }>;
@@ -544,6 +550,10 @@ export function BibleReader() {
     if (!dictQuery.trim()) return [] as Array<{ id: string; entry: StrongsEntry }>;
     return searchStrongs(dictQuery, strongsDict ?? undefined, 20);
   }, [dictQuery, strongsDict]);
+  const eastonSearchHits = useMemo(() => {
+    if (!dictQuery.trim() || !eastonDict) return [] as EastonHit[];
+    return searchEaston(dictQuery, eastonDict, 12);
+  }, [dictQuery, eastonDict]);
   const dictFocusEntry = useMemo(() => {
     if (!dictFocusId || !strongsDict) return null;
     const entry = strongsDict[dictFocusId];
@@ -566,13 +576,15 @@ export function BibleReader() {
           if (cancelled) return;
           setStudyCrossRefs(refs);
         } else {
-          const [dict, verseMap] = await Promise.all([
+          const [dict, verseMap, easton] = await Promise.all([
             loadStrongsDictionary(),
-            loadNtVerseStrongs(),
+            loadVerseStrongs(),
+            loadEastonDictionary(),
           ]);
           if (cancelled) return;
           setStrongsDict(dict);
-          setNtVerseStrongs(verseMap);
+          setVerseStrongsMap(verseMap);
+          setEastonDict(easton);
         }
       } catch {
         if (!cancelled) setStudyError("load");
@@ -1686,7 +1698,10 @@ export function BibleReader() {
               <div className="field">
                 <input
                   value={dictQuery}
-                  onChange={(e) => setDictQuery(e.target.value)}
+                  onChange={(e) => {
+                    setDictQuery(e.target.value);
+                    setEastonFocus(null);
+                  }}
                   placeholder={t("reader.studyDictSearch")}
                   data-testid="reader-study-dict-input"
                 />
@@ -1703,6 +1718,17 @@ export function BibleReader() {
                   )}
                 </article>
               )}
+              {eastonFocus && (
+                <article className="bible-study-strongs-card" data-testid="reader-study-easton-focus">
+                  <strong>
+                    {eastonFocus.headword}{" "}
+                    <span className="muted">· {t("reader.studyEaston")}</span>
+                  </strong>
+                  {eastonFocus.definitions.map((def, i) => (
+                    <p key={i}>{def}</p>
+                  ))}
+                </article>
+              )}
               <h3>{t("reader.studyDictVerse")}</h3>
               <ul className="bible-dock-list bible-study-strongs">
                 {!studyLoading && verseDictEntries.length === 0 && (
@@ -1714,7 +1740,10 @@ export function BibleReader() {
                       type="button"
                       className="bible-study-strongs-btn"
                       data-testid={`reader-study-strongs-${id}`}
-                      onClick={() => setDictFocusId(id)}
+                      onClick={() => {
+                        setDictFocusId(id);
+                        setEastonFocus(null);
+                      }}
                     >
                       <strong>
                         {id} {entry.lemma}
@@ -1728,13 +1757,18 @@ export function BibleReader() {
                 <>
                   <h3>{t("reader.studyDictResults")}</h3>
                   <ul className="bible-dock-list bible-study-strongs">
-                    {dictSearchHits.length === 0 && <li className="muted">—</li>}
+                    {dictSearchHits.length === 0 && eastonSearchHits.length === 0 && (
+                      <li className="muted">—</li>
+                    )}
                     {dictSearchHits.map(({ id, entry }) => (
                       <li key={`q-${id}`}>
                         <button
                           type="button"
                           className="bible-study-strongs-btn"
-                          onClick={() => setDictFocusId(id)}
+                          onClick={() => {
+                            setDictFocusId(id);
+                            setEastonFocus(null);
+                          }}
                         >
                           <strong>
                             {id} {entry.lemma}
@@ -1744,6 +1778,29 @@ export function BibleReader() {
                       </li>
                     ))}
                   </ul>
+                  {eastonSearchHits.length > 0 && (
+                    <>
+                      <h3>{t("reader.studyEastonResults")}</h3>
+                      <ul className="bible-dock-list bible-study-strongs" data-testid="reader-study-easton-list">
+                        {eastonSearchHits.map((hit) => (
+                          <li key={`e-${hit.headword}`}>
+                            <button
+                              type="button"
+                              className="bible-study-strongs-btn"
+                              data-testid={`reader-study-easton-${hit.headword}`}
+                              onClick={() => {
+                                setEastonFocus(hit);
+                                setDictFocusId(null);
+                              }}
+                            >
+                              <strong>{hit.headword}</strong>
+                              <span>{hit.definitions[0]?.slice(0, 140) ?? ""}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
                 </>
               )}
             </div>

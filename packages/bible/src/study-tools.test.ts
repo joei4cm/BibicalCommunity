@@ -7,12 +7,17 @@ import {
   crossRefsForVerse,
   defaultStudyCommentaryId,
   entriesForVerse,
+  lookupEaston,
   lookupStrongs,
   normalizeStrongsId,
+  searchEaston,
   searchStrongs,
+  STUDY_COMMENTARIES,
+  strongsForVerse,
   STRONGS_SEED,
   verseStrongsKey,
   type CommentaryChapter,
+  type EastonDictionary,
 } from "./study-tools.js";
 
 test("bookNumberFromId maps Protestant canon to getBible 1–66", () => {
@@ -87,4 +92,36 @@ test("crossRefsForVerse flattens TSK structured references", () => {
   assert.equal(hits[0]?.bookId, "John");
   assert.equal(hits[1]?.bookId, "Isa");
   assert.equal(verseStrongsKey("John", 14, 6), "John.14.6");
+});
+
+test("STUDY_COMMENTARIES includes Clarke, JFB, and Barnes", () => {
+  const ids = STUDY_COMMENTARIES.map((c) => c.id);
+  assert.ok(ids.includes("clarke"));
+  assert.ok(ids.includes("jfb"));
+  assert.ok(ids.includes("barnes"));
+  assert.ok(ids.includes("mhcc-zh"));
+});
+
+test("strongsForVerse reads OT and NT map keys", () => {
+  const map = {
+    "Gen.1.1": ["H7225", "H430"],
+    "John.14.6": ["G3598", "G225"],
+  };
+  assert.deepEqual(strongsForVerse(map, "Gen", 1, 1), ["H7225", "H430"]);
+  assert.deepEqual(strongsForVerse(map, "John", 14, 6), ["G3598", "G225"]);
+  assert.deepEqual(strongsForVerse(map, "Ps", 23, 1), []);
+});
+
+test("lookupEaston + searchEaston match headword and body", () => {
+  const dict: EastonDictionary = {
+    Shepherd: ["One who tends sheep; Christ is the good shepherd."],
+    Aaron: ["The brother of Moses; first high priest."],
+  };
+  const hit = lookupEaston("shepherd", dict);
+  assert.ok(hit);
+  assert.equal(hit!.headword, "Shepherd");
+  const body = searchEaston("high priest", dict, 5);
+  assert.ok(body.some((x) => x.headword === "Aaron"));
+  const prefix = searchEaston("shep", dict, 5);
+  assert.ok(prefix.some((x) => x.headword === "Shepherd"));
 });

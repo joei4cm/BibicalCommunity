@@ -23,6 +23,7 @@ export type StudyCommentaryId =
   | "mhc"
   | "clarke"
   | "jfb"
+  | "barnes"
   | "wesley"
   | "tsk";
 
@@ -73,18 +74,44 @@ const STUDY_COMMENTARIES_ALL: StudyCommentaryMeta[] = [
   {
     id: "clarke",
     name: "Adam Clarke",
+    nameI18n: {
+      zh: "亚当·克拉克",
+      en: "Adam Clarke",
+      ja: "アダム・クラーク",
+    },
     license: "Public Domain",
     language: "en",
   },
   {
     id: "jfb",
     name: "Jamieson-Fausset-Brown",
+    nameI18n: {
+      zh: "詹明逊-福塞特-布朗",
+      en: "Jamieson-Fausset-Brown",
+      ja: "Jamieson-Fausset-Brown",
+    },
+    license: "Public Domain",
+    language: "en",
+  },
+  {
+    id: "barnes",
+    name: "Barnes' Notes",
+    nameI18n: {
+      zh: "巴恩斯注释",
+      en: "Barnes' Notes",
+      ja: "Barnes Notes",
+    },
     license: "Public Domain",
     language: "en",
   },
   {
     id: "wesley",
     name: "John Wesley Notes",
+    nameI18n: {
+      zh: "约翰·卫斯理注释",
+      en: "John Wesley Notes",
+      ja: "ジョン・ウェ斯レー",
+    },
     license: "Public Domain",
     language: "en",
   },
@@ -432,10 +459,22 @@ let strongsCache: StrongsDictionary | null = null;
 let strongsLoading: Promise<StrongsDictionary> | null = null;
 let verseStrongsCache: Record<string, string[]> | null = null;
 let verseStrongsLoading: Promise<Record<string, string[]>> | null = null;
+let eastonCache: EastonDictionary | null = null;
+let eastonLoading: Promise<EastonDictionary> | null = null;
 
-/** Default public paths served by the web app (Open Scriptures Strong's + Macula NT). */
+/** Default public paths served by the web app (Open Scriptures Strong's + Macula + Easton). */
 export const DEFAULT_STRONGS_URL = "/study/strongs.json";
 export const DEFAULT_NT_VERSE_STRONGS_URL = "/study/nt-verse-strongs.json";
+export const DEFAULT_OT_VERSE_STRONGS_URL = "/study/ot-verse-strongs.json";
+export const DEFAULT_EASTON_URL = "/study/easton.json";
+
+/** Easton's Bible Dictionary: headword → definition senses (PD / MIT pack). */
+export type EastonDictionary = Record<string, string[]>;
+
+export interface EastonHit {
+  headword: string;
+  definitions: string[];
+}
 
 /** Offline seed — common lemmas when the full dictionary has not loaded yet. */
 export const STRONGS_SEED: StrongsDictionary = {
@@ -614,24 +653,54 @@ export function searchStrongs(
   return out;
 }
 
+async function fetchVerseStrongsMap(url: string): Promise<Record<string, string[]>> {
+  try {
+    const res = await runtimeFetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as Record<string, string[]>;
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Load NT Macula Greek verse→Strong's map.
+ * Prefer {@link loadVerseStrongs} when OT coverage is also needed.
+ */
 export async function loadNtVerseStrongs(
   url: string = DEFAULT_NT_VERSE_STRONGS_URL,
+): Promise<Record<string, string[]>> {
+  return fetchVerseStrongsMap(url);
+}
+
+/** Load OT Macula Hebrew verse→Strong's map (seeded key chapters). */
+export async function loadOtVerseStrongs(
+  url: string = DEFAULT_OT_VERSE_STRONGS_URL,
+): Promise<Record<string, string[]>> {
+  return fetchVerseStrongsMap(url);
+}
+
+/**
+ * Merged NT + OT verse→Strong's map (OT keys win on collision).
+ * Cached for the reader dictionary tab.
+ */
+export async function loadVerseStrongs(
+  ntUrl: string = DEFAULT_NT_VERSE_STRONGS_URL,
+  otUrl: string = DEFAULT_OT_VERSE_STRONGS_URL,
 ): Promise<Record<string, string[]>> {
   if (verseStrongsCache) return verseStrongsCache;
   if (verseStrongsLoading) return verseStrongsLoading;
   verseStrongsLoading = (async () => {
-    try {
-      const res = await runtimeFetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      verseStrongsCache = (await res.json()) as Record<string, string[]>;
-      return verseStrongsCache;
-    } catch {
-      verseStrongsCache = {};
-      return verseStrongsCache;
-    } finally {
-      verseStrongsLoading = null;
-    }
-  })();
+    const [nt, ot] = await Promise.all([
+      loadNtVerseStrongs(ntUrl),
+      loadOtVerseStrongs(otUrl),
+    ]);
+    verseStrongsCache = { ...nt, ...ot };
+    return verseStrongsCache;
+  })().finally(() => {
+    verseStrongsLoading = null;
+  });
   return verseStrongsLoading;
 }
 
@@ -648,6 +717,69 @@ export function strongsForVerse(
   return map[verseStrongsKey(bookId, chapter, verse)] ?? [];
 }
 
+export async function loadEastonDictionary(
+  url: string = DEFAULT_EASTON_URL,
+): Promise<EastonDictionary> {
+  if (eastonCache) return eastonCache;
+  if (eastonLoading) return eastonLoading;
+  eastonLoading = (async () => {
+    try {
+      const res = await runtimeFetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as EastonDictionary;
+      eastonCache = data && typeof data === "object" ? data : {};
+      return eastonCache;
+    } catch {
+      eastonCache = {};
+      return eastonCache;
+    } finally {
+      eastonLoading = null;
+    }
+  })();
+  return eastonLoading;
+}
+
+export function lookupEaston(
+  headword: string,
+  dict: EastonDictionary,
+): EastonHit | null {
+  const q = headword.trim();
+  if (!q || !dict) return null;
+  if (dict[q]) return { headword: q, definitions: dict[q]! };
+  const lower = q.toLowerCase();
+  for (const [key, definitions] of Object.entries(dict)) {
+    if (key.toLowerCase() === lower) return { headword: key, definitions };
+  }
+  return null;
+}
+
+/** Search Easton's Bible Dictionary by headword or definition text. */
+export function searchEaston(
+  query: string,
+  dict: EastonDictionary,
+  limit = 16,
+): EastonHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q || !dict) return [];
+  const exact = lookupEaston(q, dict);
+  if (exact) return [exact];
+
+  const headHits: EastonHit[] = [];
+  const bodyHits: EastonHit[] = [];
+  for (const [headword, definitions] of Object.entries(dict)) {
+    const hw = headword.toLowerCase();
+    if (hw.startsWith(q) || hw.includes(q)) {
+      headHits.push({ headword, definitions });
+      if (headHits.length >= limit) break;
+      continue;
+    }
+    if (bodyHits.length + headHits.length >= limit) continue;
+    const body = definitions.join(" ").toLowerCase();
+    if (body.includes(q)) bodyHits.push({ headword, definitions });
+  }
+  return [...headHits, ...bodyHits].slice(0, limit);
+}
+
 /** Clear in-memory caches (tests). */
 export function resetStudyToolCaches(): void {
   chapterCache.clear();
@@ -656,4 +788,6 @@ export function resetStudyToolCaches(): void {
   strongsLoading = null;
   verseStrongsCache = null;
   verseStrongsLoading = null;
+  eastonCache = null;
+  eastonLoading = null;
 }
