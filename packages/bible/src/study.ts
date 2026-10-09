@@ -8,13 +8,30 @@ export interface StudyMaterial {
   language?: "zh" | "en" | "ja";
 }
 
-/** Stub catalog of open / freely linkable study materials. */
+/**
+ * Linkable open study portals (in-app 研读 uses getBible Commentaries + Strong's / Macula).
+ * Kept as secondary “more resources” links.
+ */
 export const STUDY_CATALOG: StudyMaterial[] = [
   {
-    id: "net-notes",
-    title: "NET Bible Notes (sample)",
-    url: "https://netbible.org/",
-    license: "open",
+    id: "getbible-commentaries",
+    title: "getBible Commentaries (PD, chapter JSON)",
+    url: "https://commentaries.getbible.net/",
+    license: "public-domain",
+    language: "en",
+  },
+  {
+    id: "openscriptures-strongs",
+    title: "Open Scriptures Strong's Dictionary",
+    url: "https://github.com/openscriptures/strongs",
+    license: "cc-by-sa",
+    language: "en",
+  },
+  {
+    id: "macula-greek",
+    title: "Clear Bible Macula Greek (verse Strong's)",
+    url: "https://github.com/Clear-Bible/macula-greek",
+    license: "cc-by",
     language: "en",
   },
   {
@@ -28,13 +45,6 @@ export const STUDY_CATALOG: StudyMaterial[] = [
     id: "matthew-henry",
     title: "Matthew Henry Commentary",
     url: "https://www.ccel.org/ccel/henry/mhc.html",
-    license: "public-domain",
-    language: "en",
-  },
-  {
-    id: "easton-dict",
-    title: "Easton's Bible Dictionary",
-    url: "https://www.ccel.org/e/easton/ebd/ebd.html",
     license: "public-domain",
     language: "en",
   },

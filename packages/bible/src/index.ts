@@ -4,6 +4,7 @@ export * from "./provider.js";
 export * from "./csv-plans.js";
 export * from "./books.js";
 export * from "./study.js";
+export * from "./study-tools.js";
 export * from "./r2-format.js";
 export * from "./partners.js";
 export * from "./theme-packs.js";

@@ -12,6 +12,19 @@ import {
   listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
+  STUDY_COMMENTARIES,
+  fetchCommentaryChapter,
+  fetchCrossRefs,
+  entriesForVerse,
+  loadStrongsDictionary,
+  loadNtVerseStrongs,
+  searchStrongs,
+  strongsForVerse,
+  type CommentaryEntry,
+  type CrossRefHit,
+  type StudyCommentaryId,
+  type StrongsDictionary,
+  type StrongsEntry,
   type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
@@ -45,6 +58,7 @@ import {
 } from "../lib/bible-local-db";
 
 type DockPanel = "note" | "study" | "search" | "speak" | null;
+type StudyTab = "commentary" | "dict" | "crossrefs";
 
 type AnnotationRow = {
   id: string;
@@ -334,6 +348,16 @@ export function BibleReader() {
   const [dockPanel, setDockPanel] = useState<DockPanel>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [speakNote, setSpeakNote] = useState<string | null>(null);
+  const [studyTab, setStudyTab] = useState<StudyTab>("commentary");
+  const [studyCommentaryId, setStudyCommentaryId] = useState<StudyCommentaryId>("mhcc");
+  const [studyLoading, setStudyLoading] = useState(false);
+  const [studyError, setStudyError] = useState<string | null>(null);
+  const [studyEntries, setStudyEntries] = useState<CommentaryEntry[]>([]);
+  const [studyCrossRefs, setStudyCrossRefs] = useState<CrossRefHit[]>([]);
+  const [strongsDict, setStrongsDict] = useState<StrongsDictionary | null>(null);
+  const [ntVerseStrongs, setNtVerseStrongs] = useState<Record<string, string[]> | null>(null);
+  const [dictQuery, setDictQuery] = useState("");
+  const [dictFocusId, setDictFocusId] = useState<string | null>(null);
 
   /** Keep URL in WeDevote shape: /app/bible/{tid}/{book}/{chapter} */
   const goToPassage = useCallback(
@@ -406,7 +430,7 @@ export function BibleReader() {
   function toggleDock(panel: Exclude<DockPanel, null>) {
     setDockPanel((cur) => (cur === panel ? null : panel));
     setHighlightPaletteOpen(false);
-    if (panel === "note" && !selection) setSelection({ start: 1, end: 1 });
+    if ((panel === "note" || panel === "study") && !selection) setSelection({ start: 1, end: 1 });
   }
 
   function stopSpeech() {
@@ -491,6 +515,66 @@ export function BibleReader() {
   const readerFont = fontStackFor(fontId);
   const studyLang = bookNameLocale;
   const studyLinks = useMemo(() => listStudyMaterials({ language: studyLang }), [studyLang]);
+  const studyVerse = selection?.start ?? 1;
+  const verseDictIds = useMemo(() => {
+    if (!ntVerseStrongs) return [] as string[];
+    return strongsForVerse(ntVerseStrongs, bookId, chapterNum, studyVerse);
+  }, [ntVerseStrongs, bookId, chapterNum, studyVerse]);
+  const verseDictEntries = useMemo(() => {
+    const dict = strongsDict;
+    if (!dict) return [] as Array<{ id: string; entry: StrongsEntry }>;
+    return verseDictIds
+      .map((id) => {
+        const entry = dict[id];
+        return entry ? { id, entry } : null;
+      })
+      .filter((x): x is { id: string; entry: StrongsEntry } => Boolean(x));
+  }, [strongsDict, verseDictIds]);
+  const dictSearchHits = useMemo(() => {
+    if (!dictQuery.trim()) return [] as Array<{ id: string; entry: StrongsEntry }>;
+    return searchStrongs(dictQuery, strongsDict ?? undefined, 20);
+  }, [dictQuery, strongsDict]);
+  const dictFocusEntry = useMemo(() => {
+    if (!dictFocusId || !strongsDict) return null;
+    const entry = strongsDict[dictFocusId];
+    return entry ? { id: dictFocusId, entry } : null;
+  }, [dictFocusId, strongsDict]);
+
+  useEffect(() => {
+    if (dockPanel !== "study") return;
+    let cancelled = false;
+    void (async () => {
+      setStudyLoading(true);
+      setStudyError(null);
+      try {
+        if (studyTab === "commentary") {
+          const chapter = await fetchCommentaryChapter(studyCommentaryId, bookId, chapterNum);
+          if (cancelled) return;
+          setStudyEntries(entriesForVerse(chapter, studyVerse));
+        } else if (studyTab === "crossrefs") {
+          const refs = await fetchCrossRefs(bookId, chapterNum, studyVerse);
+          if (cancelled) return;
+          setStudyCrossRefs(refs);
+        } else {
+          const [dict, verseMap] = await Promise.all([
+            loadStrongsDictionary(),
+            loadNtVerseStrongs(),
+          ]);
+          if (cancelled) return;
+          setStrongsDict(dict);
+          setNtVerseStrongs(verseMap);
+        }
+      } catch {
+        if (!cancelled) setStudyError("load");
+      } finally {
+        if (!cancelled) setStudyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dockPanel, studyTab, studyCommentaryId, bookId, chapterNum, studyVerse]);
+
   const chapterNotes = useMemo(
     () =>
       decryptedNotes.filter((n) => {
@@ -1527,7 +1611,167 @@ export function BibleReader() {
       {dockPanel === "study" && (
         <div className="bible-dock-panel" data-testid="reader-study-panel">
           <h2>{t("reader.study")}</h2>
-          <p className="bible-hint">{t("reader.studyHint")}</p>
+          <p className="bible-hint">
+            {t("reader.studyHint")}
+            {selection ? ` · ${selectionLabel}` : ""}
+          </p>
+          <div className="bible-study-tabs" role="tablist" aria-label={t("reader.study")}>
+            {(
+              [
+                ["commentary", "reader.studyTabCommentary"],
+                ["dict", "reader.studyTabDict"],
+                ["crossrefs", "reader.studyTabCrossrefs"],
+              ] as const
+            ).map(([id, labelKey]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={studyTab === id}
+                className={`bible-study-tab${studyTab === id ? " is-on" : ""}`}
+                data-testid={`reader-study-tab-${id}`}
+                onClick={() => setStudyTab(id)}
+              >
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+          {!selection && <p className="bible-hint">{t("reader.studyPickVerse")}</p>}
+          {studyLoading && <p className="bible-hint">{t("reader.studyLoading")}</p>}
+          {studyError && <p className="bible-hint">{t("reader.studyLoadError")}</p>}
+
+          {studyTab === "commentary" && (
+            <div data-testid="reader-study-commentary">
+              <label className="bible-study-source">
+                <span>{t("reader.studyCommentarySource")}</span>
+                <select
+                  value={studyCommentaryId}
+                  onChange={(e) => setStudyCommentaryId(e.target.value as StudyCommentaryId)}
+                  data-testid="reader-study-commentary-select"
+                >
+                  {STUDY_COMMENTARIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <ul className="bible-dock-list bible-study-entries">
+                {!studyLoading && studyEntries.length === 0 && (
+                  <li className="muted">{t("reader.studyEmptyCommentary")}</li>
+                )}
+                {studyEntries.map((e, i) => (
+                  <li key={`${e.verse}-${i}`} data-verse={e.verse}>
+                    <strong>
+                      {e.verse > 0 ? `${passageTitle}:${e.verse}` : passageTitle}
+                    </strong>
+                    <p className="bible-study-body">{e.text}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {studyTab === "dict" && (
+            <div data-testid="reader-study-dict">
+              <div className="field">
+                <input
+                  value={dictQuery}
+                  onChange={(e) => setDictQuery(e.target.value)}
+                  placeholder={t("reader.studyDictSearch")}
+                  data-testid="reader-study-dict-input"
+                />
+              </div>
+              {dictFocusEntry && (
+                <article className="bible-study-strongs-card" data-testid="reader-study-dict-focus">
+                  <strong>
+                    {dictFocusEntry.id} · {dictFocusEntry.entry.lemma}{" "}
+                    <span className="muted">({dictFocusEntry.entry.translit})</span>
+                  </strong>
+                  <p>{dictFocusEntry.entry.gloss}</p>
+                  {dictFocusEntry.entry.kjv && (
+                    <p className="bible-hint">KJV: {dictFocusEntry.entry.kjv}</p>
+                  )}
+                </article>
+              )}
+              <h3>{t("reader.studyDictVerse")}</h3>
+              <ul className="bible-dock-list bible-study-strongs">
+                {!studyLoading && verseDictEntries.length === 0 && (
+                  <li className="muted">{t("reader.studyEmptyDict")}</li>
+                )}
+                {verseDictEntries.map(({ id, entry }) => (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      className="bible-study-strongs-btn"
+                      data-testid={`reader-study-strongs-${id}`}
+                      onClick={() => setDictFocusId(id)}
+                    >
+                      <strong>
+                        {id} {entry.lemma}
+                      </strong>
+                      <span>{entry.gloss}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {dictQuery.trim() && (
+                <>
+                  <h3>{t("reader.studyDictResults")}</h3>
+                  <ul className="bible-dock-list bible-study-strongs">
+                    {dictSearchHits.length === 0 && <li className="muted">—</li>}
+                    {dictSearchHits.map(({ id, entry }) => (
+                      <li key={`q-${id}`}>
+                        <button
+                          type="button"
+                          className="bible-study-strongs-btn"
+                          onClick={() => setDictFocusId(id)}
+                        >
+                          <strong>
+                            {id} {entry.lemma}
+                          </strong>
+                          <span>{entry.gloss}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+
+          {studyTab === "crossrefs" && (
+            <div data-testid="reader-study-crossrefs">
+              <ul className="bible-dock-list bible-study-crossrefs">
+                {!studyLoading && studyCrossRefs.length === 0 && (
+                  <li className="muted">{t("reader.studyEmptyCrossrefs")}</li>
+                )}
+                {studyCrossRefs.map((r, i) => (
+                  <li key={`${r.label}-${i}`}>
+                    {r.theme && <p className="bible-hint">{r.theme}</p>}
+                    {r.bookId && r.chapter != null ? (
+                      <button
+                        type="button"
+                        className="bible-study-ref-btn"
+                        data-testid={`reader-study-xref-${i}`}
+                        onClick={() => {
+                          goToPassage(translationId, r.bookId!, r.chapter!);
+                          if (r.verse) setFocusVerse(r.verse);
+                          setDockPanel(null);
+                        }}
+                      >
+                        {r.label}
+                        <span className="muted"> · {t("reader.studyJump")}</span>
+                      </button>
+                    ) : (
+                      <span>{r.label}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <h3>{t("reader.studyNotes")}</h3>
           <ul className="bible-dock-list">
             {chapterNotes.length === 0 && <li className="muted">{t("reader.studyNoNotes")}</li>}
@@ -1539,6 +1783,7 @@ export function BibleReader() {
             ))}
           </ul>
           <h3>{t("reader.studyLinks")}</h3>
+          <p className="bible-hint">{t("reader.studyLicense")}</p>
           <ul className="bible-dock-list">
             {studyLinks.map((m) => (
               <li key={m.id}>
