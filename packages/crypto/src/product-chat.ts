@@ -1,8 +1,9 @@
 /**
  * Product chat path — apps encrypt/decrypt via `createProductSignalClient`
- * (Workers/browser → x25519; Node → native libsignal with x25519 soft-fallback).
+ * (Workers/browser → OpenE2EE default; Node → native libsignal with OpenE2EE soft-fallback).
  *
  * Server remains a ciphertext courier; private state never leaves the client.
+ * Official Signal WASM on Workers remains OPEN upstream.
  */
 
 import {
@@ -31,12 +32,35 @@ export function isProductX25519IdentityPub(identityKeyPub: string): boolean {
       ecdh?: unknown;
       signing?: unknown;
     };
+    // OpenE2EE shares string ecdh/signing fields — do not classify as x25519.
+    if (parsed?.curve === "opene2ee") return false;
     if (parsed?.curve === "x25519") return true;
-    // X25519 pubs are raw base64 strings; P-256 X3DH uses JWK objects (`kty`).
+    // Legacy X25519 pubs are raw base64 strings; P-256 X3DH uses JWK objects (`kty`).
     return typeof parsed?.ecdh === "string" && typeof parsed?.signing === "string";
   } catch {
     return false;
   }
+}
+
+/** True when identity pub is the opt-in OpenE2EE product format (Kyber + ECDH). */
+export function isProductOpenE2eeIdentityPub(identityKeyPub: string): boolean {
+  try {
+    const parsed = JSON.parse(identityKeyPub) as { curve?: string };
+    return parsed?.curve === "opene2ee";
+  } catch {
+    return false;
+  }
+}
+
+/** Either portable product backend (default x25519 or opt-in OpenE2EE). */
+export function isProductIdentityPub(identityKeyPub: string): boolean {
+  return isProductX25519IdentityPub(identityKeyPub) || isProductOpenE2eeIdentityPub(identityKeyPub);
+}
+
+/** Infer product backend from an uploaded identity pub (default x25519). */
+export function productBackendFromIdentityPub(identityKeyPub: string): SignalBackend {
+  if (isProductOpenE2eeIdentityPub(identityKeyPub)) return "opene2ee";
+  return "x25519";
 }
 
 export async function getProductSignalClient(prefer?: SignalBackend): Promise<SignalClient> {

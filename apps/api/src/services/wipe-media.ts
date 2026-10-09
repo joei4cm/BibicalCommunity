@@ -5,10 +5,11 @@ import type { Env } from "../env";
  * SECURITY.md §7 — remote wipe must destroy R2 objects, not only D1 ciphertext.
  */
 export async function deleteUserMediaObjects(
-  media: Env["MEDIA"],
+  media: Env["MEDIA"] | undefined,
   userId: string,
 ): Promise<{ deleted: number; prefix: string }> {
   const prefix = `media/${userId}/`;
+  if (!media) return { deleted: 0, prefix };
   let deleted = 0;
   let cursor: string | undefined;
   for (;;) {

@@ -1,6 +1,11 @@
 export type Env = {
   DB: D1Database;
-  MEDIA: R2Bucket;
+  /**
+   * R2 media/corpus bucket. Optional only for temporary preview deploys
+   * (`wrangler.temporary.toml`) where preview accounts cannot create R2.
+   * Production and local wrangler.toml always bind MEDIA.
+   */
+  MEDIA?: R2Bucket;
   CALL_ROOM: DurableObjectNamespace;
   APP_NAME: string;
   ENVIRONMENT: string;

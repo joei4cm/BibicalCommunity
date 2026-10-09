@@ -17,10 +17,12 @@
     "test": "node --import tsx --test $(find src -name '*.test.ts' | sort)"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@open-e2ee/signal-protocol-sdk": "9.5.0",
     "@signalapp/libsignal-client": "0.105.0"
   }
 }

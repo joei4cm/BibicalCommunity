@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable(
   "users",
@@ -242,5 +242,24 @@ export const oneTimePrekeys = sqliteTable(
   (t) => [
     index("one_time_prekeys_user_device_idx").on(t.userId, t.deviceId),
     index("one_time_prekeys_unused_idx").on(t.deviceId, t.consumedAt),
+  ],
+);
+
+/**
+ * Preview/temporary Workers without R2: chapter JSON lives in D1.
+ * Production corpora remain on R2 (`CORPUS_LIVE_R2_*`).
+ */
+export const corpusChapters = sqliteTable(
+  "corpus_chapters",
+  {
+    translationId: text("translation_id").notNull(),
+    book: text("book").notNull(),
+    chapter: integer("chapter", { mode: "number" }).notNull(),
+    bodyJson: text("body_json").notNull(),
+    updatedAt: integer("updated_at", { mode: "number" }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.translationId, t.book, t.chapter] }),
+    index("corpus_chapters_tid_idx").on(t.translationId),
   ],
 );

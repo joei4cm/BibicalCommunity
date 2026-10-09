@@ -1,13 +1,46 @@
 #!/usr/bin/env bash
 # Handset-shaped browser E2E (iPhone viewport) against local web + API.
 # Physical handset remains OPEN; this proves mobile-layout corpus catalog + Me
-# product-key control + WebCrypto in a mobile UA (not a substitute for a real phone).
+# product-key control + WebCrypto in a mobile UA, plus OpenE2EE product Signal
+# client (browser/Workers-portable pure-TS) companion probe.
+# Not a substitute for a real phone.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 WEB_BASE="${WEB_BASE:-http://127.0.0.1:5173}"
 API_BASE="${API_BASE:-http://127.0.0.1:8787}"
+
+# OpenE2EE product path is pure-TS / WebCrypto — run even when local UI is down.
+pnpm --filter @logoshome/crypto build >/dev/null
+node --input-type=module -e '
+import {
+  createProductSignalClient,
+  OpenE2eeSignalClient,
+  resolveProductSignalBackend,
+} from "./packages/crypto/dist/index.js";
+
+if (resolveProductSignalBackend("opene2ee") !== "opene2ee") {
+  throw new Error("opene2ee product backend resolve failed");
+}
+const client = await createProductSignalClient("opene2ee");
+if (!(client instanceof OpenE2eeSignalClient)) throw new Error("expected OpenE2eeSignalClient");
+const a = await client.generateIdentity();
+const b = await client.generateIdentity();
+if (!String(a.publicBundle.identityKeyPub).includes("opene2ee")) {
+  throw new Error("expected opene2ee identity marker");
+}
+if (!a.publicBundle.kyberPrekeyPub || !b.publicBundle.kyberPrekeyPub) {
+  throw new Error("expected Kyber prekeys on OpenE2EE public bundles");
+}
+const as = await client.establishSession(a.privateState, b.publicBundle);
+const bs = await client.establishSession(b.privateState, a.publicBundle);
+const enc = await client.encrypt(as, "handset-opene2ee-product");
+if ((await client.decrypt(bs, enc)) !== "handset-opene2ee-product") {
+  throw new Error("OpenE2EE product roundtrip mismatch");
+}
+console.log("DEVICE_HANDSET_OPENE2EE_PRODUCT_OK backend=opene2ee kyberBundle=1 roundtrip=1");
+'
 
 if ! curl -sf "$API_BASE/health" >/dev/null; then
   echo "INFO: API unreachable at $API_BASE — handset-shaped UI probe skipped"
@@ -87,17 +120,35 @@ console.log(
   "DEVICE_HANDSET_WEBCRYPTO_OK aes=1 ecdh=1 x25519=" + (cryptoProbe.x25519 ? "1" : "0"),
 );
 
+await page.goto(WEB + "/app/bible/cuvs/john/1", { waitUntil: "networkidle" });
+await page.waitForTimeout(600);
+await page.getByTestId("bible-reader").waitFor({ state: "visible", timeout: 15_000 });
+await page.getByTestId("reader-passage-title").waitFor({ state: "visible", timeout: 10_000 });
+console.log("DEVICE_HANDSET_BIBLE_READER_OK");
+
+// Catalog toggle lives inside collapsed <details class="bible-more">.
+const more = page.locator("details.bible-more");
+await more.first().waitFor({ state: "attached", timeout: 10_000 });
+await more.first().locator("summary").click({ force: true });
 const catalogToggle = page.getByTestId("reader-corpus-catalog-toggle");
-await catalogToggle.first().waitFor({ state: "visible", timeout: 15_000 });
+await catalogToggle.first().waitFor({ state: "visible", timeout: 10_000 });
 await catalogToggle.first().click({ force: true });
 await page.getByTestId("reader-corpus-catalog").waitFor({ state: "visible", timeout: 10_000 });
 console.log("DEVICE_HANDSET_CORPUS_CATALOG_OK");
 
 await page.goto(WEB + "/app/me", { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
-const upload = page.getByRole("button", { name: /上传加密身份|upload|密钥|鍵|keys/i });
-await upload.first().waitFor({ state: "visible", timeout: 10_000 });
-console.log("DEVICE_HANDSET_PRODUCT_KEYS_UI_OK");
+const backend = page.getByTestId("me-signal-backend");
+await backend.waitFor({ state: "visible", timeout: 10_000 });
+const defaultBackend = await backend.inputValue();
+if (defaultBackend !== "opene2ee") {
+  throw new Error("expected Me default signal backend opene2ee, got " + defaultBackend);
+}
+await backend.selectOption("x25519");
+await backend.selectOption("opene2ee");
+const upload = page.getByTestId("me-upload-keys");
+await upload.waitFor({ state: "visible", timeout: 10_000 });
+console.log("DEVICE_HANDSET_PRODUCT_KEYS_UI_OK backend_default=opene2ee");
 
 await browser.close();
 console.log("DEVICE_HANDSET_SHAPED_OK viewport=" + vp.width + "x" + vp.height);

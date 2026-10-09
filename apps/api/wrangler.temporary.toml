@@ -1,0 +1,43 @@
+# Temporary preview deploy (wrangler deploy --temporary -c wrangler.temporary.toml).
+# Preview Cloudflare accounts cannot create R2 buckets — omit MEDIA so Worker can
+# still go live for health/auth/partner probes. CORPUS_LIVE_R2_OK still needs a
+# production account token + real R2 (see scripts/live-r2-bootstrap.sh).
+name = "logoshome-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "logoshome"
+# Preview-account D1 created via `wrangler d1 create` with temporary token.
+# Re-create if the temporary account expires; CORPUS_LIVE_R2 still needs prod R2.
+database_id = "ea781ae0-e7d4-4a3b-90f5-7da06d4a122c"
+migrations_dir = "migrations"
+
+[durable_objects]
+bindings = [
+  { name = "CALL_ROOM", class_name = "CallRoomDO" }
+]
+
+# Preview / free-plan Durable Objects require SQLite-backed classes.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CallRoomDO"]
+
+[vars]
+APP_NAME = "LogosHome"
+ENVIRONMENT = "temporary"
+ENDAO_SSO_ENABLED = "true"
+WEREAD_SSO_ENABLED = "true"
+PARTNER_SSO_MOCK = "true"
+ENDAO_OAUTH_CLIENT_ID = "dev-endao-client"
+ENDAO_OAUTH_CLIENT_SECRET = "dev-endao-secret"
+WEREAD_OAUTH_CLIENT_ID = "dev-weread-client"
+WEREAD_OAUTH_CLIENT_SECRET = "dev-weread-secret"
+PARTNER_OAUTH_REDIRECT_BASE = "https://example.invalid"
+ENDAO_OAUTH_TOKEN_URL = "https://example.invalid/mock-token"
+WEREAD_OAUTH_TOKEN_URL = "https://example.invalid/mock-token"
+TURN_SECRET = "dev-turn-secret"
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
+PLATFORM_ADMIN_BOOTSTRAP_SECRET = "dev-platform-admin-bootstrap"

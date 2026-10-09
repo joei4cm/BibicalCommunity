@@ -1,12 +1,15 @@
 /**
- * Mobile product Signal chat — `createProductSignalClient` (Expo → x25519).
+ * Mobile product Signal chat — `createProductSignalClient`
+ * (Expo default → x25519; opt-in OpenE2EE via `lh.signalBackend`).
  * Private identity/session blobs prefer SecureStore via secure-kv.
  * Sessions are peer-scoped so group fan-out keeps one chain per member.
  */
 import {
   createProductChatIdentity,
   getProductSignalClient,
+  isProductOpenE2eeIdentityPub,
   isProductX25519IdentityPub,
+  productBackendFromIdentityPub,
   productChatDecrypt,
   productChatEncrypt,
   productChatEstablish,
@@ -14,6 +17,7 @@ import {
   type SecureSession,
 } from "@logoshome/crypto";
 import { api } from "./api";
+import { loadProductSignalPrefer } from "./product-signal-prefer";
 import { kvGet, kvSet } from "./secure-kv";
 
 export const PRODUCT_PRIV_KEY = "lh.product.signal.priv";
@@ -30,8 +34,17 @@ type PeerDeviceBundle = {
   oneTimePrekey: { id: number; pub: string } | null;
 };
 
+function peerMatchesPrefer(
+  identityKeyPub: string,
+  prefer: Awaited<ReturnType<typeof loadProductSignalPrefer>>,
+): boolean {
+  if (prefer === "opene2ee") return isProductOpenE2eeIdentityPub(identityKeyPub);
+  return isProductX25519IdentityPub(identityKeyPub);
+}
+
 export async function mintProductIdentityForUpload(): Promise<DevicePublicKeys> {
-  const { identity } = await createProductChatIdentity();
+  const prefer = await loadProductSignalPrefer();
+  const { identity } = await createProductChatIdentity(prefer);
   await kvSet(PRODUCT_PRIV_KEY, identity.privateState);
   return identity.publicBundle;
 }
@@ -46,6 +59,7 @@ function productSessionKey(conversationId: string, peerUserId: string): string {
 }
 
 async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicKeys | null> {
+  const prefer = await loadProductSignalPrefer();
   try {
     const res = await api<{ devices: PeerDeviceBundle[] }>(
       `/v1/keys/${encodeURIComponent(peerUserId)}`,
@@ -56,7 +70,7 @@ async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicK
         d.signedPrekeyPub &&
         d.signedPrekeySig &&
         d.signedPrekeyId != null &&
-        isProductX25519IdentityPub(d.identityKeyPub),
+        peerMatchesPrefer(d.identityKeyPub, prefer),
     );
     if (!device?.identityKeyPub || !device.signedPrekeyPub || !device.signedPrekeySig) {
       return null;
@@ -90,7 +104,8 @@ async function loadOrEstablishSession(
       /* re-establish */
     }
   }
-  const client = await getProductSignalClient();
+  const prefer = productBackendFromIdentityPub(remote.identityKeyPub);
+  const client = await getProductSignalClient(prefer);
   const session = await productChatEstablish(client, localPrivate, remote);
   await kvSet(key, JSON.stringify(session));
   return session;
@@ -112,7 +127,8 @@ export async function tryEncryptProductMobileMessage(
   const remote = await fetchPeerProductBundle(peerUserId);
   if (!remote) return null;
 
-  const client = await getProductSignalClient();
+  const prefer = productBackendFromIdentityPub(remote.identityKeyPub);
+  const client = await getProductSignalClient(prefer);
   const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
   const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
   await kvSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
@@ -152,7 +168,8 @@ export async function tryDecryptProductMobileMessage(
     return null;
   }
 
-  const client = await getProductSignalClient();
+  const prefer = await loadProductSignalPrefer();
+  const client = await getProductSignalClient(prefer);
   const header = ratchetHeader.slice(PRODUCT_HEADER_PREFIX.length);
   try {
     const plain = await productChatDecrypt(client, session, {

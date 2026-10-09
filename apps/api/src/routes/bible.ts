@@ -27,6 +27,10 @@ import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { decideLicensedChapterAccess } from "../services/bible-entitlement";
+import {
+  getD1CorpusChapter,
+  listD1CorpusChaptersPage,
+} from "../services/corpus-d1";
 import { sha256Hex } from "../services/crypto";
 
 export const bibleRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -146,12 +150,14 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
 
   // Product install unit is whole-Bible. `scope=boot` still returns the full
   // translation pack for boot tids (和合本/NASB) — never a teaching-set subset.
-  if (scope === "boot" || scope === "full") {
+  // Temporary preview Workers omit MEDIA — fall through to demo pack.
+  const media = c.env.MEDIA;
+  if (media && (scope === "boot" || scope === "full")) {
     // Collect sorted chapter object keys under the prefix.
     const keys: string[] = [];
     let listCursor: string | undefined;
     for (;;) {
-      const listed = await c.env.MEDIA.list({ prefix, limit: 1000, cursor: listCursor });
+      const listed = await media.list({ prefix, limit: 1000, cursor: listCursor });
       for (const obj of listed.objects) {
         const parsedKey = parseR2ChapterObjectKey(obj.key);
         if (!parsedKey || parsedKey.translationId !== translationId) continue;
@@ -173,7 +179,7 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     nextAfter = pageKeys.length ? pageKeys[pageKeys.length - 1]! : null;
 
     for (const key of pageKeys) {
-      const body = await c.env.MEDIA.get(key);
+      const body = await media.get(key);
       if (!body) continue;
       try {
         fromR2.push(parseR2ChapterJson(await body.text()));
@@ -194,7 +200,7 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
         const parsed = parseRef(ref);
         if (!parsed) continue;
         const key = r2ChapterObjectKey(translationId, parsed.book, parsed.chapter);
-        const obj = await c.env.MEDIA.get(key);
+        const obj = await media.get(key);
         if (!obj) continue;
         try {
           fromR2.push(parseR2ChapterJson(await obj.text()));
@@ -227,6 +233,30 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
       done,
       nextAfter: done ? null : nextAfter,
     });
+  }
+
+  // When R2 MEDIA is missing or empty for this tid, serve D1-seeded chapters.
+  {
+    const db = drizzle(c.env.DB, { schema });
+    const page = await listD1CorpusChaptersPage(db, translationId, {
+      afterKey: after || undefined,
+      limit: pageLimit || undefined,
+    });
+    if (page.totalKeys > 0 || page.chapters.length > 0) {
+      return c.json({
+        translationId,
+        version: 1,
+        chapters: page.chapters,
+        source: "d1" as const,
+        scope,
+        packKind: "whole-bible" as const,
+        chapterCount: page.chapters.length,
+        totalChapterKeys: page.totalKeys,
+        done: page.done,
+        nextAfter: page.nextAfter,
+        hint: "D1 corpus fallback (preview / empty R2 prefix); CORPUS_LIVE_R2 still needs production R2",
+      });
+    }
   }
 
   const demo = buildDemoDownloadPack(translationId);
@@ -316,25 +346,48 @@ bibleRoutes.get("/chapter", async (c) => {
     }
 
     const key = r2ChapterObjectKey(translationId, ref.book, ref.chapter);
-    const obj = await c.env.MEDIA.get(key);
-    if (obj) {
-      let parsed;
-      try {
-        parsed = parseR2ChapterJson(await obj.text());
-      } catch {
-        return c.json({ error: "invalid_r2_chapter_json", key }, 500);
-      }
+    if (c.env.MEDIA) {
+      const media = c.env.MEDIA;
+      const obj = await media.get(key);
+      if (obj) {
+        let parsed;
+        try {
+          parsed = parseR2ChapterJson(await obj.text());
+        } catch {
+          return c.json({ error: "invalid_r2_chapter_json", key }, 500);
+        }
 
-      return c.json({
-        translationId,
-        book: parsed.book,
-        chapter: parsed.chapter,
-        verses: parsed.verses,
-        source: "r2" as const,
-      });
+        return c.json({
+          translationId,
+          book: parsed.book,
+          chapter: parsed.chapter,
+          verses: parsed.verses,
+          source: "r2" as const,
+        });
+      }
+    } else {
+      // Preview without R2: try D1 corpus fallback.
+      const db = drizzle(c.env.DB, { schema });
+      const d1ch = await getD1CorpusChapter(db, translationId, ref.book, ref.chapter);
+      if (d1ch) {
+        return c.json({
+          translationId,
+          book: d1ch.book,
+          chapter: d1ch.chapter,
+          verses: d1ch.verses,
+          source: "d1" as const,
+        });
+      }
+      return c.json(
+        {
+          error: "chapter_not_in_d1",
+          hint: "Seed D1 via POST /v1/admin/corpus/d1-seed-boot or scripts/seed-d1-corpus-boot.sh",
+        },
+        404,
+      );
     }
 
-    // No TypeScript verse fallback — corpora live in R2 / client local DB only.
+    // No TypeScript verse fallback — corpora live in R2 / D1 / client local DB only.
     return c.json(
       {
         error: "chapter_not_in_r2",
