@@ -479,7 +479,7 @@ export function PlansPage() {
 
             <h3>{t("plans.owned")}</h3>
             <ul className="list">
-              {plans.length === 0 && <li className="muted">—</li>}
+              {plans.length === 0 && <li className="muted">{t("plans.emptyOwned")}</li>}
               {plans.map((p) => (
                 <li key={p.id}>
                   <button type="button" className="linkish" onClick={() => selectPlan(p.id)}>
@@ -526,7 +526,6 @@ export function PlansPage() {
                 <li key={p.id}>
                   <strong>{p.title}</strong>
                   {p.description ? <div className="muted">{p.description}</div> : null}
-                  <div className="muted">{p.id}</div>
                   <button
                     type="button"
                     className="btn ghost"

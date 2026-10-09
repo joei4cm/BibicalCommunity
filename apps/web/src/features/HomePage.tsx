@@ -333,9 +333,9 @@ export function HomePage() {
       <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
         {(
           [
-            ["church", t("home.joinChurch")],
-            ["forum", t("home.forum")],
-            ["chat", t("home.chat")],
+            ["church", t("home.tabChurch")],
+            ["forum", t("home.tabForum")],
+            ["chat", t("home.tabChat")],
           ] as const
         ).map(([id, label]) => (
           <button

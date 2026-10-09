@@ -186,6 +186,9 @@ function ChapterPane({
               onPointerEnter={(e) => {
                 if (e.buttons === 1) onExtendSelection(v.verse);
               }}
+              onPointerUp={() => {
+                /* release drag anchor after gesture */
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
               }}
@@ -293,9 +296,18 @@ export function BibleReader() {
   const [noteMsg, setNoteMsg] = useState<string | null>(null);
   const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
+  const [highlightIdByVerse, setHighlightIdByVerse] = useState<Record<number, string>>({});
   const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [passagePickerOpen, setPassagePickerOpen] = useState(false);
+  const [pickerStep, setPickerStep] = useState<"book" | "chapter" | "verse">("book");
+  const [pickerBookId, setPickerBookId] = useState(routeBookId);
+  const [pickerChapter, setPickerChapter] = useState(routeChapter);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const [highlightPaletteOpen, setHighlightPaletteOpen] = useState(false);
+  const [noteComposeOpen, setNoteComposeOpen] = useState(false);
+  const [focusVerse, setFocusVerse] = useState<number | null>(null);
   const [installedByTid, setInstalledByTid] = useState<
     Record<string, InstalledTranslationSummary>
   >({});
@@ -457,6 +469,7 @@ export function BibleReader() {
       );
       const notes: DecryptedNote[] = [];
       const highlights: Record<number, string> = {};
+      const highlightIds: Record<number, string> = {};
       const marks: { id: string; label: string }[] = [];
       const colorMap: Record<string, string> = {
         amber: "#f5d76e",
@@ -478,14 +491,17 @@ export function BibleReader() {
             notes.push({
               id: row.id,
               label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
-              text: "…",
+              text: "(无法解密)",
             });
           }
         } else if (row.kind === "highlight" && sameChapter && row.verseStart != null) {
           const raw = row.color ?? "amber";
           const color = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
           const end = row.verseEnd ?? row.verseStart;
-          for (let v = row.verseStart; v <= end; v += 1) highlights[v] = color;
+          for (let v = row.verseStart; v <= end; v += 1) {
+            highlights[v] = color;
+            highlightIds[v] = row.id;
+          }
         } else if (row.kind === "bookmark") {
           marks.push({
             id: row.id,
@@ -495,6 +511,7 @@ export function BibleReader() {
       }
       setDecryptedNotes(notes);
       setHighlightByVerse(highlights);
+      setHighlightIdByVerse(highlightIds);
       setBookmarks(marks);
     } catch {
       /* listing is optional when offline / unauthenticated */
@@ -584,12 +601,70 @@ export function BibleReader() {
   function selectVerse(verse: number) {
     dragAnchor.current = verse;
     setSelection({ start: verse, end: verse });
+    setHighlightPaletteOpen(false);
+    setNoteComposeOpen(false);
   }
 
   function extendSelection(verse: number) {
     const anchor = dragAnchor.current ?? verse;
     setSelection(normalizeRange(anchor, verse));
   }
+
+  useEffect(() => {
+    const clear = () => {
+      dragAnchor.current = null;
+    };
+    window.addEventListener("pointerup", clear);
+    return () => window.removeEventListener("pointerup", clear);
+  }, [dragAnchor]);
+
+  async function removeHighlightAt(verse: number) {
+    const id = highlightIdByVerse[verse];
+    if (!id) return;
+    if (!getToken()) {
+      setError("login_required");
+      return;
+    }
+    try {
+      await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setHighlightByVerse((prev) => {
+        const next = { ...prev };
+        delete next[verse];
+        return next;
+      });
+      setHighlightIdByVerse((prev) => {
+        const next = { ...prev };
+        delete next[verse];
+        return next;
+      });
+      await refreshNotes();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "error");
+    }
+  }
+
+  useEffect(() => {
+    if (focusVerse == null) return;
+    const el = document.querySelector(`[data-testid="reader-prose"] [data-verse="${focusVerse}"]`);
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      selectVerse(focusVerse);
+    }
+    setFocusVerse(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- jump once after chapter load
+  }, [focusVerse, chapter]);
+
+  const pickerChapterOptions = useMemo(() => {
+    const book = getBook(pickerBookId);
+    return Array.from({ length: book?.chapters ?? 1 }, (_, i) => i + 1);
+  }, [pickerBookId]);
+
+  const pickerVerseOptions = useMemo(() => {
+    if (pickerBookId === bookId && pickerChapter === chapterNum && chapter && "verses" in chapter) {
+      return chapter.verses.map((v) => v.verse);
+    }
+    return Array.from({ length: 50 }, (_, i) => i + 1);
+  }, [pickerBookId, pickerChapter, bookId, chapterNum, chapter]);
 
   async function addBookmark(verseOverride?: number) {
     if (!getToken()) {
@@ -651,6 +726,8 @@ export function BibleReader() {
       }
       return next;
     });
+    setHighlightPaletteOpen(false);
+    setSelection(null);
     await refreshNotes();
   }
 
@@ -751,63 +828,80 @@ export function BibleReader() {
         ? `${passageTitle}:${selection.start}`
         : `${passageTitle}:${selection.start}–${selection.end}`;
 
+  const selectionAlreadyHighlighted =
+    selection != null &&
+    Array.from({ length: selection.end - selection.start + 1 }, (_, i) => selection.start + i).every(
+      (v) => Boolean(highlightIdByVerse[v]),
+    );
+
+  function openPassagePicker() {
+    setPickerBookId(bookId);
+    setPickerChapter(chapterNum);
+    setPickerStep("book");
+    setPassagePickerOpen(true);
+    setLayoutOpen(false);
+    setSettingsOpen(false);
+  }
+
   return (
     <section className="bible-reader" data-testid="bible-reader">
       <header className="bible-reader-topbar">
         <div className="bible-reader-topbar-main">
-          <h1 className="bible-reader-title" data-testid="reader-passage-title">
-            {passageTitle}
-          </h1>
-          <p className="bible-reader-tid" data-testid="reader-translation-label">
+          <button
+            type="button"
+            className="bible-passage-trigger"
+            data-testid="reader-passage-title"
+            onClick={openPassagePicker}
+            aria-label={`${t("reader.book")} ${t("reader.chapter")}`}
+          >
+            <span className="bible-reader-title">{passageTitle}</span>
+            <span className="bible-passage-chevron" aria-hidden="true">
+              ▾
+            </span>
+          </button>
+          <p className="sr-only" data-testid="reader-translation-label">
             {activeTranslation?.name[locale] ?? translationId}
           </p>
         </div>
-        <div className="bible-reader-topbar-actions">
-          <div className="bible-passage-controls" data-testid="reader-passage-controls">
-            <label className="bible-control">
-              <span className="sr-only">{t("reader.book")}</span>
-              <select
-                value={bookId}
-                onChange={(e) => goToPassage(translationId, e.target.value, 1)}
-                aria-label={t("reader.book")}
-                data-testid="reader-book-select"
-              >
-                {books.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name[bookNameLocale]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="bible-control bible-control--chapter">
-              <span className="sr-only">{t("reader.chapter")}</span>
-              <select
-                value={chapterNum}
-                onChange={(e) => goToPassage(translationId, bookId, Number(e.target.value))}
-                aria-label={t("reader.chapter")}
-                data-testid="reader-chapter-select"
-              >
-                {chapterOptions.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+        <div className="bible-reader-topbar-actions" data-testid="reader-passage-controls">
+          <label className="bible-control">
+            <span className="sr-only">{t("reader.translations")}</span>
+            <select
+              value={translationId}
+              onChange={(e) => goToPassage(e.target.value, bookId, chapterNum)}
+              aria-label={t("reader.translations")}
+              data-testid="reader-translation-select"
+            >
+              {translations.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.abbreviation || tr.name[locale]}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
-            className={`bible-gear-btn${settingsOpen ? " is-on" : ""}`}
-            data-testid="reader-settings-gear"
-            aria-label={t("reader.gear")}
-            aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen((v) => !v)}
+            className={`bible-gear-btn${layoutOpen ? " is-on" : ""}`}
+            data-testid="reader-layout-btn"
+            aria-label={t("reader.layout")}
+            aria-expanded={layoutOpen}
+            onClick={() => {
+              setLayoutOpen((v) => !v);
+              setPassagePickerOpen(false);
+              setSettingsOpen(false);
+            }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.2 7.2 0 0 0-1.63-.94l-.36-2.54A.49.49 0 0 0 14 2h-4a.49.49 0 0 0-.48.41l-.36 2.54c-.59.23-1.13.55-1.63.94l-2.39-.96a.49.49 0 0 0-.59.22L2.63 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.75 14.52a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.4.31.62.22l2.39-.96c.5.39 1.04.71 1.63.94l.36 2.54c.05.24.25.41.49.41h4c.24 0 .44-.17.49-.41l.36-2.54c.59-.23 1.13-.55 1.63-.94l2.39.96c.22.09.49 0 .62-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
-              />
+            Aa
+          </button>
+          <button
+            type="button"
+            className="bible-gear-btn"
+            data-testid="reader-top-bookmark"
+            aria-label={t("reader.bookmark")}
+            onClick={() => void addBookmark(selection?.start ?? 1)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M6 2h12a1 1 0 0 1 1 1v19l-7-4-7 4V3a1 1 0 0 1 1-1Z" />
             </svg>
           </button>
         </div>
@@ -815,22 +909,90 @@ export function BibleReader() {
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
 
-      {settingsOpen && (
-        <div className="bible-settings-sheet" data-testid="reader-settings-sheet" role="dialog" aria-label={t("reader.settings")}>
-          <div className="bible-settings-row">
-            <span>{t("reader.translations")}</span>
-            <select
-              value={translationId}
-              onChange={(e) => goToPassage(e.target.value, bookId, chapterNum)}
-              aria-label={t("reader.translations")}
-            >
-              {translations.map((tr) => (
-                <option key={tr.id} value={tr.id}>
-                  {tr.name[locale] ?? tr.abbreviation}
-                </option>
-              ))}
-            </select>
+      {passagePickerOpen && (
+        <div className="bible-picker" data-testid="reader-passage-picker" role="dialog">
+          <div className="bible-picker-steps">
+            {(["book", "chapter", "verse"] as const).map((step) => (
+              <button
+                key={step}
+                type="button"
+                className={`bible-text-btn${pickerStep === step ? " is-on" : ""}`}
+                onClick={() => setPickerStep(step)}
+              >
+                {step === "book" ? t("reader.book") : step === "chapter" ? t("reader.chapter") : t("reader.verse")}
+              </button>
+            ))}
+            <button type="button" className="bible-text-btn" onClick={() => setPassagePickerOpen(false)}>
+              ✕
+            </button>
           </div>
+          {pickerStep === "book" && (
+            <ul className="bible-picker-list" data-testid="reader-picker-books">
+              {books.map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
+                    onClick={() => {
+                      setPickerBookId(b.id);
+                      setPickerChapter(1);
+                      setPickerStep("chapter");
+                    }}
+                  >
+                    {b.name[bookNameLocale]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pickerStep === "chapter" && (
+            <ul className="bible-picker-grid" data-testid="reader-picker-chapters">
+              {pickerChapterOptions.map((n) => (
+                <li key={n}>
+                  <button
+                    type="button"
+                    className={`bible-picker-item${pickerChapter === n ? " is-on" : ""}`}
+                    onClick={() => {
+                      setPickerChapter(n);
+                      setPickerStep("verse");
+                      if (pickerBookId !== bookId || n !== chapterNum) {
+                        goToPassage(translationId, pickerBookId, n);
+                      }
+                    }}
+                  >
+                    {n}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pickerStep === "verse" && (
+            <ul className="bible-picker-grid" data-testid="reader-picker-verses">
+              {pickerVerseOptions.map((n) => (
+                <li key={n}>
+                  <button
+                    type="button"
+                    className="bible-picker-item"
+                    data-testid={`reader-picker-verse-${n}`}
+                    onClick={() => {
+                      if (pickerBookId !== bookId || pickerChapter !== chapterNum) {
+                        goToPassage(translationId, pickerBookId, pickerChapter);
+                      }
+                      setFocusVerse(n);
+                      setPassagePickerOpen(false);
+                    }}
+                  >
+                    {n}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {layoutOpen && (
+        <div className="bible-settings-sheet" data-testid="reader-layout-sheet" role="dialog" aria-label={t("reader.layout")}>
           <div className="bible-settings-row">
             <span>{t("reader.colorTheme")}</span>
             <select
@@ -901,99 +1063,6 @@ export function BibleReader() {
               ))}
             </div>
           </div>
-          <div className="bible-settings-row">
-            <button
-              type="button"
-              className={`bible-text-btn${dualPane ? " is-on" : ""}`}
-              onClick={() => setDualPane((d) => !d)}
-            >
-              {t("reader.dual")}
-            </button>
-            {dualPane && (
-              <select
-                value={secondTranslationId}
-                onChange={(e) => setSecondTranslationId(e.target.value)}
-                aria-label={`${t("reader.translations")} 2`}
-              >
-                {translations.map((tr) => (
-                  <option key={tr.id} value={tr.id}>
-                    {tr.name[locale] ?? tr.abbreviation}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-          <div className="bible-settings-row">
-            <button
-              type="button"
-              className="bible-text-btn"
-              data-testid="reader-corpus-download"
-              disabled={downloadingTid === translationId}
-              onClick={() => void downloadCorpusPack()}
-            >
-              {downloadingTid === translationId
-                ? t("reader.corpusCatalogDownloading")
-                : t("reader.corpusDownloadFull")}
-            </button>
-            <button
-              type="button"
-              className={`bible-text-btn${showCatalog ? " is-on" : ""}`}
-              data-testid="reader-corpus-catalog-toggle"
-              onClick={() => setShowCatalog((v) => !v)}
-            >
-              {t("reader.corpusCatalog")}
-            </button>
-            <button type="button" className="bible-text-btn" onClick={() => void grantEntitlement()}>
-              {t("reader.entitlement")}
-            </button>
-          </div>
-          {corpusHint ? (
-            <p className="bible-hint" data-testid="reader-corpus-hint">
-              {corpusHint}
-            </p>
-          ) : null}
-          {showCatalog ? (
-            <div className="bible-catalog" data-testid="reader-corpus-catalog">
-              <ul className="bible-catalog-list">
-                {corpusCatalog.map((pack) => {
-                  const installed = installedByTid[pack.translationId];
-                  const busy = downloadingTid === pack.translationId;
-                  return (
-                    <li key={pack.translationId} data-testid={`corpus-catalog-row-${pack.translationId}`}>
-                      <div className="bible-catalog-row">
-                        <strong>{pack.name[locale] ?? pack.translationId}</strong>
-                        <div className="bible-more-actions">
-                          {pack.installMode !== "external" ? (
-                            <button
-                              type="button"
-                              className="bible-text-btn"
-                              data-testid={`corpus-catalog-download-${pack.translationId}`}
-                              disabled={busy}
-                              onClick={() => void downloadCorpusPack(pack.translationId)}
-                            >
-                              {busy ? t("reader.corpusCatalogDownloading") : t("reader.corpusDownloadFull")}
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="bible-text-btn"
-                            data-testid={`corpus-catalog-open-${pack.translationId}`}
-                            onClick={() => {
-                              goToPassage(pack.translationId, bookId, chapterNum);
-                              setShowCatalog(false);
-                              setSettingsOpen(false);
-                            }}
-                          >
-                            {t("reader.corpusCatalogOpen")}
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
         </div>
       )}
 
@@ -1035,35 +1104,49 @@ export function BibleReader() {
       {selection && (
         <div className="bible-selection-bar" data-testid="reader-selection-bar" role="toolbar">
           <span className="bible-hint">{selectionLabel}</span>
-          <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
-            {HIGHLIGHT_COLORS.map((c) => (
+          {selectionAlreadyHighlighted ? (
+            <button
+              type="button"
+              className="bible-dock-btn"
+              data-testid="reader-unhighlight"
+              onClick={() => {
+                if (selection) {
+                  for (let v = selection.start; v <= selection.end; v += 1) {
+                    void removeHighlightAt(v);
+                  }
+                  setSelection(null);
+                }
+              }}
+            >
+              {t("reader.clearHighlight")}
+            </button>
+          ) : (
+            <>
               <button
-                key={c.id}
                 type="button"
-                className="bible-swatch"
-                style={{ background: c.value }}
-                aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
-                data-testid={`reader-highlight-${c.id}`}
-                onClick={() => void addHighlight(c.id)}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            className="bible-dock-btn"
-            data-testid="reader-dock-bookmark"
-            onClick={() => void addBookmark()}
-          >
-            {t("reader.bookmark")}
-          </button>
-          <button
-            type="button"
-            className="bible-dock-btn"
-            data-testid="reader-bookmark-chapter"
-            onClick={() => void addBookmark(1)}
-          >
-            {t("reader.bookmarkChapter")}
-          </button>
+                className={`bible-dock-btn${highlightPaletteOpen ? " is-on" : ""}`}
+                data-testid="reader-highlight-toggle"
+                onClick={() => setHighlightPaletteOpen((v) => !v)}
+              >
+                {t("reader.highlight")}
+              </button>
+              {highlightPaletteOpen && (
+                <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
+                  {HIGHLIGHT_COLORS.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="bible-swatch"
+                      style={{ background: c.value }}
+                      aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
+                      data-testid={`reader-highlight-${c.id}`}
+                      onClick={() => void addHighlight(c.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
           <button type="button" className="bible-dock-btn" onClick={() => setSelection(null)}>
             {t("reader.clearSelection")}
           </button>
@@ -1071,31 +1154,27 @@ export function BibleReader() {
       )}
 
       {!selection && (
-        <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.gear")}>
+        <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.note")}>
           <button
             type="button"
-            className="bible-dock-btn"
-            data-testid="reader-dock-bookmark"
-            onClick={() => void addBookmark(1)}
+            className={`bible-dock-btn${noteComposeOpen ? " is-on" : ""}`}
+            data-testid="reader-dock-note"
+            onClick={() => {
+              setNoteComposeOpen((v) => !v);
+              if (!selection) setSelection({ start: 1, end: 1 });
+              setHighlightPaletteOpen(false);
+            }}
           >
-            {t("reader.bookmarkChapter")}
-          </button>
-          <span className="bible-dock-sep" aria-hidden="true" />
-          <button
-            type="button"
-            className={`bible-dock-btn${settingsOpen ? " is-on" : ""}`}
-            data-testid="reader-dock-tools"
-            onClick={() => setSettingsOpen((v) => !v)}
-          >
-            {t("reader.gear")}
+            {t("reader.note")}
           </button>
         </div>
       )}
 
-      {selection && (
-        <div className="bible-note-compose bible-note-compose--float">
+      {(noteComposeOpen || (selection && noteComposeOpen)) && (
+        <div className="bible-note-compose bible-note-compose--float" data-testid="reader-note-compose">
           <h2>
-            {t("reader.note")} · {selectionLabel}
+            {t("reader.note")}
+            {selectionLabel ? ` · ${selectionLabel}` : ""}
           </h2>
           <textarea
             rows={2}
@@ -1115,7 +1194,6 @@ export function BibleReader() {
           <div className="bible-side-block">
             <h2>{t("reader.bookmark")}</h2>
             <ul>
-              {bookmarks.length === 0 && <li className="bible-hint">—</li>}
               {bookmarks.map((b) => (
                 <li key={b.id}>{b.label}</li>
               ))}
@@ -1124,7 +1202,6 @@ export function BibleReader() {
           <div className="bible-side-block">
             <h2>{t("reader.notesPanel")}</h2>
             <ul>
-              {decryptedNotes.length === 0 && <li className="bible-hint">{t("reader.noNotes")}</li>}
               {decryptedNotes.map((n) => (
                 <li key={n.id}>
                   <strong>{n.label}</strong>
