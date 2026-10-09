@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 /**
- * Seed FULL public-domain translations into R2 via platform-admin API.
- * Fetches from getbible.net book-by-book (Workers-safe); does NOT commit
- * verse text into git — corpora live on R2 and clients install via
- * /v1/bible/corpus-download → local DB.
+ * Seed FULL public-domain translations into R2 from getbible.net.
+ * Does NOT commit verse text into the git repo — corpora live on R2 and
+ * clients install via /v1/bible/corpus-download → local DB.
  *
  * Allowed tids: web, kjv, asv only (never licensed zh/ja dumps).
  *
- * Usage:
- *   node scripts/seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv...]
- *
- * TOKEN must be a platform_admin session (POST /v1/admin/platform/bootstrap first).
+ * Usage: node scripts/seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv...]
  */
+import { BOOK_LIST } from "../packages/bible/dist/index.js";
+
 const BASE = process.argv[2] ?? "http://127.0.0.1:8787";
 const TOKEN = process.argv[3];
 const ALLOWED = new Set(["web", "kjv", "asv"]);
@@ -21,35 +19,52 @@ const tids = (process.argv.slice(4).length ? process.argv.slice(4) : ["web"]).fi
 
 if (!TOKEN || tids.length === 0) {
   console.error("usage: seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv...]");
-  console.error("(TOKEN must be platform_admin — bootstrap via /v1/admin/platform/bootstrap)");
   process.exit(1);
 }
 
-const AUTH = { Authorization: `Bearer ${TOKEN}`, "content-type": "application/json" };
+/** getbible book nr → OSIS id (Protestant order matches BOOK_LIST). */
+const NR_TO_OSIS = Object.fromEntries(BOOK_LIST.map((b, i) => [i + 1, b.id]));
 
-async function seedBook(tid, bookNr) {
-  const res = await fetch(`${BASE}/v1/admin/corpus/pd-seed`, {
-    method: "POST",
-    headers: AUTH,
-    body: JSON.stringify({ tid, bookNr }),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`pd-seed ${tid} bookNr=${bookNr} → ${res.status} ${text}`);
-  }
-  return JSON.parse(text);
+async function fetchFull(tid) {
+  const url = `https://api.getbible.net/v2/${tid}.json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`fetch ${url} → ${res.status}`);
+  return res.json();
 }
 
 let putCount = 0;
 for (const tid of tids) {
-  console.log(`PD_FULL_SEED_START tid=${tid}`);
-  for (let bookNr = 1; bookNr <= 66; bookNr += 1) {
-    const r = await seedBook(tid, bookNr);
-    putCount += r.chaptersPut ?? 0;
-    if (bookNr % 10 === 0 || r.done) {
-      console.log(
-        `PD_FULL_PUT_PROGRESS tid=${tid} book=${r.book} bookNr=${bookNr} chaptersPut=${putCount}`,
-      );
+  console.log(`PD_FULL_FETCH_START tid=${tid}`);
+  const full = await fetchFull(tid);
+  const books = full.books ?? [];
+  if (books.length < 66) throw new Error(`${tid} expected 66 books, got ${books.length}`);
+
+  for (const book of books) {
+    const osis = NR_TO_OSIS[book.nr];
+    if (!osis) {
+      console.warn(`skip unknown book nr=${book.nr} name=${book.name}`);
+      continue;
+    }
+    for (const ch of book.chapters ?? []) {
+      const chapter = Number(ch.chapter);
+      const verses = (ch.verses ?? []).map((v) => ({
+        verse: Number(v.verse),
+        text: String(v.text ?? "").replace(/\s+/g, " ").trim(),
+      }));
+      if (!verses.length) continue;
+      const key = `bible/${tid}/${osis}.${chapter}.json`;
+      const body = JSON.stringify({ book: osis, chapter, verses });
+      const put = await fetch(`${BASE}/v1/media/put/${key}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          "content-type": "application/json",
+        },
+        body,
+      });
+      if (!put.ok) throw new Error(`put failed ${key} status=${put.status}`);
+      putCount += 1;
+      if (putCount % 100 === 0) console.log(`PD_FULL_PUT_PROGRESS tid=${tid} n=${putCount}`);
     }
   }
   console.log(`PD_FULL_SEED_OK tid=${tid}`);

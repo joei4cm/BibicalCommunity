@@ -942,6 +942,30 @@ body:has(.bible-reader) .tab-bar a.active::after {
   margin: 0.75rem 0 1rem;
 }
 
+.corpus-catalog-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+}
+
+.corpus-catalog-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.corpus-catalog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
 .field {
   display: grid;
   gap: 0.35rem;
