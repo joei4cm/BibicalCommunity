@@ -345,21 +345,17 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="panel">
-      <h2 style={{ marginTop: 0 }}>{t("home.messages")}</h2>
-      <p className="muted">
-        AES-GCM session crypto · {t("chat.disappearing")} · {t("chat.call")}
-      </p>
+    <div className="panel" data-testid="home-chat-panel">
+      <h2>{t("home.messages")}</h2>
+      <p className="muted">{t("chat.cryptoHint")}</p>
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
       <div className="field">
         <label>{t("chat.newConversation")}</label>
-        <div className="toolbar">
-          <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
-            <option value="dm">{t("chat.dm")}</option>
-            <option value="group">{t("chat.group")}</option>
-          </select>
-        </div>
+        <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
+          <option value="dm">{t("chat.dm")}</option>
+          <option value="group">{t("chat.group")}</option>
+        </select>
       </div>
       {kind === "group" && (
         <div className="field">
@@ -372,7 +368,7 @@ export function ChatPanel() {
         <input
           value={memberIds}
           onChange={(e) => setMemberIds(e.target.value)}
-          placeholder="user_…"
+          placeholder={t("chat.selfNote")}
         />
       </div>
       <button type="button" className="btn" disabled={busy} onClick={() => void createConversation()}>
@@ -385,15 +381,17 @@ export function ChatPanel() {
           <li key={c.id}>
             <button
               type="button"
-              className="btn ghost"
-              style={{ width: "100%", textAlign: "start" }}
+              className={`convo-row${selectedId === c.id ? " is-selected" : ""}`}
               onClick={() => setSelectedId(c.id)}
             >
-              <strong>{c.title || c.kind}</strong>
+              <strong>
+                {c.title || (c.kind === "group" ? t("chat.group") : t("chat.dm"))}
+              </strong>
               <div className="muted">
-                {c.id}
-                {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
-                {c.membership.archived ? " · archived" : ""}
+                {c.disappearingTtlSec
+                  ? ` · ${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
+                  : ""}
+                {c.membership.archived ? ` · ${t("chat.archived")}` : ""}
                 {selectedId === c.id ? ` · ${t("chat.selected")}` : ""}
               </div>
             </button>
@@ -441,17 +439,17 @@ export function ChatPanel() {
               {t("chat.screenShare")}
             </button>
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
-              Stop share
+              {t("chat.stopShare")}
             </button>
             <button type="button" className="btn ghost" onClick={hangup}>
-              Hang up
+              {t("chat.hangup")}
             </button>
             <button
               type="button"
               className="btn ghost"
               onClick={() => void archiveConversation(!selected.membership.archived)}
             >
-              {selected.membership.archived ? "Unarchive" : t("chat.archive")}
+              {selected.membership.archived ? t("chat.unarchive") : t("chat.archive")}
             </button>
           </div>
           {callNote && <p className="muted">{callNote}</p>}
@@ -460,24 +458,26 @@ export function ChatPanel() {
             autoPlay
             playsInline
             muted={false}
-            style={{ width: "100%", maxHeight: 240, background: "#0e1514", borderRadius: 8 }}
+            style={{ width: "100%", maxHeight: 240, background: "#18232b" }}
           />
 
-          <ul className="list">
-            {messages.length === 0 && <li className="muted">{t("chat.noMessages")}</li>}
+          <div className="chat-thread">
+            {messages.length === 0 && <p className="muted">{t("chat.noMessages")}</p>}
             {messages.map((m) => (
-              <li key={m.id}>
-                <div>{plaintexts[m.id] ?? "…"}</div>
-                <div className="muted">
+              <div key={m.id} className="chat-bubble">
+                <p className="chat-bubble-text">{plaintexts[m.id] ?? t("common.loading")}</p>
+                <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
                   {new Date(m.createdAt).toLocaleString()}
-                  {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
+                  {m.expiresAt
+                    ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
+                    : ""}
                 </div>
                 <button type="button" className="btn ghost" onClick={() => void favoriteMessage(m)}>
                   {t("chat.favorite")}
                 </button>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
 
           <div className="field">
             <label>{t("chat.message")}</label>

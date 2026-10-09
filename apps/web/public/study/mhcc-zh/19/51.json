@@ -1,0 +1,137 @@
+{
+  "schema": "logoshome-mhcc-zh-chapter-v1",
+  "commentary": "mhcc-zh",
+  "source": "Matthew Henry Concise (PD EN) → zh-CN machine translation",
+  "license": "Public Domain source; Chinese rendering CC0 for LogosHome pack",
+  "language": "zh",
+  "book": 19,
+  "name": "Psalms",
+  "chapter": 51,
+  "entries": [
+    {
+      "book": 19,
+      "chapter": 51,
+      "verse": 1,
+      "verses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "osis": "Ps.51.1",
+      "text": "Chapter Outline The psalmist prays for mercy, humbly confessing and lamenting his sins. (1-6) He pleads for pardon, that he may promote the glory of God and the conversion of sinners. (7-15) God is pleased with a contrite heart, A prayer for the prosperity of Zion. (16-19) * Verses 1-6 * David, being convinced of his sin, poured out his soul to God in prayer for mercy and grace.\nWhither should backsliding children return, but to the Lord their God, who alone can heal them? he drew up, by Divine teaching, an account of the workings of his heart toward God. Those that truly repent of their sins, will not be ashamed to own their repentance. Also, he instructs others what to do, and what to say.\nDavid had not only done much, but suffered much in the cause of God; yet he flees to God's infinite mercy, and depends upon that alone for pardon and peace. He begs the pardon of sin. The blood of Christ, sprinkled upon the conscience, blots out the transgression, and, having reconciled us to God, reconciles us to ourselves.\nThe believer longs to have the whole debt of his sins blotted out, and every stain cleansed; he would be thoroughly washed from all his sins; but the hypocrite always has some secret reserve, and would have some favorite lust spared. David had such a deep sense of his sin, that he was continually thinking of it, with sorrow and shame.\nHis sin was committed against God, whose truth we deny by wilful sin; with him we deal deceitfully. And the truly penitent will ever trace back the streams of actual sin to the fountain of original depravity. He confesses his original corruption.\nThis is that foolishness which is bound in the heart of a child, that proneness to evil, and that backwardness to good, which is the burden of the regenerate, and the ruin of the unregenerate. He is encouraged, in his repentance, to hope that God would graciously accept him. Thou desirest truth in the inward part; to this God looks, in a returning sinner. Where there is truth, God will give wisdom.\nThose who sincerely endeavour to do their duty shall be taught their duty; but they will expect good only from Divine grace overcoming their corrupt nature.",
+      "references": [
+        {
+          "text": "Verses 1-6",
+          "ref": "Psalms 51:1-6",
+          "osis": "Ps.51.1",
+          "book": 19,
+          "chapter": 51,
+          "verse": 1,
+          "verses": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      ]
+    },
+    {
+      "book": 19,
+      "chapter": 51,
+      "verse": 7,
+      "verses": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "osis": "Ps.51.7",
+      "text": "* Verses 7-15 * Purge me with hyssop, with the blood of Christ applied to my soul by a lively faith, as the water of purification was sprinkled with a bunch of hyssop. The blood of Christ is called the blood of sprinkling, He 12:24. If this blood of Christ, which cleanses from all sin, cleanse us from our sin, then we shall be clean indeed, He 10:2.\nHe asks not to be comforted, till he is first cleansed; if sin, the bitter root of sorrow, be taken away, he can pray in faith, Let me have a well-grounded peace, of thy creating, so that the bones broken by convictions may rejoice, may be comforted. Hide thy face from my sins; blot out all mine iniquities out of thy book; blot them out, as a cloud is blotted out and dispelled by the beams of the sun.\nAnd the believer desires renewal to holiness as much as the joy of salvation. David now saw, more than ever, what an unclean heart he had, and sadly laments it; but he sees it is not in his own power to amend it, and therefore begs God would create in him a clean heart. When the sinner feels this change is necessary, and reads the promise of God to that purpose, he begins to ask it.\nHe knew he had by his sin grieved the Holy Spirit, and provoked him to withdraw. This he dreads more than anything. He prays that Divine comforts may be restored to him. When we give ourselves cause to doubt our interest in salvation, how can we expect the joy of it? This had made him weak; he prays, I am ready to fall, either into sin or into despair, therefore uphold me with thy Spirit.\nThy Spirit is a free Spirit, a free Agent himself, working freely. And the more cheerful we are in our duty, the more constant we shall be to it. What is this but the liberty wherewith Christ makes his people free, which is contrasted with the yoke of bondage? Ga 5:1. It is the Spirit of adoption spoken to the heart.\nThose to whom God is the God of salvation, he will deliver from guilt; for the salvation he is the God of, is salvation from sin. We may therefore plead with him, Lord, thou art the God of my salvation, therefore deliver me from the dominion of sin. And when the lips are opened, what should they speak but the praises of God for his forgiving mercy?",
+      "references": [
+        {
+          "text": "Verses 7-15",
+          "ref": "Psalms 51:7-15",
+          "osis": "Ps.51.7",
+          "book": 19,
+          "chapter": 51,
+          "verse": 7,
+          "verses": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        },
+        {
+          "text": "He 12:24",
+          "ref": "Hebrews 12:24",
+          "osis": "Heb.12.24",
+          "book": 58,
+          "chapter": 12,
+          "verse": 24
+        },
+        {
+          "text": "He 10:2",
+          "ref": "Hebrews 10:2",
+          "osis": "Heb.10.2",
+          "book": 58,
+          "chapter": 10,
+          "verse": 2
+        },
+        {
+          "text": "Ga 5:1",
+          "ref": "Galatians 5:1",
+          "osis": "Gal.5.1",
+          "book": 48,
+          "chapter": 5,
+          "verse": 1
+        }
+      ]
+    },
+    {
+      "book": 19,
+      "chapter": 51,
+      "verse": 16,
+      "verses": [
+        16,
+        17,
+        18,
+        19
+      ],
+      "osis": "Ps.51.16",
+      "text": "* Verses 16-19 * Those who are thoroughly convinced of their misery and danger by sin, would spare no cost to obtain the remission of it. But as they cannot make satisfaction for sin, so God cannot take any satisfaction in them, otherwise than as expressing love and duty to him. The good work wrought in every true penitent, is a broken spirit, a broken and a contrite heart, and sorrow for sin.\nIt is a heart that is tender, and pliable to God's word. Oh that there were such a heart in every one of us! God is graciously pleased to accept this; it is instead of all burnt-offering and sacrifice. The broken heart is acceptable to God only through Jesus Christ; there is no true repentance without faith in him. Men despise that which is broken, but God will not.\nHe will not overlook it, he will not refuse or reject it; though it makes God no satisfaction for the wrong done to him by sin. Those who have been in spiritual troubles, know how to pity and pray for others afflicted in like manner. David was afraid lest his sin should bring judgements upon the city and kingdom.\nNo personal fears or troubles of conscience can make the soul, which has received grace, careless about the interests of the church of God. And let this be the continued joy of all the redeemed, that they have redemption through the blood of Christ, the forgiveness of sins according to the riches of his grace.",
+      "references": [
+        {
+          "text": "Verses 16-19",
+          "ref": "Psalms 51:16-19",
+          "osis": "Ps.51.16",
+          "book": 19,
+          "chapter": 51,
+          "verse": 16,
+          "verses": [
+            16,
+            17,
+            18,
+            19
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -42,9 +42,11 @@ type ChurchMember = {
 };
 
 const BOARDS: Board[] = ["notice", "general", "group"];
+type HomeSection = "church" | "forum" | "chat";
 
 export function HomePage() {
   const { t } = useTranslation();
+  const [homeSection, setHomeSection] = useState<HomeSection>("forum");
   const [churches, setChurches] = useState<Church[]>([]);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [board, setBoard] = useState<Board>("notice");
@@ -325,108 +327,115 @@ export function HomePage() {
   }
 
   return (
-    <section className="fade-up">
-      <h1 className="brand">{t("nav.home")}</h1>
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("home.forum")}</h2>
-        {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+    <section className="fade-up home-page app-folio" data-testid="home-page">
+      <h1 className="page-title">{t("nav.home")}</h1>
+      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+      <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
+        {(
+          [
+            ["church", t("home.tabChurch")],
+            ["forum", t("home.tabForum")],
+            ["chat", t("home.tabChat")],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={homeSection === id}
+            className={`plans-tab${homeSection === id ? " is-active" : ""}`}
+            data-testid={`home-tab-${id}`}
+            onClick={() => setHomeSection(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {homeSection === "church" && (
+      <div className="panel" data-testid="home-church-panel">
+        <h2>{t("home.myChurches")}</h2>
         <ul className="list">
           {churches.length === 0 && <li className="muted">{t("home.noChurches")}</li>}
           {churches.map((c) => (
             <li key={c.id}>
-              <button type="button" className="linkish" onClick={() => setSelectedChurchId(c.id)}>
-                <strong>{c.name}</strong>
-                {selectedChurchId === c.id ? ` · ${t("home.selected")}` : ""}
+              <button
+                type="button"
+                className={`church-row${selectedChurchId === c.id ? " is-selected" : ""}`}
+                onClick={() => setSelectedChurchId(c.id)}
+              >
+                <div className="church-row-title">
+                  {c.name}
+                  {selectedChurchId === c.id ? ` · ${t("home.selected")}` : ""}
+                </div>
+                <div className="muted">
+                  {c.role}
+                  {c.slug ? ` · ${c.slug}` : ""}
+                  {c.verified ? ` · ${t("me.verified")}` : ""}
+                  {c.securityMode === "hostile" ? (
+                    <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
+                  ) : (
+                    <span> · {t("home.securityMode.standardBadge")}</span>
+                  )}
+                </div>
               </button>
-              <div className="muted">
-                {c.role}
-                {c.slug ? ` · ${c.slug}` : ""}
-                {c.verified ? ` · ${t("me.verified")}` : ""}
-                {c.securityMode === "hostile" ? (
-                  <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
-                ) : (
-                  <span> · {t("home.securityMode.standardBadge")}</span>
-                )}
-              </div>
             </li>
           ))}
         </ul>
-        <div className="field" style={{ marginTop: "1rem" }}>
-          <label>{t("home.createChurch")}</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("home.churchName")}
-          />
-        </div>
-        <div className="field">
-          <label>{t("home.churchSlug")}</label>
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            placeholder="my-church"
-          />
-        </div>
-        <div className="field">
-          <label>{t("home.securityMode")}</label>
-          <select
-            value={securityMode}
-            onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
-          >
-            <option value="standard">{t("home.securityMode.standard")}</option>
-            <option value="hostile">{t("home.securityMode.hostile")}</option>
-          </select>
-        </div>
-        <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
-          {t("home.createChurch")}
-        </button>
 
-        <h3 style={{ marginTop: "1.25rem" }}>{t("home.joinChurch")}</h3>
-        <div className="field">
-          <label>{t("home.joinSlug")}</label>
-          <input
-            value={joinSlug}
-            onChange={(e) => setJoinSlug(e.target.value)}
-            placeholder="my-church"
-          />
-        </div>
-        <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
-          {t("home.joinChurch")}
-        </button>
-      </div>
-
-      {selectedChurchId && canAdmin && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.securityMode")}</h2>
-          <p className="muted">
-            {selectedChurch?.securityMode === "hostile"
-              ? t("home.securityMode.hostileHint")
-              : t("home.securityMode.standardHint")}
-          </p>
-          <div className="toolbar">
-            <button
-              type="button"
-              className={`btn ghost${selectedChurch?.securityMode === "standard" ? " active-toggle" : ""}`}
-              disabled={busy || selectedChurch?.securityMode === "standard"}
-              onClick={() => void switchSecurityMode("standard")}
-            >
-              {t("home.securityMode.standard")}
-            </button>
-            <button
-              type="button"
-              className={`btn ghost${selectedChurch?.securityMode === "hostile" ? " active-toggle" : ""}`}
-              disabled={busy || selectedChurch?.securityMode === "hostile"}
-              onClick={() => void switchSecurityMode("hostile")}
-            >
-              {t("home.securityMode.hostile")}
-            </button>
+        <details className="plans-advanced" style={{ marginTop: "1rem" }}>
+          <summary>{t("home.createChurch")}</summary>
+          <div className="field" style={{ marginTop: "0.75rem" }}>
+            <label>{t("home.churchName")}</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("home.churchName")}
+            />
           </div>
-        </div>
+          <div className="field">
+            <label>{t("home.churchSlug")}</label>
+            <input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder={t("home.slugPlaceholder")}
+            />
+          </div>
+          <div className="field">
+            <label>{t("home.securityMode")}</label>
+            <select
+              value={securityMode}
+              onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
+            >
+              <option value="standard">{t("home.securityMode.standard")}</option>
+              <option value="hostile">{t("home.securityMode.hostile")}</option>
+            </select>
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
+            {t("home.createChurch")}
+          </button>
+        </details>
+
+        <details className="plans-advanced" style={{ marginTop: "0.75rem" }}>
+          <summary>{t("home.joinChurch")}</summary>
+          <div className="field" style={{ marginTop: "0.75rem" }}>
+            <label>{t("home.joinSlug")}</label>
+            <input
+              value={joinSlug}
+              onChange={(e) => setJoinSlug(e.target.value)}
+              placeholder={t("home.slugPlaceholder")}
+            />
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
+            {t("home.joinChurch")}
+          </button>
+        </details>
+      </div>
       )}
 
-      {selectedChurchId && (
+      {homeSection === "church" && selectedChurchId && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.groups")}</h2>
+          <h2>{t("home.groups")}</h2>
           <ul className="list">
             {membershipGroups.length === 0 && <li className="muted">{t("home.noGroups")}</li>}
             {membershipGroups.map((g) => (
@@ -438,85 +447,119 @@ export function HomePage() {
         </div>
       )}
 
-      {selectedChurchId && canAdmin && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.verifyMember")}</h2>
-          <p className="muted">{t("home.membersPending")}</p>
-          <ul className="list">
-            {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
-            {pendingMembers.map((m) => (
-              <li key={m.userId}>
-                <strong>{m.uid ?? m.userId}</strong>
-                <div className="muted">
-                  {m.role} · {m.userId}
-                </div>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy}
-                  onClick={() => void verifyMember(m.userId)}
-                >
-                  {t("home.verify")}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="field" style={{ marginTop: "1rem" }}>
-            <label>{t("home.verifyUserId")}</label>
-            <input
-              value={verifyUserId}
-              onChange={(e) => setVerifyUserId(e.target.value)}
-              placeholder="usr_…"
-            />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void verifyMember()}>
-            {t("home.verify")}
-          </button>
+      {homeSection === "church" && selectedChurchId && canAdmin && (
+        <div className="panel" data-testid="home-admin-panel">
+          <details className="plans-advanced" open={pendingMembers.length > 0}>
+            <summary>{t("home.verifyMember")}</summary>
+            <p className="muted">{t("home.membersPending")}</p>
+            <ul className="list">
+              {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
+              {pendingMembers.map((m) => (
+                <li key={m.userId}>
+                  <strong>{m.uid ?? m.userId}</strong>
+                  <div className="muted">
+                    {m.role} · {m.userId}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    onClick={() => void verifyMember(m.userId)}
+                  >
+                    {t("home.verify")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="field" style={{ marginTop: "1rem" }}>
+              <label>{t("home.verifyUserId")}</label>
+              <input
+                value={verifyUserId}
+                onChange={(e) => setVerifyUserId(e.target.value)}
+                placeholder="usr_…"
+              />
+            </div>
+            <button type="button" className="btn" disabled={busy} onClick={() => void verifyMember()}>
+              {t("home.verify")}
+            </button>
+            <h3>{t("home.createGroup")}</h3>
+            <div className="field">
+              <label>{t("home.groupName")}</label>
+              <input
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder={t("home.groupName")}
+              />
+            </div>
+            <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
+              {t("home.createGroup")}
+            </button>
+          </details>
 
-          <h3 style={{ marginTop: "1.25rem" }}>{t("home.createGroup")}</h3>
-          <div className="field">
-            <label>{t("home.groupName")}</label>
-            <input
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              placeholder={t("home.groupName")}
-            />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
-            {t("home.createGroup")}
-          </button>
+          <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+            <summary>{t("home.securityMode")}</summary>
+            <p className="muted">
+              {selectedChurch?.securityMode === "hostile"
+                ? t("home.securityMode.hostileHint")
+                : t("home.securityMode.standardHint")}
+            </p>
+            <div className="toolbar">
+              <button
+                type="button"
+                className={`btn ghost${selectedChurch?.securityMode === "standard" ? " active-toggle" : ""}`}
+                disabled={busy || selectedChurch?.securityMode === "standard"}
+                onClick={() => void switchSecurityMode("standard")}
+              >
+                {t("home.securityMode.standard")}
+              </button>
+              <button
+                type="button"
+                className={`btn ghost${selectedChurch?.securityMode === "hostile" ? " active-toggle" : ""}`}
+                disabled={busy || selectedChurch?.securityMode === "hostile"}
+                onClick={() => void switchSecurityMode("hostile")}
+              >
+                {t("home.securityMode.hostile")}
+              </button>
+            </div>
+          </details>
+
+          {isAnyAdmin && (
+            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+              <summary>{t("security.adminWipe")}</summary>
+              <p className="muted">{t("security.adminWipeHint")}</p>
+              <div className="field">
+                <label>{t("security.adminWipeUserId")}</label>
+                <input
+                  value={wipeUserId}
+                  onChange={(e) => setWipeUserId(e.target.value)}
+                  placeholder="usr_…"
+                />
+              </div>
+              <div className="field">
+                <label>{t("security.adminWipeDeviceId")}</label>
+                <input
+                  value={wipeDeviceId}
+                  onChange={(e) => setWipeDeviceId(e.target.value)}
+                  placeholder="dev_… (optional)"
+                />
+              </div>
+              <button type="button" className="btn danger" disabled={busy} onClick={() => void adminWipe()}>
+                {t("security.adminWipe")}
+              </button>
+            </details>
+          )}
         </div>
       )}
 
-      {isAnyAdmin && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
-          <p className="muted">{t("security.adminWipeHint")}</p>
-          <div className="field">
-            <label>{t("security.adminWipeUserId")}</label>
-            <input
-              value={wipeUserId}
-              onChange={(e) => setWipeUserId(e.target.value)}
-              placeholder="usr_…"
-            />
-          </div>
-          <div className="field">
-            <label>{t("security.adminWipeDeviceId")}</label>
-            <input
-              value={wipeDeviceId}
-              onChange={(e) => setWipeDeviceId(e.target.value)}
-              placeholder="dev_… (optional)"
-            />
-          </div>
-          <button type="button" className="btn danger" disabled={busy} onClick={() => void adminWipe()}>
-            {t("security.adminWipe")}
-          </button>
-        </div>
-      )}
-
-      {selectedChurchId && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.boards")}</h2>
+      {homeSection === "forum" && selectedChurchId && (
+        <div className="panel" data-testid="home-forum-panel">
+          <h2>{t("home.forumFeed")}</h2>
+          {selectedChurch && (
+            <p className="muted" style={{ marginTop: 0 }}>
+              {selectedChurch.name}
+              {selectedChurch.slug ? ` · ${selectedChurch.slug}` : ""}
+            </p>
+          )}
           <div className="toolbar board-tabs" role="tablist">
             {BOARDS.map((b) => (
               <button
@@ -536,21 +579,29 @@ export function HomePage() {
             {posts.length === 0 && <li className="muted">{t("home.noPosts")}</li>}
             {posts.map((p) => (
               <li key={p.id}>
-                <strong>{p.title}</strong>
-                <p style={{ margin: "0.35rem 0 0" }}>{p.body}</p>
-                {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
-                {p.mediaKey ? (
-                  <p className="muted">
-                    <a href={`/v1/media/${p.mediaKey}`} target="_blank" rel="noreferrer">
-                      {t("home.attachment")}
-                    </a>
+                <article className="post-row">
+                  <div className="post-row-title">{p.title}</div>
+                  <p className="post-row-body">{p.body}</p>
+                  <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.82rem" }}>
+                    {t("home.postedAt")} · {new Date(p.createdAt).toLocaleString()}
                   </p>
-                ) : null}
+                  {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
+                  {p.mediaKey ? (
+                    <p className="muted">
+                      <a href={`/v1/media/${p.mediaKey}`} target="_blank" rel="noreferrer">
+                        {t("home.attachment")}
+                      </a>
+                    </p>
+                  ) : null}
+                </article>
               </li>
             ))}
           </ul>
 
-          <h3 style={{ marginTop: "1.25rem" }}>{t("home.compose")}</h3>
+          <h3>{t("home.compose")}</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("home.composeHint")}
+          </p>
           {board === "group" && (
             <div className="field">
               <label>{t("home.board.group")}</label>
@@ -575,33 +626,42 @@ export function HomePage() {
             <label>{t("home.postBody")}</label>
             <textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
           </div>
-          <div className="field">
-            <label>{t("home.mediaUrl")}</label>
-            <input
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=…"
-            />
-          </div>
-          <div className="field">
-            <label>{t("home.attachment")}</label>
-            <input
-              type="file"
-              accept="image/*,audio/*,video/*"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadAttachment(f);
-              }}
-            />
-            {mediaKey ? <p className="muted">{mediaKey}</p> : null}
-          </div>
+          <details className="plans-advanced">
+            <summary>{t("home.mediaUrl")}</summary>
+            <div className="field" style={{ marginTop: "0.65rem" }}>
+              <label>{t("home.mediaUrl")}</label>
+              <input
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=…"
+              />
+            </div>
+            <div className="field">
+              <label>{t("home.attachment")}</label>
+              <input
+                type="file"
+                accept="image/*,audio/*,video/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadAttachment(f);
+                }}
+              />
+              {mediaKey ? <p className="muted">{mediaKey}</p> : null}
+            </div>
+          </details>
           <button type="button" className="btn" disabled={busy} onClick={() => void composePost()}>
             {t("home.post")}
           </button>
         </div>
       )}
 
-      <ChatPanel />
+      {homeSection === "forum" && !selectedChurchId && (
+        <div className="panel">
+          <p className="muted">{t("home.noChurches")}</p>
+        </div>
+      )}
+
+      {homeSection === "chat" && <ChatPanel />}
     </section>
   );
 }
