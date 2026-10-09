@@ -23,6 +23,7 @@ type Conversation = {
   kind: string;
   title: string | null;
   disappearingTtlSec: number | null;
+  peerUserIds?: string[];
   membership: { id: string; role: string; archived: boolean };
 };
 
@@ -80,20 +81,30 @@ export default function MessagesScreen() {
     setNote(null);
   }, [showArchived]);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
-    const res = await api<{ messages: ChatMessage[] }>(
-      `/v1/chat/conversations/${conversationId}/messages`,
-    );
-    const now = Date.now();
-    const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
-    setMessages(live);
-    const decoded: Record<string, string> = {};
-    for (const m of live) {
-      const pt = await decryptMobileMessage(conversationId, m.ratchetHeader, m.ciphertext);
-      decoded[m.id] = pt ?? "[ciphertext]";
-    }
-    setPlaintexts((prev) => ({ ...prev, ...decoded }));
-  }, []);
+  const loadMessages = useCallback(
+    async (conversationId: string) => {
+      const res = await api<{ messages: ChatMessage[] }>(
+        `/v1/chat/conversations/${conversationId}/messages`,
+      );
+      const now = Date.now();
+      const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+      setMessages(live);
+      const peer =
+        conversations.find((c) => c.id === conversationId)?.peerUserIds?.[0] ?? null;
+      const decoded: Record<string, string> = {};
+      for (const m of live) {
+        const pt = await decryptMobileMessage(
+          conversationId,
+          m.ratchetHeader,
+          m.ciphertext,
+          peer,
+        );
+        decoded[m.id] = pt ?? "[ciphertext]";
+      }
+      setPlaintexts((prev) => ({ ...prev, ...decoded }));
+    },
+    [conversations],
+  );
 
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
@@ -175,7 +186,8 @@ export default function MessagesScreen() {
     setBusy(true);
     try {
       const text = draft.trim();
-      const payload = await encryptMobileMessage(selectedId, text);
+      const peer = selected?.peerUserIds?.[0] ?? null;
+      const payload = await encryptMobileMessage(selectedId, text, peer);
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;

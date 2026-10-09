@@ -24,14 +24,16 @@ echo "$CPACKS" | grep -q 'web-r2'
 echo "$CPACKS" | grep -q 'cuvs-r2'
 echo "$CPACKS" | grep -q '"noTsPacks":true'
 echo "BIBLE_CORPUS_PACKS_OK"
-echo "== bible corpus-catalog (boot slim) =="
+echo "== bible corpus-catalog (boot=和合本+NASB whole-Bible) =="
 CAT=$(curl -sf "$BASE/v1/bible/corpus-catalog")
 echo "$CAT" | head -c 200; echo
 echo "$CAT" | grep -q '"bootDefaults"'
 echo "$CAT" | grep -q '"cuvs"'
+echo "$CAT" | grep -q '"nasb"'
 echo "$CAT" | grep -q '"web"'
 echo "$CAT" | grep -q '"shinKyoudou"'
 echo "$CAT" | grep -q '"installMode":"external"'
+echo "$CAT" | grep -q '"packKind":"whole-bible"'
 echo "BIBLE_CORPUS_CATALOG_OK"
 echo "== seed R2 from JSON fixtures (no TS packs) =="
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

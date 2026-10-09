@@ -77,29 +77,6 @@ export function ChatPanel() {
     setNote(null);
   }, []);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
-    const res = await api<{ messages: ChatMessage[] }>(
-      `/v1/chat/conversations/${conversationId}/messages`,
-    );
-    const now = Date.now();
-    const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
-    setMessages(live);
-    const key = await sessionKeyFor(conversationId);
-    const decoded: Record<string, string> = {};
-    for (const m of live) {
-      try {
-        decoded[m.id] = await decryptChatMessage(conversationId, m.ratchetHeader, m.ciphertext);
-      } catch {
-        try {
-          decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
-        } catch {
-          decoded[m.id] = localStorage.getItem(`lh.msg.${m.id}`) ?? "[ciphertext]";
-        }
-      }
-    }
-    setPlaintexts(decoded);
-  }, []);
-
   const peerFor = useCallback(
     (conversationId: string | null) => {
       if (!conversationId) return null;
@@ -107,6 +84,38 @@ export function ChatPanel() {
       return c?.peerUserIds?.[0] ?? null;
     },
     [conversations],
+  );
+
+  const loadMessages = useCallback(
+    async (conversationId: string) => {
+      const res = await api<{ messages: ChatMessage[] }>(
+        `/v1/chat/conversations/${conversationId}/messages`,
+      );
+      const now = Date.now();
+      const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+      setMessages(live);
+      const key = await sessionKeyFor(conversationId);
+      const peer = peerFor(conversationId);
+      const decoded: Record<string, string> = {};
+      for (const m of live) {
+        try {
+          decoded[m.id] = await decryptChatMessage(
+            conversationId,
+            m.ratchetHeader,
+            m.ciphertext,
+            peer,
+          );
+        } catch {
+          try {
+            decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
+          } catch {
+            decoded[m.id] = localStorage.getItem(`lh.msg.${m.id}`) ?? "[ciphertext]";
+          }
+        }
+      }
+      setPlaintexts(decoded);
+    },
+    [peerFor],
   );
 
   const loadFavorites = useCallback(async () => {
@@ -188,6 +197,8 @@ export function ChatPanel() {
       localStorage.setItem(`lh.msg.${res.id}`, text);
       if (enc.mode === "degraded") {
         setNote("chat_degraded_no_peer_keys");
+      } else if (enc.mode === "product") {
+        setNote(null);
       }
       setDraft("");
       await loadMessages(selectedId);

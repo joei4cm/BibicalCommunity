@@ -61,6 +61,8 @@ echo "== curve25519 x25519 path =="
 bash scripts/smoke-curve25519.sh
 echo "== libsignal workers/browser gap gate =="
 bash scripts/smoke-libsignal-workers.sh
+echo "== product chat signal path (web+mobile createProductSignalClient) =="
+bash scripts/smoke-product-chat-signal.sh
 
 echo "== corpus scaffold inventory + corpus/devotion packs =="
 bash scripts/smoke-corpus-inventory.sh
@@ -73,6 +75,8 @@ echo "MOBILE_READER_SKINS_OK"
 
 echo "== device webcrypto gate =="
 bash scripts/smoke-device-crypto.sh
+echo "== handset-shaped mobile viewport gate =="
+bash scripts/smoke-handset-shaped.sh
 
 echo "== partner live IdP gate (documents OPEN without credentials) =="
 bash scripts/smoke-partner-live-idp.sh | tee /tmp/lh-partner-live.log

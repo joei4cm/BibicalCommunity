@@ -63,14 +63,28 @@ pnpm wrangler deploy -c wrangler.production.toml
 # Health: curl https://<worker-host>/health
 ```
 
-## 6. Seed R2 sample Bible chapters
+## 6. Seed R2 Bible corpora (download path — not TypeScript)
 
-Automated local/prod-shaped seed (CUVS/CUVT/RCUV/CCB/LZZ + 口語訳/新改訳/新共同訳 John.1 scaffolds + entitlements):
+Teaching-set fixtures (boot defaults + peers):
 
 ```bash
 # Against wrangler dev or a deployed Worker origin
 bash scripts/seed-r2-chapters.sh https://api.example.com
 # Expect: SEED_R2_OK
+```
+
+**Public-domain full WEB** (getbible → R2 via platform admin; clients page-download into local DB):
+
+```bash
+# One-shot when CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID are set
+# (and wrangler.production.toml placeholders replaced):
+bash scripts/live-r2-bootstrap.sh
+# Expect: CORPUS_LIVE_R2_OK / LIVE_R2_BOOTSTRAP_OK  — or CORPUS_LIVE_R2_OPEN if secrets missing
+
+# Against an already-deployed Worker:
+LIVE_R2=1 LIVE_API_BASE=https://api.example.com LIVE_R2_SKIP_DEPLOY=1 bash scripts/live-r2-bootstrap.sh
+# Or seed only: bootstrap platform_admin then
+#   node scripts/seed-r2-pd-full.mjs https://api.example.com "$TOKEN" web
 ```
 
 See also `apps/api/scripts/seed-r2-sample.md` for the MEDIA object key format. Licensed full corpora require entitlement grants and publisher contracts — samples are demos only.

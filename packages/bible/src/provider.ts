@@ -1,8 +1,9 @@
 /**
  * Translation chapter resolve path.
  *
- * Verse text is NOT embedded here. Boot ships a few downloadable defaults
- * (cuvs / web / shinKyoudou); everything else is R2 → local DB or external.
+ * Verse text is NOT embedded here. Boot ships whole-Bible defaults
+ * (和合本 cuvs + NASB); everything else is R2 → local DB (whole-Bible download)
+ * or external.
  * Package-level `loadChapter` returns deep-links for external ids and empty
  * R2 stubs for downloadable ids — Workers fill verses from MEDIA.
  */

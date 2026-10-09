@@ -50,7 +50,7 @@ test("probeCorpusPackPipeline reports download path without TS packs", () => {
   const probe = probeCorpusPackPipeline();
   assert.equal(probe.ok, true);
   assert.equal(probe.localCount, 0);
-  assert.equal(probe.bootCount, 3);
+  assert.equal(probe.bootCount, 2);
   assert.ok(probe.downloadableCount >= 8);
   assert.ok(probe.localChapterTotal >= 20);
   assert.equal(probe.noTsPacks, true);

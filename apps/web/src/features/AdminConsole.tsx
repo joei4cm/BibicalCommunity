@@ -66,9 +66,18 @@ type WipeCommand = {
   expiresAt: number;
 };
 
-type Section = "homes" | "users" | "groups" | "wipe";
+type Section = "homes" | "users" | "groups" | "wipe" | "corpus";
 
-const SECTION_IDS: Section[] = ["homes", "users", "groups", "wipe"];
+const SECTION_IDS: Section[] = ["homes", "users", "groups", "wipe", "corpus"];
+
+const PD_CORPUS_TIDS = ["web", "kjv", "asv"] as const;
+
+type PdCorpusStatus = {
+  tid: string;
+  objectCount: number;
+  fullPackLikely: boolean;
+  sampleKeys: string[];
+};
 
 function sectionFromHash(): Section {
   if (typeof window === "undefined") return "homes";
@@ -94,6 +103,10 @@ export function AdminConsole() {
   const [churchName, setChurchName] = useState("");
   const [bootstrapSecret, setBootstrapSecret] = useState("");
   const [churchFilter, setChurchFilter] = useState("");
+  const [pdTid, setPdTid] = useState<(typeof PD_CORPUS_TIDS)[number]>("web");
+  const [pdBookNr, setPdBookNr] = useState(43);
+  const [pdStatuses, setPdStatuses] = useState<PdCorpusStatus[]>([]);
+  const [pdProgress, setPdProgress] = useState<string | null>(null);
 
   const selected = churches.find((c) => c.id === churchId) ?? null;
   const filterQ = churchFilter.trim().toLowerCase();
@@ -194,6 +207,11 @@ export function AdminConsole() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  useEffect(() => {
+    if (section !== "corpus" || !access?.platformAdmin) return;
+    void loadPdStatuses().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [section, access?.platformAdmin]);
 
   function goSection(id: Section) {
     setSection(id);
@@ -336,6 +354,56 @@ export function AdminConsole() {
     });
   }
 
+  async function loadPdStatuses() {
+    const rows: PdCorpusStatus[] = [];
+    for (const tid of PD_CORPUS_TIDS) {
+      const r = await api<PdCorpusStatus>(`/v1/admin/corpus/pd-status/${tid}`);
+      rows.push(r);
+    }
+    setPdStatuses(rows);
+  }
+
+  async function seedPdBook(tid: string, bookNr: number) {
+    return api<{
+      ok: boolean;
+      book: string;
+      chaptersPut: number;
+      nextBookNr: number | null;
+      done: boolean;
+    }>("/v1/admin/corpus/pd-seed", {
+      method: "POST",
+      body: JSON.stringify({ tid, bookNr }),
+    });
+  }
+
+  async function seedOnePdBook() {
+    await run(async () => {
+      setPdProgress(`${pdTid} #${pdBookNr}`);
+      const r = await seedPdBook(pdTid, pdBookNr);
+      setPdProgress(`${r.book} · ${r.chaptersPut}`);
+      setNote("admin.corpusSeedOk");
+      await loadPdStatuses();
+    });
+  }
+
+  async function seedFullPdCanon() {
+    if (!window.confirm(t("admin.corpusSeedAll"))) return;
+    await run(async () => {
+      let bookNr = 1;
+      let total = 0;
+      while (bookNr <= 66) {
+        setPdProgress(`${pdTid} #${bookNr}/66`);
+        const r = await seedPdBook(pdTid, bookNr);
+        total += r.chaptersPut;
+        if (r.done || r.nextBookNr == null) break;
+        bookNr = r.nextBookNr;
+      }
+      setPdProgress(`${pdTid} · ${total}`);
+      setNote("admin.corpusSeedOk");
+      await loadPdStatuses();
+    });
+  }
+
   if (!getToken()) {
     return (
       <section className="fade-up" data-testid="admin-console">
@@ -387,6 +455,9 @@ export function AdminConsole() {
     { id: "users", label: t("admin.sectionUsers") },
     { id: "groups", label: t("admin.sectionGroups") },
     { id: "wipe", label: t("admin.sectionWipe") },
+    ...(access?.platformAdmin
+      ? [{ id: "corpus" as const, label: t("admin.sectionCorpus") }]
+      : []),
   ];
 
   return (
@@ -714,6 +785,94 @@ export function AdminConsole() {
                   </button>
                 </li>
               ))}
+          </ul>
+        </div>
+      )}
+
+      {section === "corpus" && access?.platformAdmin && (
+        <div className="panel" data-testid="admin-corpus-panel">
+          <h2 style={{ marginTop: 0 }}>{t("admin.sectionCorpus")}</h2>
+          <p className="muted">{t("admin.corpusHint")}</p>
+          <div className="toolbar" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label htmlFor="admin-corpus-tid">{t("admin.corpusTid")}</label>
+              <select
+                id="admin-corpus-tid"
+                data-testid="admin-corpus-tid"
+                value={pdTid}
+                onChange={(e) => setPdTid(e.target.value as (typeof PD_CORPUS_TIDS)[number])}
+              >
+                {PD_CORPUS_TIDS.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label htmlFor="admin-corpus-book">{t("admin.corpusBookNr")}</label>
+              <input
+                id="admin-corpus-book"
+                data-testid="admin-corpus-book"
+                type="number"
+                min={1}
+                max={66}
+                value={pdBookNr}
+                onChange={(e) => setPdBookNr(Number(e.target.value) || 1)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy}
+              data-testid="admin-corpus-seed-book"
+              onClick={() => void seedOnePdBook()}
+            >
+              {busy ? t("admin.corpusSeeding") : t("admin.corpusSeedBook")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              data-testid="admin-corpus-seed-all"
+              onClick={() => void seedFullPdCanon()}
+            >
+              {t("admin.corpusSeedAll")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              data-testid="admin-corpus-refresh"
+              onClick={() =>
+                void run(async () => {
+                  await loadPdStatuses();
+                })
+              }
+            >
+              {t("admin.corpusRefresh")}
+            </button>
+          </div>
+          {pdProgress ? (
+            <p className="muted" data-testid="admin-corpus-progress">
+              {pdProgress}
+            </p>
+          ) : null}
+          <ul className="list" data-testid="admin-corpus-status-list">
+            {pdStatuses.length === 0 ? (
+              <li className="muted">—</li>
+            ) : (
+              pdStatuses.map((s) => (
+                <li key={s.tid} data-testid={`admin-corpus-status-${s.tid}`}>
+                  <strong>{s.tid}</strong>
+                  <div className="muted">
+                    {t("admin.corpusStatus")}: {s.objectCount}
+                    {" · "}
+                    {s.fullPackLikely ? t("admin.corpusFull") : t("admin.corpusPartial")}
+                  </div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       )}

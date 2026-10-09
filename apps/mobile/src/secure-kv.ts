@@ -106,4 +106,8 @@ export async function wipeSecureSecrets(keys: string[]): Promise<void> {
   await Promise.all(keys.map((k) => kvDelete(k)));
 }
 
-export const KNOWN_SECRET_KEYS = ["lh.device.priv", "lh.noteKey.jwk"] as const;
+export const KNOWN_SECRET_KEYS = [
+  "lh.device.priv",
+  "lh.product.signal.priv",
+  "lh.noteKey.jwk",
+] as const;

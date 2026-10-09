@@ -18,6 +18,7 @@ export function humanizeStatus(
     admin_wipe_issued: "security.adminWipe",
     "admin.forbidden": "admin.forbidden",
     "admin.bootstrapOk": "admin.bootstrapOk",
+    "admin.corpusSeedOk": "admin.corpusSeedOk",
   };
   const key = map[code];
   return key ? t(key) : code;

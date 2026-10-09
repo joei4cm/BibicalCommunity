@@ -81,7 +81,13 @@ export function buildCorpusPackManifestJson(pack: CorpusPackManifest): string {
 }
 
 function sampleKeysFor(translationId: string, refs: string[]): string[] {
-  return refs.slice(0, 3).flatMap((ref) => {
+  // Prefer teaching anchors when present (whole-Bible packs start at Gen.1).
+  const preferred = ["John.1", "John.3", "Ps.23", "Gen.1"];
+  const pick = [
+    ...preferred.filter((r) => refs.includes(r)),
+    ...refs.filter((r) => !preferred.includes(r)),
+  ].slice(0, 3);
+  return pick.flatMap((ref) => {
     const parts = ref.split(".");
     const book = parts[0];
     const chap = Number(parts[1]);
@@ -91,10 +97,10 @@ function sampleKeysFor(translationId: string, refs: string[]): string[] {
 }
 
 /**
- * Downloadable / boot packs derived from the slim catalog.
+ * Downloadable / boot packs derived from the download catalog.
+ * Boot = 和合本+NASB whole-Bible; others are whole-Bible download packs.
  * `provider` is always `r2` — content lives in MEDIA, not TypeScript.
- * Kept under filter `provider: "local"` historically meant "shipped offline";
- * those rows are gone. Callers should prefer corpus-catalog.
+ * Callers should prefer corpus-catalog for install UX.
  */
 export function buildLocalCorpusPacks(): CorpusPackManifest[] {
   // Intentionally empty — no TypeScript-embedded verse packs.
@@ -212,7 +218,7 @@ export function probeCorpusPackPipeline(): CorpusPackPipelineProbe {
   const bootIds = new Set(BOOT_DEFAULT_TRANSLATION_IDS);
   const downloadIds = new Set(DOWNLOADABLE_TRANSLATION_IDS);
   const ok =
-    boot.length === 3 &&
+    boot.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
     boot.every((p) => bootIds.has(p.translationId as (typeof BOOT_DEFAULT_TRANSLATION_IDS)[number])) &&
     downloadable.length >= 8 &&
     downloadable.some((p) => downloadIds.has(p.translationId as (typeof DOWNLOADABLE_TRANSLATION_IDS)[number])) &&

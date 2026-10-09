@@ -7,14 +7,14 @@ import {
   type PrivacySettings,
   type ThemeId,
 } from "@logoshome/shared";
-import {
-  generateIdentityKeyPair,
-  generateOneTimePrekeys,
-  generateSignedPrekey,
-} from "@logoshome/crypto";
 import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
+import {
+  hasProductIdentity,
+  mintProductIdentityForUpload,
+  PRODUCT_PRIV_KEY,
+} from "../lib/product-signal-chat";
 import { secureGet, secureSet } from "../lib/secure-kv";
 import { humanizeStatus } from "../lib/status";
 
@@ -48,7 +48,7 @@ type PendingWipe = {
   expiresAt: number;
 };
 
-/** Device private material in IndexedDB (`lh-secure`) under `lh.device.priv`. */
+/** Legacy P-256 X3DH private blob (kept for wipe/detect of older installs). */
 const DEVICE_PRIV_KEY = "lh.device.priv";
 
 const DEFAULT_PRIVACY: PrivacySettings = {
@@ -93,7 +93,9 @@ export function MePage() {
   const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
 
   useEffect(() => {
-    void secureGet(DEVICE_PRIV_KEY).then((v) => setHasDeviceKey(!!v));
+    void Promise.all([secureGet(DEVICE_PRIV_KEY), hasProductIdentity()]).then(
+      ([legacy, product]) => setHasDeviceKey(Boolean(legacy) || product),
+    );
   }, []);
 
   async function refreshDevices() {
@@ -317,46 +319,31 @@ export function MePage() {
     }
     setKeyBusy(true);
     try {
-      const identity = await generateIdentityKeyPair();
-      const signedPrekey = await generateSignedPrekey(identity, 1);
-      const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
-      const registrationId = Math.floor(Math.random() * 16380) + 1;
-
-      await secureSet(
-        DEVICE_PRIV_KEY,
-        JSON.stringify({
-          identity,
-          signedPrekey,
-          oneTimePrekeys,
-          registrationId,
-          createdAt: Date.now(),
-        }),
-      );
+      // Product path: createProductSignalClient (browser → x25519), not P-256 TS densify.
+      const bundle = await mintProductIdentityForUpload();
 
       await api("/v1/keys/bundle", {
         method: "PUT",
         body: JSON.stringify({
-          // Include signing pub so peers can verify signed prekeys during X3DH.
-          identityKeyPub: JSON.stringify({
-            ecdh: identity.publicKey,
-            signing: identity.signingPublicKey,
-          }),
-          signedPrekeyPub: JSON.stringify(signedPrekey.publicKey),
-          signedPrekeySig: signedPrekey.signature,
-          signedPrekeyId: signedPrekey.id,
-          registrationId,
+          identityKeyPub: bundle.identityKeyPub,
+          signedPrekeyPub: bundle.signedPrekeyPub,
+          signedPrekeySig: bundle.signedPrekeySig,
+          signedPrekeyId: bundle.signedPrekeyId,
+          registrationId: bundle.registrationId,
         }),
       });
 
-      await api("/v1/keys/prekeys", {
-        method: "PUT",
-        body: JSON.stringify({
-          prekeys: oneTimePrekeys.map((pk) => ({
-            id: pk.id,
-            pub: JSON.stringify(pk.publicKey),
-          })),
-        }),
-      });
+      if (bundle.oneTimePrekeyPub != null && bundle.oneTimePrekeyId != null) {
+        await api("/v1/keys/prekeys", {
+          method: "PUT",
+          body: JSON.stringify({
+            prekeys: [{ id: bundle.oneTimePrekeyId, pub: bundle.oneTimePrekeyPub }],
+          }),
+        });
+      }
+
+      // Mark legacy slot so older wipe/detect paths still see a device key present.
+      await secureSet(DEVICE_PRIV_KEY, `product:${PRODUCT_PRIV_KEY}`);
 
       setHasDeviceKey(true);
       setMsg("keys_uploaded");

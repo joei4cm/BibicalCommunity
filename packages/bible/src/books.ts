@@ -82,5 +82,39 @@ export function listBooks(filter?: { testament?: "ot" | "nt" }): BibleBook[] {
 }
 
 export function getBook(id: string): BibleBook | undefined {
-  return BOOK_LIST.find((b) => b.id === id);
+  return BOOK_LIST.find((b) => b.id === id || b.id.toLowerCase() === id.toLowerCase());
+}
+
+/** WeDevote-style URL slug: Gen → gen, 1Cor → 1cor, Gal → gal */
+export function bookSlug(bookId: string): string {
+  return bookId.toLowerCase();
+}
+
+export function bookIdFromSlug(slug: string): string | undefined {
+  const found = BOOK_LIST.find((b) => b.id.toLowerCase() === slug.toLowerCase());
+  return found?.id;
+}
+
+export type ChapterCursor = { bookId: string; chapter: number };
+
+/** Previous/next chapter across the Protestant canon (WeDevote-style navigation). */
+export function adjacentChapter(
+  bookId: string,
+  chapter: number,
+  direction: -1 | 1,
+): ChapterCursor | null {
+  const books = BOOK_LIST;
+  const idx = books.findIndex((b) => b.id === bookId);
+  if (idx < 0) return null;
+  const book = books[idx]!;
+  const nextChapter = chapter + direction;
+  if (nextChapter >= 1 && nextChapter <= book.chapters) {
+    return { bookId: book.id, chapter: nextChapter };
+  }
+  const neighbor = books[idx + direction];
+  if (!neighbor) return null;
+  return {
+    bookId: neighbor.id,
+    chapter: direction === 1 ? 1 : neighbor.chapters,
+  };
 }

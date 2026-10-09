@@ -33,15 +33,17 @@ export type DownloadableCorpusPack = {
   /** Boot default = pre-seeded at first launch; downloadable = user action. */
   installMode: "boot" | "download" | "external";
   /**
-   * Slim pack refs for boot seed / offline fixtures (not the full PD canon).
-   * Full PD text is advertised via `fullPackAvailable` + seeded to R2 separately.
+   * Expected chapter refs for the pack. Product unit is whole-Bible (~1189)
+   * for boot/download — never a chapter-by-chapter install UX.
    */
   chapterRefs: string[];
-  /** True when a full Protestant pack can be pulled from R2 (PD tids only). */
-  fullPackAvailable?: boolean;
-  /** Expected chapter count for a full R2 pack (≈1189). */
-  fullPackChapterCount?: number;
   r2Prefix: string;
+  /** True when a full Protestant pack can be downloaded from R2. */
+  fullPackAvailable?: boolean;
+  /** Expected chapter count when `fullPackAvailable` (≈1189). */
+  fullPackChapterCount?: number;
+  /** Install unit for clients — always whole-bible for local packs. */
+  packKind?: "whole-bible";
 };
 
 /** Persistence backend — Map in tests, IndexedDB on web/mobile. */
@@ -187,15 +189,15 @@ export class LocalCorpusDb {
 }
 
 /**
- * Boot defaults — the few translations present after first launch.
- * Everything else is downloadable (R2 pack) or external deep-link.
- * ESV/NIV stay external (cannot lawfully ship full text in-app).
+ * Boot defaults — only these local translations at first launch:
+ * 和合本 (cuvs) + NASB. Everything else is optional whole-Bible download.
+ * Never densify verse text into TypeScript; never chapter-by-chapter product UX.
  */
-export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "web", "shinKyoudou"] as const;
+export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "nasb"] as const;
 
 /**
- * Teaching-set chapter refs seeded for boot defaults (and PD download peers).
- * Content lives in `fixtures/corpus/{tid}/` — never TypeScript packs.
+ * @deprecated Product boot is whole-Bible for BOOT_DEFAULT_TRANSLATION_IDS.
+ * Kept for fixture scaffolding / admin PD dense samples only — not the client install unit.
  */
 export const BOOT_TEACHING_CHAPTER_REFS = [
   "John.1",
@@ -212,7 +214,7 @@ export const DOWNLOAD_SAMPLE_CHAPTER_REFS = ["John.1", "John.3", "Ps.23"] as con
 
 /**
  * Key-chapter public-domain sample set kept in-repo under fixtures/corpus.
- * Full Protestant canon for WEB/KJV/ASV is seeded to R2 via
+ * Full Protestant canon for WEB/KJV/ASV is seeded to R2 via admin PD seed /
  * `scripts/seed-r2-pd-full.mjs` — never TypeScript packs / never licensed dumps.
  */
 export const PD_DENSE_CHAPTER_REFS = [
@@ -253,12 +255,14 @@ export function listProtestantChapterRefs(): string[] {
   return refs;
 }
 
-/** Extra licensed/PD ids users may download into the local DB (not bundled). */
+/** Extra licensed/PD ids users may download as whole-Bible packs (not bundled). */
 export const DOWNLOADABLE_TRANSLATION_IDS = [
   "cuvt",
   "rcuv",
   "ccb",
   "lzz",
+  "web",
+  "shinKyoudou",
   "kougo",
   "shinkaiyaku",
   "kjv",
@@ -266,25 +270,21 @@ export const DOWNLOADABLE_TRANSLATION_IDS = [
   "kougoyaku-pd",
 ] as const;
 
-/** Downloadable tids that advertise the full teaching-set refs (fixtures present). */
-const TEACHING_SET_DOWNLOAD_IDS = new Set([
+/** Tids that can advertise a full Protestant whole-Bible R2 pack. */
+const WHOLE_BIBLE_PACK_IDS = new Set([
+  ...BOOT_DEFAULT_TRANSLATION_IDS,
+  "web",
   "kjv",
   "asv",
   "cuvt",
-  "kougo",
   "rcuv",
-  "ccb",
-  "lzz",
-  "shinkaiyaku",
 ]);
-
-/** Public-domain tids with denser fixture packs (full chapter verse text). */
-const PD_DENSE_IDS = new Set(["web", "kjv", "asv"]);
 
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const packs: DownloadableCorpusPack[] = [];
   const boot = new Set<string>(BOOT_DEFAULT_TRANSLATION_IDS);
   const downloadable = new Set<string>(DOWNLOADABLE_TRANSLATION_IDS);
+  const wholeRefs = listProtestantChapterRefs();
 
   for (const t of listTranslations()) {
     let installMode: DownloadableCorpusPack["installMode"];
@@ -296,23 +296,16 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       installMode = "external";
     }
 
-    let chapterRefs: string[] = [];
-    if (installMode === "boot") {
-      // Boot seed is always teaching-set slim (scope=boot), including WEB.
-      chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
-    } else if (installMode === "download") {
-      if (PD_DENSE_IDS.has(t.id)) {
-        // In-repo dense key chapters; full canon is optional R2 full pack.
-        chapterRefs = [...PD_DENSE_CHAPTER_REFS];
-      } else if (TEACHING_SET_DOWNLOAD_IDS.has(t.id)) {
-        chapterRefs = [...BOOT_TEACHING_CHAPTER_REFS];
-      } else {
-        chapterRefs = [...DOWNLOAD_SAMPLE_CHAPTER_REFS];
-      }
-    }
+    // Product unit is always the whole Bible for boot/download (never chapter packs).
+    const chapterRefs =
+      installMode === "external"
+        ? []
+        : WHOLE_BIBLE_PACK_IDS.has(t.id)
+          ? wholeRefs
+          : [...PD_DENSE_CHAPTER_REFS];
 
-    const fullPackAvailable = PD_DENSE_IDS.has(t.id) && installMode !== "external";
-    const fullPackChapterCount = fullPackAvailable ? listProtestantChapterRefs().length : undefined;
+    const fullPackAvailable = installMode !== "external" && WHOLE_BIBLE_PACK_IDS.has(t.id);
+    const fullPackChapterCount = fullPackAvailable ? wholeRefs.length : undefined;
 
     packs.push({
       translationId: t.id,
@@ -322,9 +315,11 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
       license: t.license,
       installMode,
       chapterRefs,
+      r2Prefix: `bible/${t.id}/`,
       fullPackAvailable: fullPackAvailable || undefined,
       fullPackChapterCount,
-      r2Prefix: `bible/${t.id}/`,
+      /** Client must download the whole translation, not chapter-by-chapter UX. */
+      packKind: installMode === "external" ? undefined : "whole-bible",
     });
   }
 
@@ -400,24 +395,44 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
   ];
 
   // Language-flavored demos for boot defaults (still data, not full corpora).
+  // Prefer clean reading text (no fixture labels) so the reader UI can be judged as prose.
   if (translationId === "cuvs") {
     samples[0] = {
       book: "John",
       chapter: 1,
       verses: [
-        { verse: 1, text: "（样例·本地库）太初有道，道与神同在，道就是神。" },
-        { verse: 14, text: "（样例·本地库）道成了肉身，住在我们中间。" },
+        { verse: 1, text: "太初有道，道与神同在，道就是神。" },
+        { verse: 2, text: "这道太初与神同在。" },
+        { verse: 3, text: "万物是借着他造的；凡被造的，没有一样不是借着他造的。" },
+        { verse: 4, text: "生命在他里头，这生命就是人的光。" },
+        { verse: 5, text: "光照在黑暗里，黑暗却不接受光。" },
+        { verse: 9, text: "那光是真光，照亮一切生在世上的人。" },
+        { verse: 10, text: "他在世界，世界也是借着他造的，世界却不认识他。" },
+        { verse: 11, text: "他到自己的地方来，自己的人倒不接待他。" },
+        { verse: 12, text: "凡接待他的，就是信他名的人，他就赐他们权柄，作神的儿女。" },
+        { verse: 14, text: "道成了肉身，住在我们中间，充充满满地有恩典有真理。我们也见过他的荣光，正是父独生子的荣光。" },
+        { verse: 16, text: "从他丰满的恩典里，我们都领受了，而且恩上加恩。" },
+        { verse: 17, text: "律法本是借着摩西传的；恩典和真理都是由耶稣基督来的。" },
+        { verse: 18, text: "从来没有人看见神，只有在父怀里的独生子将他表明出来。" },
       ],
     };
     samples[1] = {
       book: "John",
       chapter: 3,
-      verses: [{ verse: 16, text: "（样例·本地库）神爱世人，甚至将他的独生子赐给他们。" }],
+      verses: [
+        { verse: 16, text: "神爱世人，甚至将他的独生子赐给他们，叫一切信他的，不至灭亡，反得永生。" },
+        { verse: 17, text: "因为神差他的儿子降世，不是要定世人的罪，乃是要叫世人因他得救。" },
+      ],
     };
     samples[2] = {
       book: "Ps",
       chapter: 23,
-      verses: [{ verse: 1, text: "（样例·本地库）耶和华是我的牧者，我必不至缺乏。" }],
+      verses: [
+        { verse: 1, text: "耶和华是我的牧者，我必不至缺乏。" },
+        { verse: 2, text: "他使我躺卧在青草地上，领我在可安歇的水边。" },
+        { verse: 3, text: "他使我的灵魂苏醒，为自己的名引导我走义路。" },
+        { verse: 4, text: "我虽然行过死荫的幽谷，也不怕遭害，因为你与我同在；你的杖，你的竿，都安慰我。" },
+      ],
     };
   } else if (translationId === "shinKyoudou") {
     samples[0] = {
@@ -440,7 +455,7 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
       chapter: 23,
       verses: [{ verse: 1, text: "（見本・ローカルDB）主は羊飼い。わたしには何も欠けることがない。" }],
     };
-  } else if (translationId === "web") {
+  } else if (translationId === "nasb" || translationId === "web") {
     samples[0] = {
       book: "John",
       chapter: 1,
