@@ -2,14 +2,30 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { createId, forumPostSchema, securityModeSchema } from "@logoshome/shared";
+import {
+  createId,
+  forumPostSchema,
+  isAllowedExternalMediaUrl,
+  isOwnedMediaKey,
+  securityModeSchema,
+} from "@logoshome/shared";
 import type { Env } from "../env";
+import { requireMedia } from "../media-binding";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import {
   applyHostilePrivacyFloors,
   applyHostilePrivacyFloorsToChurch,
 } from "../services/hostile-privacy";
+
+function memberGroupIds(membership: { groupIdsJson: string }): string[] {
+  try {
+    const ids = JSON.parse(membership.groupIdsJson || "[]") as unknown;
+    return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export const homeRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 homeRoutes.use("*", requireAuth);
@@ -247,39 +263,65 @@ homeRoutes.get("/:churchId/posts", async (c) => {
         ? and(eq(schema.forumPosts.churchId, churchId), eq(schema.forumPosts.board, board))
         : eq(schema.forumPosts.churchId, churchId),
     );
+
+  // Group board: only return posts for groups the member belongs to.
+  if (board === "group") {
+    const allowed = new Set(memberGroupIds(membership));
+    return c.json({ posts: posts.filter((p) => p.groupId && allowed.has(p.groupId)) });
+  }
+
   return c.json({ posts });
 });
 
 homeRoutes.post("/posts", async (c) => {
   const body = forumPostSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
   const membership = (
     await db
       .select()
       .from(schema.churchMembers)
       .where(
-        and(
-          eq(schema.churchMembers.churchId, body.churchId),
-          eq(schema.churchMembers.userId, c.get("userId")),
-        ),
+        and(eq(schema.churchMembers.churchId, body.churchId), eq(schema.churchMembers.userId, userId)),
       )
       .limit(1)
   )[0];
   if (!membership) return c.json({ error: "forbidden" }, 403);
+
+  if (body.board === "group") {
+    const allowed = memberGroupIds(membership);
+    if (!body.groupId || !allowed.includes(body.groupId)) {
+      return c.json({ error: "group_membership_required" }, 403);
+    }
+  }
+
+  if (body.externalMediaUrl && !isAllowedExternalMediaUrl(body.externalMediaUrl)) {
+    return c.json({ error: "external_media_not_allowed" }, 400);
+  }
+  if (body.mediaKey && !isOwnedMediaKey(body.mediaKey, userId)) {
+    return c.json({ error: "media_key_forbidden" }, 403);
+  }
+  if (body.mediaKey) {
+    const media = requireMedia(c);
+    if (media instanceof Response) return media;
+    const obj = await media.head(body.mediaKey);
+    if (!obj) return c.json({ error: "media_key_not_found" }, 400);
+  }
 
   const id = createId("post");
   await db.insert(schema.forumPosts).values({
     id,
     churchId: body.churchId,
     groupId: body.groupId,
-    authorId: c.get("userId"),
+    authorId: userId,
     board: body.board,
     title: body.title,
     body: body.body,
     externalMediaUrl: body.externalMediaUrl,
+    mediaKey: body.mediaKey,
     createdAt: Date.now(),
   });
-  return c.json({ id }, 201);
+  return c.json({ id, mediaKey: body.mediaKey ?? null }, 201);
 });
 
 const createGroupSchema = z.object({

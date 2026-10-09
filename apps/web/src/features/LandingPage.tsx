@@ -51,13 +51,6 @@ export function LandingPage() {
       </header>
 
       <section className="landing-hero fade-up">
-        <p className="landing-brand">
-          <span className="landing-brand-zh">圣言家</span>
-          <span className="landing-brand-sep" aria-hidden="true">
-            /
-          </span>
-          <span className="landing-brand-en">LogosHome</span>
-        </p>
         <h1 className="landing-headline">{t("landing.headline")}</h1>
         <p className="landing-support">{t("landing.support")}</p>
         <div className="landing-cta">

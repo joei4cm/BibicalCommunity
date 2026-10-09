@@ -1,154 +1,16 @@
+/**
+ * Translation chapter resolve path.
+ *
+ * Verse text is NOT embedded here. Boot ships whole-Bible defaults
+ * (和合本 cuvs + NASB); everything else is R2 → local DB (whole-Bible download)
+ * or external.
+ * Package-level `loadChapter` returns deep-links for external ids and empty
+ * R2 stubs for downloadable ids — Workers fill verses from MEDIA.
+ */
+
+import { assertAllowedContentSource } from "./content-policy.js";
 import { buildExternalUrl, getTranslation, type TranslationMeta } from "./translations.js";
 import { formatRef, type VerseRef } from "./refs.js";
-import { WEB_JOHN_1 } from "./sample-web-john1.js";
-import { KJV_JOHN_1 } from "./sample-kjv-john1.js";
-import { ASV_JOHN_1 } from "./sample-asv-john1.js";
-import { BUNGO_JOHN_1 } from "./sample-bungo-john1.js";
-import { WEB_JOHN_2 } from "./packs/web-john2.js";
-import { WEB_JOHN_3 } from "./packs/web-john3.js";
-import { KJV_JOHN_3 } from "./packs/kjv-john3.js";
-import { ASV_JOHN_3 } from "./packs/asv-john3.js";
-import { WEB_PSALM_23 } from "./sample-web-ps23.js";
-import { KOUGO_JOHN_1 } from "./packs/kougo-john1.js";
-import { CUVT_JOHN_1 } from "./packs/cuvt-john1.js";
-import { CUVS_JOHN_1 } from "./packs/cuvs-john1.js";
-import { CUVS_JOHN_2 } from "./packs/cuvs-john2.js";
-import { RCUV_JOHN_1 } from "./packs/rcuv-john1.js";
-import { SHINKAIYAKU_JOHN_1 } from "./packs/shinkaiyaku-john1.js";
-import { SHIN_KYOUDOU_JOHN_1 } from "./packs/shin-kyoudou-john1.js";
-import { CCB_JOHN_1 } from "./packs/ccb-john1.js";
-import { LZZ_JOHN_1 } from "./packs/lzz-john1.js";
-import { KOUGO_JOHN_2 } from "./packs/kougo-john2.js";
-import { KJV_JOHN_2 } from "./packs/kjv-john2.js";
-import { ASV_JOHN_2 } from "./packs/asv-john2.js";
-import { CUVT_JOHN_2 } from "./packs/cuvt-john2.js";
-import { RCUV_JOHN_2 } from "./packs/rcuv-john2.js";
-import { CCB_JOHN_2 } from "./packs/ccb-john2.js";
-import { LZZ_JOHN_2 } from "./packs/lzz-john2.js";
-import { SHINKAIYAKU_JOHN_2 } from "./packs/shinkaiyaku-john2.js";
-import { SHIN_KYOUDOU_JOHN_2 } from "./packs/shin-kyoudou-john2.js";
-import { KOUGOYAKU_PD_JOHN_2 } from "./packs/kougoyaku-pd-john2.js";
-import { CUVS_JOHN_3 } from "./packs/cuvs-john3.js";
-import { CUVT_JOHN_3 } from "./packs/cuvt-john3.js";
-import { RCUV_JOHN_3 } from "./packs/rcuv-john3.js";
-import { CCB_JOHN_3 } from "./packs/ccb-john3.js";
-import { LZZ_JOHN_3 } from "./packs/lzz-john3.js";
-import { KOUGO_JOHN_3 } from "./packs/kougo-john3.js";
-import { SHINKAIYAKU_JOHN_3 } from "./packs/shinkaiyaku-john3.js";
-import { SHIN_KYOUDOU_JOHN_3 } from "./packs/shin-kyoudou-john3.js";
-import { KOUGOYAKU_PD_JOHN_3 } from "./packs/kougoyaku-pd-john3.js";
-import { WEB_GEN_1 } from "./packs/web-gen1.js";
-import { KJV_GEN_1 } from "./packs/kjv-gen1.js";
-import { ASV_GEN_1 } from "./packs/asv-gen1.js";
-import { WEB_MATT_5 } from "./packs/web-matt5.js";
-import { KJV_MATT_5 } from "./packs/kjv-matt5.js";
-import { ASV_MATT_5 } from "./packs/asv-matt5.js";
-import { WEB_MATT_6 } from "./packs/web-matt6.js";
-import { KJV_MATT_6 } from "./packs/kjv-matt6.js";
-import { ASV_MATT_6 } from "./packs/asv-matt6.js";
-import { CUVS_MATT_6 } from "./packs/cuvs-matt6.js";
-import { KOUGO_MATT_6 } from "./packs/kougo-matt6.js";
-import { WEB_GAL_5 } from "./packs/web-gal5.js";
-import { KJV_GAL_5 } from "./packs/kjv-gal5.js";
-import { ASV_GAL_5 } from "./packs/asv-gal5.js";
-import { CUVS_GAL_5 } from "./packs/cuvs-gal5.js";
-import { KOUGO_GAL_5 } from "./packs/kougo-gal5.js";
-import { WEB_PHIL_4 } from "./packs/web-phil4.js";
-import { KJV_PHIL_4 } from "./packs/kjv-phil4.js";
-import { ASV_PHIL_4 } from "./packs/asv-phil4.js";
-import { CUVS_PHIL_4 } from "./packs/cuvs-phil4.js";
-import { KOUGO_PHIL_4 } from "./packs/kougo-phil4.js";
-import { WEB_1COR_13 } from "./packs/web-1cor13.js";
-import { KJV_1COR_13 } from "./packs/kjv-1cor13.js";
-import { ASV_1COR_13 } from "./packs/asv-1cor13.js";
-import { CUVS_1COR_13 } from "./packs/cuvs-1cor13.js";
-import { KOUGO_1COR_13 } from "./packs/kougo-1cor13.js";
-import { WEB_JOHN_15 } from "./packs/web-john15.js";
-import { KJV_JOHN_15 } from "./packs/kjv-john15.js";
-import { ASV_JOHN_15 } from "./packs/asv-john15.js";
-import { CUVS_JOHN_15 } from "./packs/cuvs-john15.js";
-import { KOUGO_JOHN_15 } from "./packs/kougo-john15.js";
-import { WEB_REV_21 } from "./packs/web-rev21.js";
-import { KJV_REV_21 } from "./packs/kjv-rev21.js";
-import { ASV_REV_21 } from "./packs/asv-rev21.js";
-import { CUVS_REV_21 } from "./packs/cuvs-rev21.js";
-import { KOUGO_REV_21 } from "./packs/kougo-rev21.js";
-import { WEB_JAMES_1 } from "./packs/web-james1.js";
-import { KJV_JAMES_1 } from "./packs/kjv-james1.js";
-import { ASV_JAMES_1 } from "./packs/asv-james1.js";
-import { CUVS_JAMES_1 } from "./packs/cuvs-james1.js";
-import { KOUGO_JAMES_1 } from "./packs/kougo-james1.js";
-import { WEB_COL_3 } from "./packs/web-col3.js";
-import { KJV_COL_3 } from "./packs/kjv-col3.js";
-import { ASV_COL_3 } from "./packs/asv-col3.js";
-import { CUVS_COL_3 } from "./packs/cuvs-col3.js";
-import { KOUGO_COL_3 } from "./packs/kougo-col3.js";
-import { WEB_EPH_2 } from "./packs/web-eph2.js";
-import { KJV_EPH_2 } from "./packs/kjv-eph2.js";
-import { ASV_EPH_2 } from "./packs/asv-eph2.js";
-import { CUVS_EPH_2 } from "./packs/cuvs-eph2.js";
-import { KOUGO_EPH_2 } from "./packs/kougo-eph2.js";
-import { WEB_MATT_28 } from "./packs/web-matt28.js";
-import { KJV_MATT_28 } from "./packs/kjv-matt28.js";
-import { ASV_MATT_28 } from "./packs/asv-matt28.js";
-import { CUVS_MATT_28 } from "./packs/cuvs-matt28.js";
-import { KOUGO_MATT_28 } from "./packs/kougo-matt28.js";
-import { KJV_PSALM_23 } from "./packs/kjv-ps23.js";
-import { ASV_PSALM_23 } from "./packs/asv-ps23.js";
-import { CUVS_GEN_1 } from "./packs/cuvs-gen1.js";
-import { KOUGO_GEN_1 } from "./packs/kougo-gen1.js";
-import { CUVS_PSALM_23 } from "./packs/cuvs-ps23.js";
-import { KOUGO_PSALM_23 } from "./packs/kougo-ps23.js";
-import { WEB_ROM_8 } from "./packs/web-rom8.js";
-import { KJV_ROM_8 } from "./packs/kjv-rom8.js";
-import { ASV_ROM_8 } from "./packs/asv-rom8.js";
-import { CUVS_ROM_8 } from "./packs/cuvs-rom8.js";
-import { KOUGO_ROM_8 } from "./packs/kougo-rom8.js";
-import { WEB_HEB_11 } from "./packs/web-heb11.js";
-import { KJV_HEB_11 } from "./packs/kjv-heb11.js";
-import { ASV_HEB_11 } from "./packs/asv-heb11.js";
-import { CUVS_HEB_11 } from "./packs/cuvs-heb11.js";
-import { KOUGO_HEB_11 } from "./packs/kougo-heb11.js";
-import { WEB_ISA_53 } from "./packs/web-isa53.js";
-import { KJV_ISA_53 } from "./packs/kjv-isa53.js";
-import { ASV_ISA_53 } from "./packs/asv-isa53.js";
-import { CUVS_ISA_53 } from "./packs/cuvs-isa53.js";
-import { KOUGO_ISA_53 } from "./packs/kougo-isa53.js";
-import { WEB_ACTS_2 } from "./packs/web-acts2.js";
-import { KJV_ACTS_2 } from "./packs/kjv-acts2.js";
-import { ASV_ACTS_2 } from "./packs/asv-acts2.js";
-import { CUVS_ACTS_2 } from "./packs/cuvs-acts2.js";
-import { KOUGO_ACTS_2 } from "./packs/kougo-acts2.js";
-import { WEB_PSALM_1 } from "./packs/web-ps1.js";
-import { KJV_PSALM_1 } from "./packs/kjv-ps1.js";
-import { ASV_PSALM_1 } from "./packs/asv-ps1.js";
-import { CUVS_PSALM_1 } from "./packs/cuvs-ps1.js";
-import { KOUGO_PSALM_1 } from "./packs/kougo-ps1.js";
-import { WEB_PROV_3 } from "./packs/web-prov3.js";
-import { KJV_PROV_3 } from "./packs/kjv-prov3.js";
-import { ASV_PROV_3 } from "./packs/asv-prov3.js";
-import { CUVS_PROV_3 } from "./packs/cuvs-prov3.js";
-import { KOUGO_PROV_3 } from "./packs/kougo-prov3.js";
-import { WEB_MARK_1 } from "./packs/web-mark1.js";
-import { KJV_MARK_1 } from "./packs/kjv-mark1.js";
-import { ASV_MARK_1 } from "./packs/asv-mark1.js";
-import { CUVS_MARK_1 } from "./packs/cuvs-mark1.js";
-import { KOUGO_MARK_1 } from "./packs/kougo-mark1.js";
-import { WEB_EXOD_20 } from "./packs/web-exod20.js";
-import { KJV_EXOD_20 } from "./packs/kjv-exod20.js";
-import { ASV_EXOD_20 } from "./packs/asv-exod20.js";
-import { CUVS_EXOD_20 } from "./packs/cuvs-exod20.js";
-import { KOUGO_EXOD_20 } from "./packs/kougo-exod20.js";
-import { WEB_LUKE_2 } from "./packs/web-luke2.js";
-import { KJV_LUKE_2 } from "./packs/kjv-luke2.js";
-import { ASV_LUKE_2 } from "./packs/asv-luke2.js";
-import { CUVS_LUKE_2 } from "./packs/cuvs-luke2.js";
-import { KOUGO_LUKE_2 } from "./packs/kougo-luke2.js";
-import { WEB_DEUT_6 } from "./packs/web-deut6.js";
-import { KJV_DEUT_6 } from "./packs/kjv-deut6.js";
-import { ASV_DEUT_6 } from "./packs/asv-deut6.js";
-import { CUVS_DEUT_6 } from "./packs/cuvs-deut6.js";
-import { KOUGO_DEUT_6 } from "./packs/kougo-deut6.js";
 
 export interface ChapterPayload {
   translationId: string;
@@ -164,10 +26,8 @@ export interface PartnerSsoFlags {
   weread: boolean;
 }
 
-type VerseRow = { verse: number; text: string };
-
 /** Normalize book aliases used by dual-pane / plans / smoke refs. */
-function normalizeBookKey(book: string): string | null {
+export function normalizeBookKey(book: string): string | null {
   const b = book.toLowerCase().replace(/\s+/g, "");
   if (b === "john" || book === "ヨハネ") return "john";
   if (b === "gen" || b === "genesis" || book === "创世记" || book === "創世記") return "gen";
@@ -251,26 +111,26 @@ function normalizeBookKey(book: string): string | null {
   if (b === "jas" || b === "james" || book === "雅各书" || book === "ヤコブ") {
     return "jas";
   }
-  if (
-    b === "col" ||
-    b === "colossians" ||
-    book === "歌罗西书" ||
-    book === "コロサイ"
-  ) {
+  if (b === "col" || b === "colossians" || book === "歌罗西书" || book === "コロサイ") {
     return "col";
   }
-  if (
-    b === "eph" ||
-    b === "ephesians" ||
-    book === "以弗所书" ||
-    book === "エペソ"
-  ) {
+  if (b === "eph" || b === "ephesians" || book === "以弗所书" || book === "エペソ") {
     return "eph";
+  }
+  if (
+    b === "1john" ||
+    b === "1jn" ||
+    b === "1jo" ||
+    book === "约翰一书" ||
+    book === "約翰一書" ||
+    book === "ヨハネの第一の手紙"
+  ) {
+    return "1john";
   }
   return null;
 }
 
-function canonicalBookId(key: string): string {
+export function canonicalBookId(key: string): string {
   switch (key) {
     case "john":
       return "John";
@@ -312,149 +172,12 @@ function canonicalBookId(key: string): string {
       return "Col";
     case "eph":
       return "Eph";
+    case "1john":
+      return "1John";
     default:
       return key;
   }
 }
-
-/**
- * Local PD / scaffold chapter samples for dual-pane / offline reading.
- * Keyed by translationId → bookKey → chapter → verses.
- */
-const LOCAL_SAMPLES: Record<string, Record<string, Record<number, VerseRow[]>>> = {
-  web: {
-    john: { 1: WEB_JOHN_1, 2: WEB_JOHN_2, 3: WEB_JOHN_3, 15: WEB_JOHN_15 },
-    gen: { 1: WEB_GEN_1 },
-    matt: { 5: WEB_MATT_5, 6: WEB_MATT_6, 28: WEB_MATT_28 },
-    gal: { 5: WEB_GAL_5 },
-    phil: { 4: WEB_PHIL_4 },
-    "1cor": { 13: WEB_1COR_13 },
-    rev: { 21: WEB_REV_21 },
-    jas: { 1: WEB_JAMES_1 },
-    col: { 3: WEB_COL_3 },
-    eph: { 2: WEB_EPH_2 },
-    ps: { 1: WEB_PSALM_1, 23: WEB_PSALM_23 },
-    prov: { 3: WEB_PROV_3 },
-    rom: { 8: WEB_ROM_8 },
-    heb: { 11: WEB_HEB_11 },
-    isa: { 53: WEB_ISA_53 },
-    acts: { 2: WEB_ACTS_2 },
-    mark: { 1: WEB_MARK_1 },
-    exod: { 20: WEB_EXOD_20 },
-    luke: { 2: WEB_LUKE_2 },
-    deut: { 6: WEB_DEUT_6 },
-  },
-  kjv: {
-    john: { 1: KJV_JOHN_1, 2: KJV_JOHN_2, 3: KJV_JOHN_3, 15: KJV_JOHN_15 },
-    gen: { 1: KJV_GEN_1 },
-    matt: { 5: KJV_MATT_5, 6: KJV_MATT_6, 28: KJV_MATT_28 },
-    gal: { 5: KJV_GAL_5 },
-    phil: { 4: KJV_PHIL_4 },
-    "1cor": { 13: KJV_1COR_13 },
-    rev: { 21: KJV_REV_21 },
-    jas: { 1: KJV_JAMES_1 },
-    col: { 3: KJV_COL_3 },
-    eph: { 2: KJV_EPH_2 },
-    ps: { 1: KJV_PSALM_1, 23: KJV_PSALM_23 },
-    prov: { 3: KJV_PROV_3 },
-    rom: { 8: KJV_ROM_8 },
-    heb: { 11: KJV_HEB_11 },
-    isa: { 53: KJV_ISA_53 },
-    acts: { 2: KJV_ACTS_2 },
-    mark: { 1: KJV_MARK_1 },
-    exod: { 20: KJV_EXOD_20 },
-    luke: { 2: KJV_LUKE_2 },
-    deut: { 6: KJV_DEUT_6 },
-  },
-  asv: {
-    john: { 1: ASV_JOHN_1, 2: ASV_JOHN_2, 3: ASV_JOHN_3, 15: ASV_JOHN_15 },
-    gen: { 1: ASV_GEN_1 },
-    matt: { 5: ASV_MATT_5, 6: ASV_MATT_6, 28: ASV_MATT_28 },
-    gal: { 5: ASV_GAL_5 },
-    phil: { 4: ASV_PHIL_4 },
-    "1cor": { 13: ASV_1COR_13 },
-    rev: { 21: ASV_REV_21 },
-    jas: { 1: ASV_JAMES_1 },
-    col: { 3: ASV_COL_3 },
-    eph: { 2: ASV_EPH_2 },
-    ps: { 1: ASV_PSALM_1, 23: ASV_PSALM_23 },
-    prov: { 3: ASV_PROV_3 },
-    rom: { 8: ASV_ROM_8 },
-    heb: { 11: ASV_HEB_11 },
-    isa: { 53: ASV_ISA_53 },
-    acts: { 2: ASV_ACTS_2 },
-    mark: { 1: ASV_MARK_1 },
-    exod: { 20: ASV_EXOD_20 },
-    luke: { 2: ASV_LUKE_2 },
-    deut: { 6: ASV_DEUT_6 },
-  },
-  "kougoyaku-pd": {
-    john: { 1: BUNGO_JOHN_1, 2: KOUGOYAKU_PD_JOHN_2, 3: KOUGOYAKU_PD_JOHN_3 },
-  },
-  kougo: {
-    john: { 1: KOUGO_JOHN_1, 2: KOUGO_JOHN_2, 3: KOUGO_JOHN_3, 15: KOUGO_JOHN_15 },
-    gen: { 1: KOUGO_GEN_1 },
-    matt: { 6: KOUGO_MATT_6, 28: KOUGO_MATT_28 },
-    gal: { 5: KOUGO_GAL_5 },
-    phil: { 4: KOUGO_PHIL_4 },
-    "1cor": { 13: KOUGO_1COR_13 },
-    rev: { 21: KOUGO_REV_21 },
-    jas: { 1: KOUGO_JAMES_1 },
-    col: { 3: KOUGO_COL_3 },
-    eph: { 2: KOUGO_EPH_2 },
-    ps: { 1: KOUGO_PSALM_1, 23: KOUGO_PSALM_23 },
-    prov: { 3: KOUGO_PROV_3 },
-    rom: { 8: KOUGO_ROM_8 },
-    heb: { 11: KOUGO_HEB_11 },
-    isa: { 53: KOUGO_ISA_53 },
-    acts: { 2: KOUGO_ACTS_2 },
-    mark: { 1: KOUGO_MARK_1 },
-    exod: { 20: KOUGO_EXOD_20 },
-    luke: { 2: KOUGO_LUKE_2 },
-    deut: { 6: KOUGO_DEUT_6 },
-  },
-  cuvt: {
-    john: { 1: CUVT_JOHN_1, 2: CUVT_JOHN_2, 3: CUVT_JOHN_3 },
-  },
-  cuvs: {
-    john: { 1: CUVS_JOHN_1, 2: CUVS_JOHN_2, 3: CUVS_JOHN_3, 15: CUVS_JOHN_15 },
-    gen: { 1: CUVS_GEN_1 },
-    matt: { 6: CUVS_MATT_6, 28: CUVS_MATT_28 },
-    gal: { 5: CUVS_GAL_5 },
-    phil: { 4: CUVS_PHIL_4 },
-    "1cor": { 13: CUVS_1COR_13 },
-    rev: { 21: CUVS_REV_21 },
-    jas: { 1: CUVS_JAMES_1 },
-    col: { 3: CUVS_COL_3 },
-    eph: { 2: CUVS_EPH_2 },
-    ps: { 1: CUVS_PSALM_1, 23: CUVS_PSALM_23 },
-    prov: { 3: CUVS_PROV_3 },
-    rom: { 8: CUVS_ROM_8 },
-    heb: { 11: CUVS_HEB_11 },
-    isa: { 53: CUVS_ISA_53 },
-    acts: { 2: CUVS_ACTS_2 },
-    mark: { 1: CUVS_MARK_1 },
-    exod: { 20: CUVS_EXOD_20 },
-    luke: { 2: CUVS_LUKE_2 },
-    deut: { 6: CUVS_DEUT_6 },
-  },
-
-  rcuv: {
-    john: { 1: RCUV_JOHN_1, 2: RCUV_JOHN_2, 3: RCUV_JOHN_3 },
-  },
-  shinkaiyaku: {
-    john: { 1: SHINKAIYAKU_JOHN_1, 2: SHINKAIYAKU_JOHN_2, 3: SHINKAIYAKU_JOHN_3 },
-  },
-  shinKyoudou: {
-    john: { 1: SHIN_KYOUDOU_JOHN_1, 2: SHIN_KYOUDOU_JOHN_2, 3: SHIN_KYOUDOU_JOHN_3 },
-  },
-  ccb: {
-    john: { 1: CCB_JOHN_1, 2: CCB_JOHN_2, 3: CCB_JOHN_3 },
-  },
-  lzz: {
-    john: { 1: LZZ_JOHN_1, 2: LZZ_JOHN_2, 3: LZZ_JOHN_3 },
-  },
-};
 
 export type ExternalChapterPayload = {
   external: true;
@@ -463,18 +186,23 @@ export type ExternalChapterPayload = {
   sso: boolean;
 };
 
+/**
+ * Resolve a chapter without reading TypeScript verse packs.
+ * - external → partner/BibleGateway deep-link
+ * - r2 (and legacy local) → empty verses; API Worker loads MEDIA / client uses local DB
+ */
 export async function loadChapter(
   translationId: string,
   ref: VerseRef,
   sso: PartnerSsoFlags = { endao: false, weread: false },
 ): Promise<ChapterPayload | ExternalChapterPayload> {
+  assertAllowedContentSource(translationId);
   const meta = getTranslation(translationId);
   if (!meta) throw new Error(`Unknown translation: ${translationId}`);
 
   if (meta.provider === "external") {
     const url = buildExternalUrl(meta, formatRef(ref));
     if (!url) throw new Error("Missing external URL template");
-    // SSO: when partner supports cross-login, callers attach tokens; else plain deep link.
     const ssoOn = Boolean(meta.ssoFlag && sso[meta.ssoFlag]);
     if (ssoOn) {
       return { external: true, url: `${url}&sso=1`, meta, sso: true as const };
@@ -483,45 +211,15 @@ export async function loadChapter(
   }
 
   const bookKey = normalizeBookKey(ref.book);
-  if (bookKey) {
-    const verses = LOCAL_SAMPLES[meta.id]?.[bookKey]?.[ref.chapter];
-    if (verses) {
-      return {
-        translationId: meta.id,
-        book: canonicalBookId(bookKey),
-        chapter: ref.chapter,
-        verses,
-        source: "local",
-      };
-    }
-  }
+  const book = bookKey ? canonicalBookId(bookKey) : ref.book;
 
-  if (meta.provider === "r2") {
-    // R2 corpus is loaded by the API Worker (MEDIA binding). Package-level
-    // callers get a stub until they fetch via /v1/bible/chapter.
-    if (!meta.available) {
-      throw new Error(`Translation ${translationId} not provisioned in R2 yet`);
-    }
-    return {
-      translationId: meta.id,
-      book: ref.book,
-      chapter: ref.chapter,
-      verses: [],
-      source: "r2",
-    };
-  }
-
+  // Downloadable corpora live in R2 / client local DB — never in this package.
   return {
     translationId: meta.id,
-    book: ref.book,
+    book,
     chapter: ref.chapter,
-    verses: [
-      {
-        verse: 1,
-        text: `[${meta.abbreviation}] Sample placeholder for ${formatRef(ref)}. Full corpus loads from local pack or R2.`,
-      },
-    ],
-    source: "local",
+    verses: [],
+    source: "r2",
   };
 }
 
@@ -532,25 +230,10 @@ export type LocalScaffoldRef = {
   ref: string;
 };
 
-/** Inventory of in-repo dual-pane / offline chapter scaffolds (not full corpora). */
+/**
+ * @deprecated Verse text is no longer embedded in TypeScript.
+ * Returns empty; use `fixtures/corpus/` + corpus-catalog / local DB instead.
+ */
 export function listLocalScaffoldInventory(): LocalScaffoldRef[] {
-  const out: LocalScaffoldRef[] = [];
-  for (const [translationId, books] of Object.entries(LOCAL_SAMPLES)) {
-    for (const [bookKey, chapters] of Object.entries(books)) {
-      for (const chapter of Object.keys(chapters).map(Number)) {
-        const book = canonicalBookId(bookKey);
-        out.push({
-          translationId,
-          book,
-          chapter,
-          ref: `${book}.${chapter}`,
-        });
-      }
-    }
-  }
-  return out.sort((a, b) =>
-    a.translationId === b.translationId
-      ? a.ref.localeCompare(b.ref)
-      : a.translationId.localeCompare(b.translationId),
-  );
+  return [];
 }

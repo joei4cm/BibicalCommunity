@@ -1,0 +1,14 @@
+{
+  "book": "Matt",
+  "chapter": 5,
+  "verses": [
+    {
+      "verse": 3,
+      "text": "（樣例·fixture）虛心的人有福了！因為天國是他們的。"
+    },
+    {
+      "verse": 9,
+      "text": "（樣例·fixture）使人和睦的人有福了！因為他們必稱為神的兒子。"
+    }
+  ]
+}

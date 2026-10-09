@@ -1,0 +1,14 @@
+{
+  "book": "Gen",
+  "chapter": 1,
+  "verses": [
+    {
+      "verse": 1,
+      "text": "（見本・fixture）初めに、神が天と地を創造した。"
+    },
+    {
+      "verse": 3,
+      "text": "（見本・fixture）神は仰せられた。「光よ。あれ。」すると光があった。"
+    }
+  ]
+}

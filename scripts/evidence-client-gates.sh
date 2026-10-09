@@ -22,6 +22,7 @@ const need = [
   "home.joinChurch","home.joinSlug","home.membersPending","plans.advanceDay",
   "plans.devotionPlan","plans.todayReading","me.pendingVerify",
   "admin.title","admin.sectionUsers","admin.sectionHomes","admin.sectionGroups","admin.sectionWipe",
+  "reader.corpusLocal","reader.corpusPartial","reader.corpusLicensedStub",
 ];
 let fail = 0;
 for (const loc of ["zh-CN","en","ja"]) {
@@ -45,10 +46,12 @@ console.log("I18N_KEYS_OK count=" + zh.length);
 console.log("I18N_PARITY_OK");
 '
 
-echo "== reader skins + screen-share gate =="
+echo "== reader skins + theme-pack pipeline + screen-share gate =="
 rg -q 'READER_SKIN_IDS' apps/web/src/lib/reader-skins.ts
+rg -q 'applyThemePack|ThemePackManifest' apps/web/src/lib/reader-skins.ts
 rg -q 'data-reader-skin' apps/web/src/styles/global.css
 rg -q 'reader.skin' packages/shared/src/i18n/catalogs.ts
+bash scripts/smoke-theme-packs.sh
 rg -q 'probeDisplayMedia|canStartScreenShare' apps/web/src/lib/screen-share.ts
 rg -q 'canStartScreenShare' apps/web/src/features/ChatPanel.tsx
 echo "READER_SKINS_OK"
@@ -56,14 +59,24 @@ echo "SCREEN_SHARE_GATE_OK"
 
 echo "== curve25519 x25519 path =="
 bash scripts/smoke-curve25519.sh
+echo "== libsignal workers/browser gap gate =="
+bash scripts/smoke-libsignal-workers.sh
+echo "== product chat signal path (web+mobile createProductSignalClient) =="
+bash scripts/smoke-product-chat-signal.sh
 
-echo "== corpus scaffold inventory + devotion packs =="
+echo "== corpus scaffold inventory + corpus/devotion packs =="
 bash scripts/smoke-corpus-inventory.sh
+bash scripts/smoke-corpus-packs.sh
+bash scripts/smoke-devotion-packs.sh
+echo "== translation resolve path (every registry id) =="
+bash scripts/smoke-translation-resolve.sh
 rg -q 'READER_SKIN_IDS' apps/mobile/src/reader-skins.ts
 echo "MOBILE_READER_SKINS_OK"
 
 echo "== device webcrypto gate =="
 bash scripts/smoke-device-crypto.sh
+echo "== handset-shaped mobile viewport gate =="
+bash scripts/smoke-handset-shaped.sh
 
 echo "== partner live IdP gate (documents OPEN without credentials) =="
 bash scripts/smoke-partner-live-idp.sh | tee /tmp/lh-partner-live.log

@@ -1,14 +1,19 @@
 /**
  * Production Curve25519 / libsignal adapter seam.
  *
- * WebCryptoSignalClient (P-256) ships for Workers/browser portability.
- * Swap this module in when you can load `@signalapp/libsignal-client` (or a
- * WASM build) on the target platform. Keep server as ciphertext courier only.
+ * WebCryptoSignalClient (P-256) and X25519SignalClient ship for Workers/browser
+ * portability. When `@signalapp/libsignal-client` native bindings load (Node),
+ * `createSignalClientAsync("libsignal")` returns a real PQXDH client. Otherwise the
+ * adapter stays fail-closed.
+ *
+ * Native bindings are loaded only via dynamic import so Vite/browser builds never
+ * pull Node-only `@signalapp/libsignal-client` into the web bundle.
  */
 
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "../signal-stub.js";
 import { WebCryptoSignalClient } from "../webcrypto-signal.js";
 import { X25519SignalClient } from "../x25519-signal.js";
+import { OpenE2eeSignalClient } from "./opene2ee-signal.js";
 
 export class LibsignalNotConfiguredError extends Error {
   constructor() {
@@ -42,12 +47,35 @@ export class LibsignalSignalClient implements SignalClient {
   }
 }
 
-export type SignalBackend = "webcrypto" | "libsignal" | "x25519";
+export type SignalBackend = "webcrypto" | "libsignal" | "x25519" | "opene2ee";
+
+/**
+ * True on Cloudflare Workers / browsers — no `@signalapp/libsignal-client` native addon.
+ * Official Signal package has no WASM/browser build (LIBSIGNAL_WORKERS_OPEN).
+ */
+export function isWorkersOrBrowserRuntime(): boolean {
+  const g = globalThis as {
+    WebSocketPair?: unknown;
+    window?: unknown;
+    document?: unknown;
+    navigator?: { userAgent?: string };
+    process?: { versions?: { node?: string } };
+  };
+  // Cloudflare Workers expose WebSocketPair; browsers expose window/document.
+  if (typeof g.WebSocketPair !== "undefined") return true;
+  if (typeof g.window !== "undefined" || typeof g.document !== "undefined") return true;
+  const ua = g.navigator?.userAgent ?? "";
+  if (/Cloudflare-Workers/i.test(ua)) return true;
+  // Node has process.versions.node; absence ⇒ non-Node edge runtime.
+  if (!g.process?.versions?.node) return true;
+  return false;
+}
 
 /**
  * Resolve backend from explicit prefer, else `LOGOSHOME_SIGNAL_BACKEND`
- * (`webcrypto` | `libsignal` | `x25519`) on `globalThis` or Node `process.env`.
+ * (`webcrypto` | `libsignal` | `x25519` | `opene2ee`) on `globalThis` or Node `process.env`.
  * Defaults to webcrypto (portable P-256). `x25519` selects Curve25519 WebCrypto path.
+ * `opene2ee` selects OpenE2EE keys + mutual ECDH (Workers-portable; not official libsignal).
  */
 export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   if (prefer) return prefer;
@@ -58,13 +86,91 @@ export function resolveSignalBackend(prefer?: SignalBackend): SignalBackend {
   const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
   if (env === "libsignal") return "libsignal";
   if (env === "x25519") return "x25519";
+  if (env === "opene2ee") return "opene2ee";
   return "webcrypto";
 }
 
-/** Factory used by apps to pick the active client. */
+/**
+ * Product default for LogosHome clients/Workers:
+ * - Workers/browser → `opene2ee` (PQ-capable pure-TS; not official Signal WASM)
+ * - Node → `libsignal` when env unset (native PQXDH when bindings load)
+ * Env `LOGOSHOME_SIGNAL_BACKEND` still wins when set.
+ * Official `@signalapp/libsignal-client` on Workers remains OPEN upstream.
+ */
+export function resolveProductSignalBackend(prefer?: SignalBackend): SignalBackend {
+  if (prefer) return prefer;
+  const g = globalThis as {
+    LOGOSHOME_SIGNAL_BACKEND?: string;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const env = g.LOGOSHOME_SIGNAL_BACKEND ?? g.process?.env?.LOGOSHOME_SIGNAL_BACKEND ?? "";
+  if (env === "libsignal" || env === "x25519" || env === "webcrypto" || env === "opene2ee") {
+    return env;
+  }
+  if (isWorkersOrBrowserRuntime()) return "opene2ee";
+  return "libsignal";
+}
+
+let nativeClientPromise: Promise<SignalClient | null> | null = null;
+
+/** Dynamic-only — keeps Node native module out of browser bundles. */
+export async function tryCreateNativeLibsignalClient(): Promise<SignalClient | null> {
+  try {
+    const mod = await import(
+      /* @vite-ignore */
+      /* webpackIgnore: true */
+      "./libsignal-native.js"
+    );
+    return mod.tryCreateNativeLibsignalClient();
+  } catch {
+    return null;
+  }
+}
+
+function loadNativeLibsignal(): Promise<SignalClient | null> {
+  if (!nativeClientPromise) nativeClientPromise = tryCreateNativeLibsignalClient();
+  return nativeClientPromise;
+}
+
+/**
+ * Factory used by apps to pick the active client.
+ * For `libsignal`, prefers the native package when bindings load; otherwise
+ * returns the fail-closed stub (callers may await `createSignalClientAsync`).
+ */
 export function createSignalClient(prefer?: SignalBackend): SignalClient {
   const backend = resolveSignalBackend(prefer);
   if (backend === "libsignal") return new LibsignalSignalClient();
+  if (backend === "x25519") return new X25519SignalClient();
+  if (backend === "opene2ee") return new OpenE2eeSignalClient();
+  return new WebCryptoSignalClient();
+}
+
+/** Async factory — resolves native libsignal when available. */
+export async function createSignalClientAsync(prefer?: SignalBackend): Promise<SignalClient> {
+  const backend = resolveSignalBackend(prefer);
+  if (backend === "libsignal") {
+    const native = await loadNativeLibsignal();
+    return native ?? new LibsignalSignalClient();
+  }
+  if (backend === "x25519") return new X25519SignalClient();
+  if (backend === "opene2ee") return new OpenE2eeSignalClient();
+  return new WebCryptoSignalClient();
+}
+
+/**
+ * Product factory: Workers/browser default OpenE2EE; Node prefers native libsignal.
+ * If native bindings fail on Node, falls back to OpenE2EE then X25519 (never fail-closed).
+ * Override via prefer / `LOGOSHOME_SIGNAL_BACKEND`. Official Workers WASM still OPEN.
+ */
+export async function createProductSignalClient(prefer?: SignalBackend): Promise<SignalClient> {
+  const backend = resolveProductSignalBackend(prefer);
+  if (backend === "libsignal") {
+    const native = await loadNativeLibsignal();
+    if (native) return native;
+    // Soft fallback — production chat must work without native addon.
+    return new OpenE2eeSignalClient();
+  }
+  if (backend === "opene2ee") return new OpenE2eeSignalClient();
   if (backend === "x25519") return new X25519SignalClient();
   return new WebCryptoSignalClient();
 }
@@ -73,21 +179,62 @@ export type LibsignalPackageProbe = {
   available: boolean;
   packageName: string;
   reason?: string;
+  nativeRoundtrip?: boolean;
 };
 
 /**
- * Probe whether `@signalapp/libsignal-client` can be dynamically imported.
- * Does not enable the production backend — `LibsignalSignalClient` stays
- * fail-closed until an explicit adapter swap lands.
+ * Probe whether `@signalapp/libsignal-client` can be loaded and (optionally)
+ * perform a native encrypt/decrypt roundtrip.
  */
 export async function probeLibsignalPackage(
   packageName = "@signalapp/libsignal-client",
 ): Promise<LibsignalPackageProbe> {
   try {
     await import(/* @vite-ignore */ /* webpackIgnore: true */ packageName);
-    return { available: true, packageName };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     return { available: false, packageName, reason };
+  }
+
+  const native = await loadNativeLibsignal();
+  if (!native) {
+    return {
+      available: true,
+      packageName,
+      reason: "package resolved but native client failed to initialize",
+      nativeRoundtrip: false,
+    };
+  }
+
+  try {
+    const a = await native.generateIdentity();
+    const b = await native.generateIdentity();
+    const aPriv = JSON.parse(a.privateState) as { userId: string; deviceId: number };
+    const bPriv = JSON.parse(b.privateState) as { userId: string; deviceId: number };
+    const session = await native.establishSession(a.privateState, b.publicBundle);
+    const responder: SecureSession = {
+      remoteUserId: aPriv.userId,
+      remoteDeviceId: String(aPriv.deviceId),
+      stateBlob: JSON.stringify({
+        v: 1,
+        local: bPriv,
+        remoteUserId: aPriv.userId,
+        remoteDeviceId: aPriv.deviceId,
+        role: "responder",
+        remoteIdentityPub: a.publicBundle.identityKeyPub,
+      }),
+    };
+    // Responder private blob must be full PrivateBlob from generateIdentity
+    const responderBlob = JSON.parse(responder.stateBlob) as { local: unknown };
+    responderBlob.local = JSON.parse(b.privateState);
+    responder.stateBlob = JSON.stringify(responderBlob);
+
+    const enc = await native.encrypt(session, "libsignal-probe");
+    const plain = await native.decrypt(responder, enc);
+    if (plain !== "libsignal-probe") throw new Error("roundtrip mismatch: " + plain);
+    return { available: true, packageName, nativeRoundtrip: true };
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return { available: true, packageName, reason, nativeRoundtrip: false };
   }
 }

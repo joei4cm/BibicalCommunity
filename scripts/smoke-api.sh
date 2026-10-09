@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Local API smoke against wrangler dev (default http://127.0.0.1:8787)
 set -euo pipefail
+# Truncate without SIGPIPE under pipefail (echo|head -c fails on large JSON).
+snip() { printf '%s\n' "${1:0:${2:-200}}"; }
 BASE="${1:-http://127.0.0.1:8787}"
 echo "== health =="
-curl -sf "$BASE/health" | head -c 200; echo
+curl -sf "$BASE/health" | head -c 200 || true; echo
 HANDLE="smoke$(date +%s)"
 PASS='SmokeTestPass123!'
 echo "== register (locale=zh short tag) =="
@@ -15,214 +17,75 @@ echo "token=${TOKEN:0:12}… locale=$LOCALE"
 test "$LOCALE" = "zh-CN"
 AUTH="Authorization: Bearer $TOKEN"
 echo "== bible translations =="
-curl -sf "$BASE/v1/bible/translations" | head -c 120; echo
-echo "== chapter WEB John.1 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.1" | head -c 160; echo
-echo "== chapter WEB John.2 =="
-J2=$(curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.2")
-echo "$J2" | head -c 160; echo
-echo "$J2" | grep -q 'wedding in Cana'
-echo "== chapter mainstream John.2 scaffolds =="
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.2" | grep -qE '迦拿|娶亲'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.2" | grep -qE '迦拿|娶親'
-curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.2" | grep -qE '迦拿|娶亲'
-curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.2" | grep -qE '迦拿|婚宴'
-curl -sf "$BASE/v1/bible/chapter?translation=lzz&ref=John.2" | grep -qE '迦拿|婚筵'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.2" | grep -qi 'Cana'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.2" | grep -qi 'Cana'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.2" | grep -q 'カナ'
-curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.2" | grep -q 'カナ'
-curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.2" | grep -q 'カナ'
-curl -sf "$BASE/v1/bible/chapter?translation=kougoyaku-pd&ref=John.2" | grep -qE 'カナ|婚筵'
-echo "JOHN2_MULTILANG_OK"
-echo "== chapter ASV John.3 =="
-A3=$(curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3")
-echo "$A3" | head -c 160; echo
-echo "$A3" | grep -q 'God so loved the world'
-echo "== chapter mainstream John.3 scaffolds (zh/ja) =="
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.3" | grep -qE '神爱世人|独生子'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.3" | grep -qE '神愛世人|獨生子'
-curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.3" | grep -qE '神爱世人|独生子'
-curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.3" | grep -qE '上帝深爱世人|独生子'
-curl -sf "$BASE/v1/bible/chapter?translation=lzz&ref=John.3" | grep -qE '上帝这样地爱了世人|独生子'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.3" | grep -qE 'ニコデモ|ひとり子'
-curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.3" | grep -qE 'ニコデモ|ひとり子'
-curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.3" | grep -qE 'ニコデモ|独り子'
-curl -sf "$BASE/v1/bible/chapter?translation=kougoyaku-pd&ref=John.3" | grep -qE 'ニコデモ|獨り子'
-echo "JOHN3_ZHJA_OK"
-echo "== multi-book scaffolds Gen.1 / Matt.5 / Ps.23 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gen.1" | grep -qiE 'beginning|created'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gen.1" | grep -qiE 'beginning|created'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Gen.1" | grep -qiE 'beginning|created'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.5" | grep -qiE 'poor in spirit|Blessed'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.5" | grep -qiE 'poor in spirit|meek'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.5" | grep -qiE 'poor in spirit|meek'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Ps.23" | grep -qiE 'shepherd'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Ps.23" | grep -qiE 'shepherd'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Ps.23" | grep -qiE 'shepherd'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gen.1" | grep -qE '样例|起初|创造'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gen.1" | grep -qE '見本|創造|はじめに'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.23" | grep -qE '样例|牧者'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.23" | grep -qE '見本|牧者'
-echo "MULTI_BOOK_SCAFFOLD_OK"
-echo "== multi-book NT scaffolds Rom.8 / Heb.11 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rom.8" | grep -qiE 'no condemnation|work together for good'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Rom.8" | grep -qiE 'no condemnation|If God be for us'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Rom.8" | grep -qiE 'no condemnation|work together for good'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Heb.11" | grep -qiE 'faith is assurance|hoped for'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Heb.11" | grep -qiE 'substance of things hoped for|impossible to please'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Heb.11" | grep -qiE 'assurance of things hoped for|conviction'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rom.8" | grep -qE '样例|不定罪'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rom.8" | grep -qE '見本|罪に定められることがない'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Heb.11" | grep -qE '样例|信就是|实底'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Heb.11" | grep -qE '見本|信仰とは'
-echo "MULTI_BOOK_NT_OK"
-echo "== multi-book OT/NT scaffolds Isa.53 / Acts.2 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Isa.53" | grep -qiE 'believed our message|pierced for our transgressions|wounds we are healed'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Isa.53" | grep -qiE 'believed our report|wounded for our transgressions|stripes we are healed'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Isa.53" | grep -qiE 'believed our message|wounded for our transgressions|sheep have gone astray'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Acts.2" | grep -qiE 'Pentecost|Holy Spirit'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Acts.2" | grep -qiE 'Pentecost|Holy Ghost|Repent'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Acts.2" | grep -qiE 'Pentecost|Holy Spirit|mighty wind'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Isa.53" | grep -qE '样例|我们所传的|鞭伤'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Isa.53" | grep -qE '見本|信じ得たか|主の腕'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Acts.2" | grep -qE '样例|五旬节'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Acts.2" | grep -qE '見本|五旬節'
-echo "MULTI_BOOK_OTNT_OK"
-echo "== multi-book wisdom scaffolds Ps.1 / Prov.3 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Ps.1" | grep -qiE 'Blessed is the man|counsel of the wicked'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Ps.1" | grep -qiE 'Blessed is the man|counsel of the ungodly'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Ps.1" | grep -qiE 'Blessed is the man|counsel of the wicked'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Prov.3" | grep -qiE 'Trust in Yahweh|own understanding'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Prov.3" | grep -qiE 'Trust in the LORD|own understanding'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Prov.3" | grep -qiE 'Trust in Jehovah|own understanding'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Ps.1" | grep -qE '样例|恶人的计谋|有福'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Ps.1" | grep -qE '見本|悪しき者|さいわい'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Prov.3" | grep -qE '样例|仰赖耶和华|自己的聪明'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Prov.3" | grep -qE '見本|主に信頼|自分の知識'
-echo "MULTI_BOOK_WISDOM_OK"
-echo "== multi-book law/gospel scaffolds Mark.1 / Exod.20 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Mark.1" | grep -qiE 'beginning of the Good News|Jesus Christ|baptism of repentance'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Mark.1" | grep -qiE 'beginning of the gospel|Son of God|baptism of repentance'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Mark.1" | grep -qiE 'beginning of the gospel|Make ye ready|baptism of repentance'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Exod.20" | grep -qiE 'Yahweh your God|no other gods|Honor your father'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Exod.20" | grep -qiE 'LORD thy God|no other gods|Honour thy father'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Exod.20" | grep -qiE 'Jehovah thy God|no other gods|Honor thy father'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Mark.1" | grep -qE '样例|耶稣基督|福音的起头'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Mark.1" | grep -qE '見本|イエス・キリスト|福音のはじめ'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Exod.20" | grep -qE '样例|耶和华你的神|不可有别的神'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Exod.20" | grep -qE '見本|エジプトの地|神としてはならない'
-echo "MULTI_BOOK_LAW_GOSPEL_OK"
-echo "== multi-book narrative scaffolds Luke.2 / Deut.6 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Luke.2" | grep -qiE 'Caesar Augustus|good news of great joy|Christ the Lord'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Luke.2" | grep -qiE 'Caesar Augustus|manger|Christ the Lord'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Luke.2" | grep -qiE 'Caesar Augustus|good tidings|Christ the Lord'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Deut.6" | grep -qiE 'Hear, Israel|Yahweh is one|love Yahweh your God'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Deut.6" | grep -qiE 'Hear, O Israel|one LORD|love the LORD thy God'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Deut.6" | grep -qiE 'Hear, O Israel|one Jehovah|love Jehovah thy God'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Luke.2" | grep -qE '样例|凯撒|救主'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Luke.2" | grep -qE '見本|アウグスト|救主'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Deut.6" | grep -qE '样例|以色列|独一的主'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Deut.6" | grep -qE '見本|イスラエル|唯一の主'
-echo "MULTI_BOOK_NARRATIVE_OK"
-echo "== multi-book teaching scaffolds Matt.6 / Gal.5 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.6" | grep -qiE 'Our Father|daily bread|seek first'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.6" | grep -qiE 'Our Father|daily bread|kingdom of God'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.6" | grep -qiE 'Our Father|daily bread|his kingdom'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Gal.5" | grep -qiE 'fruit of the Spirit|love, joy, peace|walk by the Spirit'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Gal.5" | grep -qiE 'fruit of the Spirit|Walk in the Spirit|longsuffering'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Gal.5" | grep -qiE 'fruit of the Spirit|Walk by the Spirit|self-control'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Matt.6" | grep -qE '样例|天上的父|先求他的国'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.6" | grep -qE '見本|われらの父|神の国'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Gal.5" | grep -qE '样例|圣灵所结的果子|仁爱'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Gal.5" | grep -qE '見本|御霊の実|愛、喜び'
-echo "MULTI_BOOK_TEACHING_OK"
-echo "== multi-book pastoral scaffolds Phil.4 / 1Cor.13 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Phil.4" | grep -qiE 'Rejoice in the Lord|peace of God|all things through Christ'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Phil.4" | grep -qiE 'Rejoice in the Lord|peace of God|all things through Christ'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Phil.4" | grep -qiE 'Rejoice in the Lord|peace of God|all things in him'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=1Cor.13" | grep -qiE 'don.t have love|Love is patient|greatest of these is love'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=1Cor.13" | grep -qiE 'have not charity|Charity suffereth|greatest of these is charity'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=1Cor.13" | grep -qiE 'have not love|Love suffereth|greatest of these is love'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Phil.4" | grep -qE '样例|常常喜乐|凡事都能做'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Phil.4" | grep -qE '見本|常に喜び|何事でもできる'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=1Cor.13" | grep -qE '样例|恒久忍耐|最大的是爱'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=1Cor.13" | grep -qE '見本|愛は寛容|最も大いなるものは、愛'
-echo "MULTI_BOOK_PASTORAL_OK"
-echo "== multi-book apocalyptic scaffolds John.15 / Rev.21 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=John.15" | grep -qiE 'true vine|branches|Remain in my love|love one another'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.15" | grep -qiE 'true vine|abideth in me|love one another'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.15" | grep -qiE 'true vine|abideth in me|love one another'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rev.21" | grep -qiE 'new heaven and a new earth|wipe away every tear|making all things new'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Rev.21" | grep -qiE 'new heaven and a new earth|wipe away all tears|make all things new'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Rev.21" | grep -qiE 'new heaven and a new earth|wipe away every tear|make all things new'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.15" | grep -qE '样例|真葡萄树|彼此相爱'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.15" | grep -qE '見本|まことのぶどう|互に愛し合う'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rev.21" | grep -qE '样例|新天新地|擦去他们一切的眼泪'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rev.21" | grep -qE '見本|新しい天と新しい地|涙を全くぬぐい'
-echo "MULTI_BOOK_APOCALYPTIC_OK"
-echo "== multi-book wisdom-NT scaffolds Jas.1 / Col.3 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Jas.1" | grep -qiE 'Count it all joy|ask of God|doers of the word'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Jas.1" | grep -qiE 'count it all joy|ask of God|doers of the word'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Jas.1" | grep -qiE 'Count it all joy|ask of God|doers of the word'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Col.3" | grep -qiE 'things that are above|walk in love|word of Christ dwell'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Col.3" | grep -qiE 'things which are above|put on charity|word of Christ dwell'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Col.3" | grep -qiE 'things that are above|put on love|word of Christ dwell'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Jas.1" | grep -qE '样例|大喜乐|行道'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Jas.1" | grep -qE '見本|喜ばしい|実行する人'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Col.3" | grep -qE '样例|上面的事|联络全德'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Col.3" | grep -qE '見本|上にあるもの|愛を加え'
-echo "MULTI_BOOK_WISDOM_NT_OK"
-echo "== multi-book commission/grace scaffolds Matt.28 / Eph.2 =="
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Matt.28" | grep -qiE 'All authority|make disciples|end of the age'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Matt.28" | grep -qiE 'All power|teach all nations|end of the world'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Matt.28" | grep -qiE 'All authority|make disciples|end of the world'
-curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Eph.2" | grep -qiE 'by grace you have been saved|gift of God|good works'
-curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=Eph.2" | grep -qiE 'by grace are ye saved|gift of God|good works'
-curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=Eph.2" | grep -qiE 'by grace have ye been saved|gift of God|good works'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Matt.28" | grep -qE '样例|万民|同在'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Matt.28" | grep -qE '見本|弟子|共にいる'
-curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Eph.2" | grep -qE '样例|本乎恩|行善'
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Eph.2" | grep -qE '見本|恵みにより|良い行い'
-echo "MULTI_BOOK_COMMISSION_GRACE_OK"
-echo "== chapter CUVS John.1 (zh) =="
-
-CUVS=$(curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1")
-echo "$CUVS" | head -c 160; echo
-echo "$CUVS" | grep -q '太初有道'
-echo "== chapter CUVT John.1 (zh) =="
-curl -sf "$BASE/v1/bible/chapter?translation=cuvt&ref=John.1" | grep -q '太初有道'
-echo "== chapter kougo John.1 (ja) =="
-curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.1" | grep -q '初めに言があった'
-echo "== chapter RCUV John.1 (zh) =="
-curl -sf "$BASE/v1/bible/chapter?translation=rcuv&ref=John.1" | grep -q '太初有道'
-echo "== chapter shinkaiyaku John.1 (ja) =="
-# Local scaffold or R2 sample seed both include 初めに…
-curl -sf "$BASE/v1/bible/chapter?translation=shinkaiyaku&ref=John.1" | grep -qE '初めに(ことば|言)が'
-echo "== chapter shinKyoudou John.1 (ja) =="
-curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.1" | grep -q '初めに言があった'
-echo "== chapter CCB John.1 (zh) =="
-# Local scaffold (太初有道) or R2 sample seed (宇宙被造以前…)
-curl -sf "$BASE/v1/bible/chapter?translation=ccb&ref=John.1" | grep -qE '太初有道|宇宙被造以前|道已经存在|道就是'
-echo "== chapter LZZ John.1 (zh) =="
-curl -sf "$BASE/v1/bible/chapter?translation=lzz&ref=John.1" | grep -qE '起初有道|太初有道|道与'
+curl -sf "$BASE/v1/bible/translations" | head -c 120 || true; echo
+echo "== bible corpus-packs =="
+CPACKS=$(curl -sf "$BASE/v1/bible/corpus-packs")
+snip "$CPACKS" 200
+echo "$CPACKS" | grep -q '"packs":\['
+echo "$CPACKS" | grep -q 'web-r2'
+echo "$CPACKS" | grep -q 'cuvs-r2'
+# probe.noTsPacks documents that corpora are not shipped as TypeScript packs
+echo "$CPACKS" | grep -q '"noTsPacks":true'
+echo "BIBLE_CORPUS_PACKS_OK"
+echo "== bible corpus-catalog (boot=和合本+NASB whole-Bible) =="
+CAT=$(curl -sf "$BASE/v1/bible/corpus-catalog")
+snip "$CAT" 200
+echo "$CAT" | grep -q '"bootDefaults"'
+echo "$CAT" | grep -q '"cuvs"'
+echo "$CAT" | grep -q '"nasb"'
+echo "$CAT" | grep -q '"web"'
+echo "$CAT" | grep -q '"shinKyoudou"'
+echo "$CAT" | grep -q '"installMode":"external"'
+echo "$CAT" | grep -q '"packKind":"whole-bible"'
+echo "BIBLE_CORPUS_CATALOG_OK"
+echo "== seed R2 from JSON fixtures (no TS packs) =="
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+(cd "$ROOT" && pnpm --filter @logoshome/bible build >/dev/null)
+node "$ROOT/scripts/seed-r2-from-json-fixtures.mjs" "$BASE" "$TOKEN"
+echo "== chapter boot teaching-set fixtures from R2 =="
+for tid in web cuvs shinKyoudou; do
+  for ref in John.1 John.3 John.14 Ps.23 Rom.8 Matt.5 Gen.1; do
+    body=$(curl -sf "$BASE/v1/bible/chapter?translation=$tid&ref=$ref")
+    echo "$body" | grep -q '"source":"r2"'
+    echo "BOOT_TEACHING_R2_OK tid=$tid ref=$ref"
+  done
+done
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.1" | grep -qE '太初有道|fixture|样例'
+curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=Rom.8" | grep -qE '不定罪|fixture|样例'
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=John.14" | grep -qE '道であり|真理|fixture|見本'
+curl -sf "$BASE/v1/bible/chapter?translation=shinKyoudou&ref=Gen.1" | grep -qE '創造|fixture|見本'
+echo "BOOT_DEFAULT_R2_OK"
+echo "BOOT_TEACHING_PARITY_OK"
+echo "== chapter downloadable PD fixtures =="
+curl -sf "$BASE/v1/bible/chapter?translation=kjv&ref=John.1" | grep -qiE 'beginning|Word|fixture'
+curl -sf "$BASE/v1/bible/chapter?translation=asv&ref=John.3" | grep -qiE 'God so loved|fixture'
+curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=John.1" | grep -qE '初めに|fixture|見本'
+echo "DOWNLOADABLE_R2_OK"
+echo "== missing chapter returns 404 (no TS fallback) =="
+MISS_CODE=$(curl -s -o /tmp/lh-miss.json -w "%{http_code}" "$BASE/v1/bible/chapter?translation=web&ref=John.99")
+test "$MISS_CODE" = "404"
+grep -q 'chapter_not_in_r2' /tmp/lh-miss.json
+echo "NO_TS_FALLBACK_OK"
+echo "== chapter ESV external =="
+curl -sf "$BASE/v1/bible/chapter?translation=esv&ref=John.1" | grep -q '"external":true'
+echo "ESV_EXTERNAL_OK"
 echo "== partner endao chapter sso flag =="
 ENDAO_CH=$(curl -sf "$BASE/v1/bible/chapter?translation=endao&ref=John.1")
-echo "$ENDAO_CH" | head -c 200; echo
+snip "$ENDAO_CH" 200
 echo "$ENDAO_CH" | grep -q '"sso":true'
 echo "$ENDAO_CH" | grep -q 'sso=1'
 echo "ENDAO_SSO_CHAPTER_OK"
 echo "== chapter NIV external =="
-curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
+curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200 || true; echo
 echo "== partner mock authorize =="
 curl -sf -o /dev/null -w "%{http_code}\n" "$BASE/v1/partners/mock-authorize?partner=endao&ref=John.1&redirect_uri=/v1/partners/endao/callback"
 echo "== me =="
-curl -sf -H "$AUTH" "$BASE/v1/me" | head -c 160; echo
+curl -sf -H "$AUTH" "$BASE/v1/me" | head -c 160 || true; echo
 echo "== plans create (non-CSV) =="
 PLAN=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d '{"title":"晨祷计划","description":"smoke","visibility":"private","days":[{"day":1,"ref":"John.1","title":"Begin"},{"day":2,"ref":"John.2","title":"Wedding"}]}' \
   "$BASE/v1/plans")
-echo "$PLAN" | head -c 120; echo
+snip "$PLAN" 120
 echo "$PLAN" | grep -q '"id":"plan_'
 echo "PLAN_CREATE_OK"
 PLAN_ID=$(echo "$PLAN" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
@@ -232,7 +95,7 @@ CSV_IMP=$(curl -sf -X POST -H "$AUTH" \
   -F "title=CSV灵修计划" \
   -F "csv=$CSV_BODY" \
   "$BASE/v1/plans/import-csv")
-echo "$CSV_IMP" | head -c 160; echo
+snip "$CSV_IMP" 160
 echo "$CSV_IMP" | grep -q '"id":"plan_'
 CSV_ID=$(echo "$CSV_IMP" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 test -n "$CSV_ID"
@@ -249,7 +112,7 @@ echo "$PUB" | grep -q '"visibility":"public"'
 PUB_ID=$(echo "$PUB" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);const p=(j.plans||[]).find(x=>x.title&&x.title.includes("公开"));if(!p)throw new Error("no public plan");process.stdout.write(p.id)})')
 SUB=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' -d '{}' \
   "$BASE/v1/plans/$PUB_ID/subscribe")
-echo "$SUB" | head -c 160; echo
+snip "$SUB" 160
 echo "$SUB" | grep -q '"id":"psub_'
 PROG=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
   -d '{"day":1}' "$BASE/v1/plans/$PUB_ID/progress")
@@ -259,7 +122,7 @@ echo "PLAN_CSV_SUBSCRIBE_OK"
 echo "== plans devotion step persist =="
 DEVOTION=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
   -d '{"step":"read","materialId":"morning-examen"}' "$BASE/v1/plans/$PUB_ID/devotion")
-echo "$DEVOTION" | head -c 200; echo
+snip "$DEVOTION" 200
 echo "$DEVOTION" | grep -q '"ok":true'
 echo "$DEVOTION" | grep -q '"devotionStep":"read"'
 echo "$DEVOTION" | grep -q '"devotionMaterialId":"morning-examen"'
@@ -278,32 +141,32 @@ echo "PLAN_DEVOTION_STEP_OK"
 test -n "$PLAN_ID"
 echo "== turn credentials =="
 curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' -d '{}' \
-  "$BASE/v1/calls/turn-credentials" | head -c 200; echo
+  "$BASE/v1/calls/turn-credentials" | head -c 200 || true; echo
 echo "== partners status =="
-curl -sf "$BASE/v1/partners/status" | head -c 200; echo
+curl -sf "$BASE/v1/partners/status" | head -c 200 || true; echo
 echo "== partner SSO mock closed loop =="
 SSO_STATUS=$(curl -sf "$BASE/v1/partners/status")
 echo "$SSO_STATUS" | grep -q '"endao":{"ssoEnabled":true'
 echo "$SSO_STATUS" | grep -q '"weread":{"ssoEnabled":true'
 echo "SSO_STATUS_OK"
 SSO_START=$(curl -sf "$BASE/v1/partners/endao/start?ref=John.1")
-echo "$SSO_START" | head -c 240; echo
+snip "$SSO_START" 240
 echo "$SSO_START" | grep -q 'mock-authorize'
 echo "$SSO_START" | grep -q '"mockIdp":true'
 echo "SSO_START_OK"
 WEREAD_START=$(curl -sf "$BASE/v1/partners/weread/start?ref=John.1")
-echo "$WEREAD_START" | head -c 240; echo
+snip "$WEREAD_START" 240
 echo "$WEREAD_START" | grep -q 'mock-authorize'
 echo "$WEREAD_START" | grep -q '"mockIdp":true'
 echo "$WEREAD_START" | grep -q '"partner":"weread"'
 echo "WEREAD_SSO_START_OK"
 SSO_LOOP=$(curl -sfL "$BASE/v1/partners/endao/start?ref=John.1&redirect=1")
-echo "$SSO_LOOP" | head -c 240; echo
+snip "$SSO_LOOP" 240
 echo "$SSO_LOOP" | grep -q '"ok":true'
 echo "$SSO_LOOP" | grep -q '"mock":true'
 echo "SSO_LOOP_OK"
 WEREAD_LOOP=$(curl -sfL "$BASE/v1/partners/weread/start?ref=John.1&redirect=1")
-echo "$WEREAD_LOOP" | head -c 240; echo
+snip "$WEREAD_LOOP" 240
 echo "$WEREAD_LOOP" | grep -q '"ok":true'
 echo "$WEREAD_LOOP" | grep -q '"mock":true'
 echo "$WEREAD_LOOP" | grep -q '"partner":"weread"'
@@ -343,7 +206,7 @@ echo "UNARCHIVE_OK"
 echo "== call create + turn =="
 CALL=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"conversationId\":\"$CID\"}" "$BASE/v1/chat/calls")
-echo "$CALL" | head -c 200; echo
+snip "$CALL" 200
 echo "$CALL" | grep -q "signalingPath"
 echo "CALL_SIGNAL_OK"
 echo "== call websocket joined =="
@@ -416,7 +279,7 @@ process.exit(0);
 ' "$WS_URL" "$WS_URL2"
 
 echo "== peer key bundle list (empty until upload) =="
-curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
+curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160 || true; echo
 
 echo "== auth-then-P2P key distribution =="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

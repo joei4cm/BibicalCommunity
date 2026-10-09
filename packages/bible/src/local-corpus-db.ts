@@ -1,0 +1,544 @@
+/**
+ * Local corpus database — verses live in a store after download/install,
+ * not as compile-time TypeScript chapter packs in the app hot path.
+ *
+ * Server: R2 holds chapter JSON. Client: IndexedDB (`lh-bible`) or an
+ * in-memory store (tests / Node). Boot ships only a few default tids;
+ * everything else is downloaded on demand.
+ */
+
+import { listBooks } from "./books.js";
+import { r2ChapterObjectKey, type R2ChapterJson } from "./r2-format.js";
+import { getTranslation, listTranslations, type TranslationMeta } from "./translations.js";
+
+export type LocalChapterRecord = R2ChapterJson & {
+  translationId: string;
+  /** ISO time when this chapter was installed into the local DB. */
+  installedAt: string;
+};
+
+export type InstalledTranslationSummary = {
+  translationId: string;
+  chapterCount: number;
+  chapterRefs: string[];
+  installedAt: string;
+};
+
+export type DownloadableCorpusPack = {
+  translationId: string;
+  version: number;
+  name: TranslationMeta["name"];
+  language: TranslationMeta["language"];
+  license: TranslationMeta["license"];
+  /** Boot default = pre-seeded at first launch; downloadable = user action. */
+  installMode: "boot" | "download" | "external";
+  /**
+   * Expected chapter refs for the pack. Product unit is whole-Bible (~1189)
+   * for boot/download — never a chapter-by-chapter install UX.
+   */
+  chapterRefs: string[];
+  r2Prefix: string;
+  /** True when a full Protestant pack can be downloaded from R2. */
+  fullPackAvailable?: boolean;
+  /** Expected chapter count when `fullPackAvailable` (≈1189). */
+  fullPackChapterCount?: number;
+  /** Install unit for clients — always whole-bible for local packs. */
+  packKind?: "whole-bible";
+};
+
+/** Persistence backend — Map in tests, IndexedDB on web/mobile. */
+export interface LocalCorpusStore {
+  getChapter(
+    translationId: string,
+    book: string,
+    chapter: number,
+  ): Promise<LocalChapterRecord | null>;
+  putChapter(record: LocalChapterRecord): Promise<void>;
+  deleteTranslation(translationId: string): Promise<void>;
+  listChapterKeys(translationId?: string): Promise<
+    Array<{ translationId: string; book: string; chapter: number; installedAt: string }>
+  >;
+  clear(): Promise<void>;
+}
+
+function chapterKey(translationId: string, book: string, chapter: number): string {
+  return `${translationId}/${book}.${chapter}`;
+}
+
+/** In-memory store for unit tests and Node smoke. */
+export class MemoryLocalCorpusStore implements LocalCorpusStore {
+  private readonly map = new Map<string, LocalChapterRecord>();
+
+  async getChapter(
+    translationId: string,
+    book: string,
+    chapter: number,
+  ): Promise<LocalChapterRecord | null> {
+    return this.map.get(chapterKey(translationId, book, chapter)) ?? null;
+  }
+
+  async putChapter(record: LocalChapterRecord): Promise<void> {
+    this.map.set(chapterKey(record.translationId, record.book, record.chapter), record);
+  }
+
+  async deleteTranslation(translationId: string): Promise<void> {
+    for (const key of [...this.map.keys()]) {
+      if (key.startsWith(`${translationId}/`)) this.map.delete(key);
+    }
+  }
+
+  async listChapterKeys(translationId?: string) {
+    const out: Array<{
+      translationId: string;
+      book: string;
+      chapter: number;
+      installedAt: string;
+    }> = [];
+    for (const rec of this.map.values()) {
+      if (translationId && rec.translationId !== translationId) continue;
+      out.push({
+        translationId: rec.translationId,
+        book: rec.book,
+        chapter: rec.chapter,
+        installedAt: rec.installedAt,
+      });
+    }
+    return out.sort((a, b) =>
+      `${a.translationId}.${a.book}.${a.chapter}`.localeCompare(
+        `${b.translationId}.${b.book}.${b.chapter}`,
+      ),
+    );
+  }
+
+  async clear(): Promise<void> {
+    this.map.clear();
+  }
+}
+
+export class LocalCorpusDb {
+  constructor(private readonly store: LocalCorpusStore) {}
+
+  async getChapter(
+    translationId: string,
+    book: string,
+    chapter: number,
+  ): Promise<LocalChapterRecord | null> {
+    return this.store.getChapter(translationId, book, chapter);
+  }
+
+  async installChapter(
+    translationId: string,
+    chapter: R2ChapterJson,
+    installedAt = new Date().toISOString(),
+  ): Promise<LocalChapterRecord> {
+    const record: LocalChapterRecord = {
+      translationId,
+      book: chapter.book,
+      chapter: chapter.chapter,
+      verses: chapter.verses.map((v) => ({ verse: v.verse, text: v.text })),
+      installedAt,
+    };
+    await this.store.putChapter(record);
+    return record;
+  }
+
+  /** Install a multi-chapter download pack into the local DB. */
+  async installPack(
+    translationId: string,
+    chapters: R2ChapterJson[],
+    installedAt = new Date().toISOString(),
+  ): Promise<{ translationId: string; installed: number }> {
+    let installed = 0;
+    for (const ch of chapters) {
+      await this.installChapter(translationId, ch, installedAt);
+      installed += 1;
+    }
+    return { translationId, installed };
+  }
+
+  async removeTranslation(translationId: string): Promise<void> {
+    await this.store.deleteTranslation(translationId);
+  }
+
+  async listInstalled(): Promise<InstalledTranslationSummary[]> {
+    const keys = await this.store.listChapterKeys();
+    const byTid = new Map<string, InstalledTranslationSummary>();
+    for (const k of keys) {
+      const ref = `${k.book}.${k.chapter}`;
+      const cur = byTid.get(k.translationId);
+      if (!cur) {
+        byTid.set(k.translationId, {
+          translationId: k.translationId,
+          chapterCount: 1,
+          chapterRefs: [ref],
+          installedAt: k.installedAt,
+        });
+      } else {
+        cur.chapterCount += 1;
+        cur.chapterRefs.push(ref);
+        if (k.installedAt < cur.installedAt) cur.installedAt = k.installedAt;
+      }
+    }
+    for (const s of byTid.values()) s.chapterRefs.sort();
+    return [...byTid.values()].sort((a, b) => a.translationId.localeCompare(b.translationId));
+  }
+
+  async clear(): Promise<void> {
+    await this.store.clear();
+  }
+}
+
+/**
+ * Boot defaults — only these local translations at first launch:
+ * 和合本 (cuvs) + NASB. Everything else is optional whole-Bible download.
+ * Never densify verse text into TypeScript; never chapter-by-chapter product UX.
+ */
+export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "nasb"] as const;
+
+/**
+ * @deprecated Product boot is whole-Bible for BOOT_DEFAULT_TRANSLATION_IDS.
+ * Kept for fixture scaffolding / admin PD dense samples only — not the client install unit.
+ */
+export const BOOT_TEACHING_CHAPTER_REFS = [
+  "John.1",
+  "John.3",
+  "John.14",
+  "Ps.23",
+  "Rom.8",
+  "Matt.5",
+  "Gen.1",
+] as const;
+
+/** Slim sample refs for downloadable peers that only ship a few fixtures. */
+export const DOWNLOAD_SAMPLE_CHAPTER_REFS = ["John.1", "John.3", "Ps.23"] as const;
+
+/**
+ * Key-chapter public-domain sample set kept in-repo under fixtures/corpus.
+ * Full Protestant canon for WEB/KJV/ASV is seeded to R2 via admin PD seed /
+ * `scripts/seed-r2-pd-full.mjs` — never TypeScript packs / never licensed dumps.
+ */
+export const PD_DENSE_CHAPTER_REFS = [
+  "Gen.1",
+  "Exod.20",
+  "Ps.1",
+  "Ps.23",
+  "Prov.3",
+  "Isa.53",
+  "Matt.5",
+  "Matt.6",
+  "Matt.28",
+  "Mark.1",
+  "Luke.2",
+  "John.1",
+  "John.3",
+  "John.14",
+  "John.15",
+  "Acts.2",
+  "Rom.8",
+  "Rom.12",
+  "1Cor.13",
+  "Eph.2",
+  "Phil.4",
+  "Col.3",
+  "Heb.11",
+  "Jas.1",
+  "1John.4",
+  "Rev.21",
+] as const;
+
+/** Full Protestant canon refs (for PD tids whose R2 prefix holds complete text). */
+export function listProtestantChapterRefs(): string[] {
+  const refs: string[] = [];
+  for (const b of listBooks()) {
+    for (let c = 1; c <= b.chapters; c += 1) refs.push(`${b.id}.${c}`);
+  }
+  return refs;
+}
+
+/** Extra licensed/PD ids users may download as whole-Bible packs (not bundled). */
+export const DOWNLOADABLE_TRANSLATION_IDS = [
+  "cuvt",
+  "rcuv",
+  "ccb",
+  "lzz",
+  "web",
+  "shinKyoudou",
+  "kougo",
+  "shinkaiyaku",
+  "kjv",
+  "asv",
+  "kougoyaku-pd",
+] as const;
+
+/** Tids that can advertise a full Protestant whole-Bible R2 pack. */
+const WHOLE_BIBLE_PACK_IDS = new Set([
+  ...BOOT_DEFAULT_TRANSLATION_IDS,
+  "web",
+  "kjv",
+  "asv",
+  "cuvt",
+  "rcuv",
+]);
+
+export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
+  const packs: DownloadableCorpusPack[] = [];
+  const boot = new Set<string>(BOOT_DEFAULT_TRANSLATION_IDS);
+  const downloadable = new Set<string>(DOWNLOADABLE_TRANSLATION_IDS);
+  const wholeRefs = listProtestantChapterRefs();
+
+  for (const t of listTranslations()) {
+    let installMode: DownloadableCorpusPack["installMode"];
+    if (t.provider === "external") installMode = "external";
+    else if (boot.has(t.id)) installMode = "boot";
+    else if (downloadable.has(t.id) || t.provider === "r2" || t.provider === "local") {
+      installMode = "download";
+    } else {
+      installMode = "external";
+    }
+
+    // Product unit is always the whole Bible for boot/download (never chapter packs).
+    const chapterRefs =
+      installMode === "external"
+        ? []
+        : WHOLE_BIBLE_PACK_IDS.has(t.id)
+          ? wholeRefs
+          : [...PD_DENSE_CHAPTER_REFS];
+
+    const fullPackAvailable = installMode !== "external" && WHOLE_BIBLE_PACK_IDS.has(t.id);
+    const fullPackChapterCount = fullPackAvailable ? wholeRefs.length : undefined;
+
+    packs.push({
+      translationId: t.id,
+      version: 1,
+      name: t.name,
+      language: t.language,
+      license: t.license,
+      installMode,
+      chapterRefs,
+      r2Prefix: `bible/${t.id}/`,
+      fullPackAvailable: fullPackAvailable || undefined,
+      fullPackChapterCount,
+      /** Client must download the whole translation, not chapter-by-chapter UX. */
+      packKind: installMode === "external" ? undefined : "whole-bible",
+    });
+  }
+
+  return packs.sort((a, b) => {
+    const order = { boot: 0, download: 1, external: 2 };
+    const d = order[a.installMode] - order[b.installMode];
+    return d !== 0 ? d : a.translationId.localeCompare(b.translationId);
+  });
+}
+
+export function getBootDefaultMeta(): TranslationMeta[] {
+  return BOOT_DEFAULT_TRANSLATION_IDS.map((id) => getTranslation(id)).filter(
+    (t): t is TranslationMeta => Boolean(t),
+  );
+}
+
+export type DownloadPackPayload = {
+  translationId: string;
+  version: number;
+  chapters: R2ChapterJson[];
+};
+
+export function parseDownloadPackPayload(raw: string): DownloadPackPayload {
+  const data = JSON.parse(raw) as Partial<DownloadPackPayload>;
+  if (typeof data.translationId !== "string" || !Array.isArray(data.chapters)) {
+    throw new Error("invalid_download_pack");
+  }
+  return {
+    translationId: data.translationId,
+    version: typeof data.version === "number" ? data.version : 1,
+    chapters: data.chapters.map((ch) => ({
+      book: String(ch.book),
+      chapter: Number(ch.chapter),
+      verses: (ch.verses ?? []).map((v) => ({
+        verse: Number(v.verse),
+        text: String(v.text),
+      })),
+    })),
+  };
+}
+
+export function buildDownloadPackPayloadJson(pack: DownloadPackPayload): string {
+  return JSON.stringify(pack);
+}
+
+/** Minimal demo chapters used to seed boot/download packs without TS densify. */
+export function buildDemoDownloadPack(translationId: string): DownloadPackPayload {
+  const meta = getTranslation(translationId);
+  const abbr = meta?.abbreviation ?? translationId;
+  const samples: R2ChapterJson[] = [
+    {
+      book: "John",
+      chapter: 1,
+      verses: [
+        { verse: 1, text: `[${abbr}] In the beginning was the Word (local-db demo).` },
+        { verse: 14, text: `[${abbr}] The Word became flesh (local-db demo).` },
+      ],
+    },
+    {
+      book: "John",
+      chapter: 3,
+      verses: [
+        { verse: 16, text: `[${abbr}] For God so loved the world (local-db demo).` },
+      ],
+    },
+    {
+      book: "Ps",
+      chapter: 23,
+      verses: [
+        { verse: 1, text: `[${abbr}] The Lord is my shepherd (local-db demo).` },
+      ],
+    },
+  ];
+
+  // Language-flavored demos for boot defaults (still data, not full corpora).
+  // Prefer clean reading text (no fixture labels) so the reader UI can be judged as prose.
+  if (translationId === "cuvs") {
+    samples[0] = {
+      book: "John",
+      chapter: 1,
+      verses: [
+        { verse: 1, text: "太初有道，道与神同在，道就是神。" },
+        { verse: 2, text: "这道太初与神同在。" },
+        { verse: 3, text: "万物是借着他造的；凡被造的，没有一样不是借着他造的。" },
+        { verse: 4, text: "生命在他里头，这生命就是人的光。" },
+        { verse: 5, text: "光照在黑暗里，黑暗却不接受光。" },
+        { verse: 9, text: "那光是真光，照亮一切生在世上的人。" },
+        { verse: 10, text: "他在世界，世界也是借着他造的，世界却不认识他。" },
+        { verse: 11, text: "他到自己的地方来，自己的人倒不接待他。" },
+        { verse: 12, text: "凡接待他的，就是信他名的人，他就赐他们权柄，作神的儿女。" },
+        { verse: 14, text: "道成了肉身，住在我们中间，充充满满地有恩典有真理。我们也见过他的荣光，正是父独生子的荣光。" },
+        { verse: 16, text: "从他丰满的恩典里，我们都领受了，而且恩上加恩。" },
+        { verse: 17, text: "律法本是借着摩西传的；恩典和真理都是由耶稣基督来的。" },
+        { verse: 18, text: "从来没有人看见神，只有在父怀里的独生子将他表明出来。" },
+      ],
+    };
+    samples.splice(
+      1,
+      0,
+      {
+        book: "John",
+        chapter: 2,
+        verses: [
+          { verse: 1, text: "第三日，在加利利的迦拿有娶亲的筵席，耶稣的母亲在那里。" },
+          { verse: 2, text: "耶稣和他的门徒也被请去赴席。" },
+          { verse: 3, text: "酒用尽了，耶稣的母亲对他说：「他们没有酒了。」" },
+          { verse: 4, text: "耶稣说：「母亲，我与你有什么相干？我的时候还没有到。」" },
+          { verse: 5, text: "他母亲对用人说：「他告诉你们什么，你们就做什么。」" },
+          { verse: 6, text: "照犹太人洁净的规矩，有六口石缸摆在那里，每口可以盛两三桶水。" },
+          { verse: 7, text: "耶稣对用人说：「把缸倒满了水。」他们就倒满了，直到缸口。" },
+          { verse: 8, text: "耶稣又说：「现在可以舀出来，送给管筵席的。」他们就送了去。" },
+          { verse: 9, text: "管筵席的尝了那水变的酒，并不知道是哪里来的，只有舀水的用人知道。管筵席的便叫新郎来，" },
+          { verse: 10, text: "对他说：「人都是先摆上好酒，等客喝足了才摆上次的；你倒把好酒留到如今！」" },
+          { verse: 11, text: "这是耶稣所行的头一件神迹，是在加利利的迦拿行的，显出他的荣耀来；他的门徒就信他了。" },
+        ],
+      },
+    );
+    samples[2] = {
+      book: "John",
+      chapter: 3,
+      verses: [
+        { verse: 16, text: "神爱世人，甚至将他的独生子赐给他们，叫一切信他的，不至灭亡，反得永生。" },
+        { verse: 17, text: "因为神差他的儿子降世，不是要定世人的罪，乃是要叫世人因他得救。" },
+      ],
+    };
+    samples[3] = {
+      book: "Ps",
+      chapter: 23,
+      verses: [
+        { verse: 1, text: "耶和华是我的牧者，我必不至缺乏。" },
+        { verse: 2, text: "他使我躺卧在青草地上，领我在可安歇的水边。" },
+        { verse: 3, text: "他使我的灵魂苏醒，为自己的名引导我走义路。" },
+        { verse: 4, text: "我虽然行过死荫的幽谷，也不怕遭害，因为你与我同在；你的杖，你的竿，都安慰我。" },
+      ],
+    };
+  } else if (translationId === "shinKyoudou") {
+    samples[0] = {
+      book: "John",
+      chapter: 1,
+      verses: [
+        { verse: 1, text: "（見本・ローカルDB）初めに言があった。言は神と共にあった。" },
+        { verse: 14, text: "（見本・ローカルDB）言は肉となって、わたしたちの間に宿られた。" },
+      ],
+    };
+    samples[1] = {
+      book: "John",
+      chapter: 3,
+      verses: [
+        { verse: 16, text: "（見本・ローカルDB）神は、その独り子をお与えになったほどに、世を愛された。" },
+      ],
+    };
+    samples[2] = {
+      book: "Ps",
+      chapter: 23,
+      verses: [{ verse: 1, text: "（見本・ローカルDB）主は羊飼い。わたしには何も欠けることがない。" }],
+    };
+  } else if (translationId === "nasb" || translationId === "web") {
+    samples[0] = {
+      book: "John",
+      chapter: 1,
+      verses: [
+        {
+          verse: 1,
+          text: "In the beginning was the Word, and the Word was with God, and the Word was God. (local-db)",
+        },
+        {
+          verse: 14,
+          text: "The Word became flesh and lived among us. (local-db)",
+        },
+      ],
+    };
+  }
+
+  return { translationId, version: 1, chapters: samples };
+}
+
+export type LocalCorpusPipelineProbe = {
+  ok: boolean;
+  bootDefaults: string[];
+  downloadableCount: number;
+  externalCount: number;
+  sampleR2Key: string;
+  installedAfterBoot: number;
+};
+
+/** Prove boot→install→read path without embedding full TS corpora. */
+export async function probeLocalCorpusPipeline(
+  store: LocalCorpusStore = new MemoryLocalCorpusStore(),
+): Promise<LocalCorpusPipelineProbe> {
+  const db = new LocalCorpusDb(store);
+  await db.clear();
+
+  const catalog = listDownloadableCorpusCatalog();
+  const boot = catalog.filter((p) => p.installMode === "boot");
+  const downloadable = catalog.filter((p) => p.installMode === "download");
+  const external = catalog.filter((p) => p.installMode === "external");
+
+  for (const id of BOOT_DEFAULT_TRANSLATION_IDS) {
+    const pack = buildDemoDownloadPack(id);
+    await db.installPack(id, pack.chapters);
+  }
+
+  const installed = await db.listInstalled();
+  const john1 = await db.getChapter("cuvs", "John", 1);
+  const ok =
+    boot.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
+    boot.every((b) => (BOOT_DEFAULT_TRANSLATION_IDS as readonly string[]).includes(b.translationId)) &&
+    downloadable.length >= 5 &&
+    external.some((e) => e.translationId === "esv") &&
+    installed.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
+    (john1?.verses.length ?? 0) >= 2 &&
+    Boolean(john1?.verses[0]?.text.includes("太初有道") || john1?.verses[0]?.text.includes("本地库"));
+
+  return {
+    ok,
+    bootDefaults: [...BOOT_DEFAULT_TRANSLATION_IDS],
+    downloadableCount: downloadable.length,
+    externalCount: external.length,
+    sampleR2Key: r2ChapterObjectKey("cuvs", "John", 1),
+    installedAfterBoot: installed.reduce((n, s) => n + s.chapterCount, 0),
+  };
+}

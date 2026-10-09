@@ -132,7 +132,7 @@ else
   bad "no *.sql files under migrations/"
 fi
 
-for expected in 0001_init.sql 0002_groups_favorites.sql 0003_entitlements_prekeys.sql 0004_devotion_step.sql 0005_platform_admin.sql; do
+for expected in 0001_init.sql 0002_groups_favorites.sql 0003_entitlements_prekeys.sql 0004_devotion_step.sql 0005_platform_admin.sql 0006_forum_media_key.sql 0007_corpus_d1_fallback.sql; do
   if [[ -f "$MIG/$expected" ]]; then
     ok "migration $expected"
   else

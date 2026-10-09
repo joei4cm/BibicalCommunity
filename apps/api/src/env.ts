@@ -1,6 +1,11 @@
 export type Env = {
   DB: D1Database;
-  MEDIA: R2Bucket;
+  /**
+   * R2 media/corpus bucket. Optional only for temporary preview deploys
+   * (`wrangler.temporary.toml`) where preview accounts cannot create R2.
+   * Production and local wrangler.toml always bind MEDIA.
+   */
+  MEDIA?: R2Bucket;
   CALL_ROOM: DurableObjectNamespace;
   APP_NAME: string;
   ENVIRONMENT: string;
@@ -8,8 +13,12 @@ export type Env = {
   WEREAD_SSO_ENABLED: string;
   /** Ephemeral TURN HMAC secret (coturn REST style). Default: dev-turn-secret */
   TURN_SECRET?: string;
-  /** JSON array of TURN/STUN URIs. Default: ["stun:stun.cloudflare.com:3478"] */
+  /** JSON array of TURN/STUN URIs. Include turn:/turns: for real relay. */
   TURN_URIS?: string;
+  /** Cloudflare Calls TURN key id (optional; enables real turn: relays). */
+  TURN_CF_KEY_ID?: string;
+  /** Cloudflare API token that can mint Calls TURN credentials. */
+  TURN_CF_API_TOKEN?: string;
   HANDLE_PEPPER?: string;
   KEK_MASTER?: string;
   /** When true (default), SSO start uses local mock IdP instead of partner authorize URL. */

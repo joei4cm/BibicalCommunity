@@ -79,14 +79,17 @@ flowchart LR
 
 ## Bible translations strategy
 
-| Priority | Language | Examples | Hosting |
-| --- | --- | --- | --- |
-| PD / permissive | en | KJV, ASV, WEB | Bundle or R2 |
-| Licensed | zh | CUV, RCUV, CCB, 吕振中… | R2 + entitlement; or deep link |
-| Licensed | ja | 新共同訳, 口語訳, 新改訳… | R2 + entitlement; or deep link |
-| Partner | zh | 恩道、微读 | Deep link; SSO if partner supports OAuth/OIDC |
+**Do not embed full Bible corpora in TypeScript.** Verses are data: server R2 chapter JSON + client local DB after download.
 
-`packages/bible` exposes a `TranslationProvider` interface: `local | r2 | external`. UI always lists all registered translations; unavailable ones open partner apps/sites.
+| Mode | Examples | Where text lives |
+| --- | --- | --- |
+| **Boot defaults** (few) | 和合本简体 `cuvs`, NASB | Seeded as **whole-Bible** packs into client IndexedDB (`lh-bible`) on first launch; also served from R2 when present |
+| **Downloadable** | WEB, CUVT, RCUV, CCB, 吕振中, 口語訳, 新共同訳, KJV, ASV… | User downloads **whole Bible** → install into local DB; source of truth is R2 (`bible/{tid}/Book.N.json`) — never per-chapter product UX |
+| **External** | ESV, NIV, 恩道, 微读, 思高… | Deep link / partner SSO — not stored in-app (license) |
+
+Reader UX follows WeDevote-style chapter routes (`/app/bible/{tid}/{book}/{chapter}`), continuous prose, and prev/next across the canon.
+
+`packages/bible` exposes `TranslationProvider`: `r2 | external` (legacy `local` retired), plus `LocalCorpusDb` + `/v1/bible/corpus-catalog` + `/v1/bible/corpus-download/:tid`. Reader prefers **local DB**, then API/R2. Corpora are imported as **JSON fixtures** (`fixtures/corpus/{tid}/Book.N.json`) via `corpus-import` / `seed-r2-from-json-fixtures.mjs`. **`packages/bible/src/packs/` must not exist** — do not densify verse text into TypeScript.
 
 ## Environments
 

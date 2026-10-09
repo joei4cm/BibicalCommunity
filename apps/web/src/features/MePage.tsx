@@ -7,15 +7,23 @@ import {
   type PrivacySettings,
   type ThemeId,
 } from "@logoshome/shared";
-import {
-  generateIdentityKeyPair,
-  generateOneTimePrekeys,
-  generateSignedPrekey,
-} from "@logoshome/crypto";
 import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
+import {
+  hasProductIdentity,
+  mintProductIdentityForUpload,
+  PRODUCT_PRIV_KEY,
+} from "../lib/product-signal-chat";
+import {
+  loadProductSignalPrefer,
+  saveProductSignalPrefer,
+  type ProductSignalPrefer,
+} from "../lib/product-signal-prefer";
+import { secureGet, secureSet } from "../lib/secure-kv";
 import { humanizeStatus } from "../lib/status";
+
+type MeSection = "account" | "profile" | "privacy" | "devices";
 
 type MeChurch = {
   churchId: string;
@@ -47,11 +55,7 @@ type PendingWipe = {
   expiresAt: number;
 };
 
-/**
- * Device private material in localStorage under `lh.device.priv`.
- * NOT production-secure storage — use platform secure enclave / IndexedDB
- * wrapped keys before shipping E2EE.
- */
+/** Legacy P-256 X3DH private blob (kept for wipe/detect of older installs). */
 const DEVICE_PRIV_KEY = "lh.device.priv";
 
 const DEFAULT_PRIVACY: PrivacySettings = {
@@ -66,6 +70,7 @@ const DEFAULT_PRIVACY: PrivacySettings = {
 
 export function MePage() {
   const { t, i18n } = useTranslation();
+  const [meSection, setMeSection] = useState<MeSection>("account");
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
@@ -81,9 +86,58 @@ export function MePage() {
   const [authBusy, setAuthBusy] = useState(false);
   const [wipeUserId, setWipeUserId] = useState("");
   const [wipeDeviceId, setWipeDeviceId] = useState("");
-  const [hasDeviceKey, setHasDeviceKey] = useState(
-    () => typeof localStorage !== "undefined" && !!localStorage.getItem(DEVICE_PRIV_KEY),
+  const [hasDeviceKey, setHasDeviceKey] = useState(false);
+  const [signalPrefer, setSignalPrefer] = useState<ProductSignalPrefer>(() =>
+    loadProductSignalPrefer(),
   );
+  const [devices, setDevices] = useState<
+    {
+      id: string;
+      platform: string;
+      name: string | null;
+      revoked: boolean;
+      createdAt: number;
+      hasIdentityKey: boolean;
+      isCurrent: boolean;
+    }[]
+  >([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
+  const [themeId, setThemeId] = useState<ThemeId>(
+    () => (localStorage.getItem("lh.theme") as ThemeId) ?? "day",
+  );
+
+  useEffect(() => {
+    void Promise.all([secureGet(DEVICE_PRIV_KEY), hasProductIdentity()]).then(
+      ([legacy, product]) => setHasDeviceKey(Boolean(legacy) || product),
+    );
+  }, []);
+
+  async function refreshDevices() {
+    if (!getToken()) {
+      setDevices([]);
+      setCurrentDeviceId(null);
+      return;
+    }
+    const res = await api<{
+      currentDeviceId: string;
+      devices: typeof devices;
+    }>("/v1/me/devices");
+    setCurrentDeviceId(res.currentDeviceId);
+    setDevices(res.devices);
+  }
+
+  async function revokeDevice(deviceId: string) {
+    setAuthBusy(true);
+    try {
+      await api(`/v1/me/devices/${encodeURIComponent(deviceId)}/revoke`, { method: "POST" });
+      await refreshDevices();
+      setMsg("device_revoked");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "error");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
 
   const isChurchAdmin = profile?.churches?.some(
     (c) => c.role === "admin" || c.role === "security_officer",
@@ -136,6 +190,7 @@ export function MePage() {
 
   useEffect(() => {
     void refresh().catch(() => undefined);
+    void refreshDevices().catch(() => undefined);
     void checkPendingWipe();
   }, []);
 
@@ -278,47 +333,38 @@ export function MePage() {
     }
     setKeyBusy(true);
     try {
-      const identity = await generateIdentityKeyPair();
-      const signedPrekey = await generateSignedPrekey(identity, 1);
-      const oneTimePrekeys = await generateOneTimePrekeys(5, 1);
-      const registrationId = Math.floor(Math.random() * 16380) + 1;
-
-      // Private material — localStorage is NOT production-secure storage.
-      localStorage.setItem(
-        DEVICE_PRIV_KEY,
-        JSON.stringify({
-          identity,
-          signedPrekey,
-          oneTimePrekeys,
-          registrationId,
-          createdAt: Date.now(),
-        }),
-      );
+      // Product path: createProductSignalClient (default x25519; opt-in OpenE2EE).
+      saveProductSignalPrefer(signalPrefer);
+      const bundle = await mintProductIdentityForUpload();
 
       await api("/v1/keys/bundle", {
         method: "PUT",
         body: JSON.stringify({
-          // Include signing pub so peers can verify signed prekeys during X3DH.
-          identityKeyPub: JSON.stringify({
-            ecdh: identity.publicKey,
-            signing: identity.signingPublicKey,
-          }),
-          signedPrekeyPub: JSON.stringify(signedPrekey.publicKey),
-          signedPrekeySig: signedPrekey.signature,
-          signedPrekeyId: signedPrekey.id,
-          registrationId,
+          identityKeyPub: bundle.identityKeyPub,
+          signedPrekeyPub: bundle.signedPrekeyPub,
+          signedPrekeySig: bundle.signedPrekeySig,
+          signedPrekeyId: bundle.signedPrekeyId,
+          registrationId: bundle.registrationId,
         }),
       });
 
-      await api("/v1/keys/prekeys", {
-        method: "PUT",
-        body: JSON.stringify({
-          prekeys: oneTimePrekeys.map((pk) => ({
-            id: pk.id,
-            pub: JSON.stringify(pk.publicKey),
-          })),
-        }),
-      });
+      const prekeys: { id: number; pub: string }[] = [];
+      if (bundle.oneTimePrekeyPub != null && bundle.oneTimePrekeyId != null) {
+        prekeys.push({ id: bundle.oneTimePrekeyId, pub: bundle.oneTimePrekeyPub });
+      }
+      // Courier-store Kyber last-resort pub as an OPK slot when OpenE2EE is selected.
+      if (bundle.kyberPrekeyPub != null && bundle.kyberPrekeyId != null) {
+        prekeys.push({ id: bundle.kyberPrekeyId, pub: bundle.kyberPrekeyPub });
+      }
+      if (prekeys.length) {
+        await api("/v1/keys/prekeys", {
+          method: "PUT",
+          body: JSON.stringify({ prekeys }),
+        });
+      }
+
+      // Mark legacy slot so older wipe/detect paths still see a device key present.
+      await secureSet(DEVICE_PRIV_KEY, `product:${PRODUCT_PRIV_KEY}`);
 
       setHasDeviceKey(true);
       setMsg("keys_uploaded");
@@ -384,31 +430,82 @@ export function MePage() {
   function setTheme(theme: ThemeId) {
     localStorage.setItem("lh.theme", theme);
     applyTheme(theme);
+    setThemeId(theme);
   }
 
+  const themeLabel = (id: ThemeId) => {
+    const key = `me.theme${id[0]!.toUpperCase()}${id.slice(1)}` as const;
+    const mapped: Record<ThemeId, string> = {
+      day: t("me.themeDay"),
+      sepia: t("me.themeSepia"),
+      night: t("me.themeNight"),
+      highContrast: t("me.themeHighContrast"),
+    };
+    return mapped[id] ?? key;
+  };
+
+  const signedIn = Boolean(profile?.uid);
+
   return (
-    <section className="fade-up">
-      <h1 className="brand">{t("nav.me")}</h1>
+    <section className="fade-up me-page app-folio" data-testid="me-page">
+      <h1 className="page-title">{t("nav.me")}</h1>
 
       {pendingWipes.length > 0 && (
-        <div className="panel" role="alert" style={{ borderColor: "var(--danger, #b33)" }}>
+        <div className="panel" role="alert">
           <p>{t("security.wipePending")}</p>
         </div>
       )}
 
-      <div className="panel" data-testid="me-auth-panel">
-        {(profile?.uid || msg) && (
-          <p className="auth-status" role="status" data-testid="me-auth-status">
-            {profile?.uid ? (
-              <>
-                UID: <strong data-testid="me-uid">{profile.uid}</strong>
-                {msg ? ` · ${humanizeStatus(t, msg)}` : null}
-              </>
-            ) : (
-              humanizeStatus(t, msg)
-            )}
+      {signedIn ? (
+        <div className="folio-hero" data-testid="me-auth-status">
+          <p className="folio-hero-name">{nickname || profile?.nickname || profile?.uid}</p>
+          <p className="folio-hero-meta">
+            {t("me.signedIn")} · UID <strong data-testid="me-uid">{profile?.uid}</strong>
+            {msg ? ` · ${humanizeStatus(t, msg)}` : null}
           </p>
-        )}
+        </div>
+      ) : (
+        <div className="panel folio-gate" data-testid="me-welcome-gate">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("me.gateWelcome")}
+          </p>
+          {msg ? (
+            <p className="auth-status" role="status" data-testid="me-auth-status">
+              {humanizeStatus(t, msg)}
+            </p>
+          ) : null}
+        </div>
+      )}
+
+      {signedIn && (
+        <div className="plans-tabs" role="tablist" data-testid="me-section-tabs">
+          {(
+            [
+              ["account", "me.tabAccount"],
+              ["profile", "me.tabProfile"],
+              ["privacy", "me.tabPrivacy"],
+              ["devices", "me.tabDevices"],
+            ] as const
+          ).map(([id, key]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={meSection === id}
+              className={`plans-tab${meSection === id ? " is-active" : ""}`}
+              data-testid={`me-tab-${id}`}
+              onClick={() => setMeSection(id)}
+            >
+              {t(key)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(!signedIn || meSection === "account") && (
+      <div className="panel" data-testid="me-auth-panel">
+        <h2>{t("me.account")}</h2>
+        {signedIn ? <p className="muted">{t("me.signOutHint")}</p> : null}
         <form
           id="lh-auth-form"
           onSubmit={(e) => {
@@ -461,17 +558,19 @@ export function MePage() {
               disabled={authBusy}
               onClick={() => void register()}
             >
-              {authBusy ? "…" : t("auth.register")}
+              {authBusy ? t("me.working") : t("auth.register")}
             </button>
             <button type="submit" className="btn ghost" data-testid="me-login" disabled={authBusy}>
-              {t("auth.login")}
+              {authBusy ? t("me.working") : t("auth.login")}
             </button>
           </div>
         </form>
       </div>
+      )}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.profile")}</h2>
+      {signedIn && meSection === "profile" && (
+      <div className="panel" data-testid="me-profile-panel">
+        <h2>{t("me.profile")}</h2>
         <div className="field">
           <label>{t("me.nickname")}</label>
           <input value={nickname} onChange={(e) => setNickname(e.target.value)} />
@@ -488,9 +587,12 @@ export function MePage() {
           {t("me.save")}
         </button>
       </div>
+      )}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.privacy")}</h2>
+      {signedIn && meSection === "privacy" && (
+      <div className="panel" data-testid="me-settings-panel">
+        <h2>{t("me.settings")}</h2>
+        <h3>{t("me.privacy")}</h3>
         <label className="check-row">
           <input
             type="checkbox"
@@ -517,50 +619,98 @@ export function MePage() {
         </label>
         <div className="field">
           <label>{t("me.allowMessageRequests")}</label>
-          <select
-            value={privacy.allowMessageRequests}
-            onChange={(e) =>
-              setPrivacy((p) => ({
-                ...p,
-                allowMessageRequests: e.target.value as PrivacySettings["allowMessageRequests"],
-              }))
-            }
-          >
-            <option value="everyone">everyone</option>
-            <option value="church-only">church-only</option>
-            <option value="admin-approved">admin-approved</option>
-            <option value="off">off</option>
-          </select>
+          <div className="bible-more-actions" role="group">
+            {(
+              [
+                ["everyone", "me.privacyEveryone"],
+                ["church-only", "me.privacyChurchOnly"],
+                ["admin-approved", "me.privacyAdminApproved"],
+                ["off", "me.privacyOff"],
+              ] as const
+            ).map(([value, key]) => (
+              <button
+                key={value}
+                type="button"
+                className={`bible-text-btn${privacy.allowMessageRequests === value ? " is-on" : ""}`}
+                onClick={() =>
+                  setPrivacy((p) => ({
+                    ...p,
+                    allowMessageRequests: value,
+                  }))
+                }
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
         </div>
         <button type="button" className="btn" onClick={() => void saveProfile()}>
           {t("me.save")}
         </button>
 
         <div className="field" style={{ marginTop: "1rem" }}>
-          <label>Language</label>
-          <select value={i18n.language} onChange={(e) => setLocale(e.target.value)}>
-            <option value="zh-CN">中文</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-          </select>
+          <label>{t("me.language")}</label>
+          <div className="bible-more-actions" role="group">
+            {(
+              [
+                ["zh-CN", "中文"],
+                ["en", "English"],
+                ["ja", "日本語"],
+              ] as const
+            ).map(([lng, label]) => (
+              <button
+                key={lng}
+                type="button"
+                className={`bible-text-btn${i18n.language === lng ? " is-on" : ""}`}
+                onClick={() => setLocale(lng)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="field">
-          <label>Theme</label>
-          <select
-            defaultValue={(localStorage.getItem("lh.theme") as ThemeId) ?? "day"}
-            onChange={(e) => setTheme(e.target.value as ThemeId)}
-          >
+          <label>{t("me.theme")}</label>
+          <div className="bible-more-actions" role="group">
             {THEME_IDS.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
+              <button
+                key={id}
+                type="button"
+                className={`bible-text-btn${themeId === id ? " is-on" : ""}`}
+                onClick={() => setTheme(id)}
+              >
+                {themeLabel(id)}
+              </button>
             ))}
-          </select>
+          </div>
+        </div>
+
+        <div className="me-version-block" data-testid="me-version-info">
+          <h3>{t("me.versionInfo")}</h3>
+          <dl className="me-version-dl">
+            <div>
+              <dt>{t("me.versionName")}</dt>
+              <dd>
+                <span className="me-version-brand-zh">{t("app.name")}</span>
+                <span className="me-version-brand-en">LogosHome</span>
+              </dd>
+            </div>
+            <div>
+              <dt>{t("me.versionApp")}</dt>
+              <dd>@logoshome/web</dd>
+            </div>
+            <div>
+              <dt>{t("me.versionBuild")}</dt>
+              <dd data-testid="me-version-build">0.1.0</dd>
+            </div>
+          </dl>
         </div>
       </div>
+      )}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.churches")}</h2>
+      {signedIn && meSection === "profile" && (
+      <div className="panel" data-testid="me-churches-panel">
+        <h2>{t("me.churches")}</h2>
         <ul className="list">
           {!profile?.churches?.length && <li className="muted">—</li>}
           {(profile?.churches ?? []).map((c) => (
@@ -578,10 +728,7 @@ export function MePage() {
             </li>
           ))}
         </ul>
-      </div>
-
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.search")}</h2>
+        <h3>{t("me.search")}</h3>
         <div className="field">
           <label>{t("me.searchUid")}</label>
           <input
@@ -602,65 +749,117 @@ export function MePage() {
           ))}
         </ul>
       </div>
-
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("security.deviceKeys")}</h2>
-        <p className="muted">{t("security.deviceKeysHint")}</p>
-        <p className="muted">
-          {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
-        </p>
-        <button
-          type="button"
-          className="btn"
-          disabled={keyBusy}
-          onClick={() => void registerDeviceKeys()}
-        >
-          {t("security.uploadKeys")}
-        </button>
-      </div>
-
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("security.wipe")}</h2>
-        <p className="muted">{t("security.wipeHint")}</p>
-        <button type="button" className="btn danger" onClick={() => void selfWipe()}>
-          {t("security.wipe")}
-        </button>
-      </div>
-
-      {(profile?.canAccessAdminConsole || isChurchAdmin) && (
-        <div className="panel" data-testid="me-admin-console-link">
-          <h2 style={{ marginTop: 0 }}>{t("admin.title")}</h2>
-          <p className="muted">{t("admin.openHint")}</p>
-          <Link className="btn" to="/app/admin" data-testid="me-open-admin">
-            {t("admin.open")}
-          </Link>
-        </div>
       )}
 
-      {isChurchAdmin && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
-          <p className="muted">{t("security.adminWipeHint")}</p>
+      {signedIn && meSection === "devices" && (
+      <div className="panel" data-testid="me-devices-panel">
+        <details className="plans-advanced" open>
+          <summary>{t("me.devices")}</summary>
+          <p className="muted">{t("me.devicesHint")}</p>
+          <ul className="list">
+            {devices.length === 0 && <li className="muted">—</li>}
+            {devices.map((d) => (
+              <li key={d.id}>
+                <strong>{d.name || d.platform}</strong>
+                <div className="muted">
+                  {d.id}
+                  {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
+                  {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
+                  {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
+                </div>
+                {!d.revoked && !d.isCurrent && (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={authBusy}
+                    onClick={() => void revokeDevice(d.id)}
+                  >
+                    {t("me.deviceRevoke")}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+
+        <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+          <summary>{t("security.deviceKeys")}</summary>
+          <p className="muted">{t("security.deviceKeysHint")}</p>
+          <p className="muted">
+            {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+          </p>
           <div className="field">
-            <label>{t("security.adminWipeUserId")}</label>
-            <input
-              value={wipeUserId}
-              onChange={(e) => setWipeUserId(e.target.value)}
-              placeholder="usr_…"
-            />
+            <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
+            <select
+              id="signal-backend"
+              data-testid="me-signal-backend"
+              value={signalPrefer}
+              onChange={(e) => {
+                const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
+                setSignalPrefer(next);
+                saveProductSignalPrefer(next);
+              }}
+            >
+              <option value="x25519">{t("security.signalBackend.x25519")}</option>
+              <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
+            </select>
+            <p className="muted">{t("security.signalBackendHint")}</p>
           </div>
-          <div className="field">
-            <label>{t("security.adminWipeDeviceId")}</label>
-            <input
-              value={wipeDeviceId}
-              onChange={(e) => setWipeDeviceId(e.target.value)}
-              placeholder="dev_… (optional)"
-            />
-          </div>
-          <button type="button" className="btn danger" onClick={() => void adminWipe()}>
-            {t("security.adminWipe")}
+          <button
+            type="button"
+            className="btn"
+            disabled={keyBusy}
+            data-testid="me-upload-keys"
+            onClick={() => void registerDeviceKeys()}
+          >
+            {t("security.uploadKeys")}
           </button>
-        </div>
+        </details>
+
+        <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+          <summary>{t("security.wipe")}</summary>
+          <p className="muted">{t("security.wipeHint")}</p>
+          <button type="button" className="btn danger" onClick={() => void selfWipe()}>
+            {t("security.wipe")}
+          </button>
+        </details>
+
+        {(profile?.canAccessAdminConsole || isChurchAdmin) && (
+          <details className="plans-advanced" style={{ marginTop: "0.85rem" }} data-testid="me-admin-console-link">
+            <summary>{t("admin.title")}</summary>
+            <p className="muted">{t("admin.openHint")}</p>
+            <Link className="btn" to="/app/admin" data-testid="me-open-admin">
+              {t("admin.open")}
+            </Link>
+          </details>
+        )}
+
+        {isChurchAdmin && (
+          <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+            <summary>{t("security.adminWipe")}</summary>
+            <p className="muted">{t("security.adminWipeHint")}</p>
+            <div className="field">
+              <label>{t("security.adminWipeUserId")}</label>
+              <input
+                value={wipeUserId}
+                onChange={(e) => setWipeUserId(e.target.value)}
+                placeholder="usr_…"
+              />
+            </div>
+            <div className="field">
+              <label>{t("security.adminWipeDeviceId")}</label>
+              <input
+                value={wipeDeviceId}
+                onChange={(e) => setWipeDeviceId(e.target.value)}
+                placeholder="dev_… (optional)"
+              />
+            </div>
+            <button type="button" className="btn danger" onClick={() => void adminWipe()}>
+              {t("security.adminWipe")}
+            </button>
+          </details>
+        )}
+      </div>
       )}
     </section>
   );

@@ -47,7 +47,17 @@ Dry-run only validates the Worker bundle and config shape; it does not create re
 ## Live deploy blockers
 
 1. Cloudflare auth (`wrangler login` or API token with Workers, D1, R2, DO edit)
-2. Real `account_id` + D1 `database_id` (and R2 bucket) in production toml — still `YOUR_*` placeholders
-3. Secrets set remotely: `HANDLE_PEPPER`, `KEK_MASTER`, `TURN_SECRET`
+2. Real `account_id` + D1 `database_id` (and R2 bucket) — still `YOUR_*` in committed toml; CI uses `scripts/cf-prepare-prod-config.sh` → `wrangler.production.ci.toml`
+3. Secrets set remotely: `HANDLE_PEPPER`, `KEK_MASTER`, `TURN_SECRET` (optional GitHub secrets synced by Deploy Cloudflare workflow)
 4. Remote D1 migrations applied
 5. Optional: custom route / zone; R2 chapter seed via `scripts/seed-r2-chapters.sh`
+
+## GitHub secrets (minimum)
+
+| Secret | Required |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | yes |
+| `CLOUDFLARE_ACCOUNT_ID` | yes |
+| `HANDLE_PEPPER` / `KEK_MASTER` / `TURN_SECRET` | recommended for a working auth/crypto path |
+
+See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) → **GitHub Actions**.

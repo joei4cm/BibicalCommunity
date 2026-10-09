@@ -104,14 +104,27 @@ export const readingPlanSchema = z.object({
   days: z.array(readingPlanDaySchema).min(1),
 });
 
-export const forumPostSchema = z.object({
-  churchId: z.string(),
-  groupId: z.string().optional(),
-  board: z.enum(["notice", "group", "general"]).default("general"),
-  title: z.string().min(1).max(200),
-  body: z.string().min(1).max(20000),
-  externalMediaUrl: z.string().url().optional(),
-});
+export const forumPostSchema = z
+  .object({
+    churchId: z.string(),
+    groupId: z.string().optional(),
+    board: z.enum(["notice", "group", "general"]).default("general"),
+    title: z.string().min(1).max(200),
+    body: z.string().min(1).max(20000),
+    /** Allowlisted youtube/vimeo/https audio|video URL (validated server-side). */
+    externalMediaUrl: z.string().url().optional(),
+    /** R2 object key from POST /v1/media/upload-url (must be owned by author). */
+    mediaKey: z.string().min(1).max(512).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.board === "group" && !val.groupId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "groupId required for group board",
+        path: ["groupId"],
+      });
+    }
+  });
 
 export const wipeCommandSchema = z.object({
   userId: z.string(),

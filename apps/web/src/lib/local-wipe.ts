@@ -1,8 +1,8 @@
 import { performLocalWipe, type WipeLocalResult } from "@logoshome/crypto";
 
 /**
- * Clear all `lh.*` localStorage keys (token, theme, device priv, etc.).
- * IndexedDB / Cache Storage hooks are best-effort for PWA scaffolding.
+ * Clear all `lh.*` localStorage keys (token, theme, etc.) and wipe IndexedDB
+ * stores that hold E2EE secrets (`lh-secure` ratchet / device priv).
  */
 export async function wipeLocalClientState(): Promise<WipeLocalResult> {
   return performLocalWipe({
@@ -13,7 +13,7 @@ export async function wipeLocalClientState(): Promise<WipeLocalResult> {
     clearMessageDb: async () => {
       if (typeof indexedDB === "undefined") return;
       // Best-effort: delete known LogosHome DBs if present.
-      const known = ["lh-messages", "lh-notes", "logoshome"];
+      const known = ["lh-secure", "lh-bible", "lh-messages", "lh-notes", "logoshome"];
       await Promise.all(
         known.map(
           (name) =>

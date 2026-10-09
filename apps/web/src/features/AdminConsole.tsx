@@ -66,7 +66,24 @@ type WipeCommand = {
   expiresAt: number;
 };
 
-type Section = "homes" | "users" | "groups" | "wipe";
+type Section = "homes" | "users" | "groups" | "wipe" | "corpus";
+
+const SECTION_IDS: Section[] = ["homes", "users", "groups", "wipe", "corpus"];
+
+const PD_CORPUS_TIDS = ["web", "kjv", "asv"] as const;
+
+type PdCorpusStatus = {
+  tid: string;
+  objectCount: number;
+  fullPackLikely: boolean;
+  sampleKeys: string[];
+};
+
+function sectionFromHash(): Section {
+  if (typeof window === "undefined") return "homes";
+  const raw = window.location.hash.replace(/^#/, "");
+  return SECTION_IDS.includes(raw as Section) ? (raw as Section) : "homes";
+}
 
 export function AdminConsole() {
   const { t } = useTranslation();
@@ -77,7 +94,7 @@ export function AdminConsole() {
   const [groups, setGroups] = useState<AdminGroup[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [wipes, setWipes] = useState<WipeCommand[]>([]);
-  const [section, setSection] = useState<Section>("homes");
+  const [section, setSection] = useState<Section>(() => sectionFromHash());
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -85,8 +102,33 @@ export function AdminConsole() {
   const [renameValue, setRenameValue] = useState("");
   const [churchName, setChurchName] = useState("");
   const [bootstrapSecret, setBootstrapSecret] = useState("");
+  const [churchFilter, setChurchFilter] = useState("");
+  const [pdTid, setPdTid] = useState<(typeof PD_CORPUS_TIDS)[number]>("web");
+  const [pdBookNr, setPdBookNr] = useState(43);
+  const [pdStatuses, setPdStatuses] = useState<PdCorpusStatus[]>([]);
+  const [pdProgress, setPdProgress] = useState<string | null>(null);
 
   const selected = churches.find((c) => c.id === churchId) ?? null;
+  const filterQ = churchFilter.trim().toLowerCase();
+  const filteredChurches = filterQ
+    ? churches.filter(
+        (c) =>
+          c.name.toLowerCase().includes(filterQ) ||
+          c.slug.toLowerCase().includes(filterQ) ||
+          c.id.toLowerCase().includes(filterQ),
+      )
+    : churches;
+  /** Keep the select short unless the admin is actively filtering. */
+  const pickerChurches = (() => {
+    if (filterQ) {
+      if (filteredChurches.length > 0) return filteredChurches.slice(0, 40);
+      return selected ? [selected] : churches.slice(0, 1);
+    }
+    if (churches.length <= 8) return churches;
+    const head = selected ? [selected] : [];
+    const rest = churches.filter((c) => c.id !== selected?.id).slice(0, 7);
+    return [...head, ...rest];
+  })();
 
   const loadAccess = useCallback(async () => {
     if (!getToken()) {
@@ -159,6 +201,27 @@ export function AdminConsole() {
   useEffect(() => {
     if (selected) setChurchName(selected.name);
   }, [selected]);
+
+  useEffect(() => {
+    const onHash = () => setSection(sectionFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    if (section !== "corpus" || !access?.platformAdmin) return;
+    void loadPdStatuses().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [section, access?.platformAdmin]);
+
+  function goSection(id: Section) {
+    setSection(id);
+    if (typeof window !== "undefined") {
+      const next = `#${id}`;
+      if (window.location.hash !== next) {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${next}`);
+      }
+    }
+  }
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -291,6 +354,56 @@ export function AdminConsole() {
     });
   }
 
+  async function loadPdStatuses() {
+    const rows: PdCorpusStatus[] = [];
+    for (const tid of PD_CORPUS_TIDS) {
+      const r = await api<PdCorpusStatus>(`/v1/admin/corpus/pd-status/${tid}`);
+      rows.push(r);
+    }
+    setPdStatuses(rows);
+  }
+
+  async function seedPdBook(tid: string, bookNr: number) {
+    return api<{
+      ok: boolean;
+      book: string;
+      chaptersPut: number;
+      nextBookNr: number | null;
+      done: boolean;
+    }>("/v1/admin/corpus/pd-seed", {
+      method: "POST",
+      body: JSON.stringify({ tid, bookNr }),
+    });
+  }
+
+  async function seedOnePdBook() {
+    await run(async () => {
+      setPdProgress(`${pdTid} #${pdBookNr}`);
+      const r = await seedPdBook(pdTid, pdBookNr);
+      setPdProgress(`${r.book} · ${r.chaptersPut}`);
+      setNote("admin.corpusSeedOk");
+      await loadPdStatuses();
+    });
+  }
+
+  async function seedFullPdCanon() {
+    if (!window.confirm(t("admin.corpusSeedAll"))) return;
+    await run(async () => {
+      let bookNr = 1;
+      let total = 0;
+      while (bookNr <= 66) {
+        setPdProgress(`${pdTid} #${bookNr}/66`);
+        const r = await seedPdBook(pdTid, bookNr);
+        total += r.chaptersPut;
+        if (r.done || r.nextBookNr == null) break;
+        bookNr = r.nextBookNr;
+      }
+      setPdProgress(`${pdTid} · ${total}`);
+      setNote("admin.corpusSeedOk");
+      await loadPdStatuses();
+    });
+  }
+
   if (!getToken()) {
     return (
       <section className="fade-up" data-testid="admin-console">
@@ -342,6 +455,9 @@ export function AdminConsole() {
     { id: "users", label: t("admin.sectionUsers") },
     { id: "groups", label: t("admin.sectionGroups") },
     { id: "wipe", label: t("admin.sectionWipe") },
+    ...(access?.platformAdmin
+      ? [{ id: "corpus" as const, label: t("admin.sectionCorpus") }]
+      : []),
   ];
 
   return (
@@ -352,7 +468,11 @@ export function AdminConsole() {
         {note ? ` · ${humanizeStatus(t, note)}` : ""}
       </p>
 
-      <div className="toolbar board-tabs" role="tablist" aria-label={t("admin.title")}>
+      <div
+        className="toolbar board-tabs admin-section-tabs"
+        role="tablist"
+        aria-label={t("admin.title")}
+      >
         {sections.map((s) => (
           <button
             key={s.id}
@@ -361,37 +481,78 @@ export function AdminConsole() {
             aria-selected={section === s.id}
             className={`btn ghost${section === s.id ? " active-toggle" : ""}`}
             data-testid={`admin-tab-${s.id}`}
-            onClick={() => setSection(s.id)}
+            onClick={() => goSection(s.id)}
           >
             {s.label}
           </button>
         ))}
       </div>
 
-      <div className="panel">
+      <div className="panel" data-testid="admin-church-picker">
         <h2 style={{ marginTop: 0 }}>{t("admin.selectHome")}</h2>
-        <ul className="list" data-testid="admin-church-list">
-          {churches.length === 0 && <li className="muted">—</li>}
-          {churches.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                className={`btn ghost${churchId === c.id ? " active-toggle" : ""}`}
-                onClick={() => setChurchId(c.id)}
+        {churches.length === 0 ? (
+          <p className="muted">—</p>
+        ) : (
+          <>
+            {churches.length > 8 ? (
+              <div className="field">
+                <label htmlFor="admin-church-filter">{t("admin.selectHome")}</label>
+                <input
+                  id="admin-church-filter"
+                  data-testid="admin-church-filter"
+                  value={churchFilter}
+                  onChange={(e) => setChurchFilter(e.target.value)}
+                  placeholder={t("me.search")}
+                />
+              </div>
+            ) : null}
+            <div className="field">
+              <label htmlFor="admin-church-select">{t("admin.selectHome")}</label>
+              <select
+                id="admin-church-select"
+                data-testid="admin-church-select"
+                value={churchId ?? ""}
+                onChange={(e) => setChurchId(e.target.value || null)}
               >
-                {c.name}
-                {churchId === c.id ? ` · ${t("home.selected")}` : ""}
-              </button>
-              <div className="muted">
-                {c.role} · {c.memberCount} {t("admin.members")} · {c.groupCount}{" "}
-                {t("admin.groups")}
-                {c.securityMode === "hostile" ? (
+                {pickerChurches.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.securityMode === "hostile" ? ` (${t("home.securityMode.hostileBadge")})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selected ? (
+              <p className="muted" data-testid="admin-church-meta">
+                {selected.role} · {selected.memberCount} {t("admin.members")} ·{" "}
+                {selected.groupCount} {t("admin.groups")}
+                {selected.securityMode === "hostile" ? (
                   <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
                 ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
+              </p>
+            ) : null}
+            {section === "homes" && pickerChurches.length > 1 ? (
+              <ul className="list" data-testid="admin-church-list">
+                {pickerChurches.slice(0, 40).map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className={`btn ghost${churchId === c.id ? " active-toggle" : ""}`}
+                      onClick={() => setChurchId(c.id)}
+                    >
+                      {c.name}
+                      {churchId === c.id ? ` · ${t("home.selected")}` : ""}
+                    </button>
+                    <div className="muted">
+                      {c.role} · {c.memberCount} {t("admin.members")} · {c.groupCount}{" "}
+                      {t("admin.groups")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
       </div>
 
       {section === "homes" && (
@@ -624,6 +785,94 @@ export function AdminConsole() {
                   </button>
                 </li>
               ))}
+          </ul>
+        </div>
+      )}
+
+      {section === "corpus" && access?.platformAdmin && (
+        <div className="panel" data-testid="admin-corpus-panel">
+          <h2 style={{ marginTop: 0 }}>{t("admin.sectionCorpus")}</h2>
+          <p className="muted">{t("admin.corpusHint")}</p>
+          <div className="toolbar" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label htmlFor="admin-corpus-tid">{t("admin.corpusTid")}</label>
+              <select
+                id="admin-corpus-tid"
+                data-testid="admin-corpus-tid"
+                value={pdTid}
+                onChange={(e) => setPdTid(e.target.value as (typeof PD_CORPUS_TIDS)[number])}
+              >
+                {PD_CORPUS_TIDS.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label htmlFor="admin-corpus-book">{t("admin.corpusBookNr")}</label>
+              <input
+                id="admin-corpus-book"
+                data-testid="admin-corpus-book"
+                type="number"
+                min={1}
+                max={66}
+                value={pdBookNr}
+                onChange={(e) => setPdBookNr(Number(e.target.value) || 1)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy}
+              data-testid="admin-corpus-seed-book"
+              onClick={() => void seedOnePdBook()}
+            >
+              {busy ? t("admin.corpusSeeding") : t("admin.corpusSeedBook")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              data-testid="admin-corpus-seed-all"
+              onClick={() => void seedFullPdCanon()}
+            >
+              {t("admin.corpusSeedAll")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              data-testid="admin-corpus-refresh"
+              onClick={() =>
+                void run(async () => {
+                  await loadPdStatuses();
+                })
+              }
+            >
+              {t("admin.corpusRefresh")}
+            </button>
+          </div>
+          {pdProgress ? (
+            <p className="muted" data-testid="admin-corpus-progress">
+              {pdProgress}
+            </p>
+          ) : null}
+          <ul className="list" data-testid="admin-corpus-status-list">
+            {pdStatuses.length === 0 ? (
+              <li className="muted">—</li>
+            ) : (
+              pdStatuses.map((s) => (
+                <li key={s.tid} data-testid={`admin-corpus-status-${s.tid}`}>
+                  <strong>{s.tid}</strong>
+                  <div className="muted">
+                    {t("admin.corpusStatus")}: {s.objectCount}
+                    {" · "}
+                    {s.fullPackLikely ? t("admin.corpusFull") : t("admin.corpusPartial")}
+                  </div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       )}

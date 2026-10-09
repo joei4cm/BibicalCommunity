@@ -3,47 +3,59 @@ import {
   deriveSessionKey,
   encryptSessionPayload,
 } from "@logoshome/crypto";
-import { ensureBase64Globals, getRandomValues, hasWebCrypto } from "./crypto-polyfill";
-import { kvGet, kvSet } from "./secure-kv";
-
-export const SESSION_MATERIAL_PREFIX = "lh.session.material.";
+import { ensureBase64Globals, hasWebCrypto } from "./crypto-polyfill";
+import {
+  tryDecryptProductMobileMessage,
+  tryEncryptProductMobileMessage,
+} from "./product-signal-chat";
 
 ensureBase64Globals();
 
-async function materialForConversation(conversationId: string): Promise<string> {
-  const key = `${SESSION_MATERIAL_PREFIX}${conversationId}`;
-  const { value: existing } = await kvGet(key);
-  if (existing) return existing;
-  // Deterministic-enough local material for MVP pairwise AES; replace with
-  // X3DH shared secret once mobile Double Ratchet matches web ChatPanel.
-  const bytes = getRandomValues(new Uint8Array(32));
-  let hex = "";
-  for (const b of bytes) hex += b.toString(16).padStart(2, "0");
-  const material = `mobile-session:${conversationId}:${hex}`;
-  await kvSet(key, material);
-  return material;
+/**
+ * Degraded (no peer product keys) material is deterministic from conversationId
+ * so two handsets can still decrypt each other — same model as web bootstrapDegraded.
+ * Prefer the product x25519 path whenever both peers uploaded keys.
+ */
+function degradedMaterial(conversationId: string, peerUserId?: string | null): string {
+  return peerUserId
+    ? `logoshome-bootstrap:${conversationId}:${peerUserId}`
+    : `logoshome-bootstrap:${conversationId}`;
 }
 
 export async function encryptMobileMessage(
   conversationId: string,
   plaintext: string,
-): Promise<{ ratchetHeader: string; ciphertext: string }> {
+  peerUserId?: string | null,
+): Promise<{ ratchetHeader: string; ciphertext: string; mode: "product" | "degraded" }> {
   if (!hasWebCrypto()) {
     throw new Error("webcrypto_unavailable");
   }
-  const material = await materialForConversation(conversationId);
+  const product = await tryEncryptProductMobileMessage(conversationId, plaintext, peerUserId);
+  if (product) return product;
+
+  const material = degradedMaterial(conversationId, peerUserId);
   const key = await deriveSessionKey(material);
-  return encryptSessionPayload(key, plaintext, `conv:${conversationId}`);
+  const enc = await encryptSessionPayload(key, plaintext, `conv:${conversationId}`);
+  return { ...enc, mode: "degraded" };
 }
 
 export async function decryptMobileMessage(
   conversationId: string,
   ratchetHeader: string,
   ciphertext: string,
+  peerUserId?: string | null,
 ): Promise<string | null> {
   if (!hasWebCrypto()) return null;
+  const productPlain = await tryDecryptProductMobileMessage(
+    conversationId,
+    ratchetHeader,
+    ciphertext,
+    peerUserId,
+  );
+  if (productPlain != null) return productPlain;
+
   try {
-    const material = await materialForConversation(conversationId);
+    const material = degradedMaterial(conversationId, peerUserId);
     const key = await deriveSessionKey(material);
     return await decryptSessionPayload(key, ratchetHeader, ciphertext, `conv:${conversationId}`);
   } catch {

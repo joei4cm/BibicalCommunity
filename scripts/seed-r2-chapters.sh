@@ -294,4 +294,28 @@ curl -sf "$BASE/v1/bible/chapter?translation=web&ref=Rev.21" -H "$AUTH" | grep -
 curl -sf "$BASE/v1/bible/chapter?translation=cuvs&ref=John.15" -H "$AUTH" | grep -qE '样例|真葡萄树'
 curl -sf "$BASE/v1/bible/chapter?translation=kougo&ref=Rev.21" -H "$AUTH" | grep -qE '見本|新しい天と新しい地'
 echo "MULTI_BOOK_APOCALYPTIC_OK"
+
+# JSON-fixture key chapters (no TypeScript densify packs)
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+echo "Building bible package for JSON-fixture R2 seed…"
+(cd "$ROOT" && pnpm --filter @logoshome/bible build >/dev/null)
+echo "Seeding key chapters from fixtures/corpus JSON…"
+node "$ROOT/scripts/seed-r2-from-json-fixtures.mjs" "$BASE" "$TOKEN"
+# Fixtures cover WEB teaching set + peer samples; assert what exists after seed.
+for tid in web; do
+  for ref in John.1 John.3 John.14 Ps.23 Rom.8 Matt.5 Gen.1; do
+    body=$(curl -sf "$BASE/v1/bible/chapter?translation=$tid&ref=$ref" -H "$AUTH")
+    echo "$body" | grep -q '"source":"r2"'
+    echo "KEY_CHAPTER_R2_OK tid=$tid ref=$ref"
+  done
+done
+# Short samples put above for licensed tids
+for tid in cuvs kougo shinKyoudou; do
+  for ref in John.1 John.3; do
+    body=$(curl -sf "$BASE/v1/bible/chapter?translation=$tid&ref=$ref" -H "$AUTH")
+    echo "$body" | grep -q '"source":"r2"'
+    echo "KEY_CHAPTER_R2_OK tid=$tid ref=$ref"
+  done
+done
+echo "KEY_CHAPTER_R2_SEED_OK"
 echo SEED_R2_OK

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { listDevotionMaterials, listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
+import {
+  bookSlug,
+  listDevotionMaterials,
+  listStudyMaterials,
+  parsePlanCsv,
+  parseRef,
+} from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import {
@@ -33,9 +40,27 @@ type Subscription = {
 };
 
 type PlanVisibility = "private" | "church" | "public";
+type PlansTab = "mine" | "discover" | "done";
+
+function isSubscriptionComplete(sub: Subscription): boolean {
+  const total = sub.days?.length ?? 0;
+  if (total <= 0) return false;
+  return (sub.progressDay ?? 0) >= total;
+}
+
+/** Deep-link today's plan ref into the WeDevote-shaped Bible reader. */
+function bibleHrefFromPlanRef(ref: string): string | null {
+  const parsed = parseRef(ref);
+  if (!parsed) return null;
+  const slug = bookSlug(parsed.book);
+  if (!slug) return null;
+  const base = `/app/bible/cuvs/${slug}/${parsed.chapter}`;
+  return parsed.verseStart ? `${base}?verse=${parsed.verseStart}` : base;
+}
 
 export function PlansPage() {
   const { t, i18n } = useTranslation();
+  const [tab, setTab] = useState<PlansTab>("mine");
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
   const [createTitle, setCreateTitle] = useState("");
   const [createDescription, setCreateDescription] = useState("");
@@ -57,8 +82,16 @@ export function PlansPage() {
   const studyMaterials = useMemo(() => listStudyMaterials({ language: lang }), [lang]);
   const devotionMaterials = useMemo(() => listDevotionMaterials(), []);
   const localeKey = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
+  const activeSubs = useMemo(
+    () => (subscriptions ?? []).filter((s) => !isSubscriptionComplete(s)),
+    [subscriptions],
+  );
+  const doneSubs = useMemo(
+    () => (subscriptions ?? []).filter((s) => isSubscriptionComplete(s)),
+    [subscriptions],
+  );
   const activeSub =
-    (subscriptions ?? []).find((s) => s.planId === activeSubPlanId) ?? (subscriptions ?? [])[0] ?? null;
+    activeSubs.find((s) => s.planId === activeSubPlanId) ?? activeSubs[0] ?? null;
   const activeMaterial =
     devotionMaterials.find((m) => m.id === materialId) ?? devotionMaterials[0] ?? null;
   const todayDayNum = activeSub ? (activeSub.progressDay ?? 0) + 1 : null;
@@ -67,7 +100,6 @@ export function PlansPage() {
       ? (activeSub.days ?? []).find((d) => d.day === todayDayNum) ?? null
       : null;
   const stepGuide = activeMaterial?.steps ?? DEVOTION_STEPS;
-
   const selected = plans.find((p) => p.id === selectedId) ?? null;
 
   const refreshPlans = useCallback(async () => {
@@ -87,24 +119,25 @@ export function PlansPage() {
     });
   }, []);
 
+  const refreshPublicAndSubs = useCallback(async () => {
+    if (!getToken()) return;
+    const pub = await apiOptional<{ plans: PublicPlan[] }>("/v1/plans/public");
+    setPublicPlans(pub?.plans ?? null);
+    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
+    setSubscriptions(subs?.subscriptions ?? null);
+  }, []);
+
   useEffect(() => {
     void refreshPlans().catch((e) => setMessage(e instanceof Error ? e.message : "error"));
   }, [refreshPlans]);
 
   useEffect(() => {
-    if (!getToken()) return;
-    void (async () => {
-      const pub = await apiOptional<{ plans: PublicPlan[] }>("/v1/plans/public");
-      setPublicPlans(pub?.plans ?? null);
-      const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
-      setSubscriptions(subs?.subscriptions ?? null);
-    })();
-  }, []);
+    void refreshPublicAndSubs();
+  }, [refreshPublicAndSubs]);
 
-  // Hydrate devotion step / material from the active subscription when it changes.
   useEffect(() => {
     const sub =
-      (subscriptions ?? []).find((s) => s.planId === activeSubPlanId) ?? (subscriptions ?? [])[0];
+      activeSubs.find((s) => s.planId === activeSubPlanId) ?? activeSubs[0];
     if (!sub) return;
     if (sub.devotionStep && DEVOTION_STEPS.includes(sub.devotionStep)) {
       setStep(sub.devotionStep);
@@ -112,7 +145,7 @@ export function PlansPage() {
     if (sub.devotionMaterialId) {
       setMaterialId(sub.devotionMaterialId);
     }
-  }, [subscriptions, activeSubPlanId]);
+  }, [activeSubs, activeSubPlanId]);
 
   async function persistDevotion(nextStepValue: DevotionStep, nextMaterialId?: string) {
     const planId = activeSub?.planId;
@@ -183,7 +216,7 @@ export function PlansPage() {
         days,
       }),
     });
-    setMessage(`created:${res.id} (${days.length} days)`);
+    setMessage("created:ok");
     setCreateTitle("");
     setCreateDescription("");
     await refreshPlans();
@@ -196,15 +229,15 @@ export function PlansPage() {
       return;
     }
     const days = parsePlanCsv(csv);
-    const res = await api<{ id: string }>("/v1/plans", {
+    await api<{ id: string }>("/v1/plans", {
       method: "POST",
       body: JSON.stringify({
-        title: "CSV Plan",
+        title: t("plans.untitled"),
         visibility: "private",
         days,
       }),
     });
-    setMessage(`created:${res.id} (${days.length} days)`);
+    setMessage("created:ok");
     await refreshPlans();
   }
 
@@ -229,21 +262,21 @@ export function PlansPage() {
     await refreshPlans();
   }
 
-  async function subscribe() {
+  async function subscribe(idOverride?: string) {
     if (!getToken()) {
       setMessage("login_required");
       return;
     }
-    const id = subscribeId.trim();
+    const id = (idOverride ?? subscribeId).trim();
     if (!id) return;
-    const res = await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
+    await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
       method: "POST",
       body: JSON.stringify({}),
     });
-    setMessage(`subscribed:${res.id}`);
+    setMessage("subscribed:ok");
     setSubscribeId("");
-    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
-    setSubscriptions(subs?.subscriptions ?? null);
+    await refreshPublicAndSubs();
+    setTab("mine");
   }
 
   async function advancePlanDay(planId: string, currentDay: number) {
@@ -256,9 +289,8 @@ export function PlansPage() {
       method: "POST",
       body: JSON.stringify({ day: next }),
     });
-    setMessage(`progress:${planId}:day ${next}`);
-    const subs = await apiOptional<{ subscriptions: Subscription[] }>("/v1/plans/subscriptions");
-    setSubscriptions(subs?.subscriptions ?? null);
+    setMessage("progress:ok");
+    await refreshPublicAndSubs();
   }
 
   function advance() {
@@ -270,249 +302,367 @@ export function PlansPage() {
     void persistDevotion("pause");
   }
 
+  const tabs: { id: PlansTab; label: string }[] = [
+    { id: "mine", label: t("plans.tabMine") },
+    { id: "discover", label: t("plans.tabDiscover") },
+    { id: "done", label: t("plans.tabDone") },
+  ];
+
+  const loggedIn = Boolean(getToken());
+
   return (
-    <section className="fade-up">
-      <h1 className="brand">{t("nav.plans")}</h1>
+    <section className="fade-up plans-page app-folio" data-testid="plans-page">
+      <h1 className="page-title">{t("nav.plans")}</h1>
+      {message && <p className="muted">{humanizeStatus(t, message)}</p>}
 
-      <div className="panel" data-testid="plans-create-panel">
-        <h2 style={{ marginTop: 0 }}>{t("plans.create")}</h2>
-        {message && <p className="muted">{humanizeStatus(t, message)}</p>}
-        <div className="field">
-          <label htmlFor="plan-title">{t("plans.title")}</label>
-          <input
-            id="plan-title"
-            data-testid="plans-create-title"
-            value={createTitle}
-            onChange={(e) => setCreateTitle(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="plan-description">{t("plans.description")}</label>
-          <input
-            id="plan-description"
-            value={createDescription}
-            onChange={(e) => setCreateDescription(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="plan-visibility">{t("plans.visibility")}</label>
-          <select
-            id="plan-visibility"
-            value={createVisibility}
-            onChange={(e) => setCreateVisibility(e.target.value as PlanVisibility)}
-          >
-            <option value="private">{t("plans.visibilityPrivate")}</option>
-            <option value="church">{t("plans.visibilityChurch")}</option>
-            <option value="public">{t("plans.visibilityPublic")}</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="plan-days">{t("plans.daysHint")}</label>
-          <textarea
-            id="plan-days"
-            rows={4}
-            value={createDaysText}
-            onChange={(e) => setCreateDaysText(e.target.value)}
-          />
-        </div>
-        <button type="button" className="btn" data-testid="plans-create-submit" onClick={() => void createPlan()}>
-          {t("plans.create")}
-        </button>
-      </div>
-
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("plans.owned")}</h2>
-        <ul className="list">
-          {plans.length === 0 && <li className="muted">—</li>}
-          {plans.map((p) => (
-            <li key={p.id}>
-              <button type="button" className="linkish" onClick={() => selectPlan(p.id)}>
-                <strong>{p.title}</strong>
-              </button>
-              <div className="muted">
-                {p.visibility} · {p.days.length} days
-                {selectedId === p.id ? ` · ${t("plans.selected")}` : ""}
-              </div>
-            </li>
-          ))}
-        </ul>
-        {selected && (
-          <>
-            <div className="field" style={{ marginTop: "1rem" }}>
-              <label>{t("plans.editDays")}</label>
-              <textarea rows={8} value={daysJson} onChange={(e) => setDaysJson(e.target.value)} />
-            </div>
-            <button type="button" className="btn" onClick={() => void saveDays()}>
-              {t("plans.save")}
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("plans.subscribe")}</h2>
-        <div className="field">
-          <label>{t("plans.subscribeId")}</label>
-          <input
-            value={subscribeId}
-            onChange={(e) => setSubscribeId(e.target.value)}
-            placeholder="plan_…"
-          />
-        </div>
-        <button type="button" className="btn" onClick={() => void subscribe()}>
-          {t("plans.subscribe")}
-        </button>
-      </div>
-
-      {publicPlans && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("plans.public")}</h2>
-          <ul className="list">
-            {publicPlans.length === 0 && <li className="muted">—</li>}
-            {publicPlans.map((p) => (
-              <li key={p.id}>
-                <strong>{p.title}</strong>
-                <div className="muted">{p.id}</div>
-              </li>
-            ))}
-          </ul>
+      {!loggedIn && (
+        <div className="panel folio-gate" data-testid="plans-login-gate">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("plans.gateHint")}
+          </p>
+          <Link className="btn" to="/app/me" data-testid="plans-go-login">
+            {t("plans.goLogin")}
+          </Link>
         </div>
       )}
 
-      {subscriptions && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("plans.subscriptions")}</h2>
-          <ul className="list">
-            {subscriptions.length === 0 && <li className="muted">—</li>}
-            {subscriptions.map((s) => (
-              <li key={s.subscriptionId ?? s.id ?? s.planId}>
-                <strong>{s.title ?? s.planId}</strong>
-                <div className="muted">
-                  {s.planId} · day {s.progressDay}
-                </div>
+      <div className="plans-tabs" role="tablist" aria-label={t("nav.plans")} data-testid="plans-tabs">
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            className={`plans-tab${tab === item.id ? " is-active" : ""}`}
+            data-testid={`plans-tab-${item.id}`}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "mine" && (
+        <div className="plans-tab-panel" data-testid="plans-panel-mine" role="tabpanel">
+          {activeSubs.length > 0 ? (
+            <div className="panel" data-testid="plans-devotion-today">
+              <h2>{t("plans.devotionToday")}</h2>
+              <div className="field">
+                <label>{t("plans.devotionPlan")}</label>
+                <select
+                  value={activeSub?.planId ?? ""}
+                  onChange={(e) => setActiveSubPlanId(e.target.value)}
+                >
+                  {activeSubs.map((s) => (
+                    <option key={s.planId} value={s.planId}>
+                      {s.title ?? t("plans.untitled")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>{t("plans.devotionMaterial")}</label>
+                <select
+                  value={activeMaterial?.id ?? ""}
+                  onChange={(e) => void persistDevotion(step, e.target.value)}
+                >
+                  {devotionMaterials.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title[localeKey] ?? m.title.en}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {todayDay && (
+                <p className="muted" data-testid="plans-today-reading">
+                  {t("plans.todayReading")}:{" "}
+                  {(() => {
+                    const href = bibleHrefFromPlanRef(todayDay.ref);
+                    const label = (
+                      <>
+                        <strong>{todayDay.ref}</strong>
+                        {todayDay.title ? ` · ${todayDay.title}` : ""}
+                      </>
+                    );
+                    if (!href) return label;
+                    return (
+                      <Link
+                        className="plans-today-ref"
+                        to={href}
+                        data-testid="plans-today-ref-link"
+                      >
+                        {label}
+                      </Link>
+                    );
+                  })()}
+                </p>
+              )}
+              {activeMaterial && (
+                <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
+              )}
+              <p className="muted">
+                {progress.done
+                  ? t("plans.stepDone")
+                  : t("plans.stepProgress", {
+                      current: progress.index + 1,
+                      total: progress.total,
+                    })}
+              </p>
+              <div className="step-track" role="list">
+                {stepGuide.map((s, i) => {
+                  const state = i < progress.index ? "done" : i === progress.index ? "current" : "todo";
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      role="listitem"
+                      className={`step-chip step-${state}`}
+                      onClick={() => void persistDevotion(s)}
+                    >
+                      <span className="step-index">{i + 1}</span>
+                      {t(`devotion.${s}`)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="toolbar">
+                <button type="button" className="btn" onClick={advance} disabled={progress.done}>
+                  {progress.done ? t("plans.stepDone") : t("plans.nextStep")}
+                </button>
                 <button
                   type="button"
                   className="btn ghost"
-                  onClick={() => void advancePlanDay(s.planId, s.progressDay)}
+                  disabled={!activeSub}
+                  onClick={() => {
+                    if (!activeSub) return;
+                    void advancePlanDay(activeSub.planId, activeSub.progressDay);
+                  }}
                 >
                   {t("plans.advanceDay")}
                 </button>
-              </li>
-            ))}
-          </ul>
+                <button type="button" className="btn ghost" onClick={resetSteps}>
+                  {t("plans.resetSteps")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="panel" data-testid="plans-empty-mine">
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("plans.emptyMine")}
+              </p>
+              <button type="button" className="btn" onClick={() => setTab("discover")}>
+                {t("plans.openDiscover")}
+              </button>
+            </div>
+          )}
+
+          {activeSubs.length > 0 && (
+            <div className="panel">
+              <h2>{t("plans.subscriptions")}</h2>
+              <ul className="list">
+                {activeSubs.map((s) => {
+                  const total = s.days?.length ?? 0;
+                  return (
+                    <li key={s.subscriptionId ?? s.id ?? s.planId}>
+                      <button
+                        type="button"
+                        className="linkish"
+                        onClick={() => setActiveSubPlanId(s.planId)}
+                      >
+                        <strong>{s.title ?? t("plans.untitled")}</strong>
+                      </button>
+                      <div className="muted">
+                        {t("plans.inProgress")}
+                        {total > 0
+                          ? ` · ${t("plans.dayOf", { day: Math.min((s.progressDay ?? 0) + 1, total) })} / ${total}`
+                          : ` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <details className="panel plans-advanced" data-testid="plans-add-by-id">
+            <summary>{t("plans.manageAdvanced")}</summary>
+            <h3>{t("plans.addById")}</h3>
+            <p className="muted">{t("plans.addByIdHint")}</p>
+            <div className="field">
+              <label htmlFor="plan-subscribe-id">{t("plans.subscribeId")}</label>
+              <input
+                id="plan-subscribe-id"
+                data-testid="plans-subscribe-id"
+                value={subscribeId}
+                onChange={(e) => setSubscribeId(e.target.value)}
+                placeholder={t("plans.subscribeId")}
+              />
+            </div>
+            <button type="button" className="btn" data-testid="plans-subscribe-submit" onClick={() => void subscribe()}>
+              {t("plans.subscribe")}
+            </button>
+
+            <h3>{t("plans.create")}</h3>
+            <div className="field">
+              <label htmlFor="plan-title">{t("plans.title")}</label>
+              <input
+                id="plan-title"
+                data-testid="plans-create-title"
+                value={createTitle}
+                onChange={(e) => setCreateTitle(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="plan-description">{t("plans.description")}</label>
+              <input
+                id="plan-description"
+                value={createDescription}
+                onChange={(e) => setCreateDescription(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="plan-visibility">{t("plans.visibility")}</label>
+              <select
+                id="plan-visibility"
+                value={createVisibility}
+                onChange={(e) => setCreateVisibility(e.target.value as PlanVisibility)}
+              >
+                <option value="private">{t("plans.visibilityPrivate")}</option>
+                <option value="church">{t("plans.visibilityChurch")}</option>
+                <option value="public">{t("plans.visibilityPublic")}</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="plan-days">{t("plans.daysHint")}</label>
+              <textarea
+                id="plan-days"
+                rows={4}
+                value={createDaysText}
+                onChange={(e) => setCreateDaysText(e.target.value)}
+              />
+            </div>
+            <button type="button" className="btn" data-testid="plans-create-submit" onClick={() => void createPlan()}>
+              {t("plans.create")}
+            </button>
+
+            <h3>{t("plans.owned")}</h3>
+            <ul className="list">
+              {plans.length === 0 && <li className="muted">{t("plans.emptyOwned")}</li>}
+              {plans.map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="linkish" onClick={() => selectPlan(p.id)}>
+                    <strong>{p.title}</strong>
+                  </button>
+                  <div className="muted">
+                    {p.visibility === "church"
+                      ? t("plans.visibilityChurch")
+                      : p.visibility === "public"
+                        ? t("plans.visibilityPublic")
+                        : t("plans.visibilityPrivate")}
+                    {" · "}
+                    {t("plans.daysCount", { count: p.days.length })}
+                    {selectedId === p.id ? ` · ${t("plans.selected")}` : ""}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {selected && (
+              <>
+                <div className="field" style={{ marginTop: "1rem" }}>
+                  <label>{t("plans.editDays")}</label>
+                  <textarea rows={8} value={daysJson} onChange={(e) => setDaysJson(e.target.value)} />
+                </div>
+                <button type="button" className="btn" onClick={() => void saveDays()}>
+                  {t("plans.save")}
+                </button>
+              </>
+            )}
+
+            <h3>{t("plans.importCsv")}</h3>
+            <div className="field">
+              <textarea rows={4} value={csv} onChange={(e) => setCsv(e.target.value)} />
+            </div>
+            <button type="button" className="btn" onClick={() => void importCsv()}>
+              {t("plans.importCsv")}
+            </button>
+          </details>
         </div>
       )}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("plans.importCsv")}</h2>
-        <div className="field">
-          <textarea rows={6} value={csv} onChange={(e) => setCsv(e.target.value)} />
-        </div>
-        <button type="button" className="btn" onClick={() => void importCsv()}>
-          {t("plans.importCsv")}
-        </button>
-      </div>
-
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("plans.devotion")}</h2>
-        {(subscriptions ?? []).length > 0 && (
-          <div className="field">
-            <label>{t("plans.devotionPlan")}</label>
-            <select
-              value={activeSub?.planId ?? ""}
-              onChange={(e) => setActiveSubPlanId(e.target.value)}
-            >
-              {(subscriptions ?? []).map((s) => (
-                <option key={s.planId} value={s.planId}>
-                  {s.title ?? s.planId}
-                </option>
-              ))}
-            </select>
+      {tab === "discover" && (
+        <div className="plans-tab-panel" data-testid="plans-panel-discover" role="tabpanel">
+          <div className="panel">
+            <h2>{t("plans.public")}</h2>
+            <p className="muted">{t("plans.discoverHint")}</p>
+            <ul className="list">
+              {(publicPlans ?? []).length === 0 && <li className="muted">{t("plans.emptyDiscover")}</li>}
+              {(publicPlans ?? []).map((p) => {
+                const desc = (p.description ?? "").trim();
+                const showDesc =
+                  desc.length > 0 &&
+                  !/smoke|fixture|demo|test|样例|テスト/i.test(desc);
+                return (
+                  <li key={p.id}>
+                    <strong>{p.title}</strong>
+                    {showDesc ? <div className="muted">{desc}</div> : null}
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      data-testid={`plans-discover-join-${p.id}`}
+                      onClick={() => void subscribe(p.id)}
+                    >
+                      {t("plans.subscribe")}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-        )}
-        <div className="field">
-          <label>{t("plans.devotionMaterial")}</label>
-          <select
-            value={activeMaterial?.id ?? ""}
-            onChange={(e) => void persistDevotion(step, e.target.value)}
-          >
-            {devotionMaterials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title[localeKey] ?? m.title.en}
-              </option>
-            ))}
-          </select>
+          <div className="panel">
+            <h2>{t("plans.materials")}</h2>
+            <ul className="list">
+              {devotionMaterials.map((m) => (
+                <li key={m.id}>
+                  <strong>{m.title[localeKey] ?? m.title.en}</strong>
+                  <div className="muted">{m.body[localeKey] ?? m.body.en}</div>
+                </li>
+              ))}
+              {studyMaterials.map((m) => (
+                <li key={m.id}>
+                  <a href={m.url} target="_blank" rel="noreferrer">
+                    {m.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        {todayDay && (
-          <p className="muted">
-            {t("plans.todayReading")}: <strong>{todayDay.ref}</strong>
-            {todayDay.title ? ` · ${todayDay.title}` : ""}
-            {step === "read" ? ` · ${t("devotion.read")}` : ""}
-          </p>
-        )}
-        {activeMaterial && (
-          <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
-        )}
-        <p className="muted">
-          {progress.index + 1} / {progress.total}
-          {progress.done ? " · done" : ""}
-        </p>
-        <div className="step-track" role="list">
-          {stepGuide.map((s, i) => {
-            const state = i < progress.index ? "done" : i === progress.index ? "current" : "todo";
-            return (
-              <button
-                key={s}
-                type="button"
-                role="listitem"
-                className={`step-chip step-${state}`}
-                onClick={() => void persistDevotion(s)}
-              >
-                <span className="step-index">{i + 1}</span>
-                {t(`devotion.${s}`)}
-              </button>
-            );
-          })}
-        </div>
-        <div className="toolbar">
-          <button type="button" className="btn" onClick={advance} disabled={progress.done}>
-            {progress.done ? "✓" : "→"}
-          </button>
-          <button type="button" className="btn ghost" onClick={resetSteps}>
-            Reset
-          </button>
-          {todayDay && activeSub && (
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => void advancePlanDay(activeSub.planId, activeSub.progressDay)}
-            >
-              {t("plans.advanceDay")}
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("plans.materials")}</h2>
-        <ul className="list">
-          {devotionMaterials.map((m) => (
-            <li key={m.id}>
-              <strong>{m.title[localeKey] ?? m.title.en}</strong>
-              <div className="muted">{m.body[localeKey] ?? m.body.en}</div>
-              <div className="muted">{m.license}</div>
-            </li>
-          ))}
-          {studyMaterials.map((m) => (
-            <li key={m.id}>
-              <a href={m.url} target="_blank" rel="noreferrer">
-                {m.title}
-              </a>
-              <div className="muted">{m.license}</div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {tab === "done" && (
+        <div className="plans-tab-panel" data-testid="plans-panel-done" role="tabpanel">
+          <div className="panel">
+            <h2>{t("plans.tabDone")}</h2>
+            <p className="muted">{t("plans.doneHint")}</p>
+            <ul className="list">
+              {doneSubs.length === 0 && <li className="muted">{t("plans.emptyDone")}</li>}
+              {doneSubs.map((s) => {
+                const total = s.days?.length ?? 0;
+                return (
+                  <li key={s.subscriptionId ?? s.id ?? s.planId} data-testid={`plans-done-${s.planId}`}>
+                    <strong>{s.title ?? t("plans.untitled")}</strong>
+                    <div className="muted">
+                      {t("plans.completedBadge")}
+                      {total > 0 ? ` · ${t("plans.daysCount", { count: total })}` : ""}
+                      {` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

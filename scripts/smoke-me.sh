@@ -49,4 +49,26 @@ echo "$ME2" | grep -q '"theme":"night"'
 echo "$ME2" | grep -q '"locale":"ja"'
 echo "ME_THEME_LOCALE_OK"
 
+echo "== me smoke: devices list + revoke other device =="
+# Second login creates another device for A
+LOGIN2=$(curl -sf -X POST "$BASE/v1/auth/login" -H 'content-type: application/json' \
+  -d "{\"handleOrEmail\":\"mea${TS}\",\"password\":\"$PASS\",\"platform\":\"web\",\"deviceName\":\"SmokeOther\"}")
+TOKEN_A2=$(echo "$LOGIN2" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+DEV_A2=$(echo "$LOGIN2" | sed -n 's/.*"deviceId":"\([^"]*\)".*/\1/p')
+test -n "$TOKEN_A2" && test -n "$DEV_A2"
+DEVS=$(curl -sf -H "Authorization: Bearer $TOKEN_A" "$BASE/v1/me/devices")
+echo "$DEVS" | head -c 320; echo
+echo "$DEVS" | grep -q '"currentDeviceId"'
+echo "$DEVS" | grep -q '"isCurrent":true'
+echo "$DEVS" | grep -q "\"id\":\"$DEV_A2\""
+REV=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_A" \
+  "$BASE/v1/me/devices/${DEV_A2}/revoke")
+echo "$REV" | grep -q '"ok":true'
+DEVS2=$(curl -sf -H "Authorization: Bearer $TOKEN_A" "$BASE/v1/me/devices")
+echo "$DEVS2" | grep -q "\"id\":\"$DEV_A2\""
+echo "$DEVS2" | grep -q '"revoked":true'
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN_A2" "$BASE/v1/me")
+test "$CODE" = "401"
+echo "ME_DEVICES_OK"
+
 echo "ME_SMOKE_OK"
