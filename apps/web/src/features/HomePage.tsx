@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { SecurityMode } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
@@ -326,15 +327,29 @@ export function HomePage() {
     }
   }
 
+  const loggedIn = Boolean(getToken());
+
   return (
     <section className="fade-up home-page app-folio" data-testid="home-page">
       <h1 className="page-title">{t("nav.home")}</h1>
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+
+      {!loggedIn && (
+        <div className="panel folio-gate" data-testid="home-login-gate">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("home.gateHint")}
+          </p>
+          <Link className="btn" to="/app/me" data-testid="home-go-login">
+            {t("home.goLogin")}
+          </Link>
+        </div>
+      )}
+
       <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
         {(
           [
-            ["church", t("home.tabChurch")],
             ["forum", t("home.tabForum")],
+            ["church", t("home.tabChurch")],
             ["chat", t("home.tabChat")],
           ] as const
         ).map(([id, label]) => (
@@ -383,7 +398,22 @@ export function HomePage() {
           ))}
         </ul>
 
-        <details className="plans-advanced" style={{ marginTop: "1rem" }}>
+        <details className="plans-advanced" style={{ marginTop: "1rem" }} open={churches.length === 0}>
+          <summary>{t("home.joinChurch")}</summary>
+          <div className="field" style={{ marginTop: "0.75rem" }}>
+            <label>{t("home.joinSlug")}</label>
+            <input
+              value={joinSlug}
+              onChange={(e) => setJoinSlug(e.target.value)}
+              placeholder={t("home.slugPlaceholder")}
+            />
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
+            {t("home.joinChurch")}
+          </button>
+        </details>
+
+        <details className="plans-advanced" style={{ marginTop: "0.75rem" }}>
           <summary>{t("home.createChurch")}</summary>
           <div className="field" style={{ marginTop: "0.75rem" }}>
             <label>{t("home.churchName")}</label>
@@ -413,21 +443,6 @@ export function HomePage() {
           </div>
           <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
             {t("home.createChurch")}
-          </button>
-        </details>
-
-        <details className="plans-advanced" style={{ marginTop: "0.75rem" }}>
-          <summary>{t("home.joinChurch")}</summary>
-          <div className="field" style={{ marginTop: "0.75rem" }}>
-            <label>{t("home.joinSlug")}</label>
-            <input
-              value={joinSlug}
-              onChange={(e) => setJoinSlug(e.target.value)}
-              placeholder={t("home.slugPlaceholder")}
-            />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
-            {t("home.joinChurch")}
           </button>
         </details>
       </div>
@@ -554,7 +569,23 @@ export function HomePage() {
       {homeSection === "forum" && selectedChurchId && (
         <div className="panel" data-testid="home-forum-panel">
           <h2>{t("home.forumFeed")}</h2>
-          {selectedChurch && (
+          {churches.length > 1 && (
+            <div className="field">
+              <label>{t("home.pickChurch")}</label>
+              <select
+                value={selectedChurchId}
+                onChange={(e) => setSelectedChurchId(e.target.value)}
+                data-testid="home-forum-church-select"
+              >
+                {churches.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {selectedChurch && churches.length <= 1 && (
             <p className="muted" style={{ marginTop: 0 }}>
               {selectedChurch.name}
               {selectedChurch.slug ? ` · ${selectedChurch.slug}` : ""}
@@ -656,8 +687,13 @@ export function HomePage() {
       )}
 
       {homeSection === "forum" && !selectedChurchId && (
-        <div className="panel">
-          <p className="muted">{t("home.noChurches")}</p>
+        <div className="panel" data-testid="home-forum-empty">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("home.forumNeedChurch")}
+          </p>
+          <button type="button" className="btn" onClick={() => setHomeSection("church")}>
+            {t("home.goChurch")}
+          </button>
         </div>
       )}
 

@@ -297,6 +297,16 @@ select {
   font-size: 0.88rem;
 }
 
+.app-folio .folio-gate {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.app-folio .folio-gate .btn {
+  text-decoration: none;
+}
+
 .app-folio .church-row,
 .app-folio .post-row,
 .app-folio .convo-row {
@@ -515,6 +525,18 @@ body:has(.app-folio) .tab-bar a {
 .plans-tab-panel {
   display: grid;
   gap: 1rem;
+}
+
+.plans-today-ref {
+  color: var(--lh-accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-accent) 35%, transparent);
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.plans-today-ref:hover {
+  color: var(--lh-ink);
+  border-bottom-color: var(--lh-accent);
 }
 
 .plans-advanced > summary {

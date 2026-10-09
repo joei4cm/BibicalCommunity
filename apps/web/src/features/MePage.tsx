@@ -18,6 +18,8 @@ import {
 import { secureGet, secureSet } from "../lib/secure-kv";
 import { humanizeStatus } from "../lib/status";
 
+type MeSection = "account" | "profile" | "privacy" | "devices";
+
 type MeChurch = {
   churchId: string;
   name?: string | null;
@@ -63,6 +65,7 @@ const DEFAULT_PRIVACY: PrivacySettings = {
 
 export function MePage() {
   const { t, i18n } = useTranslation();
+  const [meSection, setMeSection] = useState<MeSection>("account");
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
@@ -426,6 +429,8 @@ export function MePage() {
     return mapped[id] ?? key;
   };
 
+  const signedIn = Boolean(profile?.uid);
+
   return (
     <section className="fade-up me-page app-folio" data-testid="me-page">
       <h1 className="page-title">{t("nav.me")}</h1>
@@ -436,23 +441,56 @@ export function MePage() {
         </div>
       )}
 
-      {profile?.uid ? (
+      {signedIn ? (
         <div className="folio-hero" data-testid="me-auth-status">
-          <p className="folio-hero-name">{nickname || profile.nickname || profile.uid}</p>
+          <p className="folio-hero-name">{nickname || profile?.nickname || profile?.uid}</p>
           <p className="folio-hero-meta">
-            {t("me.signedIn")} · UID <strong data-testid="me-uid">{profile.uid}</strong>
+            {t("me.signedIn")} · UID <strong data-testid="me-uid">{profile?.uid}</strong>
             {msg ? ` · ${humanizeStatus(t, msg)}` : null}
           </p>
         </div>
-      ) : msg ? (
-        <p className="auth-status" role="status" data-testid="me-auth-status">
-          {humanizeStatus(t, msg)}
-        </p>
-      ) : null}
+      ) : (
+        <div className="panel folio-gate" data-testid="me-welcome-gate">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("me.gateWelcome")}
+          </p>
+          {msg ? (
+            <p className="auth-status" role="status" data-testid="me-auth-status">
+              {humanizeStatus(t, msg)}
+            </p>
+          ) : null}
+        </div>
+      )}
 
+      {signedIn && (
+        <div className="plans-tabs" role="tablist" data-testid="me-section-tabs">
+          {(
+            [
+              ["account", "me.tabAccount"],
+              ["profile", "me.tabProfile"],
+              ["privacy", "me.tabPrivacy"],
+              ["devices", "me.tabDevices"],
+            ] as const
+          ).map(([id, key]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={meSection === id}
+              className={`plans-tab${meSection === id ? " is-active" : ""}`}
+              data-testid={`me-tab-${id}`}
+              onClick={() => setMeSection(id)}
+            >
+              {t(key)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(!signedIn || meSection === "account") && (
       <div className="panel" data-testid="me-auth-panel">
         <h2>{t("me.account")}</h2>
-        {profile?.uid ? <p className="muted">{t("me.signOutHint")}</p> : null}
+        {signedIn ? <p className="muted">{t("me.signOutHint")}</p> : null}
         <form
           id="lh-auth-form"
           onSubmit={(e) => {
@@ -513,8 +551,10 @@ export function MePage() {
           </div>
         </form>
       </div>
+      )}
 
-      <div className="panel">
+      {signedIn && meSection === "profile" && (
+      <div className="panel" data-testid="me-profile-panel">
         <h2>{t("me.profile")}</h2>
         <div className="field">
           <label>{t("me.nickname")}</label>
@@ -532,7 +572,9 @@ export function MePage() {
           {t("me.save")}
         </button>
       </div>
+      )}
 
+      {signedIn && meSection === "privacy" && (
       <div className="panel" data-testid="me-settings-panel">
         <h2>{t("me.settings")}</h2>
         <h3>{t("me.privacy")}</h3>
@@ -649,8 +691,10 @@ export function MePage() {
           </dl>
         </div>
       </div>
+      )}
 
-      <div className="panel">
+      {signedIn && meSection === "profile" && (
+      <div className="panel" data-testid="me-churches-panel">
         <h2>{t("me.churches")}</h2>
         <ul className="list">
           {!profile?.churches?.length && <li className="muted">—</li>}
@@ -669,10 +713,7 @@ export function MePage() {
             </li>
           ))}
         </ul>
-      </div>
-
-      <div className="panel">
-        <h2>{t("me.search")}</h2>
+        <h3>{t("me.search")}</h3>
         <div className="field">
           <label>{t("me.searchUid")}</label>
           <input
@@ -693,9 +734,11 @@ export function MePage() {
           ))}
         </ul>
       </div>
+      )}
 
-      <div className="panel">
-        <details className="plans-advanced">
+      {signedIn && meSection === "devices" && (
+      <div className="panel" data-testid="me-devices-panel">
+        <details className="plans-advanced" open>
           <summary>{t("me.devices")}</summary>
           <p className="muted">{t("me.devicesHint")}</p>
           <ul className="list">
@@ -784,6 +827,7 @@ export function MePage() {
           </details>
         )}
       </div>
+      )}
     </section>
   );
 }
