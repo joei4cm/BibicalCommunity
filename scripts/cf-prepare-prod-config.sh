@@ -83,7 +83,7 @@ DB_ID=$(pick_db_id /tmp/cf-d1-list.json)
 if [[ -z "$DB_ID" ]]; then
   echo "INFO: creating D1 database $DB_NAME"
   pnpm exec wrangler d1 create "$DB_NAME" 2>&1 | tee /tmp/cf-d1-create.log
-  DB_ID=$(rg -o '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' /tmp/cf-d1-create.log | head -1 || true)
+  DB_ID=$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' /tmp/cf-d1-create.log | head -1 || true)
   if [[ -z "$DB_ID" ]]; then
     echo "FAIL: could not parse D1 database_id from create output"
     echo "CF_PREPARE_FAIL"
