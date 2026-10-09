@@ -9,7 +9,9 @@ import {
   Linking,
   TextInput,
 } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import {
+  adjacentChapter,
   buildPartnerAuthUrl,
   getBook,
   isPartnerId,
@@ -81,9 +83,15 @@ function isExternalChapter(data: ChapterResponse): data is ExternalChapter {
 
 export default function BibleScreen() {
   const { locale } = useLocale();
+  const routeParams = useLocalSearchParams<{
+    book?: string;
+    chapter?: string;
+    verse?: string;
+  }>();
   const translations = listTranslations();
   const books = useMemo(() => listBooks(), []);
-  const [translationId, setTranslationId] = useState("web");
+  /** Boot defaults: 和合本 + NASB only (whole-Bible). */
+  const [translationId, setTranslationId] = useState("cuvs");
   const [bookId, setBookId] = useState("John");
   const [chapterNum, setChapterNum] = useState(1);
   const [verses, setVerses] = useState<{ verse: number; text: string }[]>([]);
@@ -121,6 +129,26 @@ export default function BibleScreen() {
       setInstalledByTid({});
     }
   }, []);
+
+  useEffect(() => {
+    const rawBook = typeof routeParams.book === "string" ? routeParams.book : null;
+    const rawChapter = typeof routeParams.chapter === "string" ? routeParams.chapter : null;
+    const rawVerse = typeof routeParams.verse === "string" ? routeParams.verse : null;
+    if (!rawBook && !rawChapter) return;
+    if (rawBook) {
+      const book = getBook(rawBook);
+      if (book) setBookId(book.id);
+      else setBookId(rawBook);
+    }
+    if (rawChapter) {
+      const n = Number(rawChapter);
+      if (Number.isFinite(n) && n >= 1) setChapterNum(Math.floor(n));
+    }
+    if (rawVerse) {
+      const n = Number(rawVerse);
+      if (Number.isFinite(n) && n >= 1) setSelectedVerse(Math.floor(n));
+    }
+  }, [routeParams.book, routeParams.chapter, routeParams.verse]);
 
   useEffect(() => {
     if (!showCatalog) return;
@@ -217,11 +245,11 @@ export default function BibleScreen() {
     if (!apiBase) return;
     void ensureBootCorpusSeeded(async (tid) => {
       try {
-        // Boot must stay slim (teaching-set), even when R2 holds full PD WEB.
+        // Boot = whole-Bible pack for 和合本 / NASB (not chapter subsets).
         const pack = await api<{
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=boot`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=full`);
         return { chapters: pack.chapters, source: pack.source };
       } catch {
         return null;
@@ -346,7 +374,7 @@ export default function BibleScreen() {
   async function requireAuth(): Promise<boolean> {
     await hydrateToken();
     if (!getApiBase()) {
-      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      setAnnMsg("api_base_required");
       return false;
     }
     if (!getToken()) {
@@ -458,7 +486,7 @@ export default function BibleScreen() {
 
   async function downloadCorpusPack(targetTid = translationId) {
     if (!apiBase) {
-      setAnnMsg("EXPO_PUBLIC_API_BASE not set");
+      setAnnMsg("api_base_required");
       return;
     }
     setAnnBusy(true);
@@ -532,11 +560,46 @@ export default function BibleScreen() {
   const chapterAnnotations = annotations.filter(
     (a) => a.book === bookId && a.chapter === chapterNum,
   );
+  const passageTitle = `${currentBook?.name[bookNameLocale] ?? bookId} ${chapterNum}`;
+  const prevCursor = useMemo(() => adjacentChapter(bookId, chapterNum, -1), [bookId, chapterNum]);
+  const nextCursor = useMemo(() => adjacentChapter(bookId, chapterNum, 1), [bookId, chapterNum]);
+  const activeTranslation = translations.find((tr) => tr.id === translationId);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{t(locale, "nav.bible")}</Text>
-      <Text style={styles.muted}>{t(locale, "app.tagline")}</Text>
+      {/* WeDevote-shaped primary surface */}
+      <Text style={styles.translationLabel} testID="reader-translation-label">
+        {activeTranslation?.name[locale] ?? translationId}
+      </Text>
+      <Text style={styles.passageTitle} testID="reader-passage-title">
+        {passageTitle}
+      </Text>
+      <View style={styles.chapterNav}>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, !prevCursor && styles.btnDisabled]}
+          disabled={!prevCursor}
+          testID="reader-prev-chapter"
+          onPress={() => {
+            if (!prevCursor) return;
+            setBookId(prevCursor.bookId);
+            setChapterNum(prevCursor.chapter);
+          }}
+        >
+          <Text style={styles.btnGhostText}>{t(locale, "reader.prevChapter")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, !nextCursor && styles.btnDisabled]}
+          disabled={!nextCursor}
+          testID="reader-next-chapter"
+          onPress={() => {
+            if (!nextCursor) return;
+            setBookId(nextCursor.bookId);
+            setChapterNum(nextCursor.chapter);
+          }}
+        >
+          <Text style={styles.btnGhostText}>{t(locale, "reader.nextChapter")}</Text>
+        </Pressable>
+      </View>
 
       <Text style={styles.label}>{t(locale, "reader.translations")}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
@@ -592,13 +655,9 @@ export default function BibleScreen() {
                   </Text>
                   <Text style={styles.muted}>
                     {catalogModeLabel(pack.installMode)}
+                    {pack.installMode !== "external" ? ` · ${t(locale, "reader.wholeBiblePack")}` : ""}
                     {installed
-                      ? ` · ${t(locale, "reader.corpusCatalogInstalled")} ${installed.chapterCount} ${t(locale, "reader.corpusCatalogChapters")}`
-                      : pack.installMode !== "external"
-                        ? ` · ${pack.chapterRefs.length} ${t(locale, "reader.corpusCatalogChapters")}`
-                        : ""}
-                    {pack.fullPackAvailable && pack.fullPackChapterCount
-                      ? ` · ${t(locale, "reader.corpusCatalogFullPack")} ${pack.fullPackChapterCount}`
+                      ? ` · ${t(locale, "reader.corpusCatalogInstalled")} ${installed.chapterCount}`
                       : ""}
                   </Text>
                 </View>
@@ -613,9 +672,7 @@ export default function BibleScreen() {
                       <Text style={styles.btnGhostText}>
                         {busy
                           ? t(locale, "reader.corpusCatalogDownloading")
-                          : pack.fullPackAvailable
-                            ? t(locale, "reader.corpusDownloadFull")
-                            : t(locale, "reader.corpusDownload")}
+                          : t(locale, "reader.corpusDownloadFull")}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -777,38 +834,67 @@ export default function BibleScreen() {
           </Pressable>
         </View>
       ) : (
-        verses.map((v) => {
-          const selected = selectedVerse === v.verse;
-          const hl = highlightByVerse[v.verse];
-          return (
-            <Pressable
-              key={v.verse}
-              onPress={() => setSelectedVerse(v.verse)}
-              style={[
-                styles.verseRow,
-                { backgroundColor: skinPalette.readerBg },
-                selected && styles.verseSelected,
-                hl ? { backgroundColor: hl } : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.verse,
-                  {
-                    fontSize,
-                    lineHeight: fontSize * lineHeight,
-                    fontFamily: serif ? "Georgia" : "Helvetica Neue",
-                    color: skinPalette.verseColor,
-                  },
-                ]}
-              >
-                <Text style={[styles.num, { color: skinPalette.verseNum }]}>{v.verse} </Text>
-                {v.text}
-              </Text>
-            </Pressable>
-          );
-        })
+        <View
+          style={[styles.proseBlock, { backgroundColor: skinPalette.readerBg }]}
+          testID="reader-prose"
+        >
+          <Text
+            style={[
+              styles.proseBody,
+              {
+                fontSize,
+                lineHeight: fontSize * lineHeight,
+                fontFamily: serif ? "Georgia" : "Helvetica Neue",
+                color: skinPalette.verseColor,
+              },
+            ]}
+          >
+            <Text style={[styles.chapterLead, { color: skinPalette.verseNum }]}>{chapterNum} </Text>
+            {verses.map((v) => {
+              const selected = selectedVerse === v.verse;
+              const hl = highlightByVerse[v.verse];
+              return (
+                <Text
+                  key={v.verse}
+                  onPress={() => setSelectedVerse(v.verse)}
+                  style={[
+                    selected ? styles.proseSelected : null,
+                    hl ? { backgroundColor: hl } : null,
+                  ]}
+                >
+                  <Text style={[styles.num, { color: skinPalette.verseNum }]}>{v.verse}</Text>
+                  {v.text}{" "}
+                </Text>
+              );
+            })}
+          </Text>
+        </View>
       )}
+
+      <View style={styles.chapterNav}>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, !prevCursor && styles.btnDisabled]}
+          disabled={!prevCursor}
+          onPress={() => {
+            if (!prevCursor) return;
+            setBookId(prevCursor.bookId);
+            setChapterNum(prevCursor.chapter);
+          }}
+        >
+          <Text style={styles.btnGhostText}>{t(locale, "reader.prevChapter")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnGhost, !nextCursor && styles.btnDisabled]}
+          disabled={!nextCursor}
+          onPress={() => {
+            if (!nextCursor) return;
+            setBookId(nextCursor.bookId);
+            setChapterNum(nextCursor.chapter);
+          }}
+        >
+          <Text style={styles.btnGhostText}>{t(locale, "reader.nextChapter")}</Text>
+        </Pressable>
+      </View>
 
       {!external && (
         <View style={styles.annBlock}>
@@ -839,7 +925,7 @@ export default function BibleScreen() {
               <Text style={styles.btnGhostText}>
                 {downloadingTid === translationId
                   ? t(locale, "reader.corpusCatalogDownloading")
-                  : t(locale, "reader.corpusDownload")}
+                  : t(locale, "reader.corpusDownloadFull")}
               </Text>
             </Pressable>
           </View>
@@ -927,6 +1013,26 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f7f3ea" },
   content: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
+  translationLabel: {
+    marginTop: 4,
+    color: "#5a6a68",
+    fontSize: 14,
+    textAlign: "center",
+    letterSpacing: 0.4,
+  },
+  passageTitle: {
+    marginTop: 6,
+    marginBottom: 12,
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#1c2b2a",
+    textAlign: "center",
+  },
+  chapterNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   muted: { marginTop: 4, color: "#5a6a68", marginBottom: 16 },
   label: { fontSize: 13, fontWeight: "600", color: "#5a6a68", marginBottom: 8 },
   section: { fontSize: 18, fontWeight: "600", color: "#1c2b2a", marginBottom: 8 },
@@ -943,10 +1049,19 @@ const styles = StyleSheet.create({
   chipTextActive: { color: "#fff" },
   chapter: { marginVertical: 12, color: "#0f6b5c", fontWeight: "600" },
   error: { color: "#a33", marginBottom: 8 },
+  proseBlock: {
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    marginBottom: 12,
+  },
+  proseBody: { textAlign: "justify" },
+  proseSelected: { backgroundColor: "#dceee9" },
+  chapterLead: { fontSize: 22, fontWeight: "700" },
   verseRow: { marginBottom: 4, borderRadius: 4, paddingHorizontal: 4 },
   verseSelected: { backgroundColor: "#dceee9" },
   verse: { fontSize: 18, lineHeight: 30, marginBottom: 8, color: "#1c2b2a" },
-  num: { color: "#0f6b5c", fontSize: 12 },
+  num: { color: "#0f6b5c", fontSize: 12, fontWeight: "600" },
   externalBlock: { marginBottom: 12 },
   btn: {
     backgroundColor: "#0f6b5c",

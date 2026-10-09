@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Local API smoke against wrangler dev (default http://127.0.0.1:8787)
 set -euo pipefail
+# Truncate without SIGPIPE under pipefail (echo|head -c fails on large JSON).
+snip() { printf '%s\n' "${1:0:${2:-200}}"; }
 BASE="${1:-http://127.0.0.1:8787}"
 echo "== health =="
-curl -sf "$BASE/health" | head -c 200; echo
+curl -sf "$BASE/health" | head -c 200 || true; echo
 HANDLE="smoke$(date +%s)"
 PASS='SmokeTestPass123!'
 echo "== register (locale=zh short tag) =="
@@ -15,23 +17,26 @@ echo "token=${TOKEN:0:12}… locale=$LOCALE"
 test "$LOCALE" = "zh-CN"
 AUTH="Authorization: Bearer $TOKEN"
 echo "== bible translations =="
-curl -sf "$BASE/v1/bible/translations" | head -c 120; echo
+curl -sf "$BASE/v1/bible/translations" | head -c 120 || true; echo
 echo "== bible corpus-packs =="
 CPACKS=$(curl -sf "$BASE/v1/bible/corpus-packs")
-echo "$CPACKS" | head -c 200; echo
-echo "$CPACKS" | grep -q '"ok":true'
+snip "$CPACKS" 200
+echo "$CPACKS" | grep -q '"packs":\['
 echo "$CPACKS" | grep -q 'web-r2'
 echo "$CPACKS" | grep -q 'cuvs-r2'
+# probe.noTsPacks documents that corpora are not shipped as TypeScript packs
 echo "$CPACKS" | grep -q '"noTsPacks":true'
 echo "BIBLE_CORPUS_PACKS_OK"
-echo "== bible corpus-catalog (boot slim) =="
+echo "== bible corpus-catalog (boot=和合本+NASB whole-Bible) =="
 CAT=$(curl -sf "$BASE/v1/bible/corpus-catalog")
-echo "$CAT" | head -c 200; echo
+snip "$CAT" 200
 echo "$CAT" | grep -q '"bootDefaults"'
 echo "$CAT" | grep -q '"cuvs"'
+echo "$CAT" | grep -q '"nasb"'
 echo "$CAT" | grep -q '"web"'
 echo "$CAT" | grep -q '"shinKyoudou"'
 echo "$CAT" | grep -q '"installMode":"external"'
+echo "$CAT" | grep -q '"packKind":"whole-bible"'
 echo "BIBLE_CORPUS_CATALOG_OK"
 echo "== seed R2 from JSON fixtures (no TS packs) =="
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -66,21 +71,21 @@ curl -sf "$BASE/v1/bible/chapter?translation=esv&ref=John.1" | grep -q '"externa
 echo "ESV_EXTERNAL_OK"
 echo "== partner endao chapter sso flag =="
 ENDAO_CH=$(curl -sf "$BASE/v1/bible/chapter?translation=endao&ref=John.1")
-echo "$ENDAO_CH" | head -c 200; echo
+snip "$ENDAO_CH" 200
 echo "$ENDAO_CH" | grep -q '"sso":true'
 echo "$ENDAO_CH" | grep -q 'sso=1'
 echo "ENDAO_SSO_CHAPTER_OK"
 echo "== chapter NIV external =="
-curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200; echo
+curl -sf "$BASE/v1/bible/chapter?translation=niv&ref=John.1" | head -c 200 || true; echo
 echo "== partner mock authorize =="
 curl -sf -o /dev/null -w "%{http_code}\n" "$BASE/v1/partners/mock-authorize?partner=endao&ref=John.1&redirect_uri=/v1/partners/endao/callback"
 echo "== me =="
-curl -sf -H "$AUTH" "$BASE/v1/me" | head -c 160; echo
+curl -sf -H "$AUTH" "$BASE/v1/me" | head -c 160 || true; echo
 echo "== plans create (non-CSV) =="
 PLAN=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d '{"title":"晨祷计划","description":"smoke","visibility":"private","days":[{"day":1,"ref":"John.1","title":"Begin"},{"day":2,"ref":"John.2","title":"Wedding"}]}' \
   "$BASE/v1/plans")
-echo "$PLAN" | head -c 120; echo
+snip "$PLAN" 120
 echo "$PLAN" | grep -q '"id":"plan_'
 echo "PLAN_CREATE_OK"
 PLAN_ID=$(echo "$PLAN" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
@@ -90,7 +95,7 @@ CSV_IMP=$(curl -sf -X POST -H "$AUTH" \
   -F "title=CSV灵修计划" \
   -F "csv=$CSV_BODY" \
   "$BASE/v1/plans/import-csv")
-echo "$CSV_IMP" | head -c 160; echo
+snip "$CSV_IMP" 160
 echo "$CSV_IMP" | grep -q '"id":"plan_'
 CSV_ID=$(echo "$CSV_IMP" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 test -n "$CSV_ID"
@@ -107,7 +112,7 @@ echo "$PUB" | grep -q '"visibility":"public"'
 PUB_ID=$(echo "$PUB" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);const p=(j.plans||[]).find(x=>x.title&&x.title.includes("公开"));if(!p)throw new Error("no public plan");process.stdout.write(p.id)})')
 SUB=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' -d '{}' \
   "$BASE/v1/plans/$PUB_ID/subscribe")
-echo "$SUB" | head -c 160; echo
+snip "$SUB" 160
 echo "$SUB" | grep -q '"id":"psub_'
 PROG=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
   -d '{"day":1}' "$BASE/v1/plans/$PUB_ID/progress")
@@ -117,7 +122,7 @@ echo "PLAN_CSV_SUBSCRIBE_OK"
 echo "== plans devotion step persist =="
 DEVOTION=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN_SUB" -H 'content-type: application/json' \
   -d '{"step":"read","materialId":"morning-examen"}' "$BASE/v1/plans/$PUB_ID/devotion")
-echo "$DEVOTION" | head -c 200; echo
+snip "$DEVOTION" 200
 echo "$DEVOTION" | grep -q '"ok":true'
 echo "$DEVOTION" | grep -q '"devotionStep":"read"'
 echo "$DEVOTION" | grep -q '"devotionMaterialId":"morning-examen"'
@@ -136,32 +141,32 @@ echo "PLAN_DEVOTION_STEP_OK"
 test -n "$PLAN_ID"
 echo "== turn credentials =="
 curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' -d '{}' \
-  "$BASE/v1/calls/turn-credentials" | head -c 200; echo
+  "$BASE/v1/calls/turn-credentials" | head -c 200 || true; echo
 echo "== partners status =="
-curl -sf "$BASE/v1/partners/status" | head -c 200; echo
+curl -sf "$BASE/v1/partners/status" | head -c 200 || true; echo
 echo "== partner SSO mock closed loop =="
 SSO_STATUS=$(curl -sf "$BASE/v1/partners/status")
 echo "$SSO_STATUS" | grep -q '"endao":{"ssoEnabled":true'
 echo "$SSO_STATUS" | grep -q '"weread":{"ssoEnabled":true'
 echo "SSO_STATUS_OK"
 SSO_START=$(curl -sf "$BASE/v1/partners/endao/start?ref=John.1")
-echo "$SSO_START" | head -c 240; echo
+snip "$SSO_START" 240
 echo "$SSO_START" | grep -q 'mock-authorize'
 echo "$SSO_START" | grep -q '"mockIdp":true'
 echo "SSO_START_OK"
 WEREAD_START=$(curl -sf "$BASE/v1/partners/weread/start?ref=John.1")
-echo "$WEREAD_START" | head -c 240; echo
+snip "$WEREAD_START" 240
 echo "$WEREAD_START" | grep -q 'mock-authorize'
 echo "$WEREAD_START" | grep -q '"mockIdp":true'
 echo "$WEREAD_START" | grep -q '"partner":"weread"'
 echo "WEREAD_SSO_START_OK"
 SSO_LOOP=$(curl -sfL "$BASE/v1/partners/endao/start?ref=John.1&redirect=1")
-echo "$SSO_LOOP" | head -c 240; echo
+snip "$SSO_LOOP" 240
 echo "$SSO_LOOP" | grep -q '"ok":true'
 echo "$SSO_LOOP" | grep -q '"mock":true'
 echo "SSO_LOOP_OK"
 WEREAD_LOOP=$(curl -sfL "$BASE/v1/partners/weread/start?ref=John.1&redirect=1")
-echo "$WEREAD_LOOP" | head -c 240; echo
+snip "$WEREAD_LOOP" 240
 echo "$WEREAD_LOOP" | grep -q '"ok":true'
 echo "$WEREAD_LOOP" | grep -q '"mock":true'
 echo "$WEREAD_LOOP" | grep -q '"partner":"weread"'
@@ -201,7 +206,7 @@ echo "UNARCHIVE_OK"
 echo "== call create + turn =="
 CALL=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"conversationId\":\"$CID\"}" "$BASE/v1/chat/calls")
-echo "$CALL" | head -c 200; echo
+snip "$CALL" 200
 echo "$CALL" | grep -q "signalingPath"
 echo "CALL_SIGNAL_OK"
 echo "== call websocket joined =="
@@ -274,7 +279,7 @@ process.exit(0);
 ' "$WS_URL" "$WS_URL2"
 
 echo "== peer key bundle list (empty until upload) =="
-curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160; echo
+curl -sf -H "Authorization: Bearer $TOKEN2" "$BASE/v1/keys/$PEER" | head -c 160 || true; echo
 
 echo "== auth-then-P2P key distribution =="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

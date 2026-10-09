@@ -1,0 +1,194 @@
+{
+  "schema": "logoshome-mhcc-zh-chapter-v1",
+  "commentary": "mhcc-zh",
+  "source": "Matthew Henry Concise (PD EN) → zh-CN machine translation",
+  "license": "Public Domain source; Chinese rendering CC0 for LogosHome pack",
+  "language": "zh",
+  "book": 26,
+  "name": "Ezekiel",
+  "chapter": 36,
+  "entries": [
+    {
+      "book": 26,
+      "chapter": 36,
+      "verse": 1,
+      "verses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "osis": "Ezek.36.1",
+      "text": "The land shall be delivered from heathen oppressors. (Ezek 36:1-15) The people are reminded of former sins, and promised deliverance. (Ezek 36:16-24) Also holiness, and gospel blessings. (Ezek 36:25-38) * Verses 1-15 * Those who put contempt and reproach on God's people, will have them turned on themselves. God promises favour to his Israel.\nWe have no reason to complain, if the more unkind men are, the more kind God is. They shall come again to their own border. It was a type of the heavenly Canaan, of which all God's children are heirs, and into which they all shall be brought together. And when God returns in mercy to a people who return to him in duty, all their grievances will be set right.\nThe full completion of this prophecy must be in some future event.",
+      "references": [
+        {
+          "text": "Ezek 36:1-15",
+          "ref": "Ezekiel 36:1-15",
+          "osis": "Ezek.36.1",
+          "book": 26,
+          "chapter": 36,
+          "verse": 1,
+          "verses": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        },
+        {
+          "text": "Ezek 36:16-24",
+          "ref": "Ezekiel 36:16-24",
+          "osis": "Ezek.36.16",
+          "book": 26,
+          "chapter": 36,
+          "verse": 16,
+          "verses": [
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ]
+        },
+        {
+          "text": "Ezek 36:25-38",
+          "ref": "Ezekiel 36:25-38",
+          "osis": "Ezek.36.25",
+          "book": 26,
+          "chapter": 36,
+          "verse": 25,
+          "verses": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38
+          ]
+        }
+      ]
+    },
+    {
+      "book": 26,
+      "chapter": 36,
+      "verse": 16,
+      "verses": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "osis": "Ezek.36.16",
+      "text": "* Verses 16-24 * The restoration of that people, being typical of our redemption by Christ, shows that the end aimed at in our salvation is the glory of God. The sin of a people defiles their land; renders it abominable to God, and uncomfortable to themselves. God's holy name is his great name; his holiness is his greatness, nor does any thing else make a man truly great.",
+      "references": [
+        {
+          "text": "Verses 16-24",
+          "ref": "Ezekiel 36:16-24",
+          "osis": "Ezek.36.16",
+          "book": 26,
+          "chapter": 36,
+          "verse": 16,
+          "verses": [
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "book": 26,
+      "chapter": 36,
+      "verse": 25,
+      "verses": [
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "osis": "Ezek.36.25",
+      "text": "* Verses 25-38 * Water is an emblem of the cleansing our polluted souls from sin. But no water can do more than take away the filth of the flesh. Water seems in general the sacramental sign of the sanctifying influences of the Holy Ghost; yet this is always connected with the atoning blood of Christ.\nWhen the latter is applied by faith to the conscience, to cleanse it from evil works, the former is always applied to the powers of the soul, to purify it from the pollution of sin. All that have an interest in the new covenant, have a new heart and a new spirit, in order to their walking in newness of life. God would give a heart of flesh, a soft and tender heart, complying with his holy will.\nRenewing grace works as great a change in the soul, as the turning a dead stone into living flesh. God will put his Spirit within, as a Teacher, Guide, and Sanctifier. The promise of God's grace to fit us for our duty, should quicken our constant care and endeavour to do our duty. These are promises to be pleaded by, and will be fulfilled to, all true believers in every age.",
+      "references": [
+        {
+          "text": "Verses 25-38",
+          "ref": "Ezekiel 36:25-38",
+          "osis": "Ezek.36.25",
+          "book": 26,
+          "chapter": 36,
+          "verse": 25,
+          "verses": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38
+          ]
+        }
+      ]
+    }
+  ]
+}

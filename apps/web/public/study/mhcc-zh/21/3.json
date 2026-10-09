@@ -1,0 +1,151 @@
+{
+  "schema": "logoshome-mhcc-zh-chapter-v1",
+  "commentary": "mhcc-zh",
+  "source": "Matthew Henry Concise (PD EN) → zh-CN machine translation",
+  "license": "Public Domain source; Chinese rendering CC0 for LogosHome pack",
+  "language": "zh",
+  "book": 21,
+  "name": "Ecclesiastes",
+  "chapter": 3,
+  "entries": [
+    {
+      "book": 21,
+      "chapter": 3,
+      "verse": 1,
+      "verses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "osis": "Eccl.3.1",
+      "text": "The changes of human affairs. (Eccl. 3:1-10) The Divine counsels unchangeable. (Eccl. 3:11-15) The vanity of worldly power. (Eccl. 3:16-22) * Verses 1-10 * To expect unchanging happiness in a changing world, must end in disappointment. To bring ourselves to our state in life, is our duty and wisdom in this world. God's whole plan for the government of the world will be found altogether wise, just, and good.\nThen let us seize the favourable opportunity for every good purpose and work. The time to die is fast approaching. Thus labour and sorrow fill the world. This is given us, that we may always have something to do; none were sent into the world to be idle.",
+      "references": [
+        {
+          "text": "Eccl. 3:1-10",
+          "ref": "Ecclesiastes 3:1-10",
+          "osis": "Eccl.3.1",
+          "book": 21,
+          "chapter": 3,
+          "verse": 1,
+          "verses": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ]
+        },
+        {
+          "text": "Eccl. 3:11-15",
+          "ref": "Ecclesiastes 3:11-15",
+          "osis": "Eccl.3.11",
+          "book": 21,
+          "chapter": 3,
+          "verse": 11,
+          "verses": [
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        },
+        {
+          "text": "Eccl. 3:16-22",
+          "ref": "Ecclesiastes 3:16-22",
+          "osis": "Eccl.3.16",
+          "book": 21,
+          "chapter": 3,
+          "verse": 16,
+          "verses": [
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ]
+        }
+      ]
+    },
+    {
+      "book": 21,
+      "chapter": 3,
+      "verse": 11,
+      "verses": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "osis": "Eccl.3.11",
+      "text": "* Verses 11-15 * Every thing is as God made it; not as it appears to us. We have the world so much in our hearts, are so taken up with thoughts and cares of worldly things, that we have neither time nor spirit to see God's hand in them. The world has not only gained possession of the heart, but has formed thoughts against the beauty of God's works.\nWe mistake if we think we were born for ourselves; no, it is our business to do good in this life, which is short and uncertain; we have but little time to be doing good, therefore we should redeem time. Satisfaction with Divine Providence, is having faith that all things work together for good to them that love him. God doeth all, that men should fear before him. The world, as it has been, is, and will be.\nThere has no change befallen us, nor has any temptation by it taken us, but such as is common to men.",
+      "references": [
+        {
+          "text": "Verses 11-15",
+          "ref": "Ecclesiastes 3:11-15",
+          "osis": "Eccl.3.11",
+          "book": 21,
+          "chapter": 3,
+          "verse": 11,
+          "verses": [
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        }
+      ]
+    },
+    {
+      "book": 21,
+      "chapter": 3,
+      "verse": 16,
+      "verses": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "osis": "Eccl.3.16",
+      "text": "* Verses 16-22 * Without the fear of the Lord, man is but vanity; set that aside, and judges will not use their power well. And there is another Judge that stands before the door. With God there is a time for the redressing of grievances, though as yet we see it not.\nSolomon seems to express his wish that men might perceive, that by choosing this world as their portion, they brought themselves to a level with the beasts, without being free, as they are, from present vexations and a future account. Both return to the dust from whence they were taken. What little reason have we to be proud of our bodies, or bodily accomplishments!\nBut as none can fully comprehend, so few consider properly, the difference between the rational soul of man, and the spirit or life of the beast. The spirit of man goes upward, to be judged, and is then fixed in an unchangeable state of happiness or misery. It is as certain that the spirit of the beast goes downward to the earth; it perishes at death.\nSurely their case is lamentable, the height of whose hopes and wishes is, that they may die like beasts. Let our inquiry be, how an eternity of existence may be to us an eternity of enjoyment? To answer this, is the grand design of revelation. Jesus is revealed as the Son of God, and the Hope of sinners.",
+      "references": [
+        {
+          "text": "Verses 16-22",
+          "ref": "Ecclesiastes 3:16-22",
+          "osis": "Eccl.3.16",
+          "book": 21,
+          "chapter": 3,
+          "verse": 16,
+          "verses": [
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ]
+        }
+      ]
+    }
+  ]
+}

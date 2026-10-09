@@ -40,7 +40,7 @@ export function TabBar() {
   }, [location.pathname]);
 
   const tabs = [
-    { to: "/app", label: t("nav.bible"), end: true },
+    { to: "/app/bible/cuvs/john/1", label: t("nav.bible"), end: false },
     { to: "/app/plans", label: t("nav.plans") },
     { to: "/app/home", label: t("nav.home") },
     ...(showAdmin ? [{ to: "/app/admin", label: t("nav.admin") }] : []),
@@ -59,7 +59,11 @@ export function TabBar() {
           key={tab.to}
           to={tab.to}
           end={tab.end}
-          className={({ isActive }) => (isActive ? "active" : "")}
+          className={({ isActive }) => {
+            const bibleActive =
+              tab.to.startsWith("/app/bible") && location.pathname.startsWith("/app/bible");
+            return isActive || bibleActive ? "active" : "";
+          }}
           data-testid={tab.to === "/app/admin" ? "nav-admin" : undefined}
         >
           {tab.label}

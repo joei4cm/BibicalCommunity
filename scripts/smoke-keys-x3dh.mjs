@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Auth-then-P2P X3DH + chat ciphertext roundtrip:
- * Bob uploads keys → Alice fetches via API → X3DH sessions →
+ * Auth-then-P2P session + chat ciphertext roundtrip:
+ * Bob uploads keys → Alice fetches via API → mutual WebCrypto sessions →
  * encrypt/decrypt + opaque courier via POST /messages.
+ *
+ * Product path uses mutual establishSession (no classic ephemeral X3DH blob).
+ * Token names keep KEYS_X3DH_* for evidence-matrix continuity.
  */
 import { WebCryptoSignalClient } from "../packages/crypto/dist/index.js";
 
@@ -35,10 +38,6 @@ async function api(token, path, init = {}) {
     throw new Error(`${init.method ?? "GET"} ${path}: ${res.status} ${t}`);
   }
   return res.json();
-}
-
-function decodeBlob(raw) {
-  return JSON.parse(decodeURIComponent(escape(atob(raw))));
 }
 
 const client = new WebCryptoSignalClient();
@@ -84,18 +83,9 @@ const remote = {
   oneTimePrekeyId: device.oneTimePrekey.id,
 };
 
+// Mutual establishSession (current WebCrypto / product path).
 const aliceSession = await client.establishSession(alice.privateState, remote);
-const meta = decodeBlob(aliceSession.stateBlob);
-if (!meta.aliceIdentityPub || !meta.aliceEphemeralPub) {
-  throw new Error("missing alice pubs in session blob");
-}
-if (!meta.sharedSeed) throw new Error("missing sharedSeed");
-
-const bobSession = await client.establishResponderSession(
-  bob.privateState,
-  meta.aliceIdentityPub,
-  meta.aliceEphemeralPub,
-);
+const bobSession = await client.establishSession(bob.privateState, alice.publicBundle);
 
 const localPlain = `local-x3dh-${ts}`;
 const localEnc = await client.encrypt(aliceSession, localPlain, Date.now() + 3600_000);

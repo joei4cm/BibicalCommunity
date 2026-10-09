@@ -1,3 +1,5 @@
+import { isDisallowedContentSource } from "./content-policy.js";
+
 export type TranslationLicense = "public-domain" | "licensed" | "external";
 export type TranslationProviderKind = "local" | "r2" | "external";
 export type TranslationLanguage = "zh" | "en" | "ja";
@@ -27,7 +29,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     name: { "zh-CN": "世界英文圣经", en: "World English Bible", ja: "世界英語聖書" },
     language: "en",
     license: "public-domain",
-    /** Boot default — downloaded into local DB; not embedded in TypeScript. */
+    /** Downloadable whole-Bible PD pack (not a boot default). */
     provider: "r2",
     available: true,
   },
@@ -84,9 +86,9 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     abbreviation: "NASB",
     name: { "zh-CN": "新美国标准译本", en: "New American Standard Bible", ja: "NASB" },
     language: "en",
-    license: "external",
-    provider: "external",
-    externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NASB",
+    /** Licensed — install as whole-Bible R2 pack (never TypeScript densify). */
+    license: "licensed",
+    provider: "r2",
     available: true,
   },
   {
@@ -240,11 +242,23 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
   },
 ];
 
+function translationAllowed(t: TranslationMeta): boolean {
+  return !isDisallowedContentSource(
+    t.id,
+    t.abbreviation,
+    t.name["zh-CN"],
+    t.name.en,
+    t.name.ja,
+    t.externalUrlTemplate,
+  );
+}
+
 export function listTranslations(filter?: {
   language?: TranslationLanguage;
   availableOnly?: boolean;
 }): TranslationMeta[] {
   return TRANSLATION_REGISTRY.filter((t) => {
+    if (!translationAllowed(t)) return false;
     if (filter?.language && t.language !== filter.language) return false;
     if (filter?.availableOnly && !t.available) return false;
     return true;
@@ -252,7 +266,9 @@ export function listTranslations(filter?: {
 }
 
 export function getTranslation(id: string): TranslationMeta | undefined {
-  return TRANSLATION_REGISTRY.find((t) => t.id === id);
+  if (isDisallowedContentSource(id)) return undefined;
+  const t = TRANSLATION_REGISTRY.find((row) => row.id === id);
+  return t && translationAllowed(t) ? t : undefined;
 }
 
 export function buildExternalUrl(meta: TranslationMeta, ref: string): string | null {

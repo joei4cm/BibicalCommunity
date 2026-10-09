@@ -7,7 +7,9 @@
 # Preflight (no network / no secrets required):
 #   bash scripts/deploy-check.sh
 #
-# Do not commit real IDs or secret values. Replace YOUR_* placeholders below.
+# Do not commit real IDs or secret values. Replace YOUR_* placeholders below,
+# or let CI run scripts/cf-prepare-prod-config.sh → wrangler.production.ci.toml
+# (requires GitHub secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID).
 
 # ── Required secrets (wrangler secret put NAME -c wrangler.production.toml) ──
 #   HANDLE_PEPPER   — HMAC pepper for handle/email hashing (auth identity)
@@ -87,4 +89,6 @@ PARTNER_SSO_MOCK = "false"
 # ENDAO_OAUTH_AUTHORIZE_BASE = "https://oauth.edobible.com/authorize"
 # WEREAD_OAUTH_AUTHORIZE_BASE = "https://open.weixin.qq.com/connect/oauth2/authorize"
 # TURN_URIS is non-secret; TURN_SECRET must be a wrangler secret.
-TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
+# Include turn:/turns: hosts for relay (coturn). Or set secrets TURN_CF_KEY_ID +
+# TURN_CF_API_TOKEN for Cloudflare Calls TURN (preferred when available).
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\",\"stun:stun.l.google.com:19302\"]"

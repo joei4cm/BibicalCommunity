@@ -1,0 +1,92 @@
+{
+  "schema": "logoshome-mhcc-zh-chapter-v1",
+  "commentary": "mhcc-zh",
+  "source": "Matthew Henry Concise (PD EN) → zh-CN machine translation",
+  "license": "Public Domain source; Chinese rendering CC0 for LogosHome pack",
+  "language": "zh",
+  "book": 33,
+  "name": "Micah",
+  "chapter": 5,
+  "entries": [
+    {
+      "book": 33,
+      "chapter": 5,
+      "verse": 1,
+      "verses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "osis": "Mic.5.1",
+      "text": "* Verses 1-6 * Having showed how low the house of David would be brought, a prediction of the Messiah and his kingdom is added to encourage the faith of God's people. His existence from eternity as God, and his office as Mediator, are noticed. Here is foretold that Bethlehem should be his birthplace. Hence it was universally known among the Jews, Mt 2:5.\nChrist's government shall be very happy for his subjects; they shall be safe and easy. Under the shadow of protection from the Assyrians, is a promise of protection to the gospel church and all believers, from the designs and attempts of the powers of darkness.\nChrist is our Peace as a Priest, making atonement for sin, and reconciling us to God; and he is our Peace as a King, conquering our enemies: hence our souls may dwell at ease in him. Christ will find instruments to protect and deliver. Those that threaten ruin to the church of God, soon bring ruin on themselves.\nThis may include the past powerful effects of the preached gospel, its future spread, and the ruin of all antichristian powers. This is, perhaps, the most important single prophecy in the Old Testament: it respects the personal character of the Messiah, and the discoveries of himself to the world.\nIt distinguishes his human birth from his existing from eternity; it foretells the rejection of the Israelites and Jews for a season, their final restoration, and the universal peace to prevail through the whole earth in the latter days. In the mean time let us trust our Shepherd's care and power. If he permits the assault of our enemies, he will supply helpers and assistance for us.",
+      "references": [
+        {
+          "text": "Verses 1-6",
+          "ref": "Micah 5:1-6",
+          "osis": "Mic.5.1",
+          "book": 33,
+          "chapter": 5,
+          "verse": 1,
+          "verses": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        {
+          "text": "Mt 2:5",
+          "ref": "Matthew 2:5",
+          "osis": "Matt.2.5",
+          "book": 40,
+          "chapter": 2,
+          "verse": 5
+        }
+      ]
+    },
+    {
+      "book": 33,
+      "chapter": 5,
+      "verse": 7,
+      "verses": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "osis": "Mic.5.7",
+      "text": "* Verses 7-15 * The remnant of Israel, converted to Christ in the primitive times, were among many nations as the drops of dew, and were made instruments in calling a large increase of spiritual worshippers. But to those who neglected or opposed this salvation, they would, as lions, cause terror, their doctrine condemning them.\nThe Lord also declares that he would cause not only the reformation of the Jews, but the purification of the Christian church. In like manner shall we be assured of victory in our personal conflicts, as we simply depend upon the Lord our salvation, worship him, and serve him with diligence.",
+      "references": [
+        {
+          "text": "Verses 7-15",
+          "ref": "Micah 5:7-15",
+          "osis": "Mic.5.7",
+          "book": 33,
+          "chapter": 5,
+          "verse": 7,
+          "verses": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        }
+      ]
+    }
+  ]
+}

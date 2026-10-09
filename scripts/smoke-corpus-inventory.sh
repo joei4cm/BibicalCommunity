@@ -57,9 +57,12 @@ if (byLang.en < 3) throw new Error("en fixtures too few: " + byLang.en);
 
 const catalog = listDownloadableCorpusCatalog();
 const boot = catalog.filter((p) => p.installMode === "boot");
-if (boot.length !== 3) throw new Error("boot catalog must be 3");
+if (boot.length !== 2) throw new Error("boot catalog must be 2 (cuvs+nasb)");
 for (const id of BOOT_DEFAULT_TRANSLATION_IDS) {
   if (!boot.some((b) => b.translationId === id)) throw new Error("missing boot " + id);
+}
+for (const b of boot) {
+  if (b.packKind !== "whole-bible") throw new Error("boot packKind " + b.translationId);
 }
 const esv = catalog.find((p) => p.translationId === "esv");
 if (!esv || esv.installMode !== "external") throw new Error("ESV must be external");

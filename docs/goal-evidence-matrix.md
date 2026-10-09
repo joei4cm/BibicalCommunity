@@ -8,7 +8,7 @@ Legend: **PASS** = current tree + command output prove it; **PARTIAL** = scaffol
 |---|-------------|--------------------------|--------|
 | 1 | Web PWA + Expo multi-client | `apps/web` VitePWA; `PWA_BUILD_OK` (`manifest.webmanifest`+`sw.js`); Expo app + **`DEVICE_WEBCRYPTO_GATE_OK`** + **`DEVICE_PRODUCT_CHAT_OK`** + **`DEVICE_HANDSET_SHAPED_OK`** (iPhone viewport Playwright); **`DEVICE_HANDSET_E2E_OPEN`** | PARTIAL — PWA+device crypto+handset-shaped PASS; physical handset E2E OPEN |
 | 2 | Bible highlights / bookmarks / notes / typography | Web+mobile annotate/delete/decrypt + multi-color swatches; A±/serif/LH + Compact/Comfortable/Spacious presets; first-party reader skins via **theme-pack pipeline** (`THEME_PACK_PIPELINE_OK` / `READER_SKINS_OK`) | PARTIAL — core+colors+typography+pack pipeline PASS; licensed publisher pack content OPEN |
-| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **download→local DB**; boot `scope=boot` (**`CORPUS_BOOT_VS_FULL_OK`**); paged full (**`CORPUS_PAGED_DOWNLOAD_OK`**); Web+Expo **corpus catalog** (download other tids / `fullPackAvailable`); admin getbible→R2 (**`ADMIN_PD_CORPUS_OK`**); ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — slim boot + paged download + catalog UI PASS; production CF R2 OPEN |
+| 3 | Translations zh/en/ja mainstream | 22-id registry; **no TypeScript verse packs**; **whole-Bible download→local DB**; boot **和合本+NASB** (**`CORPUS_BOOT_VS_FULL_OK`**); WeDevote-style reader `/bible/{tid}/{book}/{chapter}`; paged transport (**`CORPUS_PAGED_DOWNLOAD_OK`**); Web+Expo **corpus catalog**; admin getbible→R2 (**`ADMIN_PD_CORPUS_OK`**); ESV external; **`CORPUS_LIVE_R2_OPEN`** | PARTIAL — boot+whole-Bible+reader PASS; production CF R2 OPEN |
 | 4 | Study materials + Home embed | `STUDY_EMBED_OK` | PASS |
 | 5 | Endao / WeRead by cross-login | `SSO_LOOP_OK` / `WEREAD_SSO_LOOP_OK`; **`PARTNER_TOKEN_EXCHANGE_OK`** via local `mock-token`; **`PARTNER_LIVE_IDP_OK`** via `wrangler.live-idp.toml` non-mock `/start` (oauth.edobible.com / open.weixin.qq.com); **`PARTNER_LIVE_TOKEN_EXCHANGE_OPEN`** until real client secrets | PARTIAL — live-shaped authorize start PASS; partner token exchange secrets OPEN |
 | 6 | Plans & devotion | `PLAN_CREATE_OK` + **`PLAN_CSV_SUBSCRIBE_OK`** + **`PLAN_DEVOTION_STEP_OK`** + **`DEVOTION_MATERIALS_OK`** (≥5 CC0) + **`DEVOTION_PACK_PIPELINE_OK`** (local+R2 stub) | PARTIAL — client binding + pack pipeline PASS; licensed third-party pack content OPEN |
@@ -31,8 +31,8 @@ bash scripts/smoke-me.sh             # ME_PROFILE_OK / ME_SEARCH_OK / ME_PRIVACY
 bash scripts/smoke-admin.sh          # ADMIN_CONSOLE_OK / ADMIN_REMOTE_WIPE_OK / …
 bash scripts/smoke-admin-pd-corpus.sh # ADMIN_PD_CORPUS_OK (getbible→R2; not TS packs)
 node scripts/seed-r2-pd-full.mjs …    # PD_FULL_R2_SEED_OK (platform_admin; full WEB/KJV/ASV)
-bash scripts/smoke-corpus-boot-scope.sh # CORPUS_BOOT_VS_FULL_OK (boot slim vs full)
-bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after walk)
+bash scripts/smoke-corpus-boot-scope.sh # CORPUS_BOOT_VS_FULL_OK (boot=cuvs+nasb whole-Bible)
+bash scripts/smoke-corpus-paged-download.sh # CORPUS_PAGED_DOWNLOAD_OK (limit/after transport)
 bash scripts/smoke-corpus-live-r2.sh   # CORPUS_LIVE_R2_OPEN (or OK with LIVE_R2=1 + LIVE_API_BASE)
 bash scripts/live-r2-bootstrap.sh      # LIVE_R2_BOOTSTRAP_OK / CORPUS_LIVE_R2_OK (needs CF token)
 bash scripts/smoke-storage.sh        # STORAGE_SMOKE_OK (session-aes / note / field / annotation)
@@ -41,9 +41,12 @@ bash scripts/smoke-i18n-audit.sh     # I18N_AUDIT_OK
 bash scripts/smoke-partners-oauth.sh # PARTNER_TOKEN_EXCHANGE_OK (local mock-token)
 bash scripts/evidence-client-gates.sh # CRYPTO/SECURITY/I18N_PARITY/PWA_BUILD_OK → CLIENT_GATES_OK
 bash scripts/smoke-corpus-inventory.sh # CORPUS_SCAFFOLD_INVENTORY_OK (JSON fixtures; no TS packs) / DEVOTION_MATERIALS_OK
-bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (boot=3 downloadable R2; noTsPacks)
-bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK / CORPUS_DOWNLOAD_OK (boot slim + download→DB)
+bash scripts/smoke-corpus-packs.sh     # CORPUS_PACK_PIPELINE_OK (boot=2 cuvs+nasb; downloadable R2; noTsPacks)
+bash scripts/smoke-corpus-local-db.sh  # CORPUS_LOCAL_DB_OK / CORPUS_CATALOG_OK / CORPUS_DOWNLOAD_OK (whole-Bible download→DB)
 bash scripts/smoke-corpus-json-import.sh # CORPUS_JSON_FIXTURE_OK / CORPUS_JSON_IMPORT_OK (fixtures→R2/local DB)
+# Foundation denser PD fixtures (#83/#84): in-repo WEB/KJV/ASV key chapters + optional full R2 walk
+node scripts/fetch-pd-corpus-fixtures.mjs  # refresh in-repo WEB/KJV/ASV key-chapter fixtures (optional)
+bash scripts/smoke-corpus-pd-full-r2.sh    # CORPUS_PD_FULL_R2_OK (full WEB→local R2→download, not git)
 bash scripts/smoke-corpus-r2.sh        # CORPUS_R2_CHAPTER_OK (8 licensed tids + denser Acts.2/Ps.1/Prov.3/Matt.28/Eph.2/Col.3/Jas.1/Rev.21 put→get)
 bash scripts/seed-r2-chapters.sh       # SEED_R2_OK + KEY_CHAPTER_R2_SEED_OK (JSON fixtures→R2; no TS packs)
 bash scripts/smoke-bible-entitlement.sh # BIBLE_ENTITLEMENT_DEV_SKIP_OK / BIBLE_ENTITLEMENT_GRANT_OK
@@ -53,10 +56,12 @@ bash scripts/smoke-libsignal-workers.sh # LIBSIGNAL_NATIVE_NODE_OK + LIBSIGNAL_W
 bash scripts/smoke-product-chat-signal.sh # PRODUCT_CHAT_SIGNAL_OK (app product facade; optional PRODUCT_CHAT_API_OK)
 bash scripts/smoke-device-crypto.sh     # DEVICE_WEBCRYPTO_GATE_OK + DEVICE_PRODUCT_CHAT_OK (+ DEVICE_HANDSET_E2E_OPEN)
 bash scripts/smoke-handset-shaped.sh   # DEVICE_HANDSET_SHAPED_OK (iPhone viewport; physical E2E OPEN)
-bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (default mock API)
+bash scripts/smoke-partner-live-idp.sh # PARTNER_LIVE_IDP_OPEN (or OK with credentials)
 bash scripts/run-live-idp-probe.sh     # PARTNER_LIVE_IDP_OK (+ TOKEN_EXCHANGE_OPEN)
+bash scripts/smoke-goal-open-gates.sh  # GOAL_OPEN_GATES_OK + remaining OPEN token count
 RUN_DEPLOY_DRY_RUN=1 bash scripts/deploy-check.sh
 ```
+
 
 
 ## Explicitly not claimed
