@@ -666,93 +666,95 @@ export function MePage() {
       </div>
 
       <div className="panel">
-        <h2>{t("me.devices")}</h2>
-        <p className="muted">{t("me.devicesHint")}</p>
-        <ul className="list">
-          {devices.length === 0 && <li className="muted">—</li>}
-          {devices.map((d) => (
-            <li key={d.id}>
-              <strong>{d.name || d.platform}</strong>
-              <div className="muted">
-                {d.id}
-                {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
-                {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
-                {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
-              </div>
-              {!d.revoked && !d.isCurrent && (
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={authBusy}
-                  onClick={() => void revokeDevice(d.id)}
-                >
-                  {t("me.deviceRevoke")}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+        <details className="plans-advanced">
+          <summary>{t("me.devices")}</summary>
+          <p className="muted">{t("me.devicesHint")}</p>
+          <ul className="list">
+            {devices.length === 0 && <li className="muted">—</li>}
+            {devices.map((d) => (
+              <li key={d.id}>
+                <strong>{d.name || d.platform}</strong>
+                <div className="muted">
+                  {d.id}
+                  {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
+                  {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
+                  {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
+                </div>
+                {!d.revoked && !d.isCurrent && (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={authBusy}
+                    onClick={() => void revokeDevice(d.id)}
+                  >
+                    {t("me.deviceRevoke")}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
 
-      <div className="panel">
-        <h2>{t("security.deviceKeys")}</h2>
-        <p className="muted">{t("security.deviceKeysHint")}</p>
-        <p className="muted">
-          {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
-        </p>
-        <button
-          type="button"
-          className="btn"
-          disabled={keyBusy}
-          onClick={() => void registerDeviceKeys()}
-        >
-          {t("security.uploadKeys")}
-        </button>
-      </div>
-
-      <div className="panel">
-        <h2>{t("security.wipe")}</h2>
-        <p className="muted">{t("security.wipeHint")}</p>
-        <button type="button" className="btn danger" onClick={() => void selfWipe()}>
-          {t("security.wipe")}
-        </button>
-      </div>
-
-      {(profile?.canAccessAdminConsole || isChurchAdmin) && (
-        <div className="panel" data-testid="me-admin-console-link">
-          <h2>{t("admin.title")}</h2>
-          <p className="muted">{t("admin.openHint")}</p>
-          <Link className="btn" to="/app/admin" data-testid="me-open-admin">
-            {t("admin.open")}
-          </Link>
-        </div>
-      )}
-
-      {isChurchAdmin && (
-        <div className="panel">
-          <h2>{t("security.adminWipe")}</h2>
-          <p className="muted">{t("security.adminWipeHint")}</p>
-          <div className="field">
-            <label>{t("security.adminWipeUserId")}</label>
-            <input
-              value={wipeUserId}
-              onChange={(e) => setWipeUserId(e.target.value)}
-              placeholder="usr_…"
-            />
-          </div>
-          <div className="field">
-            <label>{t("security.adminWipeDeviceId")}</label>
-            <input
-              value={wipeDeviceId}
-              onChange={(e) => setWipeDeviceId(e.target.value)}
-              placeholder="dev_… (optional)"
-            />
-          </div>
-          <button type="button" className="btn danger" onClick={() => void adminWipe()}>
-            {t("security.adminWipe")}
+        <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+          <summary>{t("security.deviceKeys")}</summary>
+          <p className="muted">{t("security.deviceKeysHint")}</p>
+          <p className="muted">
+            {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+          </p>
+          <button
+            type="button"
+            className="btn"
+            disabled={keyBusy}
+            onClick={() => void registerDeviceKeys()}
+          >
+            {t("security.uploadKeys")}
           </button>
-        </div>
-      )}
+        </details>
+
+        <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+          <summary>{t("security.wipe")}</summary>
+          <p className="muted">{t("security.wipeHint")}</p>
+          <button type="button" className="btn danger" onClick={() => void selfWipe()}>
+            {t("security.wipe")}
+          </button>
+        </details>
+
+        {(profile?.canAccessAdminConsole || isChurchAdmin) && (
+          <details className="plans-advanced" style={{ marginTop: "0.85rem" }} data-testid="me-admin-console-link">
+            <summary>{t("admin.title")}</summary>
+            <p className="muted">{t("admin.openHint")}</p>
+            <Link className="btn" to="/app/admin" data-testid="me-open-admin">
+              {t("admin.open")}
+            </Link>
+          </details>
+        )}
+
+        {isChurchAdmin && (
+          <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+            <summary>{t("security.adminWipe")}</summary>
+            <p className="muted">{t("security.adminWipeHint")}</p>
+            <div className="field">
+              <label>{t("security.adminWipeUserId")}</label>
+              <input
+                value={wipeUserId}
+                onChange={(e) => setWipeUserId(e.target.value)}
+                placeholder="usr_…"
+              />
+            </div>
+            <div className="field">
+              <label>{t("security.adminWipeDeviceId")}</label>
+              <input
+                value={wipeDeviceId}
+                onChange={(e) => setWipeDeviceId(e.target.value)}
+                placeholder="dev_… (optional)"
+              />
+            </div>
+            <button type="button" className="btn danger" onClick={() => void adminWipe()}>
+              {t("security.adminWipe")}
+            </button>
+          </details>
+        )}
+      </div>
     </section>
   );
 }

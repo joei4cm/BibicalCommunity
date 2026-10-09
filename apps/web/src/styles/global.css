@@ -1,5 +1,14 @@
 @import "../../../../packages/ui/src/tokens.css";
 
+:root {
+  --lh-glass: color-mix(in srgb, #faf8f4 68%, transparent);
+  --lh-glass-strong: color-mix(in srgb, #faf8f4 82%, transparent);
+  --lh-glass-border: rgba(28, 42, 50, 0.1);
+  --lh-glass-blur: blur(22px) saturate(1.2);
+  --lh-glass-shadow: 0 12px 32px rgba(24, 35, 43, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --lh-control-radius: 12px;
+}
+
 *,
 *::before,
 *::after {
@@ -16,12 +25,25 @@ body {
   margin: 0;
   font-family: var(--lh-font-ui);
   color: var(--lh-ink);
-  background-color: #dfe4ea;
+  background-color: #d8dee6;
   background-image:
-    radial-gradient(ellipse 95% 55% at 50% -8%, rgba(255, 248, 236, 0.72), transparent 58%),
-    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.07), transparent 55%),
-    linear-gradient(185deg, #cfd7e0 0%, #e4e8ee 28%, #eef2f4 62%, #f7f5f1 100%);
+    radial-gradient(ellipse 95% 55% at 50% -8%, rgba(255, 248, 236, 0.78), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.08), transparent 55%),
+    radial-gradient(ellipse 45% 30% at 92% 70%, rgba(120, 100, 70, 0.05), transparent 50%),
+    linear-gradient(185deg, #c8d0db 0%, #dde3ea 28%, #eef1f4 62%, #f7f5f1 100%);
   min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.09;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
 }
 
 a {
@@ -40,6 +62,8 @@ select {
   min-height: 100dvh;
   display: grid;
   grid-template-rows: 1fr auto;
+  position: relative;
+  z-index: 1;
 }
 
 .app-main {
@@ -52,14 +76,16 @@ select {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
+  z-index: 50;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.25rem;
   padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, #f4f2ee 72%, transparent);
-  border-top: 1px solid rgba(28, 42, 50, 0.09);
-  backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  background: var(--lh-glass);
+  border-top: 1px solid var(--lh-glass-border);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: 0 -8px 28px rgba(24, 35, 43, 0.05);
 }
 
 .tab-bar[data-tabs="5"] {
@@ -73,12 +99,13 @@ select {
 
 .tab-bar a {
   text-align: center;
-  padding: 0.55rem 0.25rem;
-  border-radius: 999px;
+  padding: 0.55rem 0.25rem 0.65rem;
+  border-radius: 0;
   color: var(--lh-ink-muted);
   font-size: 0.85rem;
   font-weight: 600;
-  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+  position: relative;
+  transition: color 180ms ease;
 }
 
 .tab-bar a.active {
@@ -86,7 +113,17 @@ select {
   background: transparent;
   transform: none;
   font-weight: 700;
-  box-shadow: inset 0 -2px 0 var(--lh-accent);
+  box-shadow: none;
+}
+
+.tab-bar a.active::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 0.18rem;
+  height: 1.5px;
+  background: var(--lh-accent);
 }
 
 .brand {
@@ -130,14 +167,14 @@ select {
 
 .app-folio .panel {
   margin-top: 0.75rem;
-  padding: 1.05rem 1rem 1.15rem;
-  background: color-mix(in srgb, #faf8f4 70%, transparent);
-  border: 1px solid rgba(28, 42, 50, 0.08);
-  border-bottom: 1px solid rgba(28, 42, 50, 0.08);
-  border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(24, 35, 43, 0.05);
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  padding: 1.1rem 1.05rem 1.2rem;
+  background: var(--lh-glass-strong);
+  border: 1px solid var(--lh-glass-border);
+  border-bottom: 1px solid var(--lh-glass-border);
+  border-radius: 16px;
+  box-shadow: var(--lh-glass-shadow);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
 }
 
 .app-folio .panel:last-child {
@@ -185,13 +222,13 @@ select {
 .app-folio .field input,
 .app-folio .field textarea,
 .app-folio .field select {
-  border-radius: 10px;
-  border: 1px solid rgba(28, 42, 50, 0.1);
-  background: color-mix(in srgb, #faf8f4 78%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 0.65rem 0.75rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border-radius: var(--lh-control-radius);
+  border: 1px solid var(--lh-glass-border);
+  background: var(--lh-glass);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  padding: 0.7rem 0.8rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .app-folio .field input:focus,
@@ -551,26 +588,27 @@ body:has(.app-folio) .tab-bar a {
 
 .panel {
   margin-top: 1rem;
-  padding: 1.05rem 1.1rem;
-  background: color-mix(in srgb, #faf8f4 78%, transparent);
-  border: 1px solid rgba(28, 42, 50, 0.08);
-  border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(24, 35, 43, 0.05);
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  padding: 1.1rem 1.15rem;
+  background: var(--lh-glass-strong);
+  border: 1px solid var(--lh-glass-border);
+  border-radius: 16px;
+  box-shadow: var(--lh-glass-shadow);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
 }
 
 .btn {
   appearance: none;
   border: 0;
-  border-radius: 10px;
-  padding: 0.58rem 1.05rem;
+  border-radius: var(--lh-control-radius);
+  padding: 0.62rem 1.15rem;
   background: color-mix(in srgb, var(--lh-accent) 94%, #0a1a20);
   color: #f7f5f1;
   font-weight: 600;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition: opacity 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
-  box-shadow: 0 8px 20px rgba(24, 35, 43, 0.1);
+  box-shadow: 0 10px 24px rgba(24, 35, 43, 0.14);
 }
 
 .btn:hover {
@@ -579,12 +617,12 @@ body:has(.app-folio) .tab-bar a {
 }
 
 .btn.ghost {
-  background: color-mix(in srgb, #faf8f4 55%, transparent);
+  background: var(--lh-glass);
   color: var(--lh-accent);
-  border: 1px solid rgba(28, 42, 50, 0.12);
-  box-shadow: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--lh-glass-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
 }
 
 /* —— Bible reader: dawn folio (quiet study light, open page) —— */
@@ -773,15 +811,6 @@ body:has(.bible-reader) .tab-bar a.active::after {
   font-size: 0.75rem;
 }
 
-.bible-picker {
-  margin: 0 0 1rem;
-  padding: 0.75rem 0.1rem 0.85rem;
-  border-top: 1px solid var(--br-line);
-  border-bottom: 1px solid var(--br-line);
-  max-height: 42vh;
-  overflow: auto;
-}
-
 .bible-picker-steps {
   display: flex;
   flex-wrap: wrap;
@@ -818,7 +847,9 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .bible-picker-grid .bible-picker-item {
   text-align: center;
-  border: 1px solid var(--br-line);
+  border: 1px solid var(--lh-glass-border);
+  border-radius: 8px;
+  background: var(--lh-glass);
 }
 
 .bible-picker-item.is-on,
@@ -830,15 +861,17 @@ body:has(.bible-reader) .tab-bar a.active::after {
 .bible-gear-btn,
 .bible-tid-btn {
   appearance: none;
-  border: 1px solid rgba(28, 42, 50, 0.1);
-  background: color-mix(in srgb, #faf8f4 72%, transparent);
+  border: 1px solid var(--lh-glass-border);
+  background: var(--lh-glass-strong);
   color: var(--br-accent);
-  height: 2.35rem;
+  height: 2.4rem;
   display: inline-grid;
   place-items: center;
   cursor: pointer;
-  backdrop-filter: blur(14px) saturate(1.15);
-  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  border-radius: var(--lh-control-radius);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 6px 16px rgba(24, 35, 43, 0.05);
   transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
@@ -946,14 +979,26 @@ body:has(.bible-reader) .tab-bar a.active::after {
   min-width: 0;
 }
 
-.bible-settings-sheet {
+.bible-settings-sheet,
+.bible-picker {
   margin: 0 0 1rem;
-  padding: 0.85rem 0.15rem 0.35rem;
-  border-top: 1px solid var(--br-line);
-  border-bottom: 1px solid var(--br-line);
+  padding: 0.9rem 0.85rem 0.75rem;
+  border: 1px solid var(--lh-glass-border);
+  border-radius: 16px;
+  background: var(--lh-glass-strong);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: var(--lh-glass-shadow);
   display: grid;
   gap: 0.75rem;
   animation: bible-controls-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bible-picker {
+  max-height: 48vh;
+  overflow: auto;
+  border-top: 1px solid var(--lh-glass-border);
+  border-bottom: 1px solid var(--lh-glass-border);
 }
 
 .bible-settings-row {
@@ -988,11 +1033,13 @@ body:has(.bible-reader) .tab-bar a.active::after {
   align-items: center;
   justify-content: center;
   gap: 0.35rem 0.55rem;
-  padding: 0.45rem 0.65rem;
-  background: color-mix(in srgb, #faf8f4 94%, transparent);
-  border: 1px solid rgba(28, 42, 50, 0.14);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 10px 28px rgba(24, 35, 43, 0.1);
+  padding: 0.5rem 0.7rem;
+  border-radius: 14px;
+  background: var(--lh-glass-strong);
+  border: 1px solid var(--lh-glass-border);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: var(--lh-glass-shadow);
 }
 
 .bible-note-compose--float {
@@ -1262,13 +1309,13 @@ body:has(.bible-reader) .tab-bar a.active::after {
   display: flex;
   align-items: center;
   gap: 0.05rem;
-  padding: 0.35rem 0.4rem;
-  background: color-mix(in srgb, #faf8f4 90%, transparent);
-  border: 1px solid rgba(28, 42, 50, 0.12);
-  backdrop-filter: blur(20px) saturate(1.08);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 10px 28px rgba(24, 35, 43, 0.08);
+  padding: 0.4rem 0.45rem;
+  border-radius: 14px;
+  background: var(--lh-glass-strong);
+  border: 1px solid var(--lh-glass-border);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: var(--lh-glass-shadow);
   animation: bible-dock-in 500ms 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 

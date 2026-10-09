@@ -433,35 +433,6 @@ export function HomePage() {
       </div>
       )}
 
-      {homeSection === "church" && selectedChurchId && canAdmin && (
-        <div className="panel">
-          <h2>{t("home.securityMode")}</h2>
-          <p className="muted">
-            {selectedChurch?.securityMode === "hostile"
-              ? t("home.securityMode.hostileHint")
-              : t("home.securityMode.standardHint")}
-          </p>
-          <div className="toolbar">
-            <button
-              type="button"
-              className={`btn ghost${selectedChurch?.securityMode === "standard" ? " active-toggle" : ""}`}
-              disabled={busy || selectedChurch?.securityMode === "standard"}
-              onClick={() => void switchSecurityMode("standard")}
-            >
-              {t("home.securityMode.standard")}
-            </button>
-            <button
-              type="button"
-              className={`btn ghost${selectedChurch?.securityMode === "hostile" ? " active-toggle" : ""}`}
-              disabled={busy || selectedChurch?.securityMode === "hostile"}
-              onClick={() => void switchSecurityMode("hostile")}
-            >
-              {t("home.securityMode.hostile")}
-            </button>
-          </div>
-        </div>
-      )}
-
       {homeSection === "church" && selectedChurchId && (
         <div className="panel">
           <h2>{t("home.groups")}</h2>
@@ -477,78 +448,106 @@ export function HomePage() {
       )}
 
       {homeSection === "church" && selectedChurchId && canAdmin && (
-        <div className="panel">
-          <h2>{t("home.verifyMember")}</h2>
-          <p className="muted">{t("home.membersPending")}</p>
-          <ul className="list">
-            {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
-            {pendingMembers.map((m) => (
-              <li key={m.userId}>
-                <strong>{m.uid ?? m.userId}</strong>
-                <div className="muted">
-                  {m.role} · {m.userId}
-                </div>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy}
-                  onClick={() => void verifyMember(m.userId)}
-                >
-                  {t("home.verify")}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="field" style={{ marginTop: "1rem" }}>
-            <label>{t("home.verifyUserId")}</label>
-            <input
-              value={verifyUserId}
-              onChange={(e) => setVerifyUserId(e.target.value)}
-              placeholder="usr_…"
-            />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void verifyMember()}>
-            {t("home.verify")}
-          </button>
+        <div className="panel" data-testid="home-admin-panel">
+          <details className="plans-advanced" open={pendingMembers.length > 0}>
+            <summary>{t("home.verifyMember")}</summary>
+            <p className="muted">{t("home.membersPending")}</p>
+            <ul className="list">
+              {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
+              {pendingMembers.map((m) => (
+                <li key={m.userId}>
+                  <strong>{m.uid ?? m.userId}</strong>
+                  <div className="muted">
+                    {m.role} · {m.userId}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    onClick={() => void verifyMember(m.userId)}
+                  >
+                    {t("home.verify")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="field" style={{ marginTop: "1rem" }}>
+              <label>{t("home.verifyUserId")}</label>
+              <input
+                value={verifyUserId}
+                onChange={(e) => setVerifyUserId(e.target.value)}
+                placeholder="usr_…"
+              />
+            </div>
+            <button type="button" className="btn" disabled={busy} onClick={() => void verifyMember()}>
+              {t("home.verify")}
+            </button>
+            <h3>{t("home.createGroup")}</h3>
+            <div className="field">
+              <label>{t("home.groupName")}</label>
+              <input
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder={t("home.groupName")}
+              />
+            </div>
+            <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
+              {t("home.createGroup")}
+            </button>
+          </details>
 
-          <h3 style={{ marginTop: "1.25rem" }}>{t("home.createGroup")}</h3>
-          <div className="field">
-            <label>{t("home.groupName")}</label>
-            <input
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              placeholder={t("home.groupName")}
-            />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
-            {t("home.createGroup")}
-          </button>
-        </div>
-      )}
+          <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+            <summary>{t("home.securityMode")}</summary>
+            <p className="muted">
+              {selectedChurch?.securityMode === "hostile"
+                ? t("home.securityMode.hostileHint")
+                : t("home.securityMode.standardHint")}
+            </p>
+            <div className="toolbar">
+              <button
+                type="button"
+                className={`btn ghost${selectedChurch?.securityMode === "standard" ? " active-toggle" : ""}`}
+                disabled={busy || selectedChurch?.securityMode === "standard"}
+                onClick={() => void switchSecurityMode("standard")}
+              >
+                {t("home.securityMode.standard")}
+              </button>
+              <button
+                type="button"
+                className={`btn ghost${selectedChurch?.securityMode === "hostile" ? " active-toggle" : ""}`}
+                disabled={busy || selectedChurch?.securityMode === "hostile"}
+                onClick={() => void switchSecurityMode("hostile")}
+              >
+                {t("home.securityMode.hostile")}
+              </button>
+            </div>
+          </details>
 
-      {homeSection === "church" && isAnyAdmin && (
-        <div className="panel">
-          <h2>{t("security.adminWipe")}</h2>
-          <p className="muted">{t("security.adminWipeHint")}</p>
-          <div className="field">
-            <label>{t("security.adminWipeUserId")}</label>
-            <input
-              value={wipeUserId}
-              onChange={(e) => setWipeUserId(e.target.value)}
-              placeholder="usr_…"
-            />
-          </div>
-          <div className="field">
-            <label>{t("security.adminWipeDeviceId")}</label>
-            <input
-              value={wipeDeviceId}
-              onChange={(e) => setWipeDeviceId(e.target.value)}
-              placeholder="dev_… (optional)"
-            />
-          </div>
-          <button type="button" className="btn danger" disabled={busy} onClick={() => void adminWipe()}>
-            {t("security.adminWipe")}
-          </button>
+          {isAnyAdmin && (
+            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+              <summary>{t("security.adminWipe")}</summary>
+              <p className="muted">{t("security.adminWipeHint")}</p>
+              <div className="field">
+                <label>{t("security.adminWipeUserId")}</label>
+                <input
+                  value={wipeUserId}
+                  onChange={(e) => setWipeUserId(e.target.value)}
+                  placeholder="usr_…"
+                />
+              </div>
+              <div className="field">
+                <label>{t("security.adminWipeDeviceId")}</label>
+                <input
+                  value={wipeDeviceId}
+                  onChange={(e) => setWipeDeviceId(e.target.value)}
+                  placeholder="dev_… (optional)"
+                />
+              </div>
+              <button type="button" className="btn danger" disabled={busy} onClick={() => void adminWipe()}>
+                {t("security.adminWipe")}
+              </button>
+            </details>
+          )}
         </div>
       )}
 
