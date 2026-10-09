@@ -7,7 +7,9 @@
 # Preflight (no network / no secrets required):
 #   bash scripts/deploy-check.sh
 #
-# Do not commit real IDs or secret values. Replace YOUR_* placeholders below.
+# Do not commit real IDs or secret values. Replace YOUR_* placeholders below,
+# or let CI run scripts/cf-prepare-prod-config.sh → wrangler.production.ci.toml
+# (requires GitHub secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID).
 
 # ── Required secrets (wrangler secret put NAME -c wrangler.production.toml) ──
 #   HANDLE_PEPPER   — HMAC pepper for handle/email hashing (auth identity)
