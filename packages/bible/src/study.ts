@@ -1,3 +1,5 @@
+import { isDisallowedContentSource } from "./content-policy.js";
+
 export type StudyLicense = "public-domain" | "cc-by" | "cc-by-sa" | "cc0" | "open";
 
 export interface StudyMaterial {
@@ -176,6 +178,9 @@ export function listDevotionMaterials(): DevotionMaterial[] {
 }
 
 export function listStudyMaterials(filter?: { language?: "zh" | "en" | "ja" }): StudyMaterial[] {
-  if (!filter?.language) return STUDY_CATALOG;
-  return STUDY_CATALOG.filter((m) => !m.language || m.language === filter.language);
+  return STUDY_CATALOG.filter((m) => {
+    if (isDisallowedContentSource(m.id, m.title, m.url)) return false;
+    if (filter?.language && m.language && m.language !== filter.language) return false;
+    return true;
+  });
 }

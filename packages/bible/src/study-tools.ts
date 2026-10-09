@@ -1,4 +1,5 @@
 import { BOOK_LIST } from "./books.js";
+import { assertAllowedContentSource, isDisallowedContentSource } from "./content-policy.js";
 
 /** Minimal fetch shape so this package stays free of DOM lib typings. */
 export type StudyFetchInit = Record<string, unknown>;
@@ -42,7 +43,7 @@ export interface StudyCommentaryMeta {
 export const MHCC_ZH_LOCAL_BASE = "/study/mhcc-zh";
 
 /** Curated PD commentaries with verse-level positioning via getBible. */
-export const STUDY_COMMENTARIES: StudyCommentaryMeta[] = [
+const STUDY_COMMENTARIES_ALL: StudyCommentaryMeta[] = [
   {
     id: "mhcc-zh",
     name: "马太·亨利简明（中文）",
@@ -88,6 +89,19 @@ export const STUDY_COMMENTARIES: StudyCommentaryMeta[] = [
     language: "en",
   },
 ];
+
+/** Policy-filtered commentary list (JW / Mormon sources excluded). */
+export const STUDY_COMMENTARIES: StudyCommentaryMeta[] = STUDY_COMMENTARIES_ALL.filter(
+  (c) =>
+    !isDisallowedContentSource(
+      c.id,
+      c.remoteId,
+      c.name,
+      c.nameI18n?.zh,
+      c.nameI18n?.en,
+      c.nameI18n?.ja,
+    ),
+);
 
 export function defaultStudyCommentaryId(lang: "zh" | "en" | "ja" | string): StudyCommentaryId {
   return lang === "zh" || String(lang).startsWith("zh") ? "mhcc-zh" : "mhcc";
@@ -304,6 +318,7 @@ export async function fetchCommentaryChapter(
   chapter: number,
   init?: StudyFetchInit,
 ): Promise<CommentaryChapter> {
+  assertAllowedContentSource(commentaryId);
   const bookNum = bookNumberFromId(bookId);
   if (!bookNum) {
     throw new Error(`Unknown book: ${bookId}`);
@@ -318,6 +333,7 @@ export async function fetchCommentaryChapter(
     }
     const meta = STUDY_COMMENTARIES.find((c) => c.id === commentaryId);
     const remoteId = meta?.remoteId ?? commentaryId;
+    assertAllowedContentSource(remoteId, meta?.name);
     return fetchRemoteCommentaryChapter(remoteId, bookId, bookNum, chapter, init);
   })();
 

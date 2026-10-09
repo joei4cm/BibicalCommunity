@@ -1,3 +1,5 @@
+import { isDisallowedContentSource } from "./content-policy.js";
+
 export type TranslationLicense = "public-domain" | "licensed" | "external";
 export type TranslationProviderKind = "local" | "r2" | "external";
 export type TranslationLanguage = "zh" | "en" | "ja";
@@ -240,11 +242,23 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
   },
 ];
 
+function translationAllowed(t: TranslationMeta): boolean {
+  return !isDisallowedContentSource(
+    t.id,
+    t.abbreviation,
+    t.name["zh-CN"],
+    t.name.en,
+    t.name.ja,
+    t.externalUrlTemplate,
+  );
+}
+
 export function listTranslations(filter?: {
   language?: TranslationLanguage;
   availableOnly?: boolean;
 }): TranslationMeta[] {
   return TRANSLATION_REGISTRY.filter((t) => {
+    if (!translationAllowed(t)) return false;
     if (filter?.language && t.language !== filter.language) return false;
     if (filter?.availableOnly && !t.available) return false;
     return true;
@@ -252,7 +266,9 @@ export function listTranslations(filter?: {
 }
 
 export function getTranslation(id: string): TranslationMeta | undefined {
-  return TRANSLATION_REGISTRY.find((t) => t.id === id);
+  if (isDisallowedContentSource(id)) return undefined;
+  const t = TRANSLATION_REGISTRY.find((row) => row.id === id);
+  return t && translationAllowed(t) ? t : undefined;
 }
 
 export function buildExternalUrl(meta: TranslationMeta, ref: string): string | null {
