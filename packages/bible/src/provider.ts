@@ -8,6 +8,7 @@
  * R2 stubs for downloadable ids — Workers fill verses from MEDIA.
  */
 
+import { assertAllowedContentSource } from "./content-policy.js";
 import { buildExternalUrl, getTranslation, type TranslationMeta } from "./translations.js";
 import { formatRef, type VerseRef } from "./refs.js";
 
@@ -195,6 +196,7 @@ export async function loadChapter(
   ref: VerseRef,
   sso: PartnerSsoFlags = { endao: false, weread: false },
 ): Promise<ChapterPayload | ExternalChapterPayload> {
+  assertAllowedContentSource(translationId);
   const meta = getTranslation(translationId);
   if (!meta) throw new Error(`Unknown translation: ${translationId}`);
 

@@ -1,18 +1,18 @@
 :root,
 [data-theme="day"] {
-  --lh-bg: #f3efe6;
-  --lh-bg-elevated: #fffdf8;
-  --lh-ink: #1c2b2a;
-  --lh-ink-muted: #5a6a68;
-  --lh-accent: #0f6b5c;
-  --lh-accent-soft: #d7ebe6;
+  --lh-bg: #e4e8ee;
+  --lh-bg-elevated: #f7f5f1;
+  --lh-ink: #18232b;
+  --lh-ink-muted: #5f6d78;
+  --lh-accent: #1c3d48;
+  --lh-accent-soft: rgba(28, 61, 72, 0.1);
   --lh-danger: #9b2c2c;
-  --lh-border: rgba(28, 43, 42, 0.12);
-  --lh-reader-bg: #f7f3ea;
+  --lh-border: rgba(28, 42, 50, 0.12);
+  --lh-reader-bg: #f7f5f1;
   --lh-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
-  --lh-font-reader: "Source Serif 4", "Noto Serif SC", "Noto Serif JP", serif;
-  --lh-radius: 12px;
-  --lh-shadow: 0 12px 40px rgba(28, 43, 42, 0.08);
+  --lh-font-reader: "Noto Serif SC", "Literata", "Source Serif 4", "Noto Serif JP", serif;
+  --lh-radius: 4px;
+  --lh-shadow: 0 10px 28px rgba(24, 35, 43, 0.08);
 }
 
 [data-theme="sepia"] {
