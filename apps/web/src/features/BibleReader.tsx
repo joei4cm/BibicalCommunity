@@ -99,6 +99,95 @@ function rangeIncludes(range: VerseRange | null, verse: number): boolean {
   return Boolean(range && verse >= range.start && verse <= range.end);
 }
 
+function verseMapFromChapter(chapter: ChapterPayload | null): Map<number, string> {
+  const map = new Map<number, string>();
+  if (!chapter || "external" in chapter) return map;
+  for (const v of chapter.verses) map.set(v.verse, v.text);
+  return map;
+}
+
+/** Verse-stacked compare: same verse number, primary + peer lines. */
+function CompareChapterPane({
+  primary,
+  peer,
+  primaryAbbr,
+  peerAbbr,
+  fontSize,
+  lineHeight,
+  fontFamily,
+  selection,
+  onSelectVerse,
+  onExtendSelection,
+  highlightByVerse,
+}: {
+  primary: ChapterPayload | null;
+  peer: ChapterPayload | null;
+  primaryAbbr: string;
+  peerAbbr: string;
+  fontSize: number;
+  lineHeight: number;
+  fontFamily: string;
+  selection: VerseRange | null;
+  onSelectVerse: (verse: number) => void;
+  onExtendSelection: (verse: number) => void;
+  highlightByVerse?: Record<number, string>;
+}) {
+  if (!primary || "external" in primary) {
+    return <p className="muted">…</p>;
+  }
+  const peerMap = verseMapFromChapter(peer);
+  return (
+    <article
+      className="bible-chapter bible-chapter--compare"
+      style={{ fontSize: `${fontSize}rem`, lineHeight, fontFamily }}
+      data-testid="reader-compare-pane"
+    >
+      {primary.verses.map((v) => {
+        const selected = rangeIncludes(selection, v.verse);
+        const hl = highlightByVerse?.[v.verse];
+        const peerText = peerMap.get(v.verse);
+        return (
+          <div
+            key={v.verse}
+            className={`compare-verse${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
+            style={hl ? { background: hl } : undefined}
+            data-verse={v.verse}
+            role="button"
+            tabIndex={0}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              onSelectVerse(v.verse);
+            }}
+            onPointerEnter={(e) => {
+              if (e.buttons === 1) onExtendSelection(v.verse);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectVerse(v.verse);
+              }
+            }}
+          >
+            <sup className="verse-num">{v.verse}</sup>
+            <div className="compare-verse-stack">
+              <p className="compare-line">
+                <span className="compare-abbr">{primaryAbbr}</span>
+                <span className="compare-text">{displayVerseText(v.text)}</span>
+              </p>
+              {peerText != null && (
+                <p className="compare-line compare-line--peer">
+                  <span className="compare-abbr">{peerAbbr}</span>
+                  <span className="compare-text">{displayVerseText(peerText)}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </article>
+  );
+}
+
 function ChapterPane({
   chapter,
   verseRef,
@@ -219,6 +308,7 @@ export function BibleReader() {
   const [translationId, setTranslationId] = useState(routeTid);
   const [secondTranslationId, setSecondTranslationId] = useState("nasb");
   const [dualPane, setDualPane] = useState(false);
+  const [tidPickerOpen, setTidPickerOpen] = useState(false);
   const [bookId, setBookId] = useState(routeBookId);
   const [chapterNum, setChapterNum] = useState(routeChapter);
   const [fontSize, setFontSize] = useState(1.34);
@@ -443,10 +533,31 @@ export function BibleReader() {
     let cancelled = false;
     (async () => {
       try {
+        const local = await readLocalChapter(secondTranslationId, bookId, chapterNum);
+        if (local && local.verses.length > 0) {
+          if (!cancelled) {
+            setSecondChapter({
+              translationId: secondTranslationId,
+              book: bookId,
+              chapter: chapterNum,
+              verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, local.verses),
+              source: "local",
+            });
+          }
+          return;
+        }
         const data = await api<ChapterPayload>(
           `/v1/bible/chapter?translation=${encodeURIComponent(secondTranslationId)}&ref=${encodeURIComponent(ref)}`,
         );
-        if (!cancelled) setSecondChapter(data);
+        if (cancelled) return;
+        if ("external" in data) {
+          setSecondChapter(null);
+          return;
+        }
+        setSecondChapter({
+          ...data,
+          verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, data.verses),
+        });
       } catch {
         if (!cancelled) setSecondChapter(null);
       }
@@ -454,7 +565,7 @@ export function BibleReader() {
     return () => {
       cancelled = true;
     };
-  }, [dualPane, secondTranslationId, ref]);
+  }, [dualPane, secondTranslationId, ref, bookId, chapterNum]);
 
   const refreshNotes = useCallback(async () => {
     if (!getToken()) {
@@ -760,6 +871,16 @@ export function BibleReader() {
   }
 
   const activeTranslation = translations.find((tr) => tr.id === translationId);
+  const peerTranslation = translations.find((tr) => tr.id === secondTranslationId);
+  const activeAbbr =
+    activeTranslation?.abbreviation || activeTranslation?.name[locale] || translationId;
+  const peerAbbr =
+    peerTranslation?.abbreviation || peerTranslation?.name[locale] || secondTranslationId;
+  const comparePeers = translations.filter((tr) => {
+    if (tr.id === translationId) return false;
+    if (tr.ssoFlag) return false;
+    return true;
+  });
   const passageTitle = `${currentBook?.name[bookNameLocale] ?? bookId} ${chapterNum}`;
   const prevShort = prevCursor
     ? `${getBook(prevCursor.bookId)?.name[bookNameLocale] ?? prevCursor.bookId} ${prevCursor.chapter}`
@@ -840,6 +961,7 @@ export function BibleReader() {
     setPickerStep("book");
     setPassagePickerOpen(true);
     setLayoutOpen(false);
+    setTidPickerOpen(false);
     setSettingsOpen(false);
   }
 
@@ -864,21 +986,24 @@ export function BibleReader() {
           </p>
         </div>
         <div className="bible-reader-topbar-actions" data-testid="reader-passage-controls">
-          <label className="bible-control">
-            <span className="sr-only">{t("reader.translations")}</span>
-            <select
-              value={translationId}
-              onChange={(e) => goToPassage(e.target.value, bookId, chapterNum)}
-              aria-label={t("reader.translations")}
-              data-testid="reader-translation-select"
-            >
-              {translations.map((tr) => (
-                <option key={tr.id} value={tr.id}>
-                  {tr.abbreviation || tr.name[locale]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <button
+            type="button"
+            className={`bible-tid-btn${tidPickerOpen ? " is-on" : ""}`}
+            data-testid="reader-translation-select"
+            aria-label={t("reader.pickTranslation")}
+            aria-expanded={tidPickerOpen}
+            onClick={() => {
+              setTidPickerOpen((v) => !v);
+              setPassagePickerOpen(false);
+              setLayoutOpen(false);
+              setSettingsOpen(false);
+            }}
+          >
+            <span className="bible-tid-abbr">{activeAbbr}</span>
+            <span className="bible-passage-chevron" aria-hidden="true">
+              ▾
+            </span>
+          </button>
           <button
             type="button"
             className={`bible-gear-btn${layoutOpen ? " is-on" : ""}`}
@@ -888,6 +1013,7 @@ export function BibleReader() {
             onClick={() => {
               setLayoutOpen((v) => !v);
               setPassagePickerOpen(false);
+              setTidPickerOpen(false);
               setSettingsOpen(false);
             }}
           >
@@ -908,6 +1034,35 @@ export function BibleReader() {
       </header>
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
+
+      {tidPickerOpen && (
+        <div className="bible-picker" data-testid="reader-tid-picker" role="dialog" aria-label={t("reader.pickTranslation")}>
+          <div className="bible-picker-steps">
+            <span className="bible-hint">{t("reader.pickTranslation")}</span>
+            <button type="button" className="bible-text-btn" onClick={() => setTidPickerOpen(false)}>
+              ✕
+            </button>
+          </div>
+          <ul className="bible-picker-list" data-testid="reader-tid-list">
+            {translations.map((tr) => (
+              <li key={tr.id}>
+                <button
+                  type="button"
+                  className={`bible-picker-item${tr.id === translationId ? " is-on" : ""}`}
+                  data-testid={`reader-tid-${tr.id}`}
+                  onClick={() => {
+                    goToPassage(tr.id, bookId, chapterNum);
+                    setTidPickerOpen(false);
+                  }}
+                >
+                  <strong className="bible-tid-row-abbr">{tr.abbreviation || tr.name[locale]}</strong>
+                  <span className="bible-tid-row-name">{tr.name[locale]}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {passagePickerOpen && (
         <div className="bible-picker" data-testid="reader-passage-picker" role="dialog">
@@ -995,17 +1150,18 @@ export function BibleReader() {
         <div className="bible-settings-sheet" data-testid="reader-layout-sheet" role="dialog" aria-label={t("reader.layout")}>
           <div className="bible-settings-row">
             <span>{t("reader.colorTheme")}</span>
-            <select
-              data-testid="reader-skin"
-              value={readerSkin}
-              onChange={(e) => setReaderSkin(e.target.value as ReaderSkinId)}
-            >
+            <div className="bible-more-actions" data-testid="reader-skin">
               {READER_SKIN_IDS.map((id) => (
-                <option key={id} value={id}>
+                <button
+                  key={id}
+                  type="button"
+                  className={`bible-text-btn${readerSkin === id ? " is-on" : ""}`}
+                  onClick={() => setReaderSkin(id)}
+                >
                   {t(`reader.skin.${id}`)}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
           <div className="bible-settings-row">
             <span>{t("reader.fontFamily")}</span>
@@ -1063,11 +1219,63 @@ export function BibleReader() {
               ))}
             </div>
           </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.dual")}</span>
+            <div className="bible-more-actions">
+              <button
+                type="button"
+                className={`bible-text-btn${!dualPane ? " is-on" : ""}`}
+                data-testid="reader-layout-single"
+                onClick={() => setDualPane(false)}
+              >
+                {t("reader.singleLayout")}
+              </button>
+              <button
+                type="button"
+                className={`bible-text-btn${dualPane ? " is-on" : ""}`}
+                data-testid="reader-layout-compare"
+                onClick={() => setDualPane(true)}
+              >
+                {t("reader.compareLayout")}
+              </button>
+            </div>
+          </div>
+          {dualPane && (
+            <div className="bible-settings-row bible-settings-row--stack">
+              <span>{t("reader.comparePeer")}</span>
+              <div className="bible-more-actions bible-peer-chips" data-testid="reader-compare-peers">
+                {comparePeers.map((tr) => (
+                  <button
+                    key={tr.id}
+                    type="button"
+                    className={`bible-text-btn${secondTranslationId === tr.id ? " is-on" : ""}`}
+                    onClick={() => setSecondTranslationId(tr.id)}
+                  >
+                    {tr.abbreviation || tr.name[locale]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       <div className="bible-folio" data-testid="reader-folio">
-        <div className={dualPane ? "reader-dual" : undefined}>
+        {dualPane ? (
+          <CompareChapterPane
+            primary={chapter}
+            peer={secondChapter}
+            primaryAbbr={activeAbbr}
+            peerAbbr={peerAbbr}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
+            fontFamily={readerFont}
+            selection={selection}
+            onSelectVerse={selectVerse}
+            onExtendSelection={extendSelection}
+            highlightByVerse={highlightByVerse}
+          />
+        ) : (
           <ChapterPane
             chapter={chapter}
             verseRef={ref}
@@ -1081,22 +1289,7 @@ export function BibleReader() {
             onExtendSelection={extendSelection}
             highlightByVerse={highlightByVerse}
           />
-          {dualPane && (
-            <ChapterPane
-              chapter={secondChapter}
-              verseRef={ref}
-              fontSize={fontSize}
-              lineHeight={lineHeight}
-              fontFamily={readerFont}
-              locale={locale}
-              t={t}
-              selection={selection}
-              onSelectVerse={selectVerse}
-              onExtendSelection={extendSelection}
-              highlightByVerse={highlightByVerse}
-            />
-          )}
-        </div>
+        )}
       </div>
 
       {renderChapterNav("reader-bottom", "bottom")}

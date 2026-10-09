@@ -56,9 +56,10 @@ select {
   grid-template-columns: repeat(4, 1fr);
   gap: 0.25rem;
   padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--lh-bg-elevated) 92%, transparent);
-  border-top: 1px solid var(--lh-border);
-  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, #f4f2ee 72%, transparent);
+  border-top: 1px solid rgba(28, 42, 50, 0.09);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
 
 .tab-bar[data-tabs="5"] {
@@ -128,13 +129,15 @@ select {
 }
 
 .app-folio .panel {
-  margin-top: 0;
-  padding: 1.05rem 0 1.15rem;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--br-line);
-  border-radius: 0;
-  box-shadow: none;
+  margin-top: 0.75rem;
+  padding: 1.05rem 1rem 1.15rem;
+  background: color-mix(in srgb, #faf8f4 70%, transparent);
+  border: 1px solid rgba(28, 42, 50, 0.08);
+  border-bottom: 1px solid rgba(28, 42, 50, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(24, 35, 43, 0.05);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
 }
 
 .app-folio .panel:last-child {
@@ -182,23 +185,39 @@ select {
 .app-folio .field input,
 .app-folio .field textarea,
 .app-folio .field select {
-  border-radius: 0;
-  border-color: var(--br-line);
-  background: color-mix(in srgb, #f7f5f1 88%, transparent);
-  padding: 0.6rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(28, 42, 50, 0.1);
+  background: color-mix(in srgb, #faf8f4 78%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.65rem 0.75rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.app-folio .field input:focus,
+.app-folio .field textarea:focus,
+.app-folio .field select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--br-accent) 45%, transparent);
+  box-shadow: 0 0 0 3px rgba(28, 61, 72, 0.1);
 }
 
 .app-folio .btn {
-  border-radius: 0;
-  background: var(--br-accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--br-accent) 92%, #0a1a20);
   color: #f7f5f1;
   letter-spacing: 0.04em;
+  box-shadow: 0 8px 20px rgba(24, 35, 43, 0.12);
+  backdrop-filter: blur(8px);
 }
 
 .app-folio .btn.ghost {
-  background: transparent;
+  background: color-mix(in srgb, #faf8f4 55%, transparent);
   color: var(--br-accent);
-  border: 1px solid var(--br-line);
+  border: 1px solid rgba(28, 42, 50, 0.12);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .app-folio .btn.active-toggle {
@@ -532,33 +551,40 @@ body:has(.app-folio) .tab-bar a {
 
 .panel {
   margin-top: 1rem;
-  padding: 1rem 1.05rem;
-  background: color-mix(in srgb, #f7f5f1 90%, transparent);
-  border: 1px solid var(--lh-border);
-  border-radius: 0;
-  box-shadow: none;
+  padding: 1.05rem 1.1rem;
+  background: color-mix(in srgb, #faf8f4 78%, transparent);
+  border: 1px solid rgba(28, 42, 50, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(24, 35, 43, 0.05);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
 }
 
 .btn {
   appearance: none;
   border: 0;
-  border-radius: 0;
-  padding: 0.55rem 1rem;
-  background: var(--lh-accent);
+  border-radius: 10px;
+  padding: 0.58rem 1.05rem;
+  background: color-mix(in srgb, var(--lh-accent) 94%, #0a1a20);
   color: #f7f5f1;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 160ms ease, background 160ms ease;
+  transition: opacity 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  box-shadow: 0 8px 20px rgba(24, 35, 43, 0.1);
 }
 
 .btn:hover {
-  opacity: 0.92;
+  opacity: 0.94;
+  transform: translateY(-1px);
 }
 
 .btn.ghost {
-  background: transparent;
+  background: color-mix(in srgb, #faf8f4 55%, transparent);
   color: var(--lh-accent);
-  border: 1px solid var(--lh-border);
+  border: 1px solid rgba(28, 42, 50, 0.12);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 /* —— Bible reader: dawn folio (quiet study light, open page) —— */
@@ -801,24 +827,123 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border-bottom-color: color-mix(in srgb, var(--br-accent) 35%, transparent);
 }
 
-.bible-gear-btn {
+.bible-gear-btn,
+.bible-tid-btn {
   appearance: none;
-  border: 1px solid var(--br-line);
-  background: color-mix(in srgb, #faf8f4 80%, transparent);
+  border: 1px solid rgba(28, 42, 50, 0.1);
+  background: color-mix(in srgb, #faf8f4 72%, transparent);
   color: var(--br-accent);
-  width: 2.35rem;
   height: 2.35rem;
-  display: grid;
+  display: inline-grid;
   place-items: center;
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.bible-gear-btn {
+  width: 2.35rem;
+}
+
+.bible-tid-btn {
+  grid-auto-flow: column;
+  gap: 0.28rem;
+  padding: 0 0.55rem 0 0.7rem;
+  font-family: var(--br-font-ui);
+  font-weight: 650;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+}
+
+.bible-tid-abbr {
+  max-width: 6.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bible-gear-btn:hover,
-.bible-gear-btn.is-on {
+.bible-gear-btn.is-on,
+.bible-tid-btn:hover,
+.bible-tid-btn.is-on {
   color: var(--br-ink);
   border-color: color-mix(in srgb, var(--br-accent) 35%, transparent);
-  background: rgba(28, 61, 72, 0.08);
+  background: rgba(28, 61, 72, 0.1);
+  box-shadow: 0 6px 18px rgba(24, 35, 43, 0.06);
+}
+
+.bible-tid-row-abbr {
+  display: inline-block;
+  min-width: 3.5rem;
+  margin-right: 0.65rem;
+  font-family: var(--br-font-ui);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.bible-tid-row-name {
+  color: var(--br-muted);
+  font-weight: 500;
+}
+
+.bible-picker-item.is-on .bible-tid-row-name {
+  color: var(--br-accent);
+}
+
+.bible-settings-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.bible-peer-chips {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.compare-verse {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.55rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--br-line);
+  cursor: pointer;
+}
+
+.compare-verse:last-child {
+  border-bottom: 0;
+}
+
+.compare-verse-stack {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.compare-line {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 3.4rem 1fr;
+  gap: 0.55rem;
+  align-items: baseline;
+}
+
+.compare-abbr {
+  font-family: var(--br-font-ui);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--br-muted);
+  text-transform: uppercase;
+}
+
+.compare-line--peer .compare-text {
+  color: color-mix(in srgb, var(--br-ink) 82%, var(--br-muted));
+  font-size: 0.94em;
+}
+
+.compare-text {
+  min-width: 0;
 }
 
 .bible-settings-sheet {
@@ -1512,11 +1637,21 @@ body:has(.bible-reader) .tab-bar a.active::after {
 .field input,
 .field textarea,
 .field select {
-  padding: 0.55rem 0.7rem;
+  padding: 0.65rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid var(--lh-border);
-  background: var(--lh-bg-elevated);
+  border: 1px solid rgba(28, 42, 50, 0.1);
+  background: color-mix(in srgb, #faf8f4 82%, transparent);
   color: var(--lh-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--lh-accent) 45%, transparent);
+  box-shadow: 0 0 0 3px rgba(28, 61, 72, 0.1);
 }
 
 .list {
