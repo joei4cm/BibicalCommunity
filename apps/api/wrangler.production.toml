@@ -72,8 +72,12 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["CallRoomDO"]
 
-[triggers]
-crons = ["*/5 * * * *"]
+# Cron disabled on Workers Free: accounts are capped at 5 cron triggers.
+# Deploy failed with code 10072 when registering */5. The Worker still exports
+# `scheduled()` for message TTL / wipe sweep — re-enable after upgrading or
+# freeing a cron slot on the account:
+# [triggers]
+# crons = ["*/5 * * * *"]
 
 [vars]
 APP_NAME = "LogosHome"
