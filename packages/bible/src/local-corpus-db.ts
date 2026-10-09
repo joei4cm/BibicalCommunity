@@ -365,39 +365,53 @@ export function buildDownloadPackPayloadJson(pack: DownloadPackPayload): string 
   return JSON.stringify(pack);
 }
 
-/** Minimal demo chapters used to seed boot/download packs without TS densify. */
+function demoPlaceholderVerse(
+  translationId: string,
+  abbr: string,
+  book: string,
+  chapter: number,
+): string {
+  if (translationId === "cuvs" || translationId === "cuvt" || translationId === "rcuv") {
+    return `（预览）${book} ${chapter} 章全文尚未载入。可继续选书选章；安装完整译本后显示经文。`;
+  }
+  if (translationId === "shinKyoudou" || translationId === "kougo" || translationId === "shinkaiyaku") {
+    return `（プレビュー）${book} ${chapter} 章の本文は未収録です。書・章の移動はできます。`;
+  }
+  return `(Preview) ${abbr} ${book} ${chapter} — full text not loaded yet. Navigation still works; install the complete translation for verses.`;
+}
+
+/**
+ * Boot / fallback pack: whole Protestant canon so chapter navigation always works.
+ * Rich teaching prose is kept for a few sample chapters; every other chapter gets
+ * a short preview placeholder (not a TS verse module).
+ */
 export function buildDemoDownloadPack(translationId: string): DownloadPackPayload {
   const meta = getTranslation(translationId);
   const abbr = meta?.abbreviation ?? translationId;
-  const samples: R2ChapterJson[] = [
-    {
-      book: "John",
-      chapter: 1,
-      verses: [
-        { verse: 1, text: `[${abbr}] In the beginning was the Word (local-db demo).` },
-        { verse: 14, text: `[${abbr}] The Word became flesh (local-db demo).` },
-      ],
-    },
-    {
-      book: "John",
-      chapter: 3,
-      verses: [
-        { verse: 16, text: `[${abbr}] For God so loved the world (local-db demo).` },
-      ],
-    },
-    {
-      book: "Ps",
-      chapter: 23,
-      verses: [
-        { verse: 1, text: `[${abbr}] The Lord is my shepherd (local-db demo).` },
-      ],
-    },
-  ];
+  const rich = new Map<string, R2ChapterJson>();
+  const put = (ch: R2ChapterJson) => rich.set(`${ch.book}.${ch.chapter}`, ch);
 
-  // Language-flavored demos for boot defaults (still data, not full corpora).
-  // Prefer clean reading text (no fixture labels) so the reader UI can be judged as prose.
+  put({
+    book: "John",
+    chapter: 1,
+    verses: [
+      { verse: 1, text: `[${abbr}] In the beginning was the Word.` },
+      { verse: 14, text: `[${abbr}] The Word became flesh.` },
+    ],
+  });
+  put({
+    book: "John",
+    chapter: 3,
+    verses: [{ verse: 16, text: `[${abbr}] For God so loved the world.` }],
+  });
+  put({
+    book: "Ps",
+    chapter: 23,
+    verses: [{ verse: 1, text: `[${abbr}] The Lord is my shepherd.` }],
+  });
+
   if (translationId === "cuvs") {
-    samples[0] = {
+    put({
       book: "John",
       chapter: 1,
       verses: [
@@ -415,37 +429,33 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
         { verse: 17, text: "律法本是借着摩西传的；恩典和真理都是由耶稣基督来的。" },
         { verse: 18, text: "从来没有人看见神，只有在父怀里的独生子将他表明出来。" },
       ],
-    };
-    samples.splice(
-      1,
-      0,
-      {
-        book: "John",
-        chapter: 2,
-        verses: [
-          { verse: 1, text: "第三日，在加利利的迦拿有娶亲的筵席，耶稣的母亲在那里。" },
-          { verse: 2, text: "耶稣和他的门徒也被请去赴席。" },
-          { verse: 3, text: "酒用尽了，耶稣的母亲对他说：「他们没有酒了。」" },
-          { verse: 4, text: "耶稣说：「母亲，我与你有什么相干？我的时候还没有到。」" },
-          { verse: 5, text: "他母亲对用人说：「他告诉你们什么，你们就做什么。」" },
-          { verse: 6, text: "照犹太人洁净的规矩，有六口石缸摆在那里，每口可以盛两三桶水。" },
-          { verse: 7, text: "耶稣对用人说：「把缸倒满了水。」他们就倒满了，直到缸口。" },
-          { verse: 8, text: "耶稣又说：「现在可以舀出来，送给管筵席的。」他们就送了去。" },
-          { verse: 9, text: "管筵席的尝了那水变的酒，并不知道是哪里来的，只有舀水的用人知道。管筵席的便叫新郎来，" },
-          { verse: 10, text: "对他说：「人都是先摆上好酒，等客喝足了才摆上次的；你倒把好酒留到如今！」" },
-          { verse: 11, text: "这是耶稣所行的头一件神迹，是在加利利的迦拿行的，显出他的荣耀来；他的门徒就信他了。" },
-        ],
-      },
-    );
-    samples[2] = {
+    });
+    put({
+      book: "John",
+      chapter: 2,
+      verses: [
+        { verse: 1, text: "第三日，在加利利的迦拿有娶亲的筵席，耶稣的母亲在那里。" },
+        { verse: 2, text: "耶稣和他的门徒也被请去赴席。" },
+        { verse: 3, text: "酒用尽了，耶稣的母亲对他说：「他们没有酒了。」" },
+        { verse: 4, text: "耶稣说：「母亲，我与你有什么相干？我的时候还没有到。」" },
+        { verse: 5, text: "他母亲对用人说：「他告诉你们什么，你们就做什么。」" },
+        { verse: 6, text: "照犹太人洁净的规矩，有六口石缸摆在那里，每口可以盛两三桶水。" },
+        { verse: 7, text: "耶稣对用人说：「把缸倒满了水。」他们就倒满了，直到缸口。" },
+        { verse: 8, text: "耶稣又说：「现在可以舀出来，送给管筵席的。」他们就送了去。" },
+        { verse: 9, text: "管筵席的尝了那水变的酒，并不知道是哪里来的，只有舀水的用人知道。管筵席的便叫新郎来，" },
+        { verse: 10, text: "对他说：「人都是先摆上好酒，等客喝足了才摆下次的；你倒把好酒留到如今！」" },
+        { verse: 11, text: "这是耶稣所行的头一件神迹，是在加利利的迦拿行的，显出他的荣耀来；他的门徒就信他了。" },
+      ],
+    });
+    put({
       book: "John",
       chapter: 3,
       verses: [
         { verse: 16, text: "神爱世人，甚至将他的独生子赐给他们，叫一切信他的，不至灭亡，反得永生。" },
         { verse: 17, text: "因为神差他的儿子降世，不是要定世人的罪，乃是要叫世人因他得救。" },
       ],
-    };
-    samples[3] = {
+    });
+    put({
       book: "Ps",
       chapter: 23,
       verses: [
@@ -454,46 +464,81 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
         { verse: 3, text: "他使我的灵魂苏醒，为自己的名引导我走义路。" },
         { verse: 4, text: "我虽然行过死荫的幽谷，也不怕遭害，因为你与我同在；你的杖，你的竿，都安慰我。" },
       ],
-    };
+    });
   } else if (translationId === "shinKyoudou") {
-    samples[0] = {
+    put({
       book: "John",
       chapter: 1,
       verses: [
-        { verse: 1, text: "（見本・ローカルDB）初めに言があった。言は神と共にあった。" },
-        { verse: 14, text: "（見本・ローカルDB）言は肉となって、わたしたちの間に宿られた。" },
+        { verse: 1, text: "初めに言があった。言は神と共にあった。" },
+        { verse: 14, text: "言は肉となって、わたしたちの間に宿られた。" },
       ],
-    };
-    samples[1] = {
+    });
+    put({
       book: "John",
       chapter: 3,
-      verses: [
-        { verse: 16, text: "（見本・ローカルDB）神は、その独り子をお与えになったほどに、世を愛された。" },
-      ],
-    };
-    samples[2] = {
+      verses: [{ verse: 16, text: "神は、その独り子をお与えになったほどに、世を愛された。" }],
+    });
+    put({
       book: "Ps",
       chapter: 23,
-      verses: [{ verse: 1, text: "（見本・ローカルDB）主は羊飼い。わたしには何も欠けることがない。" }],
-    };
+      verses: [{ verse: 1, text: "主は羊飼い。わたしには何も欠けることがない。" }],
+    });
   } else if (translationId === "nasb" || translationId === "web") {
-    samples[0] = {
+    put({
       book: "John",
       chapter: 1,
       verses: [
         {
           verse: 1,
-          text: "In the beginning was the Word, and the Word was with God, and the Word was God. (local-db)",
+          text: "In the beginning was the Word, and the Word was with God, and the Word was God.",
         },
         {
           verse: 14,
-          text: "The Word became flesh and lived among us. (local-db)",
+          text: "And the Word became flesh, and dwelt among us, and we saw His glory.",
         },
       ],
-    };
+    });
+    put({
+      book: "John",
+      chapter: 3,
+      verses: [
+        {
+          verse: 16,
+          text: "For God so loved the world, that He gave His only begotten Son.",
+        },
+      ],
+    });
+    put({
+      book: "Ps",
+      chapter: 23,
+      verses: [{ verse: 1, text: "The Lord is my shepherd, I shall not want." }],
+    });
   }
 
-  return { translationId, version: 1, chapters: samples };
+  const chapters: R2ChapterJson[] = [];
+  for (const ref of listProtestantChapterRefs()) {
+    const existing = rich.get(ref);
+    if (existing) {
+      chapters.push(existing);
+      continue;
+    }
+    const dot = ref.lastIndexOf(".");
+    const book = ref.slice(0, dot);
+    const chapter = Number(ref.slice(dot + 1));
+    chapters.push({
+      book,
+      chapter,
+      verses: [
+        {
+          verse: 1,
+          text: demoPlaceholderVerse(translationId, abbr, book, chapter),
+        },
+      ],
+    });
+  }
+
+  return { translationId, version: 2, chapters };
 }
 
 export type LocalCorpusPipelineProbe = {

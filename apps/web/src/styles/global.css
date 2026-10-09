@@ -1001,6 +1001,39 @@ body:has(.bible-reader) .tab-bar a.active::after {
   min-width: 0;
 }
 
+.bible-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem 0.75rem calc(5.75rem + env(safe-area-inset-bottom));
+  background: rgba(24, 35, 43, 0.38);
+  animation: bible-controls-in 220ms ease both;
+}
+
+@media (min-width: 720px) {
+  .bible-modal-backdrop {
+    align-items: center;
+    padding-bottom: 1.5rem;
+  }
+}
+
+.bible-modal-sheet,
+.bible-dock-panel--modal {
+  width: min(28rem, 100%);
+  max-height: min(72vh, 40rem);
+  overflow: auto;
+  margin: 0 !important;
+}
+
+.bible-modal-close-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.15rem 0 0.35rem;
+}
+
 .bible-settings-sheet,
 .bible-picker {
   margin: 0 0 1rem;
@@ -1021,6 +1054,10 @@ body:has(.bible-reader) .tab-bar a.active::after {
   overflow: auto;
   border-top: 1px solid var(--lh-glass-border);
   border-bottom: 1px solid var(--lh-glass-border);
+}
+
+.bible-picker.bible-modal-sheet {
+  max-height: min(72vh, 40rem);
 }
 
 .bible-settings-row {
@@ -1075,6 +1112,54 @@ body:has(.bible-reader) .tab-bar a.active::after {
   -webkit-backdrop-filter: var(--lh-glass-blur);
   box-shadow: var(--lh-glass-shadow);
   animation: bible-controls-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.chat-home-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.chat-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem 0.75rem calc(5.75rem + env(safe-area-inset-bottom));
+  background: rgba(24, 35, 43, 0.4);
+}
+
+@media (min-width: 720px) {
+  .chat-sheet-backdrop {
+    align-items: center;
+    padding-bottom: 1.5rem;
+  }
+}
+
+.chat-sheet {
+  width: min(28rem, 100%);
+  max-height: min(75vh, 42rem);
+  overflow: auto;
+  padding: 1rem 1rem 1.15rem;
+  border-radius: 16px;
+  border: 1px solid var(--lh-glass-border);
+  background: var(--lh-glass-strong);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: var(--lh-glass-shadow);
+}
+
+.chat-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .bible-dock-panel h2 {

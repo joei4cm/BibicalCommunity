@@ -113,9 +113,10 @@ chatRoutes.patch("/conversations/:id", async (c) => {
       .limit(1)
   )[0];
   if (!member) return c.json({ error: "forbidden" }, 403);
-  if (member.role !== "owner") return c.json({ error: "forbidden" }, 403);
 
+  // TTL is owner-only; archive is per-member (hide from own inbox).
   if (body.disappearingTtlSec !== undefined) {
+    if (member.role !== "owner") return c.json({ error: "forbidden" }, 403);
     await db
       .update(schema.conversations)
       .set({ disappearingTtlSec: body.disappearingTtlSec })
