@@ -748,22 +748,10 @@ export function BibleReader() {
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
 
-      <div className={dualPane ? "reader-dual" : undefined}>
-        <ChapterPane
-          chapter={chapter}
-          verseRef={ref}
-          fontSize={fontSize}
-          lineHeight={lineHeight}
-          fontFamily={readerFont}
-          locale={locale}
-          t={t}
-          selectedVerse={selectedVerse}
-          onSelectVerse={setSelectedVerse}
-          highlightByVerse={highlightByVerse}
-        />
-        {dualPane && (
+      <div className="bible-folio" data-testid="reader-folio">
+        <div className={dualPane ? "reader-dual" : undefined}>
           <ChapterPane
-            chapter={secondChapter}
+            chapter={chapter}
             verseRef={ref}
             fontSize={fontSize}
             lineHeight={lineHeight}
@@ -774,7 +762,21 @@ export function BibleReader() {
             onSelectVerse={setSelectedVerse}
             highlightByVerse={highlightByVerse}
           />
-        )}
+          {dualPane && (
+            <ChapterPane
+              chapter={secondChapter}
+              verseRef={ref}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
+              fontFamily={readerFont}
+              locale={locale}
+              t={t}
+              selectedVerse={selectedVerse}
+              onSelectVerse={setSelectedVerse}
+              highlightByVerse={highlightByVerse}
+            />
+          )}
+        </div>
       </div>
 
       {renderChapterNav("reader-bottom", "bottom")}

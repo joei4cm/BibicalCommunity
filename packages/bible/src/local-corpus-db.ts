@@ -416,7 +416,28 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
         { verse: 18, text: "从来没有人看见神，只有在父怀里的独生子将他表明出来。" },
       ],
     };
-    samples[1] = {
+    samples.splice(
+      1,
+      0,
+      {
+        book: "John",
+        chapter: 2,
+        verses: [
+          { verse: 1, text: "第三日，在加利利的迦拿有娶亲的筵席，耶稣的母亲在那里。" },
+          { verse: 2, text: "耶稣和他的门徒也被请去赴席。" },
+          { verse: 3, text: "酒用尽了，耶稣的母亲对他说：「他们没有酒了。」" },
+          { verse: 4, text: "耶稣说：「母亲，我与你有什么相干？我的时候还没有到。」" },
+          { verse: 5, text: "他母亲对用人说：「他告诉你们什么，你们就做什么。」" },
+          { verse: 6, text: "照犹太人洁净的规矩，有六口石缸摆在那里，每口可以盛两三桶水。" },
+          { verse: 7, text: "耶稣对用人说：「把缸倒满了水。」他们就倒满了，直到缸口。" },
+          { verse: 8, text: "耶稣又说：「现在可以舀出来，送给管筵席的。」他们就送了去。" },
+          { verse: 9, text: "管筵席的尝了那水变的酒，并不知道是哪里来的，只有舀水的用人知道。管筵席的便叫新郎来，" },
+          { verse: 10, text: "对他说：「人都是先摆上好酒，等客喝足了才摆上次的；你倒把好酒留到如今！」" },
+          { verse: 11, text: "这是耶稣所行的头一件神迹，是在加利利的迦拿行的，显出他的荣耀来；他的门徒就信他了。" },
+        ],
+      },
+    );
+    samples[2] = {
       book: "John",
       chapter: 3,
       verses: [
@@ -424,7 +445,7 @@ export function buildDemoDownloadPack(translationId: string): DownloadPackPayloa
         { verse: 17, text: "因为神差他的儿子降世，不是要定世人的罪，乃是要叫世人因他得救。" },
       ],
     };
-    samples[2] = {
+    samples[3] = {
       book: "Ps",
       chapter: 23,
       verses: [
