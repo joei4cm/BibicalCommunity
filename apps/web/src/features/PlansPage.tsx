@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { listDevotionMaterials, listStudyMaterials, parsePlanCsv } from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
@@ -291,10 +292,23 @@ export function PlansPage() {
     { id: "done", label: t("plans.tabDone") },
   ];
 
+  const loggedIn = Boolean(getToken());
+
   return (
     <section className="fade-up plans-page app-folio" data-testid="plans-page">
       <h1 className="page-title">{t("nav.plans")}</h1>
       {message && <p className="muted">{humanizeStatus(t, message)}</p>}
+
+      {!loggedIn && (
+        <div className="panel folio-gate" data-testid="plans-login-gate">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("plans.gateHint")}
+          </p>
+          <Link className="btn" to="/app/me" data-testid="plans-go-login">
+            {t("plans.goLogin")}
+          </Link>
+        </div>
+      )}
 
       <div className="plans-tabs" role="tablist" aria-label={t("nav.plans")} data-testid="plans-tabs">
         {tabs.map((item) => (
@@ -314,58 +328,9 @@ export function PlansPage() {
 
       {tab === "mine" && (
         <div className="plans-tab-panel" data-testid="plans-panel-mine" role="tabpanel">
-          <div className="panel" data-testid="plans-add-by-id">
-            <h2>{t("plans.addById")}</h2>
-            <p className="muted">{t("plans.addByIdHint")}</p>
-            <div className="field">
-              <label htmlFor="plan-subscribe-id">{t("plans.subscribeId")}</label>
-              <input
-                id="plan-subscribe-id"
-                data-testid="plans-subscribe-id"
-                value={subscribeId}
-                onChange={(e) => setSubscribeId(e.target.value)}
-                placeholder={t("plans.subscribeId")}
-              />
-            </div>
-            <button type="button" className="btn" data-testid="plans-subscribe-submit" onClick={() => void subscribe()}>
-              {t("plans.subscribe")}
-            </button>
-          </div>
-
-          <div className="panel">
-            <h2>{t("plans.subscriptions")}</h2>
-            <ul className="list">
-              {activeSubs.length === 0 && <li className="muted">{t("plans.emptyMine")}</li>}
-              {activeSubs.map((s) => {
-                const total = s.days?.length ?? 0;
-                return (
-                  <li key={s.subscriptionId ?? s.id ?? s.planId}>
-                    <strong>{s.title ?? t("plans.untitled")}</strong>
-                    <div className="muted">
-                      {t("plans.inProgress")}
-                      {total > 0
-                        ? ` · ${t("plans.dayOf", { day: Math.min((s.progressDay ?? 0) + 1, total) })} / ${total}`
-                        : ` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      onClick={() => {
-                        setActiveSubPlanId(s.planId);
-                        void advancePlanDay(s.planId, s.progressDay);
-                      }}
-                    >
-                      {t("plans.advanceDay")}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          {(subscriptions ?? []).length > 0 && (
-            <div className="panel">
-              <h2>{t("plans.devotion")}</h2>
+          {activeSubs.length > 0 ? (
+            <div className="panel" data-testid="plans-devotion-today">
+              <h2>{t("plans.devotionToday")}</h2>
               <div className="field">
                 <label>{t("plans.devotionPlan")}</label>
                 <select
@@ -430,15 +395,80 @@ export function PlansPage() {
                 <button type="button" className="btn" onClick={advance} disabled={progress.done}>
                   {progress.done ? t("plans.stepDone") : t("plans.nextStep")}
                 </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={!activeSub}
+                  onClick={() => {
+                    if (!activeSub) return;
+                    void advancePlanDay(activeSub.planId, activeSub.progressDay);
+                  }}
+                >
+                  {t("plans.advanceDay")}
+                </button>
                 <button type="button" className="btn ghost" onClick={resetSteps}>
                   {t("plans.resetSteps")}
                 </button>
               </div>
             </div>
+          ) : (
+            <div className="panel" data-testid="plans-empty-mine">
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("plans.emptyMine")}
+              </p>
+              <button type="button" className="btn" onClick={() => setTab("discover")}>
+                {t("plans.openDiscover")}
+              </button>
+            </div>
           )}
 
-          <details className="panel plans-advanced">
-            <summary>{t("plans.create")}</summary>
+          {activeSubs.length > 0 && (
+            <div className="panel">
+              <h2>{t("plans.subscriptions")}</h2>
+              <ul className="list">
+                {activeSubs.map((s) => {
+                  const total = s.days?.length ?? 0;
+                  return (
+                    <li key={s.subscriptionId ?? s.id ?? s.planId}>
+                      <button
+                        type="button"
+                        className="linkish"
+                        onClick={() => setActiveSubPlanId(s.planId)}
+                      >
+                        <strong>{s.title ?? t("plans.untitled")}</strong>
+                      </button>
+                      <div className="muted">
+                        {t("plans.inProgress")}
+                        {total > 0
+                          ? ` · ${t("plans.dayOf", { day: Math.min((s.progressDay ?? 0) + 1, total) })} / ${total}`
+                          : ` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <details className="panel plans-advanced" data-testid="plans-add-by-id">
+            <summary>{t("plans.manageAdvanced")}</summary>
+            <h3>{t("plans.addById")}</h3>
+            <p className="muted">{t("plans.addByIdHint")}</p>
+            <div className="field">
+              <label htmlFor="plan-subscribe-id">{t("plans.subscribeId")}</label>
+              <input
+                id="plan-subscribe-id"
+                data-testid="plans-subscribe-id"
+                value={subscribeId}
+                onChange={(e) => setSubscribeId(e.target.value)}
+                placeholder={t("plans.subscribeId")}
+              />
+            </div>
+            <button type="button" className="btn" data-testid="plans-subscribe-submit" onClick={() => void subscribe()}>
+              {t("plans.subscribe")}
+            </button>
+
+            <h3>{t("plans.create")}</h3>
             <div className="field">
               <label htmlFor="plan-title">{t("plans.title")}</label>
               <input
