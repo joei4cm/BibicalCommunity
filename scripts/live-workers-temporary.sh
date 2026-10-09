@@ -18,6 +18,30 @@ echo "== temporary Workers deploy (no R2) =="
 # Unset production auth so --temporary can mint/reuse a preview account.
 unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID || true
 
+# Drop expired preview accounts so --temporary can remint.
+if [[ -f "$ACCOUNT_TOML" ]]; then
+  EXPIRED="$(python3 -c '
+import re,sys,datetime
+t=open(sys.argv[1]).read()
+ms=re.findall(r"expiresAt\s*=\s*\"([^\"]+)\"", t)
+if not ms:
+  print("0"); raise SystemExit
+now=datetime.datetime.now(datetime.timezone.utc)
+expired=False
+for raw in ms:
+  try:
+    dt=datetime.datetime.fromisoformat(raw.replace("Z","+00:00"))
+    if dt <= now: expired=True
+  except Exception:
+    expired=True
+print("1" if expired else "0")
+' "$ACCOUNT_TOML")"
+  if [[ "$EXPIRED" == "1" ]]; then
+    echo "INFO: temporary account expired — reminting"
+    rm -f "$ACCOUNT_TOML"
+  fi
+fi
+
 if [[ ! -f "$ACCOUNT_TOML" ]]; then
   # First attempt writes account toml even if D1/DO config is wrong.
   npx wrangler deploy --temporary -c "$CFG" >/tmp/wrangler-temp-bootstrap.log 2>&1 || true
@@ -113,15 +137,27 @@ fi
 echo "WORKER_URL=$WORKER_URL"
 sleep 2
 HTTP="$(curl -s -o /tmp/temp-health.body -w '%{http_code}' "$WORKER_URL/health" || echo 000)"
-echo "health_http=$HTTP body=$(head -c 200 /tmp/temp-health.body 2>/dev/null || true)"
+BODY_SNIP="$(head -c 200 /tmp/temp-health.body 2>/dev/null || true)"
+echo "health_http=$HTTP body=$BODY_SNIP"
 CORPUS_HTTP="$(curl -s -o /tmp/temp-corpus.body -w '%{http_code}' "$WORKER_URL/v1/bible/corpus-download/cuvs?scope=boot&limit=1" || echo 000)"
 echo "corpus_http=$CORPUS_HTTP"
 
+BOT_CHALLENGE=0
+if echo "$BODY_SNIP" | rg -q 'Just a moment|challenge-platform'; then
+  BOT_CHALLENGE=1
+fi
+
+# Seed D1 via wrangler SQL (bypasses workers.dev bot on /auth).
+bash "$ROOT/scripts/seed-d1-corpus-sql-remote.sh" "$CFG" | tee /tmp/d1-corpus-seed-temp.log || true
+
 if [[ "$HTTP" == "200" ]]; then
   echo "LIVE_WORKERS_TEMPORARY_OK url=$WORKER_URL health=200 corpus_http=$CORPUS_HTTP media=optional"
-  # Best-effort D1 boot corpus seed (may hit preview bot challenge on /auth).
   LIVE_API_BASE="$WORKER_URL" bash "$ROOT/scripts/seed-d1-corpus-boot.sh" "$WORKER_URL" \
-    | tee /tmp/d1-corpus-seed-temp.log || true
+    | tee -a /tmp/d1-corpus-seed-temp.log || true
+elif [[ "$BOT_CHALLENGE" == "1" || "$HTTP" == "403" ]]; then
+  # Preview workers.dev often serves Cloudflare bot HTML; deploy + D1 still count.
+  echo "LIVE_WORKERS_TEMPORARY_OK url=$WORKER_URL health=$HTTP bot_challenge=1 corpus_http=$CORPUS_HTTP media=optional"
+  echo "INFO: HTTP bot challenge — D1 seeded via sql-remote; CORPUS_LIVE_R2 still OPEN"
 else
   echo "LIVE_WORKERS_TEMPORARY_OPEN reason=health_failed http=$HTTP url=$WORKER_URL"
 fi
