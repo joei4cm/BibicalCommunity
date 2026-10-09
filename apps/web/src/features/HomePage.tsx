@@ -327,7 +327,7 @@ export function HomePage() {
   }
 
   return (
-    <section className="fade-up home-page" data-testid="home-page">
+    <section className="fade-up home-page app-folio" data-testid="home-page">
       <h1 className="page-title">{t("nav.home")}</h1>
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
       <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
@@ -354,76 +354,88 @@ export function HomePage() {
 
       {homeSection === "church" && (
       <div className="panel" data-testid="home-church-panel">
-        <h2 style={{ marginTop: 0 }}>{t("nav.home")}</h2>
+        <h2>{t("home.myChurches")}</h2>
         <ul className="list">
           {churches.length === 0 && <li className="muted">{t("home.noChurches")}</li>}
           {churches.map((c) => (
             <li key={c.id}>
-              <button type="button" className="linkish" onClick={() => setSelectedChurchId(c.id)}>
-                <strong>{c.name}</strong>
-                {selectedChurchId === c.id ? ` · ${t("home.selected")}` : ""}
+              <button
+                type="button"
+                className={`church-row${selectedChurchId === c.id ? " is-selected" : ""}`}
+                onClick={() => setSelectedChurchId(c.id)}
+              >
+                <div className="church-row-title">
+                  {c.name}
+                  {selectedChurchId === c.id ? ` · ${t("home.selected")}` : ""}
+                </div>
+                <div className="muted">
+                  {c.role}
+                  {c.slug ? ` · ${c.slug}` : ""}
+                  {c.verified ? ` · ${t("me.verified")}` : ""}
+                  {c.securityMode === "hostile" ? (
+                    <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
+                  ) : (
+                    <span> · {t("home.securityMode.standardBadge")}</span>
+                  )}
+                </div>
               </button>
-              <div className="muted">
-                {c.role}
-                {c.slug ? ` · ${c.slug}` : ""}
-                {c.verified ? ` · ${t("me.verified")}` : ""}
-                {c.securityMode === "hostile" ? (
-                  <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
-                ) : (
-                  <span> · {t("home.securityMode.standardBadge")}</span>
-                )}
-              </div>
             </li>
           ))}
         </ul>
-        <div className="field" style={{ marginTop: "1rem" }}>
-          <label>{t("home.createChurch")}</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("home.churchName")}
-          />
-        </div>
-        <div className="field">
-          <label>{t("home.churchSlug")}</label>
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            placeholder="my-church"
-          />
-        </div>
-        <div className="field">
-          <label>{t("home.securityMode")}</label>
-          <select
-            value={securityMode}
-            onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
-          >
-            <option value="standard">{t("home.securityMode.standard")}</option>
-            <option value="hostile">{t("home.securityMode.hostile")}</option>
-          </select>
-        </div>
-        <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
-          {t("home.createChurch")}
-        </button>
 
-        <h3 style={{ marginTop: "1.25rem" }}>{t("home.joinChurch")}</h3>
-        <div className="field">
-          <label>{t("home.joinSlug")}</label>
-          <input
-            value={joinSlug}
-            onChange={(e) => setJoinSlug(e.target.value)}
-            placeholder="my-church"
-          />
-        </div>
-        <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
-          {t("home.joinChurch")}
-        </button>
+        <details className="plans-advanced" style={{ marginTop: "1rem" }}>
+          <summary>{t("home.createChurch")}</summary>
+          <div className="field" style={{ marginTop: "0.75rem" }}>
+            <label>{t("home.churchName")}</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("home.churchName")}
+            />
+          </div>
+          <div className="field">
+            <label>{t("home.churchSlug")}</label>
+            <input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder={t("home.slugPlaceholder")}
+            />
+          </div>
+          <div className="field">
+            <label>{t("home.securityMode")}</label>
+            <select
+              value={securityMode}
+              onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
+            >
+              <option value="standard">{t("home.securityMode.standard")}</option>
+              <option value="hostile">{t("home.securityMode.hostile")}</option>
+            </select>
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
+            {t("home.createChurch")}
+          </button>
+        </details>
+
+        <details className="plans-advanced" style={{ marginTop: "0.75rem" }}>
+          <summary>{t("home.joinChurch")}</summary>
+          <div className="field" style={{ marginTop: "0.75rem" }}>
+            <label>{t("home.joinSlug")}</label>
+            <input
+              value={joinSlug}
+              onChange={(e) => setJoinSlug(e.target.value)}
+              placeholder={t("home.slugPlaceholder")}
+            />
+          </div>
+          <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
+            {t("home.joinChurch")}
+          </button>
+        </details>
       </div>
       )}
 
       {homeSection === "church" && selectedChurchId && canAdmin && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.securityMode")}</h2>
+          <h2>{t("home.securityMode")}</h2>
           <p className="muted">
             {selectedChurch?.securityMode === "hostile"
               ? t("home.securityMode.hostileHint")
@@ -452,7 +464,7 @@ export function HomePage() {
 
       {homeSection === "church" && selectedChurchId && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.groups")}</h2>
+          <h2>{t("home.groups")}</h2>
           <ul className="list">
             {membershipGroups.length === 0 && <li className="muted">{t("home.noGroups")}</li>}
             {membershipGroups.map((g) => (
@@ -466,7 +478,7 @@ export function HomePage() {
 
       {homeSection === "church" && selectedChurchId && canAdmin && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.verifyMember")}</h2>
+          <h2>{t("home.verifyMember")}</h2>
           <p className="muted">{t("home.membersPending")}</p>
           <ul className="list">
             {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
@@ -516,7 +528,7 @@ export function HomePage() {
 
       {homeSection === "church" && isAnyAdmin && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
+          <h2>{t("security.adminWipe")}</h2>
           <p className="muted">{t("security.adminWipeHint")}</p>
           <div className="field">
             <label>{t("security.adminWipeUserId")}</label>
@@ -542,7 +554,13 @@ export function HomePage() {
 
       {homeSection === "forum" && selectedChurchId && (
         <div className="panel" data-testid="home-forum-panel">
-          <h2 style={{ marginTop: 0 }}>{t("home.boards")}</h2>
+          <h2>{t("home.forumFeed")}</h2>
+          {selectedChurch && (
+            <p className="muted" style={{ marginTop: 0 }}>
+              {selectedChurch.name}
+              {selectedChurch.slug ? ` · ${selectedChurch.slug}` : ""}
+            </p>
+          )}
           <div className="toolbar board-tabs" role="tablist">
             {BOARDS.map((b) => (
               <button
@@ -562,21 +580,29 @@ export function HomePage() {
             {posts.length === 0 && <li className="muted">{t("home.noPosts")}</li>}
             {posts.map((p) => (
               <li key={p.id}>
-                <strong>{p.title}</strong>
-                <p style={{ margin: "0.35rem 0 0" }}>{p.body}</p>
-                {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
-                {p.mediaKey ? (
-                  <p className="muted">
-                    <a href={`/v1/media/${p.mediaKey}`} target="_blank" rel="noreferrer">
-                      {t("home.attachment")}
-                    </a>
+                <article className="post-row">
+                  <div className="post-row-title">{p.title}</div>
+                  <p className="post-row-body">{p.body}</p>
+                  <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.82rem" }}>
+                    {t("home.postedAt")} · {new Date(p.createdAt).toLocaleString()}
                   </p>
-                ) : null}
+                  {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
+                  {p.mediaKey ? (
+                    <p className="muted">
+                      <a href={`/v1/media/${p.mediaKey}`} target="_blank" rel="noreferrer">
+                        {t("home.attachment")}
+                      </a>
+                    </p>
+                  ) : null}
+                </article>
               </li>
             ))}
           </ul>
 
-          <h3 style={{ marginTop: "1.25rem" }}>{t("home.compose")}</h3>
+          <h3>{t("home.compose")}</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("home.composeHint")}
+          </p>
           {board === "group" && (
             <div className="field">
               <label>{t("home.board.group")}</label>
@@ -601,26 +627,29 @@ export function HomePage() {
             <label>{t("home.postBody")}</label>
             <textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
           </div>
-          <div className="field">
-            <label>{t("home.mediaUrl")}</label>
-            <input
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=…"
-            />
-          </div>
-          <div className="field">
-            <label>{t("home.attachment")}</label>
-            <input
-              type="file"
-              accept="image/*,audio/*,video/*"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadAttachment(f);
-              }}
-            />
-            {mediaKey ? <p className="muted">{mediaKey}</p> : null}
-          </div>
+          <details className="plans-advanced">
+            <summary>{t("home.mediaUrl")}</summary>
+            <div className="field" style={{ marginTop: "0.65rem" }}>
+              <label>{t("home.mediaUrl")}</label>
+              <input
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=…"
+              />
+            </div>
+            <div className="field">
+              <label>{t("home.attachment")}</label>
+              <input
+                type="file"
+                accept="image/*,audio/*,video/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadAttachment(f);
+                }}
+              />
+              {mediaKey ? <p className="muted">{mediaKey}</p> : null}
+            </div>
+          </details>
           <button type="button" className="btn" disabled={busy} onClick={() => void composePost()}>
             {t("home.post")}
           </button>

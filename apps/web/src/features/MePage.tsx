@@ -411,29 +411,44 @@ export function MePage() {
     applyTheme(theme);
   }
 
+  const themeLabel = (id: ThemeId) => {
+    const key = `me.theme${id[0]!.toUpperCase()}${id.slice(1)}` as const;
+    const mapped: Record<ThemeId, string> = {
+      day: t("me.themeDay"),
+      sepia: t("me.themeSepia"),
+      night: t("me.themeNight"),
+      highContrast: t("me.themeHighContrast"),
+    };
+    return mapped[id] ?? key;
+  };
+
   return (
-    <section className="fade-up me-page" data-testid="me-page">
+    <section className="fade-up me-page app-folio" data-testid="me-page">
       <h1 className="page-title">{t("nav.me")}</h1>
 
       {pendingWipes.length > 0 && (
-        <div className="panel" role="alert" style={{ borderColor: "var(--danger, #b33)" }}>
+        <div className="panel" role="alert">
           <p>{t("security.wipePending")}</p>
         </div>
       )}
 
-      <div className="panel" data-testid="me-auth-panel">
-        {(profile?.uid || msg) && (
-          <p className="auth-status" role="status" data-testid="me-auth-status">
-            {profile?.uid ? (
-              <>
-                UID: <strong data-testid="me-uid">{profile.uid}</strong>
-                {msg ? ` · ${humanizeStatus(t, msg)}` : null}
-              </>
-            ) : (
-              humanizeStatus(t, msg)
-            )}
+      {profile?.uid ? (
+        <div className="folio-hero" data-testid="me-auth-status">
+          <p className="folio-hero-name">{nickname || profile.nickname || profile.uid}</p>
+          <p className="folio-hero-meta">
+            {t("me.signedIn")} · UID <strong data-testid="me-uid">{profile.uid}</strong>
+            {msg ? ` · ${humanizeStatus(t, msg)}` : null}
           </p>
-        )}
+        </div>
+      ) : msg ? (
+        <p className="auth-status" role="status" data-testid="me-auth-status">
+          {humanizeStatus(t, msg)}
+        </p>
+      ) : null}
+
+      <div className="panel" data-testid="me-auth-panel">
+        <h2>{t("me.account")}</h2>
+        {profile?.uid ? <p className="muted">{t("me.signOutHint")}</p> : null}
         <form
           id="lh-auth-form"
           onSubmit={(e) => {
@@ -486,17 +501,17 @@ export function MePage() {
               disabled={authBusy}
               onClick={() => void register()}
             >
-              {authBusy ? "…" : t("auth.register")}
+              {authBusy ? t("me.working") : t("auth.register")}
             </button>
             <button type="submit" className="btn ghost" data-testid="me-login" disabled={authBusy}>
-              {t("auth.login")}
+              {authBusy ? t("me.working") : t("auth.login")}
             </button>
           </div>
         </form>
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.profile")}</h2>
+        <h2>{t("me.profile")}</h2>
         <div className="field">
           <label>{t("me.nickname")}</label>
           <input value={nickname} onChange={(e) => setNickname(e.target.value)} />
@@ -515,7 +530,7 @@ export function MePage() {
       </div>
 
       <div className="panel" data-testid="me-settings-panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.settings")}</h2>
+        <h2>{t("me.settings")}</h2>
         <h3>{t("me.privacy")}</h3>
         <label className="check-row">
           <input
@@ -552,10 +567,10 @@ export function MePage() {
               }))
             }
           >
-            <option value="everyone">everyone</option>
-            <option value="church-only">church-only</option>
-            <option value="admin-approved">admin-approved</option>
-            <option value="off">off</option>
+            <option value="everyone">{t("me.privacyEveryone")}</option>
+            <option value="church-only">{t("me.privacyChurchOnly")}</option>
+            <option value="admin-approved">{t("me.privacyAdminApproved")}</option>
+            <option value="off">{t("me.privacyOff")}</option>
           </select>
         </div>
         <button type="button" className="btn" onClick={() => void saveProfile()}>
@@ -578,7 +593,7 @@ export function MePage() {
           >
             {THEME_IDS.map((id) => (
               <option key={id} value={id}>
-                {id}
+                {themeLabel(id)}
               </option>
             ))}
           </select>
@@ -607,7 +622,7 @@ export function MePage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.churches")}</h2>
+        <h2>{t("me.churches")}</h2>
         <ul className="list">
           {!profile?.churches?.length && <li className="muted">—</li>}
           {(profile?.churches ?? []).map((c) => (
@@ -628,7 +643,7 @@ export function MePage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.search")}</h2>
+        <h2>{t("me.search")}</h2>
         <div className="field">
           <label>{t("me.searchUid")}</label>
           <input
@@ -651,7 +666,7 @@ export function MePage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.devices")}</h2>
+        <h2>{t("me.devices")}</h2>
         <p className="muted">{t("me.devicesHint")}</p>
         <ul className="list">
           {devices.length === 0 && <li className="muted">—</li>}
@@ -680,7 +695,7 @@ export function MePage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("security.deviceKeys")}</h2>
+        <h2>{t("security.deviceKeys")}</h2>
         <p className="muted">{t("security.deviceKeysHint")}</p>
         <p className="muted">
           {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
@@ -696,7 +711,7 @@ export function MePage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("security.wipe")}</h2>
+        <h2>{t("security.wipe")}</h2>
         <p className="muted">{t("security.wipeHint")}</p>
         <button type="button" className="btn danger" onClick={() => void selfWipe()}>
           {t("security.wipe")}
@@ -705,7 +720,7 @@ export function MePage() {
 
       {(profile?.canAccessAdminConsole || isChurchAdmin) && (
         <div className="panel" data-testid="me-admin-console-link">
-          <h2 style={{ marginTop: 0 }}>{t("admin.title")}</h2>
+          <h2>{t("admin.title")}</h2>
           <p className="muted">{t("admin.openHint")}</p>
           <Link className="btn" to="/app/admin" data-testid="me-open-admin">
             {t("admin.open")}
@@ -715,7 +730,7 @@ export function MePage() {
 
       {isChurchAdmin && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
+          <h2>{t("security.adminWipe")}</h2>
           <p className="muted">{t("security.adminWipeHint")}</p>
           <div className="field">
             <label>{t("security.adminWipeUserId")}</label>

@@ -199,7 +199,7 @@ export function PlansPage() {
         days,
       }),
     });
-    setMessage(`created:${res.id} (${days.length} days)`);
+    setMessage("created:ok");
     setCreateTitle("");
     setCreateDescription("");
     await refreshPlans();
@@ -212,15 +212,15 @@ export function PlansPage() {
       return;
     }
     const days = parsePlanCsv(csv);
-    const res = await api<{ id: string }>("/v1/plans", {
+    await api<{ id: string }>("/v1/plans", {
       method: "POST",
       body: JSON.stringify({
-        title: "CSV Plan",
+        title: t("plans.untitled"),
         visibility: "private",
         days,
       }),
     });
-    setMessage(`created:${res.id} (${days.length} days)`);
+    setMessage("created:ok");
     await refreshPlans();
   }
 
@@ -252,11 +252,11 @@ export function PlansPage() {
     }
     const id = (idOverride ?? subscribeId).trim();
     if (!id) return;
-    const res = await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
+    await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
       method: "POST",
       body: JSON.stringify({}),
     });
-    setMessage(`subscribed:${res.id}`);
+    setMessage("subscribed:ok");
     setSubscribeId("");
     await refreshPublicAndSubs();
     setTab("mine");
@@ -272,7 +272,7 @@ export function PlansPage() {
       method: "POST",
       body: JSON.stringify({ day: next }),
     });
-    setMessage(`progress:${planId}:day ${next}`);
+    setMessage("progress:ok");
     await refreshPublicAndSubs();
   }
 
@@ -292,7 +292,7 @@ export function PlansPage() {
   ];
 
   return (
-    <section className="fade-up plans-page" data-testid="plans-page">
+    <section className="fade-up plans-page app-folio" data-testid="plans-page">
       <h1 className="page-title">{t("nav.plans")}</h1>
       {message && <p className="muted">{humanizeStatus(t, message)}</p>}
 
@@ -315,7 +315,7 @@ export function PlansPage() {
       {tab === "mine" && (
         <div className="plans-tab-panel" data-testid="plans-panel-mine" role="tabpanel">
           <div className="panel" data-testid="plans-add-by-id">
-            <h2 style={{ marginTop: 0 }}>{t("plans.addById")}</h2>
+            <h2>{t("plans.addById")}</h2>
             <p className="muted">{t("plans.addByIdHint")}</p>
             <div className="field">
               <label htmlFor="plan-subscribe-id">{t("plans.subscribeId")}</label>
@@ -324,7 +324,7 @@ export function PlansPage() {
                 data-testid="plans-subscribe-id"
                 value={subscribeId}
                 onChange={(e) => setSubscribeId(e.target.value)}
-                placeholder="plan_…"
+                placeholder={t("plans.subscribeId")}
               />
             </div>
             <button type="button" className="btn" data-testid="plans-subscribe-submit" onClick={() => void subscribe()}>
@@ -333,19 +333,19 @@ export function PlansPage() {
           </div>
 
           <div className="panel">
-            <h2 style={{ marginTop: 0 }}>{t("plans.subscriptions")}</h2>
+            <h2>{t("plans.subscriptions")}</h2>
             <ul className="list">
               {activeSubs.length === 0 && <li className="muted">{t("plans.emptyMine")}</li>}
               {activeSubs.map((s) => {
                 const total = s.days?.length ?? 0;
                 return (
                   <li key={s.subscriptionId ?? s.id ?? s.planId}>
-                    <strong>{s.title ?? s.planId}</strong>
+                    <strong>{s.title ?? t("plans.untitled")}</strong>
                     <div className="muted">
                       {t("plans.inProgress")}
                       {total > 0
                         ? ` · ${t("plans.dayOf", { day: Math.min((s.progressDay ?? 0) + 1, total) })} / ${total}`
-                        : ` · day ${s.progressDay}`}
+                        : ` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
                     </div>
                     <button
                       type="button"
@@ -365,7 +365,7 @@ export function PlansPage() {
 
           {(subscriptions ?? []).length > 0 && (
             <div className="panel">
-              <h2 style={{ marginTop: 0 }}>{t("plans.devotion")}</h2>
+              <h2>{t("plans.devotion")}</h2>
               <div className="field">
                 <label>{t("plans.devotionPlan")}</label>
                 <select
@@ -374,7 +374,7 @@ export function PlansPage() {
                 >
                   {activeSubs.map((s) => (
                     <option key={s.planId} value={s.planId}>
-                      {s.title ?? s.planId}
+                      {s.title ?? t("plans.untitled")}
                     </option>
                   ))}
                 </select>
@@ -402,8 +402,12 @@ export function PlansPage() {
                 <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
               )}
               <p className="muted">
-                {progress.index + 1} / {progress.total}
-                {progress.done ? " · done" : ""}
+                {progress.done
+                  ? t("plans.stepDone")
+                  : t("plans.stepProgress", {
+                      current: progress.index + 1,
+                      total: progress.total,
+                    })}
               </p>
               <div className="step-track" role="list">
                 {stepGuide.map((s, i) => {
@@ -424,10 +428,10 @@ export function PlansPage() {
               </div>
               <div className="toolbar">
                 <button type="button" className="btn" onClick={advance} disabled={progress.done}>
-                  {progress.done ? "✓" : "→"}
+                  {progress.done ? t("plans.stepDone") : t("plans.nextStep")}
                 </button>
                 <button type="button" className="btn ghost" onClick={resetSteps}>
-                  Reset
+                  {t("plans.resetSteps")}
                 </button>
               </div>
             </div>
@@ -486,7 +490,13 @@ export function PlansPage() {
                     <strong>{p.title}</strong>
                   </button>
                   <div className="muted">
-                    {p.visibility} · {p.days.length} days
+                    {p.visibility === "church"
+                      ? t("plans.visibilityChurch")
+                      : p.visibility === "public"
+                        ? t("plans.visibilityPublic")
+                        : t("plans.visibilityPrivate")}
+                    {" · "}
+                    {t("plans.daysCount", { count: p.days.length })}
                     {selectedId === p.id ? ` · ${t("plans.selected")}` : ""}
                   </div>
                 </li>
@@ -518,7 +528,7 @@ export function PlansPage() {
       {tab === "discover" && (
         <div className="plans-tab-panel" data-testid="plans-panel-discover" role="tabpanel">
           <div className="panel">
-            <h2 style={{ marginTop: 0 }}>{t("plans.public")}</h2>
+            <h2>{t("plans.public")}</h2>
             <p className="muted">{t("plans.discoverHint")}</p>
             <ul className="list">
               {(publicPlans ?? []).length === 0 && <li className="muted">{t("plans.emptyDiscover")}</li>}
@@ -539,7 +549,7 @@ export function PlansPage() {
             </ul>
           </div>
           <div className="panel">
-            <h2 style={{ marginTop: 0 }}>{t("plans.materials")}</h2>
+            <h2>{t("plans.materials")}</h2>
             <ul className="list">
               {devotionMaterials.map((m) => (
                 <li key={m.id}>
@@ -562,7 +572,7 @@ export function PlansPage() {
       {tab === "done" && (
         <div className="plans-tab-panel" data-testid="plans-panel-done" role="tabpanel">
           <div className="panel">
-            <h2 style={{ marginTop: 0 }}>{t("plans.tabDone")}</h2>
+            <h2>{t("plans.tabDone")}</h2>
             <p className="muted">{t("plans.doneHint")}</p>
             <ul className="list">
               {doneSubs.length === 0 && <li className="muted">{t("plans.emptyDone")}</li>}
@@ -570,11 +580,11 @@ export function PlansPage() {
                 const total = s.days?.length ?? 0;
                 return (
                   <li key={s.subscriptionId ?? s.id ?? s.planId} data-testid={`plans-done-${s.planId}`}>
-                    <strong>{s.title ?? s.planId}</strong>
+                    <strong>{s.title ?? t("plans.untitled")}</strong>
                     <div className="muted">
                       {t("plans.completedBadge")}
-                      {total > 0 ? ` · ${total} days` : ""}
-                      {` · day ${s.progressDay}`}
+                      {total > 0 ? ` · ${t("plans.daysCount", { count: total })}` : ""}
+                      {` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
                     </div>
                   </li>
                 );

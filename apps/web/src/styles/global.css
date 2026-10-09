@@ -105,6 +105,316 @@ select {
   color: var(--lh-ink);
 }
 
+/* Shared dawn-folio surface for Plans / Home / Me (match reader, not sage green) */
+.app-folio {
+  --br-ink: #18232b;
+  --br-muted: #5f6d78;
+  --br-line: rgba(28, 42, 50, 0.12);
+  --br-accent: #1c3d48;
+  --br-accent-soft: rgba(28, 61, 72, 0.09);
+  --br-glow: rgba(255, 248, 236, 0.72);
+  --br-font-reader: "Noto Serif SC", "Literata", "Noto Serif JP", "Source Serif 4", serif;
+  --br-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
+  color: var(--br-ink);
+  max-width: 38.5rem;
+  margin: 0 auto;
+  animation: bible-enter 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-folio .page-title {
+  font-family: var(--br-font-reader);
+  letter-spacing: 0.06em;
+  margin-bottom: 0.85rem;
+}
+
+.app-folio .panel {
+  margin-top: 0;
+  padding: 1.05rem 0 1.15rem;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--br-line);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-folio .panel:last-child {
+  border-bottom: 0;
+}
+
+.app-folio .panel h2,
+.app-folio .panel h3 {
+  font-family: var(--br-font-reader);
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  color: var(--br-ink);
+}
+
+.app-folio .panel h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.65rem;
+}
+
+.app-folio .panel h3 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.app-folio .muted {
+  color: var(--br-muted);
+}
+
+.app-folio .list {
+  gap: 0;
+}
+
+.app-folio .list li {
+  padding: 0.85rem 0;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid var(--br-line);
+  background: transparent;
+}
+
+.app-folio .list li:last-child {
+  border-bottom: 0;
+}
+
+.app-folio .field input,
+.app-folio .field textarea,
+.app-folio .field select {
+  border-radius: 0;
+  border-color: var(--br-line);
+  background: color-mix(in srgb, #f7f5f1 88%, transparent);
+  padding: 0.6rem 0.65rem;
+}
+
+.app-folio .btn {
+  border-radius: 0;
+  background: var(--br-accent);
+  color: #f7f5f1;
+  letter-spacing: 0.04em;
+}
+
+.app-folio .btn.ghost {
+  background: transparent;
+  color: var(--br-accent);
+  border: 1px solid var(--br-line);
+}
+
+.app-folio .btn.active-toggle {
+  background: var(--br-accent-soft);
+  color: var(--br-accent);
+  border-color: color-mix(in srgb, var(--br-accent) 35%, var(--br-line));
+}
+
+.app-folio .plans-tabs,
+.app-folio .home-section-tabs {
+  border-bottom-color: var(--br-line);
+  margin-bottom: 0.35rem;
+}
+
+.app-folio .plans-tab.is-active::after {
+  background: var(--br-accent);
+}
+
+.app-folio .auth-status,
+.app-folio .folio-hero {
+  margin: 0 0 1rem;
+  padding: 0.85rem 0;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid var(--br-line);
+  background: transparent;
+}
+
+.app-folio .folio-hero-name {
+  font-family: var(--br-font-reader);
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.25rem;
+}
+
+.app-folio .folio-hero-meta {
+  margin: 0;
+  color: var(--br-muted);
+  font-size: 0.88rem;
+}
+
+.app-folio .church-row,
+.app-folio .post-row,
+.app-folio .convo-row {
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0.15rem 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.app-folio .church-row.is-selected .church-row-title,
+.app-folio .convo-row.is-selected strong {
+  color: var(--br-accent);
+}
+
+.app-folio .church-row-title,
+.app-folio .post-row-title {
+  font-family: var(--br-font-reader);
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.app-folio .post-row-body {
+  margin: 0.4rem 0 0;
+  line-height: 1.55;
+  color: var(--br-ink);
+}
+
+.app-folio .board-tabs {
+  gap: 0;
+  margin: 0 0 0.85rem;
+  padding: 0;
+  border-bottom: 1px solid var(--br-line);
+}
+
+.app-folio .board-tabs .btn.ghost {
+  border: 0;
+  border-radius: 0;
+  padding: 0.5rem 0.75rem 0.55rem;
+  color: var(--br-muted);
+  font-weight: 600;
+  position: relative;
+}
+
+.app-folio .board-tabs .btn.ghost.active-toggle {
+  color: var(--br-ink);
+  background: transparent;
+  font-weight: 700;
+}
+
+.app-folio .board-tabs .btn.ghost.active-toggle::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 0;
+  height: 1.5px;
+  background: var(--br-accent);
+}
+
+.app-folio .step-chip {
+  border-radius: 0;
+  background: transparent;
+  border-color: var(--br-line);
+}
+
+.app-folio .step-chip.step-current {
+  background: var(--br-accent-soft);
+  border-color: var(--br-accent);
+  color: var(--br-accent);
+}
+
+.app-folio .step-chip .step-index {
+  border-radius: 0;
+}
+
+.app-folio .plans-advanced {
+  border-bottom: 0;
+}
+
+.app-folio .plans-advanced > summary {
+  font-family: var(--br-font-reader);
+  letter-spacing: 0.03em;
+  list-style: none;
+}
+
+.app-folio .plans-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-folio .chat-thread {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.85rem 0 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--br-line);
+  border-bottom: 1px solid var(--br-line);
+  max-height: 42vh;
+  overflow: auto;
+}
+
+.app-folio .chat-bubble {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--br-line) 70%, transparent);
+}
+
+.app-folio .chat-bubble:last-child {
+  border-bottom: 0;
+}
+
+.app-folio .chat-bubble-text {
+  margin: 0;
+  line-height: 1.5;
+  font-family: var(--br-font-reader);
+}
+
+.app-folio .me-version-block {
+  border-top-color: var(--br-line);
+}
+
+.app-folio .me-version-brand-zh {
+  font-family: var(--br-font-reader);
+}
+
+body:has(.app-folio) {
+  background-color: #dfe4ea;
+  background-image:
+    radial-gradient(ellipse 95% 55% at 50% -8%, rgba(255, 248, 236, 0.72), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.07), transparent 55%),
+    linear-gradient(185deg, #cfd7e0 0%, #e4e8ee 28%, #eef2f4 62%, #f7f5f1 100%);
+}
+
+body:has(.app-folio) .tab-bar {
+  background: color-mix(in srgb, #f4f2ee 78%, transparent);
+  border-top: 1px solid rgba(28, 42, 50, 0.09);
+  backdrop-filter: blur(22px) saturate(1.1);
+}
+
+body:has(.app-folio) .tab-bar a {
+  border-radius: 0;
+}
+
+body:has(.app-folio) .tab-bar a.active {
+  color: #1c3d48;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+body:has(.app-folio) .tab-bar a.active::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 0.18rem;
+  height: 1.5px;
+  background: #1c3d48;
+}
+
+body:has(.app-folio) .tab-bar a {
+  position: relative;
+  padding-bottom: 0.65rem;
+}
+
+.app-main:has(.app-folio) {
+  width: min(720px, 100%);
+  padding: 1.1rem 1.25rem 6.5rem;
+}
+
 .plans-tabs,
 .home-section-tabs {
   display: grid;
