@@ -13,6 +13,8 @@ import {
   listStudyMaterials,
   listTranslations,
   STUDY_COMMENTARIES,
+  commentaryDisplayName,
+  defaultStudyCommentaryId,
   fetchCommentaryChapter,
   fetchCrossRefs,
   entriesForVerse,
@@ -349,7 +351,7 @@ export function BibleReader() {
   const [searchQuery, setSearchQuery] = useState("");
   const [speakNote, setSpeakNote] = useState<string | null>(null);
   const [studyTab, setStudyTab] = useState<StudyTab>("commentary");
-  const [studyCommentaryId, setStudyCommentaryId] = useState<StudyCommentaryId>("mhcc");
+  const [studyCommentaryId, setStudyCommentaryId] = useState<StudyCommentaryId>("mhcc-zh");
   const [studyLoading, setStudyLoading] = useState(false);
   const [studyError, setStudyError] = useState<string | null>(null);
   const [studyEntries, setStudyEntries] = useState<CommentaryEntry[]>([]);
@@ -515,6 +517,14 @@ export function BibleReader() {
   const readerFont = fontStackFor(fontId);
   const studyLang = bookNameLocale;
   const studyLinks = useMemo(() => listStudyMaterials({ language: studyLang }), [studyLang]);
+  useEffect(() => {
+    setStudyCommentaryId((cur) => {
+      const preferred = defaultStudyCommentaryId(studyLang);
+      // Only auto-switch when still on a language-default pick.
+      if (cur === "mhcc" || cur === "mhcc-zh") return preferred;
+      return cur;
+    });
+  }, [studyLang]);
   const studyVerse = selection?.start ?? 1;
   const verseDictIds = useMemo(() => {
     if (!ntVerseStrongs) return [] as string[];
@@ -1650,7 +1660,7 @@ export function BibleReader() {
                 >
                   {STUDY_COMMENTARIES.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {commentaryDisplayName(c, studyLang)}
                     </option>
                   ))}
                 </select>

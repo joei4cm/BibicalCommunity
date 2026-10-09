@@ -16,28 +16,56 @@ function runtimeFetch(input: string, init?: StudyFetchInit) {
 /** getBible Commentaries CDN — public-domain chapter/verse entries. */
 export const GETBIBLE_COMMENTARIES_BASE = "https://commentaries.getbible.net/v1";
 
-export type StudyCommentaryId = "mhcc" | "mhc" | "clarke" | "jfb" | "wesley" | "tsk";
+export type StudyCommentaryId =
+  | "mhcc-zh"
+  | "mhcc"
+  | "mhc"
+  | "clarke"
+  | "jfb"
+  | "wesley"
+  | "tsk";
 
 export interface StudyCommentaryMeta {
   id: StudyCommentaryId;
   name: string;
+  /** Localized display names when available. */
+  nameI18n?: Partial<Record<"zh" | "en" | "ja", string>>;
   license: string;
-  language: "en";
+  language: "en" | "zh";
   /** When true, treat entries primarily as cross-reference chains (串珠). */
   crossRefStyle?: boolean;
+  /** getBible module id when different from StudyCommentaryId (e.g. mhcc-zh → mhcc). */
+  remoteId?: string;
 }
+
+/** Local seed / cache root for Chinese Matthew Henry Concise chapters. */
+export const MHCC_ZH_LOCAL_BASE = "/study/mhcc-zh";
 
 /** Curated PD commentaries with verse-level positioning via getBible. */
 export const STUDY_COMMENTARIES: StudyCommentaryMeta[] = [
   {
+    id: "mhcc-zh",
+    name: "马太·亨利简明（中文）",
+    nameI18n: {
+      zh: "马太·亨利简明（中文）",
+      en: "Matthew Henry Concise (Chinese)",
+      ja: "マシュー・ヘンリー簡約（中国語）",
+    },
+    license: "Public Domain EN · Chinese CC0 pack / on-demand MT",
+    language: "zh",
+    remoteId: "mhcc",
+  },
+  {
     id: "mhcc",
     name: "Matthew Henry Concise",
+    nameI18n: { zh: "马太·亨利简明（英文）", en: "Matthew Henry Concise", ja: "マシュー・ヘンリー簡約" },
     license: "Public Domain",
     language: "en",
   },
   {
     id: "mhc",
     name: "Matthew Henry Complete",
+    nameI18n: { zh: "马太·亨利全本（英文）", en: "Matthew Henry Complete", ja: "マシュー・ヘンリー全本" },
     license: "Public Domain",
     language: "en",
   },
@@ -60,6 +88,18 @@ export const STUDY_COMMENTARIES: StudyCommentaryMeta[] = [
     language: "en",
   },
 ];
+
+export function defaultStudyCommentaryId(lang: "zh" | "en" | "ja" | string): StudyCommentaryId {
+  return lang === "zh" || String(lang).startsWith("zh") ? "mhcc-zh" : "mhcc";
+}
+
+export function commentaryDisplayName(
+  meta: StudyCommentaryMeta,
+  lang: "zh" | "en" | "ja" | string,
+): string {
+  const key = lang.startsWith("zh") ? "zh" : lang.startsWith("ja") ? "ja" : "en";
+  return meta.nameI18n?.[key] ?? meta.name;
+}
 
 /** TSK is the primary open 串珠 source (also hosted as a getBible commentary). */
 export const STUDY_CROSSREF_SOURCE: StudyCommentaryMeta = {
@@ -124,7 +164,139 @@ function commentaryChapterUrl(commentaryId: string, bookNum: number, chapter: nu
   return `${GETBIBLE_COMMENTARIES_BASE}/${encodeURIComponent(commentaryId)}/${bookNum}/${chapter}.json`;
 }
 
+function mhccZhLocalUrl(bookNum: number, chapter: number): string {
+  return `${MHCC_ZH_LOCAL_BASE}/${bookNum}/${chapter}.json`;
+}
+
 const chapterCache = new Map<string, Promise<CommentaryChapter>>();
+const translateCache = new Map<string, string>();
+
+/** Split long commentary prose into MyMemory-sized chunks (~420 chars). */
+export function chunkForTranslation(text: string, maxLen = 420): string[] {
+  const parts = text.split(/(?<=[.!?。！？])\s+|\n+/);
+  const out: string[] = [];
+  let buf = "";
+  for (const part of parts) {
+    const next = buf ? `${buf} ${part}` : part;
+    if (next.length <= maxLen) {
+      buf = next;
+      continue;
+    }
+    if (buf) out.push(buf);
+    if (part.length <= maxLen) {
+      buf = part;
+    } else {
+      for (let i = 0; i < part.length; i += maxLen) out.push(part.slice(i, i + maxLen));
+      buf = "";
+    }
+  }
+  if (buf) out.push(buf);
+  return out.filter(Boolean);
+}
+
+async function translateEnToZh(text: string, init?: StudyFetchInit): Promise<string> {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  const hit = translateCache.get(trimmed);
+  if (hit) return hit;
+
+  const chunks = chunkForTranslation(trimmed);
+  const translated: string[] = [];
+  for (const chunk of chunks) {
+    const cached = translateCache.get(chunk);
+    if (cached) {
+      translated.push(cached);
+      continue;
+    }
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|zh-CN`;
+    try {
+      const res = await runtimeFetch(url, init);
+      if (!res.ok) {
+        translated.push(chunk);
+        continue;
+      }
+      const data = (await res.json()) as {
+        responseData?: { translatedText?: string };
+      };
+      let zh = data.responseData?.translatedText?.trim() || chunk;
+      if (
+        zh.startsWith("MYMEMORY WARNING") ||
+        zh.includes("QUERY LENGTH LIMIT") ||
+        zh.includes("PLEASE SELECT TWO DISTINCT LANGUAGES")
+      ) {
+        zh = chunk;
+      }
+      translateCache.set(chunk, zh);
+      translated.push(zh);
+    } catch {
+      translated.push(chunk);
+    }
+  }
+  const joined = translated.join("\n");
+  translateCache.set(trimmed, joined);
+  return joined;
+}
+
+async function loadLocalMhccZh(
+  bookNum: number,
+  chapter: number,
+  init?: StudyFetchInit,
+): Promise<CommentaryChapter | null> {
+  try {
+    const res = await runtimeFetch(mhccZhLocalUrl(bookNum, chapter), init);
+    if (!res.ok) return null;
+    const data = (await res.json()) as CommentaryChapter;
+    if (!data || !Array.isArray(data.entries)) return null;
+    return { ...data, commentary: "mhcc-zh", language: "zh" };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMhccZhChapter(
+  bookId: string,
+  bookNum: number,
+  chapter: number,
+  init?: StudyFetchInit,
+): Promise<CommentaryChapter> {
+  const local = await loadLocalMhccZh(bookNum, chapter, init);
+  if (local) return local;
+
+  const en = await fetchRemoteCommentaryChapter("mhcc", bookId, bookNum, chapter, init);
+  const entries: CommentaryEntry[] = [];
+  for (const entry of en.entries) {
+    entries.push({
+      ...entry,
+      text: await translateEnToZh(entry.text, init),
+    });
+  }
+  return {
+    commentary: "mhcc-zh",
+    language: "zh",
+    book: bookNum,
+    name: en.name,
+    chapter,
+    entries,
+  };
+}
+
+async function fetchRemoteCommentaryChapter(
+  remoteId: string,
+  bookId: string,
+  bookNum: number,
+  chapter: number,
+  init?: StudyFetchInit,
+): Promise<CommentaryChapter> {
+  const res = await runtimeFetch(commentaryChapterUrl(remoteId, bookNum, chapter), init);
+  if (!res.ok) {
+    throw new Error(`Commentary ${remoteId} ${bookId} ${chapter}: HTTP ${res.status}`);
+  }
+  const data = (await res.json()) as CommentaryChapter;
+  if (!data || !Array.isArray(data.entries)) {
+    throw new Error(`Invalid commentary payload for ${remoteId}`);
+  }
+  return data;
+}
 
 export async function fetchCommentaryChapter(
   commentaryId: string,
@@ -141,15 +313,12 @@ export async function fetchCommentaryChapter(
   if (hit) return hit;
 
   const promise = (async () => {
-    const res = await runtimeFetch(commentaryChapterUrl(commentaryId, bookNum, chapter), init);
-    if (!res.ok) {
-      throw new Error(`Commentary ${commentaryId} ${bookId} ${chapter}: HTTP ${res.status}`);
+    if (commentaryId === "mhcc-zh") {
+      return fetchMhccZhChapter(bookId, bookNum, chapter, init);
     }
-    const data = (await res.json()) as CommentaryChapter;
-    if (!data || !Array.isArray(data.entries)) {
-      throw new Error(`Invalid commentary payload for ${commentaryId}`);
-    }
-    return data;
+    const meta = STUDY_COMMENTARIES.find((c) => c.id === commentaryId);
+    const remoteId = meta?.remoteId ?? commentaryId;
+    return fetchRemoteCommentaryChapter(remoteId, bookId, bookNum, chapter, init);
   })();
 
   chapterCache.set(key, promise);
@@ -466,6 +635,7 @@ export function strongsForVerse(
 /** Clear in-memory caches (tests). */
 export function resetStudyToolCaches(): void {
   chapterCache.clear();
+  translateCache.clear();
   strongsCache = null;
   strongsLoading = null;
   verseStrongsCache = null;

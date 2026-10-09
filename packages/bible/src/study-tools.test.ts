@@ -3,7 +3,9 @@ import { test } from "node:test";
 import {
   bookIdFromNumber,
   bookNumberFromId,
+  chunkForTranslation,
   crossRefsForVerse,
+  defaultStudyCommentaryId,
   entriesForVerse,
   lookupStrongs,
   normalizeStrongsId,
@@ -18,6 +20,19 @@ test("bookNumberFromId maps Protestant canon to getBible 1–66", () => {
   assert.equal(bookNumberFromId("John"), 43);
   assert.equal(bookNumberFromId("Rev"), 66);
   assert.equal(bookIdFromNumber(43), "John");
+});
+
+test("defaultStudyCommentaryId prefers Chinese Matthew Henry for zh", () => {
+  assert.equal(defaultStudyCommentaryId("zh"), "mhcc-zh");
+  assert.equal(defaultStudyCommentaryId("zh-CN"), "mhcc-zh");
+  assert.equal(defaultStudyCommentaryId("en"), "mhcc");
+});
+
+test("chunkForTranslation keeps pieces under limit", () => {
+  const long = "Hello world. ".repeat(60);
+  const chunks = chunkForTranslation(long, 80);
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.every((c) => c.length <= 80));
 });
 
 test("normalizeStrongsId accepts G/H prefixes and bare numbers", () => {
