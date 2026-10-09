@@ -42,9 +42,11 @@ type ChurchMember = {
 };
 
 const BOARDS: Board[] = ["notice", "general", "group"];
+type HomeSection = "church" | "forum" | "chat";
 
 export function HomePage() {
   const { t } = useTranslation();
+  const [homeSection, setHomeSection] = useState<HomeSection>("forum");
   const [churches, setChurches] = useState<Church[]>([]);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [board, setBoard] = useState<Board>("notice");
@@ -325,11 +327,34 @@ export function HomePage() {
   }
 
   return (
-    <section className="fade-up">
-      <h1 className="brand">{t("nav.home")}</h1>
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("home.forum")}</h2>
-        {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+    <section className="fade-up home-page" data-testid="home-page">
+      <h1 className="page-title">{t("nav.home")}</h1>
+      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+      <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
+        {(
+          [
+            ["church", t("home.joinChurch")],
+            ["forum", t("home.forum")],
+            ["chat", t("home.chat")],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={homeSection === id}
+            className={`plans-tab${homeSection === id ? " is-active" : ""}`}
+            data-testid={`home-tab-${id}`}
+            onClick={() => setHomeSection(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {homeSection === "church" && (
+      <div className="panel" data-testid="home-church-panel">
+        <h2 style={{ marginTop: 0 }}>{t("nav.home")}</h2>
         <ul className="list">
           {churches.length === 0 && <li className="muted">{t("home.noChurches")}</li>}
           {churches.map((c) => (
@@ -394,8 +419,9 @@ export function HomePage() {
           {t("home.joinChurch")}
         </button>
       </div>
+      )}
 
-      {selectedChurchId && canAdmin && (
+      {homeSection === "church" && selectedChurchId && canAdmin && (
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>{t("home.securityMode")}</h2>
           <p className="muted">
@@ -424,7 +450,7 @@ export function HomePage() {
         </div>
       )}
 
-      {selectedChurchId && (
+      {homeSection === "church" && selectedChurchId && (
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>{t("home.groups")}</h2>
           <ul className="list">
@@ -438,7 +464,7 @@ export function HomePage() {
         </div>
       )}
 
-      {selectedChurchId && canAdmin && (
+      {homeSection === "church" && selectedChurchId && canAdmin && (
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>{t("home.verifyMember")}</h2>
           <p className="muted">{t("home.membersPending")}</p>
@@ -488,7 +514,7 @@ export function HomePage() {
         </div>
       )}
 
-      {isAnyAdmin && (
+      {homeSection === "church" && isAnyAdmin && (
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>{t("security.adminWipe")}</h2>
           <p className="muted">{t("security.adminWipeHint")}</p>
@@ -514,8 +540,8 @@ export function HomePage() {
         </div>
       )}
 
-      {selectedChurchId && (
-        <div className="panel">
+      {homeSection === "forum" && selectedChurchId && (
+        <div className="panel" data-testid="home-forum-panel">
           <h2 style={{ marginTop: 0 }}>{t("home.boards")}</h2>
           <div className="toolbar board-tabs" role="tablist">
             {BOARDS.map((b) => (
@@ -601,7 +627,13 @@ export function HomePage() {
         </div>
       )}
 
-      <ChatPanel />
+      {homeSection === "forum" && !selectedChurchId && (
+        <div className="panel">
+          <p className="muted">{t("home.noChurches")}</p>
+        </div>
+      )}
+
+      {homeSection === "chat" && <ChatPanel />}
     </section>
   );
 }

@@ -412,8 +412,8 @@ export function MePage() {
   }
 
   return (
-    <section className="fade-up">
-      <h1 className="brand">{t("nav.me")}</h1>
+    <section className="fade-up me-page" data-testid="me-page">
+      <h1 className="page-title">{t("nav.me")}</h1>
 
       {pendingWipes.length > 0 && (
         <div className="panel" role="alert" style={{ borderColor: "var(--danger, #b33)" }}>
@@ -514,8 +514,9 @@ export function MePage() {
         </button>
       </div>
 
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>{t("me.privacy")}</h2>
+      <div className="panel" data-testid="me-settings-panel">
+        <h2 style={{ marginTop: 0 }}>{t("me.settings")}</h2>
+        <h3>{t("me.privacy")}</h3>
         <label className="check-row">
           <input
             type="checkbox"
@@ -562,7 +563,7 @@ export function MePage() {
         </button>
 
         <div className="field" style={{ marginTop: "1rem" }}>
-          <label>Language</label>
+          <label>{t("me.language")}</label>
           <select value={i18n.language} onChange={(e) => setLocale(e.target.value)}>
             <option value="zh-CN">中文</option>
             <option value="en">English</option>
@@ -570,7 +571,7 @@ export function MePage() {
           </select>
         </div>
         <div className="field">
-          <label>Theme</label>
+          <label>{t("me.theme")}</label>
           <select
             defaultValue={(localStorage.getItem("lh.theme") as ThemeId) ?? "day"}
             onChange={(e) => setTheme(e.target.value as ThemeId)}
@@ -581,6 +582,27 @@ export function MePage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="me-version-block" data-testid="me-version-info">
+          <h3>{t("me.versionInfo")}</h3>
+          <dl className="me-version-dl">
+            <div>
+              <dt>{t("me.versionName")}</dt>
+              <dd>
+                <span className="me-version-brand-zh">{t("app.name")}</span>
+                <span className="me-version-brand-en">LogosHome</span>
+              </dd>
+            </div>
+            <div>
+              <dt>{t("me.versionApp")}</dt>
+              <dd>@logoshome/web</dd>
+            </div>
+            <div>
+              <dt>{t("me.versionBuild")}</dt>
+              <dd data-testid="me-version-build">0.1.0</dd>
+            </div>
+          </dl>
         </div>
       </div>
 

@@ -10,9 +10,7 @@ import {
   isPartnerId,
   listBooks,
   listDownloadableCorpusCatalog,
-  listStudyMaterials,
   listTranslations,
-  type DownloadableCorpusPack,
   type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
@@ -91,6 +89,16 @@ function displayVerseText(text: string): string {
     .trim();
 }
 
+type VerseRange = { start: number; end: number };
+
+function normalizeRange(a: number, b: number): VerseRange {
+  return a <= b ? { start: a, end: b } : { start: b, end: a };
+}
+
+function rangeIncludes(range: VerseRange | null, verse: number): boolean {
+  return Boolean(range && verse >= range.start && verse <= range.end);
+}
+
 function ChapterPane({
   chapter,
   verseRef,
@@ -99,8 +107,9 @@ function ChapterPane({
   fontFamily,
   locale,
   t,
-  selectedVerse,
+  selection,
   onSelectVerse,
+  onExtendSelection,
   highlightByVerse,
 }: {
   chapter: ChapterPayload | null;
@@ -110,8 +119,9 @@ function ChapterPane({
   fontFamily: string;
   locale: "zh-CN" | "en" | "ja";
   t: (key: string) => string;
-  selectedVerse: number | null;
+  selection: VerseRange | null;
   onSelectVerse: (verse: number) => void;
+  onExtendSelection: (verse: number) => void;
   highlightByVerse?: Record<number, string>;
 }) {
   if (!chapter) return <p className="muted">…</p>;
@@ -151,25 +161,38 @@ function ChapterPane({
         fontFamily,
       }}
     >
-      {/* WeDevote-style continuous chapter prose: chapter lead + superscript verses */}
-      <div className="bible-prose-body">
+      <div
+        className="bible-prose-body"
+        onPointerUp={() => {
+          /* drag end handled per-verse */
+        }}
+      >
         <span className="chapter-lead" aria-hidden="true">
           {chapter.chapter}
         </span>
         {chapter.verses.map((v) => {
           const hl = highlightByVerse?.[v.verse];
+          const selected = rangeIncludes(selection, v.verse);
           return (
             <span
-              className={`verse-inline${selectedVerse === v.verse ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
+              className={`verse-inline${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
               key={v.verse}
               style={hl ? { backgroundColor: hl } : undefined}
-              onClick={() => onSelectVerse(v.verse)}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                onSelectVerse(v.verse);
+              }}
+              onPointerEnter={(e) => {
+                if (e.buttons === 1) onExtendSelection(v.verse);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
               }}
               role="button"
               tabIndex={0}
               data-verse={v.verse}
+              data-selected={selected ? "1" : "0"}
             >
               <sup className="verse-num">{v.verse}</sup>
               {displayVerseText(v.text)}{" "}
@@ -263,7 +286,9 @@ export function BibleReader() {
   const [noteText, setNoteText] = useState("");
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
-  const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
+  const [selection, setSelection] = useState<VerseRange | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const dragAnchor = useMemo(() => ({ current: null as number | null }), []);
   const [error, setError] = useState<string | null>(null);
   const [noteMsg, setNoteMsg] = useState<string | null>(null);
   const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
@@ -271,7 +296,6 @@ export function BibleReader() {
   const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
   const [installedByTid, setInstalledByTid] = useState<
     Record<string, InstalledTranslationSummary>
   >({});
@@ -284,10 +308,6 @@ export function BibleReader() {
   const chapterOptions = useMemo(
     () => Array.from({ length: currentBook?.chapters ?? 1 }, (_, i) => i + 1),
     [currentBook?.chapters],
-  );
-  const studyMaterials = useMemo(
-    () => listStudyMaterials({ language: bookNameLocale }),
-    [bookNameLocale],
   );
   const corpusCatalog = useMemo(() => listDownloadableCorpusCatalog(), []);
   const readerFont = serif ? "var(--br-font-reader)" : "var(--br-font-ui)";
@@ -463,7 +483,9 @@ export function BibleReader() {
           }
         } else if (row.kind === "highlight" && sameChapter && row.verseStart != null) {
           const raw = row.color ?? "amber";
-          highlights[row.verseStart] = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
+          const color = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
+          const end = row.verseEnd ?? row.verseStart;
+          for (let v = row.verseStart; v <= end; v += 1) highlights[v] = color;
         } else if (row.kind === "bookmark") {
           marks.push({
             id: row.id,
@@ -559,18 +581,22 @@ export function BibleReader() {
     }
   }
 
-  function catalogModeLabel(mode: DownloadableCorpusPack["installMode"]): string {
-    if (mode === "boot") return t("reader.corpusCatalogBoot");
-    if (mode === "download") return t("reader.corpusCatalogDownload");
-    return t("reader.corpusCatalogExternal");
+  function selectVerse(verse: number) {
+    dragAnchor.current = verse;
+    setSelection({ start: verse, end: verse });
   }
 
-  async function addBookmark() {
+  function extendSelection(verse: number) {
+    const anchor = dragAnchor.current ?? verse;
+    setSelection(normalizeRange(anchor, verse));
+  }
+
+  async function addBookmark(verseOverride?: number) {
     if (!getToken()) {
       setError("login_required");
       return;
     }
-    const verse = selectedVerse ?? 1;
+    const verse = verseOverride ?? selection?.start ?? 1;
     const { ciphertext, iv } = await encryptJson({ kind: "bookmark" }, "bookmark");
     await api("/v1/annotations", {
       method: "POST",
@@ -582,6 +608,7 @@ export function BibleReader() {
         iv,
       }),
     });
+    setNoteMsg("bookmark_ok");
     await refreshNotes();
   }
 
@@ -590,26 +617,40 @@ export function BibleReader() {
       setError("login_required");
       return;
     }
-    const verse = selectedVerse ?? 1;
+    const range = selection ?? { start: 1, end: 1 };
     const colorMap: Record<string, string> = {
       amber: "#f5d76e",
       mint: "#a8e6cf",
       rose: "#f8b4c4",
       sky: "#a8d8ea",
     };
-    const { ciphertext, iv } = await encryptJson({ kind: "highlight", color }, "highlight");
+    const { ciphertext, iv } = await encryptJson(
+      { kind: "highlight", color, verseStart: range.start, verseEnd: range.end },
+      "highlight",
+    );
     await api("/v1/annotations", {
       method: "POST",
       body: JSON.stringify({
         translationId,
-        ref: { book: bookId, chapter: chapterNum, verseStart: verse, verseEnd: verse },
+        ref: {
+          book: bookId,
+          chapter: chapterNum,
+          verseStart: range.start,
+          verseEnd: range.end,
+        },
         kind: "highlight",
         color,
         ciphertext,
         iv,
       }),
     });
-    setHighlightByVerse((prev) => ({ ...prev, [verse]: colorMap[color] ?? color }));
+    setHighlightByVerse((prev) => {
+      const next = { ...prev };
+      for (let v = range.start; v <= range.end; v += 1) {
+        next[v] = colorMap[color] ?? color;
+      }
+      return next;
+    });
     await refreshNotes();
   }
 
@@ -618,13 +659,19 @@ export function BibleReader() {
       setError("login_required");
       return;
     }
-    if (selectedVerse == null || !noteText.trim()) return;
+    if (selection == null || !noteText.trim()) return;
+    const verse = selection.start;
     const { ciphertext, iv } = await encryptJson({ text: noteText.trim() }, "note");
     await api("/v1/annotations", {
       method: "POST",
       body: JSON.stringify({
         translationId,
-        ref: { book: bookId, chapter: chapterNum, verseStart: selectedVerse, verseEnd: selectedVerse },
+        ref: {
+          book: bookId,
+          chapter: chapterNum,
+          verseStart: verse,
+          verseEnd: selection.end,
+        },
         kind: "note",
         ciphertext,
         iv,
@@ -697,26 +744,81 @@ export function BibleReader() {
     </nav>
   );
 
-  const toolsExpanded = toolsOpen || showCatalog || selectedVerse != null || dualPane;
+  const selectionLabel =
+    selection == null
+      ? null
+      : selection.start === selection.end
+        ? `${passageTitle}:${selection.start}`
+        : `${passageTitle}:${selection.start}–${selection.end}`;
 
   return (
     <section className="bible-reader" data-testid="bible-reader">
-      {/* One reading composition: brand imprint → passage → open folio */}
-      <header className="bible-reader-masthead">
-        <p className="bible-reader-brand" aria-label="圣言家 LogosHome">
-          <span className="bible-reader-brand-zh">圣言家</span>
-          <span className="bible-reader-brand-en">LogosHome</span>
-        </p>
-        <h1 className="bible-reader-title" data-testid="reader-passage-title">
-          {passageTitle}
-        </h1>
-        {/* Visible translation name lives in the passage picker; keep label for tests/a11y */}
-        <p className="sr-only" data-testid="reader-translation-label">
-          {activeTranslation?.name[locale] ?? translationId}
-        </p>
-        <div className="bible-passage-controls" data-testid="reader-passage-controls">
-          <label className="bible-control">
-            <span className="sr-only">{t("reader.translations")}</span>
+      <header className="bible-reader-topbar">
+        <div className="bible-reader-topbar-main">
+          <h1 className="bible-reader-title" data-testid="reader-passage-title">
+            {passageTitle}
+          </h1>
+          <p className="bible-reader-tid" data-testid="reader-translation-label">
+            {activeTranslation?.name[locale] ?? translationId}
+          </p>
+        </div>
+        <div className="bible-reader-topbar-actions">
+          <div className="bible-passage-controls" data-testid="reader-passage-controls">
+            <label className="bible-control">
+              <span className="sr-only">{t("reader.book")}</span>
+              <select
+                value={bookId}
+                onChange={(e) => goToPassage(translationId, e.target.value, 1)}
+                aria-label={t("reader.book")}
+                data-testid="reader-book-select"
+              >
+                {books.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name[bookNameLocale]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="bible-control bible-control--chapter">
+              <span className="sr-only">{t("reader.chapter")}</span>
+              <select
+                value={chapterNum}
+                onChange={(e) => goToPassage(translationId, bookId, Number(e.target.value))}
+                aria-label={t("reader.chapter")}
+                data-testid="reader-chapter-select"
+              >
+                {chapterOptions.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button
+            type="button"
+            className={`bible-gear-btn${settingsOpen ? " is-on" : ""}`}
+            data-testid="reader-settings-gear"
+            aria-label={t("reader.gear")}
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.2 7.2 0 0 0-1.63-.94l-.36-2.54A.49.49 0 0 0 14 2h-4a.49.49 0 0 0-.48.41l-.36 2.54c-.59.23-1.13.55-1.63.94l-2.39-.96a.49.49 0 0 0-.59.22L2.63 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.75 14.52a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.4.31.62.22l2.39-.96c.5.39 1.04.71 1.63.94l.36 2.54c.05.24.25.41.49.41h4c.24 0 .44-.17.49-.41l.36-2.54c.59-.23 1.13-.55 1.63-.94l2.39.96c.22.09.49 0 .62-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
+
+      {settingsOpen && (
+        <div className="bible-settings-sheet" data-testid="reader-settings-sheet" role="dialog" aria-label={t("reader.settings")}>
+          <div className="bible-settings-row">
+            <span>{t("reader.translations")}</span>
             <select
               value={translationId}
               onChange={(e) => goToPassage(e.target.value, bookId, chapterNum)}
@@ -728,133 +830,100 @@ export function BibleReader() {
                 </option>
               ))}
             </select>
-          </label>
-          <span className="bible-control-sep" aria-hidden="true">
-            ·
-          </span>
-          <label className="bible-control">
-            <span className="sr-only">Book</span>
+          </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.colorTheme")}</span>
             <select
-              value={bookId}
-              onChange={(e) => goToPassage(translationId, e.target.value, 1)}
-              aria-label="Book"
+              data-testid="reader-skin"
+              value={readerSkin}
+              onChange={(e) => setReaderSkin(e.target.value as ReaderSkinId)}
             >
-              {books.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name[bookNameLocale]}
+              {READER_SKIN_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {t(`reader.skin.${id}`)}
                 </option>
               ))}
             </select>
-          </label>
-          <span className="bible-control-sep" aria-hidden="true">
-            ·
-          </span>
-          <label className="bible-control bible-control--chapter">
-            <span className="sr-only">Chapter</span>
-            <select
-              value={chapterNum}
-              onChange={(e) => goToPassage(translationId, bookId, Number(e.target.value))}
-              aria-label="Chapter"
-            >
-              {chapterOptions.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </header>
-
-      {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
-
-      <div className="bible-folio" data-testid="reader-folio">
-        <div className={dualPane ? "reader-dual" : undefined}>
-          <ChapterPane
-            chapter={chapter}
-            verseRef={ref}
-            fontSize={fontSize}
-            lineHeight={lineHeight}
-            fontFamily={readerFont}
-            locale={locale}
-            t={t}
-            selectedVerse={selectedVerse}
-            onSelectVerse={setSelectedVerse}
-            highlightByVerse={highlightByVerse}
-          />
-          {dualPane && (
-            <ChapterPane
-              chapter={secondChapter}
-              verseRef={ref}
-              fontSize={fontSize}
-              lineHeight={lineHeight}
-              fontFamily={readerFont}
-              locale={locale}
-              t={t}
-              selectedVerse={selectedVerse}
-              onSelectVerse={setSelectedVerse}
-              highlightByVerse={highlightByVerse}
+          </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.fontFamily")}</span>
+            <div className="bible-more-actions">
+              <button type="button" className={`bible-text-btn${serif ? " is-on" : ""}`} onClick={() => setSerif(true)}>
+                {t("reader.serif")}
+              </button>
+              <button type="button" className={`bible-text-btn${!serif ? " is-on" : ""}`} onClick={() => setSerif(false)}>
+                {t("reader.sans")}
+              </button>
+            </div>
+          </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.fontSize")}</span>
+            <div className="bible-more-actions">
+              <button type="button" className="bible-text-btn" onClick={() => setFontSize((s) => Math.max(0.9, +(s - 0.08).toFixed(2)))}>
+                A−
+              </button>
+              <span className="bible-hint">{fontSize.toFixed(2)}</span>
+              <button type="button" className="bible-text-btn" onClick={() => setFontSize((s) => Math.min(1.8, +(s + 0.08).toFixed(2)))}>
+                A+
+              </button>
+            </div>
+          </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.lineHeight")}</span>
+            <input
+              type="range"
+              min={1.5}
+              max={2.6}
+              step={0.05}
+              value={lineHeight}
+              onChange={(e) => setLineHeight(Number(e.target.value))}
+              aria-label={t("reader.lineHeight")}
             />
-          )}
-        </div>
-      </div>
-
-      {renderChapterNav("reader-bottom", "bottom")}
-
-      {/* WeDevote-shaped dock: Aa / bookmark / tools — keeps chrome off the folio */}
-      <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.moreTools")}>
-        <button
-          type="button"
-          className="bible-dock-btn"
-          data-testid="reader-dock-type"
-          aria-label={t("reader.presetSpacious")}
-          onClick={() => {
-            const order = ["compact", "comfortable", "spacious"] as const;
-            const next = order[(order.indexOf(preset) + 1) % order.length]!;
-            applyPreset(next);
-          }}
-        >
-          Aa
-        </button>
-        <span className="bible-dock-sep" aria-hidden="true" />
-        <button
-          type="button"
-          className="bible-dock-btn"
-          data-testid="reader-dock-bookmark"
-          onClick={() => void addBookmark()}
-        >
-          {t("reader.bookmark")}
-        </button>
-        <span className="bible-dock-sep" aria-hidden="true" />
-        <button
-          type="button"
-          className={`bible-dock-btn${toolsExpanded ? " is-on" : ""}`}
-          data-testid="reader-dock-tools"
-          aria-label={t("reader.moreTools")}
-          onClick={() => setToolsOpen((v) => !v)}
-        >
-          {t("reader.dockMore")}
-        </button>
-      </div>
-
-      {/* Secondary tools — never compete with the reading plane */}
-      <details
-        className="bible-more"
-        open={toolsExpanded}
-        onToggle={(e) => setToolsOpen((e.target as HTMLDetailsElement).open)}
-      >
-        <summary>{t("reader.moreTools")}</summary>
-        <div className="bible-more-body">
-          <div className="bible-more-actions">
-            <button type="button" className={`bible-text-btn${dualPane ? " is-on" : ""}`} onClick={() => setDualPane((d) => !d)}>
+          </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.layout")}</span>
+            <div className="bible-more-actions">
+              {(
+                [
+                  ["compact", "reader.presetCompact"],
+                  ["comfortable", "reader.presetComfortable"],
+                  ["spacious", "reader.presetSpacious"],
+                ] as const
+              ).map(([id, key]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`bible-text-btn${preset === id ? " is-on" : ""}`}
+                  onClick={() => applyPreset(id)}
+                >
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="bible-settings-row">
+            <button
+              type="button"
+              className={`bible-text-btn${dualPane ? " is-on" : ""}`}
+              onClick={() => setDualPane((d) => !d)}
+            >
               {t("reader.dual")}
             </button>
-            <button type="button" className="bible-text-btn" onClick={() => void addBookmark()}>
-              {t("reader.bookmark")}
-            </button>
-            <button type="button" className="bible-text-btn" onClick={() => void grantEntitlement()}>
-              {t("reader.entitlement")}
-            </button>
+            {dualPane && (
+              <select
+                value={secondTranslationId}
+                onChange={(e) => setSecondTranslationId(e.target.value)}
+                aria-label={`${t("reader.translations")} 2`}
+              >
+                {translations.map((tr) => (
+                  <option key={tr.id} value={tr.id}>
+                    {tr.name[locale] ?? tr.abbreviation}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="bible-settings-row">
             <button
               type="button"
               className="bible-text-btn"
@@ -874,35 +943,25 @@ export function BibleReader() {
             >
               {t("reader.corpusCatalog")}
             </button>
+            <button type="button" className="bible-text-btn" onClick={() => void grantEntitlement()}>
+              {t("reader.entitlement")}
+            </button>
           </div>
           {corpusHint ? (
             <p className="bible-hint" data-testid="reader-corpus-hint">
-              {corpusHint} · {t("reader.wholeBiblePack")}
+              {corpusHint}
             </p>
           ) : null}
-
           {showCatalog ? (
             <div className="bible-catalog" data-testid="reader-corpus-catalog">
-              <p className="bible-hint">{t("reader.corpusCatalogHint")}</p>
               <ul className="bible-catalog-list">
                 {corpusCatalog.map((pack) => {
                   const installed = installedByTid[pack.translationId];
                   const busy = downloadingTid === pack.translationId;
-                  const active = pack.translationId === translationId;
                   return (
                     <li key={pack.translationId} data-testid={`corpus-catalog-row-${pack.translationId}`}>
                       <div className="bible-catalog-row">
-                        <div>
-                          <strong>
-                            {pack.name[locale] ?? pack.translationId}
-                            {active ? " · ★" : ""}
-                          </strong>
-                          <p className="bible-hint">
-                            {catalogModeLabel(pack.installMode)}
-                            {pack.installMode !== "external" ? ` · ${t("reader.wholeBiblePack")}` : ""}
-                            {installed ? ` · ${t("reader.corpusCatalogInstalled")} ${installed.chapterCount}` : ""}
-                          </p>
-                        </div>
+                        <strong>{pack.name[locale] ?? pack.translationId}</strong>
                         <div className="bible-more-actions">
                           {pack.installMode !== "external" ? (
                             <button
@@ -922,6 +981,7 @@ export function BibleReader() {
                             onClick={() => {
                               goToPassage(pack.translationId, bookId, chapterNum);
                               setShowCatalog(false);
+                              setSettingsOpen(false);
                             }}
                           >
                             {t("reader.corpusCatalogOpen")}
@@ -934,96 +994,124 @@ export function BibleReader() {
               </ul>
             </div>
           ) : null}
+        </div>
+      )}
 
-          <div className="bible-type-row">
-            {(
-              [
-                ["compact", "reader.presetCompact"],
-                ["comfortable", "reader.presetComfortable"],
-                ["spacious", "reader.presetSpacious"],
-              ] as const
-            ).map(([id, key]) => (
-              <button
-                key={id}
-                type="button"
-                className={`bible-text-btn${preset === id ? " is-on" : ""}`}
-                onClick={() => applyPreset(id)}
-              >
-                {t(key)}
-              </button>
-            ))}
-            <button type="button" className="bible-text-btn" onClick={() => setFontSize((s) => Math.min(1.8, s + 0.1))}>
-              A+
-            </button>
-            <button type="button" className="bible-text-btn" onClick={() => setFontSize((s) => Math.max(0.9, s - 0.1))}>
-              A-
-            </button>
-            <label className="bible-control">
-              <span className="sr-only">{t("reader.skin")}</span>
-              <select
-                data-testid="reader-skin"
-                value={readerSkin}
-                onChange={(e) => setReaderSkin(e.target.value as ReaderSkinId)}
-                aria-label={t("reader.skin")}
-              >
-                {READER_SKIN_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {t(`reader.skin.${id}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
+      <div className="bible-folio" data-testid="reader-folio">
+        <div className={dualPane ? "reader-dual" : undefined}>
+          <ChapterPane
+            chapter={chapter}
+            verseRef={ref}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
+            fontFamily={readerFont}
+            locale={locale}
+            t={t}
+            selection={selection}
+            onSelectVerse={selectVerse}
+            onExtendSelection={extendSelection}
+            highlightByVerse={highlightByVerse}
+          />
           {dualPane && (
-            <label className="bible-control">
-              <span className="sr-only">{`${t("reader.translations")} 2`}</span>
-              <select
-                value={secondTranslationId}
-                onChange={(e) => setSecondTranslationId(e.target.value)}
-                aria-label={`${t("reader.translations")} 2`}
-              >
-                {translations.map((tr) => (
-                  <option key={tr.id} value={tr.id}>
-                    {tr.name[locale] ?? tr.abbreviation}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ChapterPane
+              chapter={secondChapter}
+              verseRef={ref}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
+              fontFamily={readerFont}
+              locale={locale}
+              t={t}
+              selection={selection}
+              onSelectVerse={selectVerse}
+              onExtendSelection={extendSelection}
+              highlightByVerse={highlightByVerse}
+            />
           )}
+        </div>
+      </div>
 
+      {renderChapterNav("reader-bottom", "bottom")}
+
+      {selection && (
+        <div className="bible-selection-bar" data-testid="reader-selection-bar" role="toolbar">
+          <span className="bible-hint">{selectionLabel}</span>
           <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
-            <span>{t("reader.highlight")}</span>
             {HIGHLIGHT_COLORS.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 className="bible-swatch"
                 style={{ background: c.value }}
-                aria-label={`${t("reader.highlight")} ${c.id}`}
+                aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
+                data-testid={`reader-highlight-${c.id}`}
                 onClick={() => void addHighlight(c.id)}
               />
             ))}
           </div>
+          <button
+            type="button"
+            className="bible-dock-btn"
+            data-testid="reader-dock-bookmark"
+            onClick={() => void addBookmark()}
+          >
+            {t("reader.bookmark")}
+          </button>
+          <button
+            type="button"
+            className="bible-dock-btn"
+            data-testid="reader-bookmark-chapter"
+            onClick={() => void addBookmark(1)}
+          >
+            {t("reader.bookmarkChapter")}
+          </button>
+          <button type="button" className="bible-dock-btn" onClick={() => setSelection(null)}>
+            {t("reader.clearSelection")}
+          </button>
+        </div>
+      )}
 
-          {selectedVerse != null && (
-            <div className="bible-note-compose">
-              <h2>
-                {t("reader.note")} · {bookId} {chapterNum}:{selectedVerse}
-              </h2>
-              <textarea
-                rows={3}
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder={t("reader.note")}
-              />
-              <button type="button" className="bible-text-btn is-on" onClick={() => void saveNote()}>
-                {t("reader.saveNote")}
-              </button>
-              {noteMsg && <p className="bible-hint">{humanizeStatus(t, noteMsg)}</p>}
-            </div>
-          )}
+      {!selection && (
+        <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.gear")}>
+          <button
+            type="button"
+            className="bible-dock-btn"
+            data-testid="reader-dock-bookmark"
+            onClick={() => void addBookmark(1)}
+          >
+            {t("reader.bookmarkChapter")}
+          </button>
+          <span className="bible-dock-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className={`bible-dock-btn${settingsOpen ? " is-on" : ""}`}
+            data-testid="reader-dock-tools"
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            {t("reader.gear")}
+          </button>
+        </div>
+      )}
 
+      {selection && (
+        <div className="bible-note-compose bible-note-compose--float">
+          <h2>
+            {t("reader.note")} · {selectionLabel}
+          </h2>
+          <textarea
+            rows={2}
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder={t("reader.note")}
+          />
+          <button type="button" className="bible-text-btn is-on" onClick={() => void saveNote()}>
+            {t("reader.saveNote")}
+          </button>
+          {noteMsg && <p className="bible-hint">{humanizeStatus(t, noteMsg)}</p>}
+        </div>
+      )}
+
+      {(bookmarks.length > 0 || decryptedNotes.length > 0) && (
+        <div className="bible-more-body" style={{ marginTop: "1.25rem" }}>
           <div className="bible-side-block">
             <h2>{t("reader.bookmark")}</h2>
             <ul>
@@ -1033,7 +1121,6 @@ export function BibleReader() {
               ))}
             </ul>
           </div>
-
           <div className="bible-side-block">
             <h2>{t("reader.notesPanel")}</h2>
             <ul>
@@ -1046,22 +1133,8 @@ export function BibleReader() {
               ))}
             </ul>
           </div>
-
-          <div className="bible-side-block">
-            <h2>{t("reader.study")}</h2>
-            <ul>
-              {studyMaterials.map((m) => (
-                <li key={m.id}>
-                  <a href={m.url} target="_blank" rel="noreferrer">
-                    {m.title}
-                  </a>
-                  <span className="bible-hint"> · {m.license}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
-      </details>
+      )}
     </section>
   );
 }
