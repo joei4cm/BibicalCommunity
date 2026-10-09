@@ -120,12 +120,13 @@ jobs:
         run: pnpm --filter @logoshome/web build
 
       - name: Deploy web to Cloudflare Pages
-        working-directory: apps/web
+        # wrangler lives on @logoshome/api; deploy the web build from apps/web/dist.
+        working-directory: apps/api
         run: |
           # Create project if missing (ignore already-exists).
           pnpm exec wrangler pages project create logoshome-web --production-branch main 2>/dev/null \
             || echo "INFO: pages project may already exist"
-          pnpm exec wrangler pages deploy dist --project-name=logoshome-web --commit-dirty=true
+          pnpm exec wrangler pages deploy ../web/dist --project-name=logoshome-web --commit-dirty=true
 
       - name: Summary
         run: |
