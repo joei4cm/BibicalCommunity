@@ -270,6 +270,7 @@ export function BibleReader() {
   const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [installedByTid, setInstalledByTid] = useState<
     Record<string, InstalledTranslationSummary>
   >({});
@@ -679,13 +680,18 @@ export function BibleReader() {
     </nav>
   );
 
+  const toolsExpanded = toolsOpen || showCatalog || selectedVerse != null || dualPane;
+
   return (
     <section className="bible-reader" data-testid="bible-reader">
-      {/* One reading composition: brand → passage → prose */}
+      {/* One reading composition: brand → quiet passage → prose */}
       <header className="bible-reader-masthead">
         <p className="bible-reader-brand" aria-label="圣言家 LogosHome">
           圣言家
         </p>
+        <div className="bible-reader-ornament" aria-hidden="true">
+          <span />
+        </div>
         <h1 className="bible-reader-title" data-testid="reader-passage-title">
           {passageTitle}
         </h1>
@@ -781,8 +787,48 @@ export function BibleReader() {
 
       {renderChapterNav("reader-bottom", "bottom")}
 
+      {/* WeDevote-shaped dock: Aa / bookmark / tools — keeps chrome off the folio */}
+      <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.moreTools")}>
+        <button
+          type="button"
+          className="bible-dock-btn"
+          data-testid="reader-dock-type"
+          aria-label={t("reader.presetSpacious")}
+          onClick={() => {
+            const order = ["compact", "comfortable", "spacious"] as const;
+            const next = order[(order.indexOf(preset) + 1) % order.length]!;
+            applyPreset(next);
+          }}
+        >
+          Aa
+        </button>
+        <span className="bible-dock-sep" aria-hidden="true" />
+        <button
+          type="button"
+          className="bible-dock-btn"
+          data-testid="reader-dock-bookmark"
+          onClick={() => void addBookmark()}
+        >
+          {t("reader.bookmark")}
+        </button>
+        <span className="bible-dock-sep" aria-hidden="true" />
+        <button
+          type="button"
+          className={`bible-dock-btn${toolsExpanded ? " is-on" : ""}`}
+          data-testid="reader-dock-tools"
+          aria-label={t("reader.moreTools")}
+          onClick={() => setToolsOpen((v) => !v)}
+        >
+          {t("reader.dockMore")}
+        </button>
+      </div>
+
       {/* Secondary tools — never compete with the reading plane */}
-      <details className="bible-more" open={showCatalog || selectedVerse != null || dualPane}>
+      <details
+        className="bible-more"
+        open={toolsExpanded}
+        onToggle={(e) => setToolsOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary>{t("reader.moreTools")}</summary>
         <div className="bible-more-body">
           <div className="bible-more-actions">
