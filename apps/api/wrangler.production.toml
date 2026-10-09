@@ -87,4 +87,6 @@ PARTNER_SSO_MOCK = "false"
 # ENDAO_OAUTH_AUTHORIZE_BASE = "https://oauth.edobible.com/authorize"
 # WEREAD_OAUTH_AUTHORIZE_BASE = "https://open.weixin.qq.com/connect/oauth2/authorize"
 # TURN_URIS is non-secret; TURN_SECRET must be a wrangler secret.
-TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
+# Include turn:/turns: hosts for relay (coturn). Or set secrets TURN_CF_KEY_ID +
+# TURN_CF_API_TOKEN for Cloudflare Calls TURN (preferred when available).
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\",\"stun:stun.l.google.com:19302\"]"

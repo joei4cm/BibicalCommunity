@@ -9,14 +9,18 @@ import { sha256Hex } from "../services/crypto";
 /**
  * Call / TURN helpers + CallRoom DO WebSocket upgrade.
  *
- * TURN: coturn REST / ephemeral-secret (HMAC-SHA1 over `expiry:userid`).
+ * TURN: coturn REST / ephemeral-secret (HMAC-SHA1 over `expiry:userid`),
+ * or Cloudflare Calls TURN when TURN_CF_KEY_ID + TURN_CF_API_TOKEN are set.
  * WS: browsers cannot set Authorization — pass `?token=` session bearer.
  */
 
 export const callRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
 const DEFAULT_TTL_SEC = 300;
-const DEFAULT_TURN_URIS = ["stun:stun.cloudflare.com:3478"];
+const DEFAULT_TURN_URIS = [
+  "stun:stun.cloudflare.com:3478",
+  "stun:stun.l.google.com:19302",
+];
 
 function parseTurnUris(raw: string | undefined): string[] {
   if (!raw) return DEFAULT_TURN_URIS;
@@ -31,11 +35,100 @@ function parseTurnUris(raw: string | undefined): string[] {
   return DEFAULT_TURN_URIS;
 }
 
+function isTurnUri(uri: string): boolean {
+  const u = uri.trim().toLowerCase();
+  return u.startsWith("turn:") || u.startsWith("turns:");
+}
+
+function isStunUri(uri: string): boolean {
+  const u = uri.trim().toLowerCase();
+  return u.startsWith("stun:") || u.startsWith("stuns:");
+}
+
 function bytesToBase64(bytes: ArrayBuffer): string {
   const u8 = new Uint8Array(bytes);
   let s = "";
   for (const b of u8) s += String.fromCharCode(b);
   return btoa(s);
+}
+
+type IceServerJson = {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+};
+
+function buildIceServers(
+  uris: string[],
+  username?: string,
+  credential?: string,
+): { iceServers: IceServerJson[]; hasRelay: boolean } {
+  const stun = uris.filter(isStunUri);
+  const relay = uris.filter(isTurnUri);
+  const iceServers: IceServerJson[] = [];
+  if (stun.length > 0) iceServers.push({ urls: stun });
+  if (relay.length > 0) {
+    if (username && credential) {
+      iceServers.push({ urls: relay, username, credential });
+    } else {
+      iceServers.push({ urls: relay });
+    }
+  }
+  return { iceServers, hasRelay: relay.length > 0 };
+}
+
+/**
+ * Optional Cloudflare Calls TURN:
+ * https://developers.cloudflare.com/realtime/turn/generate-credentials/
+ */
+async function mintCloudflareTurnIce(
+  keyId: string,
+  apiToken: string,
+  ttlSec: number,
+): Promise<{
+  username: string;
+  credential: string;
+  uris: string[];
+  iceServers: IceServerJson[];
+  hasRelay: boolean;
+} | null> {
+  try {
+    const res = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate-ice-servers`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ttl: ttlSec }),
+      },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      iceServers?: IceServerJson[];
+    };
+    const iceServers = json.iceServers ?? [];
+    if (iceServers.length === 0) return null;
+    const uris: string[] = [];
+    let username = "";
+    let credential = "";
+    for (const s of iceServers) {
+      const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+      for (const u of urls) if (u) uris.push(String(u));
+      if (s.username) username = s.username;
+      if (s.credential) credential = s.credential;
+    }
+    return {
+      username,
+      credential,
+      uris,
+      iceServers,
+      hasRelay: uris.some(isTurnUri),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -69,9 +162,29 @@ callRoutes.get("/:callId/ws", async (c) => {
 });
 
 callRoutes.post("/turn-credentials", requireAuth, async (c) => {
+  const ttl = DEFAULT_TTL_SEC;
+  const cfKey = c.env.TURN_CF_KEY_ID;
+  const cfToken = c.env.TURN_CF_API_TOKEN;
+
+  // Prefer Cloudflare Calls TURN when configured (real turn: / turns: relays).
+  if (cfKey && cfToken) {
+    const minted = await mintCloudflareTurnIce(cfKey, cfToken, ttl);
+    if (minted?.hasRelay) {
+      return c.json({
+        username: minted.username,
+        credential: minted.credential,
+        ttl,
+        uris: minted.uris,
+        iceServers: minted.iceServers,
+        hasRelay: true,
+        provider: "cloudflare-calls",
+        note: "Cloudflare Calls TURN credentials (ephemeral).",
+      });
+    }
+  }
+
   const secret = c.env.TURN_SECRET ?? "dev-turn-secret";
   const uris = parseTurnUris(c.env.TURN_URIS);
-  const ttl = DEFAULT_TTL_SEC;
   const expiry = Math.floor(Date.now() / 1000) + ttl;
   const userId = c.get("userId");
   const username = `${expiry}:${userId}`;
@@ -85,20 +198,18 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(username));
   const credential = bytesToBase64(sig);
+  const { iceServers, hasRelay } = buildIceServers(uris, username, credential);
 
   return c.json({
     username,
     credential,
     ttl,
     uris,
-    iceServers: [
-      {
-        urls: uris,
-        username,
-        credential,
-      },
-    ],
-    note:
-      "Ephemeral TURN secret (HMAC-SHA1). For production, use Cloudflare Calls or an external TURN provider with TURN_SECRET / TURN_URIS.",
+    iceServers,
+    hasRelay,
+    provider: hasRelay ? "coturn-hmac" : "stun-only",
+    note: hasRelay
+      ? "Ephemeral TURN secret (HMAC-SHA1 / coturn REST). Set TURN_URIS to turn:… hosts."
+      : "No turn:/turns: URI configured — STUN only. Set TURN_URIS with turn: hosts + TURN_SECRET, or TURN_CF_KEY_ID + TURN_CF_API_TOKEN for Cloudflare Calls TURN.",
   });
 });

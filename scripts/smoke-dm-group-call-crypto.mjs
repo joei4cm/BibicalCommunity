@@ -162,53 +162,73 @@ if (![regA.userId, regB.userId, regC.userId].every((id) => members.has(id))) {
 }
 ok("GROUP_CREATE_OK", `id=${group.id} members=${members.size}`);
 
-// UI encrypts only against peerUserIds[0] — simulate that for groups (pairwise, not sender-keys).
+// Group fan-out: one envelope per peer (matches apps/web group-fanout.ts).
 await uploadProductKeys(regC.token, charlie.identity);
-const remoteForGroup = await fetchRemoteBundle(regA.token, regB.userId); // first peer = B
-const gSessA = await productChatEstablish(alice.client, alice.identity.privateState, remoteForGroup);
+const remoteB2 = await fetchRemoteBundle(regA.token, regB.userId);
+const remoteC = await fetchRemoteBundle(regA.token, regC.userId);
+const gSessAB = await productChatEstablish(alice.client, alice.identity.privateState, remoteB2);
+const gSessAC = await productChatEstablish(alice.client, alice.identity.privateState, remoteC);
 const gSessB = await productChatEstablish(bob.client, bob.identity.privateState, remoteA);
+const gSessC = await productChatEstablish(charlie.client, charlie.identity.privateState, remoteA);
 const gPlain = `group-secret-${ts}`;
-const gEnc = await productChatEncrypt(alice.client, gSessA, gPlain);
+const encB = await productChatEncrypt(alice.client, gSessAB, gPlain);
+const encC = await productChatEncrypt(alice.client, gSessAC, gPlain);
+const fanout = {
+  v: 1,
+  from: regA.userId,
+  envelopes: {
+    [regB.userId]: { ratchetHeader: `product:${encB.ratchetHeader}`, ciphertext: encB.ciphertext },
+    [regC.userId]: { ratchetHeader: `product:${encC.ratchetHeader}`, ciphertext: encC.ciphertext },
+  },
+};
 await api(regA.token, `/v1/chat/conversations/${group.id}/messages`, {
   method: "POST",
   body: JSON.stringify({
-    ratchetHeader: gEnc.ratchetHeader,
-    ciphertext: gEnc.ciphertext,
+    ratchetHeader: "group-fanout:v1",
+    ciphertext: JSON.stringify(fanout),
     contentType: "msg",
   }),
 });
 const gListedB = await api(regB.token, `/v1/chat/conversations/${group.id}/messages`);
-const gMsg = (gListedB.messages || []).find((m) => m.ciphertext === gEnc.ciphertext);
-if (!gMsg) throw new Error("group ciphertext missing for member B");
+const gMsg = (gListedB.messages || []).find((m) => m.ratchetHeader === "group-fanout:v1");
+if (!gMsg) throw new Error("group fanout ciphertext missing for member B");
 if (JSON.stringify(gListedB).includes(gPlain)) throw new Error("group plaintext on server");
+
+const blobB = JSON.parse(gMsg.ciphertext);
+const mineB = blobB.envelopes[regB.userId];
 const gDecB = await productChatDecrypt(bob.client, gSessB, {
-  ratchetHeader: gMsg.ratchetHeader,
-  ciphertext: gMsg.ciphertext,
+  ratchetHeader: String(mineB.ratchetHeader).replace(/^product:/, ""),
+  ciphertext: mineB.ciphertext,
   contentType: "msg",
 });
-if (gDecB !== gPlain) throw new Error("group member B failed to decrypt pairwise ciphertext");
-ok("GROUP_PAIRWISE_B_OK");
+if (gDecB !== gPlain) throw new Error("group member B failed to decrypt fanout envelope");
+ok("GROUP_FANOUT_B_OK");
 
-// Member C (not the peer Alice encrypted to) cannot decrypt — documents current limitation.
-const remoteC = await fetchRemoteBundle(regA.token, regC.userId);
-const gSessC = await productChatEstablish(charlie.client, charlie.identity.privateState, remoteA);
-let cFail = false;
+const gListedC = await api(regC.token, `/v1/chat/conversations/${group.id}/messages`);
+const gMsgC = (gListedC.messages || []).find((m) => m.ratchetHeader === "group-fanout:v1");
+const blobC = JSON.parse(gMsgC.ciphertext);
+const mineC = blobC.envelopes[regC.userId];
+const gDecC = await productChatDecrypt(charlie.client, gSessC, {
+  ratchetHeader: String(mineC.ratchetHeader).replace(/^product:/, ""),
+  ciphertext: mineC.ciphertext,
+  contentType: "msg",
+});
+if (gDecC !== gPlain) throw new Error("group member C failed to decrypt fanout envelope");
+ok("GROUP_FANOUT_C_OK");
+
+// Outsider without an envelope must fail.
+let outsiderFail = false;
 try {
   await productChatDecrypt(charlie.client, gSessC, {
-    ratchetHeader: gMsg.ratchetHeader,
-    ciphertext: gMsg.ciphertext,
+    ratchetHeader: String(mineB.ratchetHeader).replace(/^product:/, ""),
+    ciphertext: mineB.ciphertext,
     contentType: "msg",
   });
 } catch {
-  cFail = true;
+  outsiderFail = true;
 }
-if (!cFail) {
-  throw new Error("unexpected: C decrypted A→B pairwise group ciphertext");
-}
-ok(
-  "GROUP_E2EE_PAIRWISE_ONLY_OK",
-  "limitation=ChatPanel peerFor uses peerUserIds[0]; not true multi-recipient group E2EE",
-);
+if (!outsiderFail) throw new Error("C decrypted B's envelope — fanout isolation broken");
+ok("GROUP_FANOUT_ISOLATION_OK");
 
 // ── 3) Call signaling + TURN ────────────────────────────────────────────────
 console.log("== calls ==");
@@ -221,11 +241,26 @@ if (!call.callId || !signalingPath) throw new Error(`call create failed: ${JSON.
 ok("CALL_CREATE_OK", `callId=${call.callId}`);
 
 const turn = await api(regA.token, "/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-if (!turn.credential || !Array.isArray(turn.uris) || turn.uris.length === 0) {
+if (!Array.isArray(turn.uris) || turn.uris.length === 0) {
   throw new Error("turn credentials incomplete");
 }
-const hasStunOnly = turn.uris.every((u) => String(u).startsWith("stun:"));
-ok("CALL_TURN_MINT_OK", hasStunOnly ? "uris=stun-only (no turn: relay yet)" : `uris=${turn.uris.join(",")}`);
+if (!Array.isArray(turn.iceServers) || turn.iceServers.length === 0) {
+  throw new Error("turn iceServers missing — client needs split STUN/TURN");
+}
+// STUN entries must not carry credentials.
+for (const s of turn.iceServers) {
+  const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+  const onlyStun = urls.every((u) => String(u).startsWith("stun:") || String(u).startsWith("stuns:"));
+  if (onlyStun && (s.username || s.credential)) {
+    throw new Error("STUN iceServer must not include TURN credentials");
+  }
+}
+ok(
+  "CALL_TURN_MINT_OK",
+  turn.hasRelay
+    ? `hasRelay=true provider=${turn.provider ?? "?"} uris=${turn.uris.join(",")}`
+    : `hasRelay=false provider=${turn.provider ?? "stun-only"} (set TURN_CF_* or turn: URIs for relay)`,
+);
 
 // WebSocket fan-out (same as smoke-call-signaling core)
 const WS_BASE = BASE.replace(/^http/, "ws");
