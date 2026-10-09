@@ -41,6 +41,8 @@ PARTNER_OAUTH_REDIRECT_BASE = "http://127.0.0.1:8787"
 ENDAO_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
 WEREAD_OAUTH_TOKEN_URL = "http://127.0.0.1:8787/v1/partners/mock-token"
 TURN_SECRET = "dev-turn-secret"
-TURN_URIS = "[\"stun:stun.cloudflare.com:3478\"]"
+# Dev default is STUN-only. For relay locally, set turn: URIs + matching TURN_SECRET
+# (coturn) or TURN_CF_KEY_ID / TURN_CF_API_TOKEN (Cloudflare Calls).
+TURN_URIS = "[\"stun:stun.cloudflare.com:3478\",\"stun:stun.l.google.com:19302\"]"
 # Local-only: promotes caller to platform_admin (never ship a real secret in [vars] for production).
 PLATFORM_ADMIN_BOOTSTRAP_SECRET = "dev-platform-admin-bootstrap"

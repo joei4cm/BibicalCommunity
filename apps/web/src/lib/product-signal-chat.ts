@@ -74,12 +74,19 @@ async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicK
   }
 }
 
+/** Peer-scoped so group fan-out can keep one session per member. */
+function productSessionKey(conversationId: string, peerUserId: string): string {
+  return `${PRODUCT_SESSION_PREFIX}${conversationId}:${peerUserId}`;
+}
+
 async function loadOrEstablishSession(
   conversationId: string,
+  peerUserId: string,
   localPrivate: string,
   remote: DevicePublicKeys,
 ): Promise<SecureSession> {
-  const raw = await secureGet(PRODUCT_SESSION_PREFIX + conversationId);
+  const key = productSessionKey(conversationId, peerUserId);
+  const raw = await secureGet(key);
   if (raw) {
     try {
       return JSON.parse(raw) as SecureSession;
@@ -89,7 +96,7 @@ async function loadOrEstablishSession(
   }
   const client = await getProductSignalClient();
   const session = await productChatEstablish(client, localPrivate, remote);
-  await secureSet(PRODUCT_SESSION_PREFIX + conversationId, JSON.stringify(session));
+  await secureSet(key, JSON.stringify(session));
   return session;
 }
 
@@ -110,10 +117,9 @@ export async function tryEncryptProductChatMessage(
   if (!remote) return null;
 
   const client = await getProductSignalClient();
-  const session = await loadOrEstablishSession(conversationId, localPrivate, remote);
+  const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
   const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
-  // Persist session after encrypt in case stateBlob is updated by future backends.
-  await secureSet(PRODUCT_SESSION_PREFIX + conversationId, JSON.stringify(session));
+  await secureSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
   return {
     ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
     ciphertext: enc.ciphertext,
@@ -130,13 +136,15 @@ export async function tryDecryptProductChatMessage(
   if (!isProductRatchetHeader(ratchetHeader)) return null;
   const localPrivate = await loadProductPrivate();
   if (!localPrivate) return null;
+  if (!peerUserId) return null;
 
-  let sessionRaw = await secureGet(PRODUCT_SESSION_PREFIX + conversationId);
-  if (!sessionRaw && peerUserId) {
+  const key = productSessionKey(conversationId, peerUserId);
+  let sessionRaw = await secureGet(key);
+  if (!sessionRaw) {
     const remote = await fetchPeerProductBundle(peerUserId);
     if (remote) {
-      await loadOrEstablishSession(conversationId, localPrivate, remote);
-      sessionRaw = await secureGet(PRODUCT_SESSION_PREFIX + conversationId);
+      await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
+      sessionRaw = await secureGet(key);
     }
   }
   if (!sessionRaw) return null;
@@ -156,7 +164,7 @@ export async function tryDecryptProductChatMessage(
       ciphertext,
       contentType: "msg",
     });
-    await secureSet(PRODUCT_SESSION_PREFIX + conversationId, JSON.stringify(session));
+    await secureSet(key, JSON.stringify(session));
     return plain;
   } catch {
     return null;

@@ -7,10 +7,16 @@ import {
 } from "@logoshome/crypto";
 import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
+import {
+  decryptGroupFanout,
+  encryptGroupFanout,
+  isGroupFanoutHeader,
+} from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
 import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
+import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
 
 type Conversation = {
   id: string;
@@ -59,6 +65,7 @@ export function ChatPanel() {
   const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
+  const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const callRef = useRef<CallSession | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -77,13 +84,25 @@ export function ChatPanel() {
     setNote(null);
   }, []);
 
-  const peerFor = useCallback(
+  useEffect(() => {
+    if (!getToken()) return;
+    void api<{ id?: string; userId?: string }>("/v1/me")
+      .then((me) => setSelfUserId(me.id ?? me.userId ?? null))
+      .catch(() => setSelfUserId(null));
+  }, []);
+
+  const peersFor = useCallback(
     (conversationId: string | null) => {
-      if (!conversationId) return null;
+      if (!conversationId) return [] as string[];
       const c = conversations.find((x) => x.id === conversationId);
-      return c?.peerUserIds?.[0] ?? null;
+      return (c?.peerUserIds ?? []).filter(Boolean);
     },
     [conversations],
+  );
+
+  const peerFor = useCallback(
+    (conversationId: string | null) => peersFor(conversationId)[0] ?? null,
+    [peersFor],
   );
 
   const loadMessages = useCallback(
@@ -99,12 +118,21 @@ export function ChatPanel() {
       const decoded: Record<string, string> = {};
       for (const m of live) {
         try {
-          decoded[m.id] = await decryptChatMessage(
-            conversationId,
-            m.ratchetHeader,
-            m.ciphertext,
-            peer,
-          );
+          if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
+            decoded[m.id] = await decryptGroupFanout({
+              conversationId,
+              ratchetHeader: m.ratchetHeader,
+              ciphertext: m.ciphertext,
+              selfUserId,
+            });
+          } else {
+            decoded[m.id] = await decryptChatMessage(
+              conversationId,
+              m.ratchetHeader,
+              m.ciphertext,
+              peer,
+            );
+          }
         } catch {
           try {
             decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
@@ -115,7 +143,7 @@ export function ChatPanel() {
       }
       setPlaintexts(decoded);
     },
-    [peerFor],
+    [peerFor, selfUserId],
   );
 
   const loadFavorites = useCallback(async () => {
@@ -181,23 +209,46 @@ export function ChatPanel() {
     setBusy(true);
     try {
       const text = draft.trim();
-      const enc = await encryptChatMessage(selectedId, text, peerFor(selectedId));
+      const peers = peersFor(selectedId);
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;
+
+      let ratchetHeader: string;
+      let ciphertext: string;
+      let mode: string;
+
+      if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
+        const fanout = await encryptGroupFanout({
+          conversationId: selectedId,
+          plaintext: text,
+          fromUserId: selfUserId,
+          peerUserIds: peers,
+          expiresAt,
+        });
+        ratchetHeader = fanout.ratchetHeader;
+        ciphertext = fanout.ciphertext;
+        mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
+      } else {
+        const enc = await encryptChatMessage(selectedId, text, peers[0] ?? null);
+        ratchetHeader = enc.ratchetHeader;
+        ciphertext = enc.ciphertext;
+        mode = enc.mode;
+      }
+
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
         body: JSON.stringify({
-          ratchetHeader: enc.ratchetHeader,
-          ciphertext: enc.ciphertext,
+          ratchetHeader,
+          ciphertext,
           contentType: "msg",
           expiresAt,
         }),
       });
       localStorage.setItem(`lh.msg.${res.id}`, text);
-      if (enc.mode === "degraded") {
+      if (mode === "degraded") {
         setNote("chat_degraded_no_peer_keys");
-      } else if (enc.mode === "product") {
+      } else {
         setNote(null);
       }
       setDraft("");
@@ -266,16 +317,20 @@ export function ChatPanel() {
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
         const turn = await api<{
-          username: string;
-          credential: string;
+          username?: string;
+          credential?: string;
           uris: string[];
           ttl: number;
+          iceServers?: RTCIceServer[];
+          hasRelay?: boolean;
+          note?: string;
         }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-        iceServers = [
-          ...iceServers,
-          { urls: turn.uris, username: turn.username, credential: turn.credential },
-        ];
-        setCallNote(`TURN ttl=${turn.ttl}s · ${turn.uris.join(",")}`);
+        iceServers = buildIceServersFromTurnResponse(turn, iceServers);
+        setCallNote(
+          turn.hasRelay
+            ? `TURN relay · ttl=${turn.ttl}s · ${turn.uris.join(",")}`
+            : `STUN-only · ttl=${turn.ttl}s · ${t("chat.turnRelayMissing")}`,
+        );
       } catch {
         /* STUN-only fallback */
       }

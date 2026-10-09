@@ -247,6 +247,27 @@ export function HomePage() {
     }
   }
 
+  /** Media GET requires Bearer — open via authenticated fetch + blob URL. */
+  async function openAttachment(key: string) {
+    if (!getToken()) {
+      setNote("login_required");
+      return;
+    }
+    try {
+      const res = await fetch(`/v1/media/${key}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) throw new Error("media_fetch_failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Revoke after the tab has a chance to load.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    }
+  }
+
   async function composePost() {
     if (!getToken() || !selectedChurchId) {
       setNote("login_required");
@@ -619,9 +640,14 @@ export function HomePage() {
                   {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
                   {p.mediaKey ? (
                     <p className="muted">
-                      <a href={`/v1/media/${p.mediaKey}`} target="_blank" rel="noreferrer">
+                      <button
+                        type="button"
+                        className="linkish"
+                        data-testid="home-open-attachment"
+                        onClick={() => void openAttachment(p.mediaKey!)}
+                      >
                         {t("home.attachment")}
-                      </a>
+                      </button>
                     </p>
                   ) : null}
                 </article>
