@@ -1008,7 +1008,7 @@ export function BibleReader() {
             type="button"
             className={`bible-gear-btn${layoutOpen ? " is-on" : ""}`}
             data-testid="reader-layout-btn"
-            aria-label={t("reader.layout")}
+            aria-label={t("reader.settings")}
             aria-expanded={layoutOpen}
             onClick={() => {
               setLayoutOpen((v) => !v);
@@ -1017,7 +1017,12 @@ export function BibleReader() {
               setSettingsOpen(false);
             }}
           >
-            Aa
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm9.4 3.1-1.1-.6c.1-.3.1-.7.1-1s0-.7-.1-1l1.1-.6a1 1 0 0 0 .4-1.3l-1-1.7a1 1 0 0 0-1.3-.4l-1.1.6a7.2 7.2 0 0 0-1.7-1l-.2-1.2A1 1 0 0 0 15.4 2h-2.8a1 1 0 0 0-1 .9l-.2 1.2c-.6.2-1.2.6-1.7 1l-1.1-.6a1 1 0 0 0-1.3.4l-1 1.7a1 1 0 0 0 .4 1.3l1.1.6c-.1.3-.1.7-.1 1s0 .7.1 1l-1.1.6a1 1 0 0 0-.4 1.3l1 1.7a1 1 0 0 0 1.3.4l1.1-.6c.5.4 1.1.7 1.7 1l.2 1.2a1 1 0 0 0 1 .9h2.8a1 1 0 0 0 1-.9l.2-1.2c.6-.2 1.2-.6 1.7-1l1.1.6a1 1 0 0 0 1.3-.4l1-1.7a1 1 0 0 0-.4-1.3Z"
+              />
+            </svg>
           </button>
           <button
             type="button"

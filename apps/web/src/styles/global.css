@@ -1994,35 +1994,18 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .landing-brand {
-  margin: 0 0 1.25rem;
-  font-family: var(--lh-font-reader);
-  font-size: clamp(2.4rem, 7vw, 3.75rem);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1.15;
-  color: var(--lh-ink);
-  animation: fade-up 420ms ease both;
-}
-
-.landing-brand-sep {
-  margin-inline: 0.35rem;
-  color: var(--lh-ink-muted);
-  font-weight: 400;
-}
-
-.landing-brand-en {
-  font-weight: 500;
-  color: var(--lh-accent);
+  display: none;
 }
 
 .landing-headline {
   margin: 0 0 0.85rem;
   font-family: var(--lh-font-reader);
-  font-size: clamp(1.25rem, 3.2vw, 1.65rem);
-  font-weight: 500;
-  line-height: 1.4;
+  font-size: clamp(2rem, 6vw, 3.1rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
   color: var(--lh-ink);
-  max-width: 28ch;
+  max-width: 14ch;
   animation: fade-up 480ms ease 80ms both;
 }
 

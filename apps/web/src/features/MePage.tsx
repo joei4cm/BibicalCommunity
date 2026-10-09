@@ -91,6 +91,9 @@ export function MePage() {
     }[]
   >([]);
   const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
+  const [themeId, setThemeId] = useState<ThemeId>(
+    () => (localStorage.getItem("lh.theme") as ThemeId) ?? "day",
+  );
 
   useEffect(() => {
     void Promise.all([secureGet(DEVICE_PRIV_KEY), hasProductIdentity()]).then(
@@ -409,6 +412,7 @@ export function MePage() {
   function setTheme(theme: ThemeId) {
     localStorage.setItem("lh.theme", theme);
     applyTheme(theme);
+    setThemeId(theme);
   }
 
   const themeLabel = (id: ThemeId) => {
@@ -558,20 +562,30 @@ export function MePage() {
         </label>
         <div className="field">
           <label>{t("me.allowMessageRequests")}</label>
-          <select
-            value={privacy.allowMessageRequests}
-            onChange={(e) =>
-              setPrivacy((p) => ({
-                ...p,
-                allowMessageRequests: e.target.value as PrivacySettings["allowMessageRequests"],
-              }))
-            }
-          >
-            <option value="everyone">{t("me.privacyEveryone")}</option>
-            <option value="church-only">{t("me.privacyChurchOnly")}</option>
-            <option value="admin-approved">{t("me.privacyAdminApproved")}</option>
-            <option value="off">{t("me.privacyOff")}</option>
-          </select>
+          <div className="bible-more-actions" role="group">
+            {(
+              [
+                ["everyone", "me.privacyEveryone"],
+                ["church-only", "me.privacyChurchOnly"],
+                ["admin-approved", "me.privacyAdminApproved"],
+                ["off", "me.privacyOff"],
+              ] as const
+            ).map(([value, key]) => (
+              <button
+                key={value}
+                type="button"
+                className={`bible-text-btn${privacy.allowMessageRequests === value ? " is-on" : ""}`}
+                onClick={() =>
+                  setPrivacy((p) => ({
+                    ...p,
+                    allowMessageRequests: value,
+                  }))
+                }
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
         </div>
         <button type="button" className="btn" onClick={() => void saveProfile()}>
           {t("me.save")}
@@ -579,24 +593,39 @@ export function MePage() {
 
         <div className="field" style={{ marginTop: "1rem" }}>
           <label>{t("me.language")}</label>
-          <select value={i18n.language} onChange={(e) => setLocale(e.target.value)}>
-            <option value="zh-CN">中文</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-          </select>
+          <div className="bible-more-actions" role="group">
+            {(
+              [
+                ["zh-CN", "中文"],
+                ["en", "English"],
+                ["ja", "日本語"],
+              ] as const
+            ).map(([lng, label]) => (
+              <button
+                key={lng}
+                type="button"
+                className={`bible-text-btn${i18n.language === lng ? " is-on" : ""}`}
+                onClick={() => setLocale(lng)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="field">
           <label>{t("me.theme")}</label>
-          <select
-            defaultValue={(localStorage.getItem("lh.theme") as ThemeId) ?? "day"}
-            onChange={(e) => setTheme(e.target.value as ThemeId)}
-          >
+          <div className="bible-more-actions" role="group">
             {THEME_IDS.map((id) => (
-              <option key={id} value={id}>
+              <button
+                key={id}
+                type="button"
+                className={`bible-text-btn${themeId === id ? " is-on" : ""}`}
+                onClick={() => setTheme(id)}
+              >
                 {themeLabel(id)}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="me-version-block" data-testid="me-version-info">

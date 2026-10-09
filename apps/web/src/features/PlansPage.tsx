@@ -532,20 +532,26 @@ export function PlansPage() {
             <p className="muted">{t("plans.discoverHint")}</p>
             <ul className="list">
               {(publicPlans ?? []).length === 0 && <li className="muted">{t("plans.emptyDiscover")}</li>}
-              {(publicPlans ?? []).map((p) => (
-                <li key={p.id}>
-                  <strong>{p.title}</strong>
-                  {p.description ? <div className="muted">{p.description}</div> : null}
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    data-testid={`plans-discover-join-${p.id}`}
-                    onClick={() => void subscribe(p.id)}
-                  >
-                    {t("plans.subscribe")}
-                  </button>
-                </li>
-              ))}
+              {(publicPlans ?? []).map((p) => {
+                const desc = (p.description ?? "").trim();
+                const showDesc =
+                  desc.length > 0 &&
+                  !/smoke|fixture|demo|test|样例|テスト/i.test(desc);
+                return (
+                  <li key={p.id}>
+                    <strong>{p.title}</strong>
+                    {showDesc ? <div className="muted">{desc}</div> : null}
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      data-testid={`plans-discover-join-${p.id}`}
+                      onClick={() => void subscribe(p.id)}
+                    >
+                      {t("plans.subscribe")}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
           <div className="panel">
