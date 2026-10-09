@@ -17,7 +17,7 @@ const STORE = "chapters";
 const DB_VERSION = 1;
 /** Bump when boot seed source changes (demo → download/R2 fixtures). */
 /** Bump when boot set changes (cuvs+nasb whole-Bible / denser demo chapters). */
-const BOOT_FLAG = "lh.bible.bootSeeded.v6";
+const BOOT_FLAG = "lh.bible.bootSeeded.v7";
 
 /** Prefer denser demo prose when a downloaded teaching chapter is still a thin scaffold. */
 function enrichSparseChaptersFromDemo(
@@ -42,6 +42,22 @@ function enrichSparseChaptersFromDemo(
     if (!seen.has(key)) merged.push(demo);
   }
   return merged;
+}
+
+/** Single-chapter densify for live reader (R2/API scaffolds vs demo teaching prose). */
+export function densifyChapterVerses(
+  translationId: string,
+  book: string,
+  chapter: number,
+  verses: { verse: number; text: string }[],
+): { verse: number; text: string }[] {
+  const demo = buildDemoDownloadPack(translationId).chapters.find(
+    (c) => c.book === book && c.chapter === chapter,
+  );
+  if (demo && demo.verses.length > (verses?.length ?? 0)) {
+    return demo.verses;
+  }
+  return verses;
 }
 
 function openDb(): Promise<IDBDatabase> {

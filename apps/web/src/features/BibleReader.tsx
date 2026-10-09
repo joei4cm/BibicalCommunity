@@ -27,6 +27,7 @@ import {
 } from "../lib/reader-skins";
 import {
   bibleLocalDb,
+  densifyChapterVerses,
   ensureBootCorpusSeeded,
   installDownloadedPack,
   readLocalChapter,
@@ -194,8 +195,8 @@ export function BibleReader() {
   const [dualPane, setDualPane] = useState(false);
   const [bookId, setBookId] = useState(routeBookId);
   const [chapterNum, setChapterNum] = useState(routeChapter);
-  const [fontSize, setFontSize] = useState(1.28);
-  const [lineHeight, setLineHeight] = useState(2.05);
+  const [fontSize, setFontSize] = useState(1.34);
+  const [lineHeight, setLineHeight] = useState(2.18);
   const [serif, setSerif] = useState(true);
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
@@ -243,9 +244,9 @@ export function BibleReader() {
   );
 
   const TYPO_PRESETS = {
-    compact: { fontSize: 1.05, lineHeight: 1.55, serif: false },
-    comfortable: { fontSize: 1.28, lineHeight: 2.05, serif: true },
-    spacious: { fontSize: 1.42, lineHeight: 2.25, serif: true },
+    compact: { fontSize: 1.1, lineHeight: 1.7, serif: false },
+    comfortable: { fontSize: 1.34, lineHeight: 2.18, serif: true },
+    spacious: { fontSize: 1.48, lineHeight: 2.35, serif: true },
   } as const;
 
   function applyPreset(id: keyof typeof TYPO_PRESETS) {
@@ -307,6 +308,8 @@ export function BibleReader() {
     void refreshInstalledCorpus();
   }, [showCatalog, refreshInstalledCorpus]);
 
+  const [bootTick, setBootTick] = useState(0);
+
   useEffect(() => {
     void ensureBootCorpusSeeded(async (tid) => {
       try {
@@ -319,7 +322,7 @@ export function BibleReader() {
       } catch {
         return null;
       }
-    });
+    }).then(() => setBootTick((n) => n + 1));
   }, []);
 
   useEffect(() => {
@@ -330,11 +333,17 @@ export function BibleReader() {
         // Prefer client local DB (download/boot install) over network/TS scaffolds.
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local && !cancelled) {
+          const verses = densifyChapterVerses(
+            translationId,
+            local.book,
+            local.chapter,
+            local.verses,
+          );
           setChapter({
             translationId,
             book: local.book,
             chapter: local.chapter,
-            verses: local.verses,
+            verses,
             source: "local-db",
           });
           return;
@@ -342,7 +351,15 @@ export function BibleReader() {
         const data = await api<ChapterPayload>(
           `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
         );
-        if (!cancelled) setChapter(data);
+        if (cancelled) return;
+        if (data && "verses" in data && Array.isArray(data.verses)) {
+          setChapter({
+            ...data,
+            verses: densifyChapterVerses(translationId, bookId, chapterNum, data.verses),
+          });
+        } else {
+          setChapter(data);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "error");
       }
@@ -350,7 +367,7 @@ export function BibleReader() {
     return () => {
       cancelled = true;
     };
-  }, [translationId, ref, bookId, chapterNum]);
+  }, [translationId, ref, bookId, chapterNum, bootTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -684,14 +701,12 @@ export function BibleReader() {
 
   return (
     <section className="bible-reader" data-testid="bible-reader">
-      {/* One reading composition: brand → quiet passage → prose */}
+      {/* One reading composition: brand imprint → passage → open folio */}
       <header className="bible-reader-masthead">
         <p className="bible-reader-brand" aria-label="圣言家 LogosHome">
-          圣言家
+          <span className="bible-reader-brand-zh">圣言家</span>
+          <span className="bible-reader-brand-en">LogosHome</span>
         </p>
-        <div className="bible-reader-ornament" aria-hidden="true">
-          <span />
-        </div>
         <h1 className="bible-reader-title" data-testid="reader-passage-title">
           {passageTitle}
         </h1>
@@ -749,7 +764,6 @@ export function BibleReader() {
             </select>
           </label>
         </div>
-        {renderChapterNav("reader", "top")}
       </header>
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
