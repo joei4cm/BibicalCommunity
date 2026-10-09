@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Text,
   View,
@@ -11,10 +11,18 @@ import {
 import { useRouter } from "expo-router";
 import { t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../src/api";
+import { startCallSession, type CallSession } from "../src/call-session";
 import { ensureBase64Globals } from "../src/crypto-polyfill";
+import {
+  decryptGroupFanout,
+  encryptGroupFanout,
+  isGroupFanoutHeader,
+} from "../src/group-fanout";
 import { useLocale } from "../src/locale";
 import { decryptMobileMessage, encryptMobileMessage } from "../src/session-crypto";
 import { humanizeStatus } from "../src/status";
+import { buildIceServersFromTurnResponse } from "../src/turn-ice";
+import { RTCView, signalingWsUrl, type RnMediaStream } from "../src/webrtc";
 
 ensureBase64Globals();
 
@@ -43,9 +51,8 @@ const TTL_OPTIONS = [
 ];
 
 /**
- * Mobile chat: AES-GCM session payloads via @logoshome/crypto session-aes.
- * Full Double Ratchet / X3DH remains richest on web ChatPanel; mobile stores
- * per-conversation key material via secure-kv (SecureStore → AsyncStorage).
+ * Mobile chat parity with web ChatPanel:
+ * product x25519 (peer-scoped) → degraded bootstrap; group fan-out:v1; WebRTC + TURN.
  */
 export default function MessagesScreen() {
   const { locale } = useLocale();
@@ -54,13 +61,28 @@ export default function MessagesScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
+  const [kind, setKind] = useState<"dm" | "group">("dm");
+  const [title, setTitle] = useState("");
   const [memberIds, setMemberIds] = useState("");
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [selfUserId, setSelfUserId] = useState<string | null>(null);
+  const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
+  const callRef = useRef<CallSession | null>(null);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
+
+  const peersFor = useCallback(
+    (conversationId: string | null) => {
+      if (!conversationId) return [] as string[];
+      const c = conversations.find((x) => x.id === conversationId);
+      return (c?.peerUserIds ?? []).filter(Boolean);
+    },
+    [conversations],
+  );
 
   const refresh = useCallback(async () => {
     await hydrateToken();
@@ -89,22 +111,47 @@ export default function MessagesScreen() {
       const now = Date.now();
       const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
       setMessages(live);
-      const peer =
-        conversations.find((c) => c.id === conversationId)?.peerUserIds?.[0] ?? null;
+      const peer = peersFor(conversationId)[0] ?? null;
       const decoded: Record<string, string> = {};
       for (const m of live) {
-        const pt = await decryptMobileMessage(
-          conversationId,
-          m.ratchetHeader,
-          m.ciphertext,
-          peer,
-        );
-        decoded[m.id] = pt ?? "[ciphertext]";
+        try {
+          if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
+            decoded[m.id] = await decryptGroupFanout({
+              conversationId,
+              ratchetHeader: m.ratchetHeader,
+              ciphertext: m.ciphertext,
+              selfUserId,
+            });
+          } else {
+            const pt = await decryptMobileMessage(
+              conversationId,
+              m.ratchetHeader,
+              m.ciphertext,
+              peer,
+            );
+            decoded[m.id] = pt ?? "[ciphertext]";
+          }
+        } catch {
+          decoded[m.id] = "[ciphertext]";
+        }
       }
       setPlaintexts((prev) => ({ ...prev, ...decoded }));
     },
-    [conversations],
+    [peersFor, selfUserId],
   );
+
+  useEffect(() => {
+    void (async () => {
+      await hydrateToken();
+      if (!getToken()) return;
+      try {
+        const me = await api<{ id?: string; userId?: string }>("/v1/me");
+        setSelfUserId(me.id ?? me.userId ?? null);
+      } catch {
+        setSelfUserId(null);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
@@ -118,7 +165,14 @@ export default function MessagesScreen() {
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
-  async function createDm() {
+  useEffect(() => {
+    return () => {
+      callRef.current?.close();
+      callRef.current = null;
+    };
+  }, []);
+
+  async function createConversation() {
     setBusy(true);
     try {
       await hydrateToken();
@@ -136,11 +190,17 @@ export default function MessagesScreen() {
       }
       const res = await api<{ id: string }>("/v1/chat/conversations", {
         method: "POST",
-        body: JSON.stringify({ kind: "dm", memberIds: ids }),
+        body: JSON.stringify({
+          kind,
+          title: kind === "group" ? title || undefined : undefined,
+          memberIds: ids,
+        }),
       });
       setMemberIds("");
+      setTitle("");
       await refresh();
       setSelectedId(res.id);
+      setNote(null);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -186,17 +246,43 @@ export default function MessagesScreen() {
     setBusy(true);
     try {
       const text = draft.trim();
-      const peer = selected?.peerUserIds?.[0] ?? null;
-      const payload = await encryptMobileMessage(selectedId, text, peer);
+      const peers = peersFor(selectedId);
       const expiresAt = selected?.disappearingTtlSec
         ? Date.now() + selected.disappearingTtlSec * 1000
         : undefined;
+
+      let ratchetHeader: string;
+      let ciphertext: string;
+      let mode: string;
+
+      if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
+        const fanout = await encryptGroupFanout({
+          conversationId: selectedId,
+          plaintext: text,
+          fromUserId: selfUserId,
+          peerUserIds: peers,
+        });
+        ratchetHeader = fanout.ratchetHeader;
+        ciphertext = fanout.ciphertext;
+        mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
+      } else {
+        const enc = await encryptMobileMessage(selectedId, text, peers[0] ?? null);
+        ratchetHeader = enc.ratchetHeader;
+        ciphertext = enc.ciphertext;
+        mode = enc.mode;
+      }
+
       const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ ...payload, contentType: "msg", expiresAt }),
+        body: JSON.stringify({ ratchetHeader, ciphertext, contentType: "msg", expiresAt }),
       });
       setPlaintexts((p) => ({ ...p, [res.id]: text }));
       setDraft("");
+      if (mode === "degraded") {
+        setNote("chat_degraded_no_peer_keys");
+      } else {
+        setNote(null);
+      }
       await loadMessages(selectedId);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -205,30 +291,128 @@ export default function MessagesScreen() {
     }
   }
 
+  async function startCall() {
+    if (!selectedId) return;
+    setBusy(true);
+    setCallNote(null);
+    try {
+      callRef.current?.close();
+      callRef.current = null;
+      setRemoteStreamUrl(null);
+
+      const res = await api<{ callId: string; signalingPath: string; note?: string }>(
+        "/v1/chat/calls",
+        {
+          method: "POST",
+          body: JSON.stringify({ conversationId: selectedId }),
+        },
+      );
+
+      let iceServers = buildIceServersFromTurnResponse({ uris: [] });
+      try {
+        const turn = await api<{
+          username?: string;
+          credential?: string;
+          uris: string[];
+          ttl: number;
+          iceServers?: { urls: string | string[]; username?: string; credential?: string }[];
+          hasRelay?: boolean;
+        }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
+        iceServers = buildIceServersFromTurnResponse(turn);
+        setCallNote(
+          turn.hasRelay
+            ? `TURN relay · ttl=${turn.ttl}s`
+            : `STUN-only · ttl=${turn.ttl}s · ${t(locale, "chat.turnRelayMissing")}`,
+        );
+      } catch {
+        /* STUN-only */
+      }
+
+      const token = getToken();
+      const base = getApiBase();
+      const wsUrl =
+        token && base
+          ? signalingWsUrl(base, res.signalingPath, token, selectedId)
+          : null;
+
+      const session = await startCallSession({
+        wsUrl,
+        iceServers,
+        onRemoteStream: (stream: RnMediaStream) => {
+          setRemoteStreamUrl(stream.toURL());
+        },
+        onNote: (m) => setCallNote((prev) => `${prev ?? ""} · ${m}`),
+      });
+      callRef.current = session;
+      setCallNote(
+        (prev) =>
+          `${prev ? `${prev} · ` : ""}${t(locale, "chat.callStarted")}: ${res.callId}` +
+          (res.note ? ` · ${res.note}` : "") +
+          ` · signaling=${session.channel.kind}`,
+      );
+    } catch (e) {
+      setCallNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function hangup() {
+    callRef.current?.close();
+    callRef.current = null;
+    setRemoteStreamUrl(null);
+    setCallNote((prev) => `${prev ?? ""} · hung-up`);
+  }
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Pressable onPress={() => router.back()} style={styles.back}>
         <Text style={styles.backText}>← {t(locale, "nav.home")}</Text>
       </Pressable>
       <Text style={styles.title}>{t(locale, "home.messages")}</Text>
+      <Text style={styles.muted}>{t(locale, "chat.cryptoHint")}</Text>
       {note && <Text style={styles.muted}>{humanizeStatus(locale, note)}</Text>}
 
       <Text style={styles.section}>{t(locale, "chat.newConversation")}</Text>
+      <View style={styles.ttlRow}>
+        <Pressable
+          style={[styles.ttlChip, kind === "dm" && styles.ttlChipActive]}
+          onPress={() => setKind("dm")}
+        >
+          <Text style={[styles.ttlChipText, kind === "dm" && styles.ttlChipTextActive]}>
+            {t(locale, "chat.dm")}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.ttlChip, kind === "group" && styles.ttlChipActive]}
+          onPress={() => setKind("group")}
+        >
+          <Text style={[styles.ttlChipText, kind === "group" && styles.ttlChipTextActive]}>
+            {t(locale, "chat.group")}
+          </Text>
+        </Pressable>
+      </View>
+      {kind === "group" && (
+        <TextInput
+          style={styles.input}
+          value={title}
+          onChangeText={setTitle}
+          placeholder={t(locale, "chat.title")}
+        />
+      )}
       <TextInput
         style={styles.input}
         value={memberIds}
         onChangeText={setMemberIds}
-        placeholder="usr_…"
+        placeholder={t(locale, "chat.selfNote")}
         autoCapitalize="none"
       />
       <Pressable
         style={[styles.btn, busy && styles.btnDisabled]}
         disabled={busy}
-        onPress={() => void createDm()}
+        onPress={() => void createConversation()}
       >
-        <Text style={styles.btnText}>
-          {t(locale, "chat.dm")} / {t(locale, "chat.group")}
-        </Text>
+        <Text style={styles.btnText}>{t(locale, "chat.create")}</Text>
       </Pressable>
 
       <Text style={styles.section}>{t(locale, "home.messages")}</Text>
@@ -248,26 +432,48 @@ export default function MessagesScreen() {
           style={[styles.item, selectedId === c.id && styles.itemActive]}
           onPress={() => setSelectedId(c.id)}
         >
-          <Text style={styles.itemTitle}>{c.title ?? c.kind}</Text>
+          <Text style={styles.itemTitle}>
+            {c.title ?? (c.kind === "group" ? t(locale, "chat.group") : t(locale, "chat.dm"))}
+          </Text>
           <Text style={styles.muted}>
-            {c.id}
+            {c.kind}
             {c.disappearingTtlSec ? ` · TTL ${c.disappearingTtlSec}s` : ""}
-            {c.membership.archived ? " · archived" : ""}
+            {c.membership.archived ? ` · ${t(locale, "chat.archived")}` : ""}
+            {selectedId === c.id ? ` · ${t(locale, "chat.selected")}` : ""}
           </Text>
         </Pressable>
       ))}
 
       {selectedId && (
         <View style={styles.thread}>
-          <Pressable
-            style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled, { marginBottom: 12 }]}
-            disabled={busy}
-            onPress={() => void archiveConversation(!selected?.membership.archived)}
-          >
-            <Text style={styles.btnGhostText}>
-              {selected?.membership.archived ? "Unarchive" : t(locale, "chat.archive")}
-            </Text>
-          </Pressable>
+          <View style={styles.ttlRow}>
+            <Pressable
+              style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void startCall()}
+            >
+              <Text style={styles.btnGhostText}>{t(locale, "chat.call")}</Text>
+            </Pressable>
+            <Pressable style={[styles.btn, styles.btnGhost]} onPress={hangup}>
+              <Text style={styles.btnGhostText}>{t(locale, "chat.hangup")}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void archiveConversation(!selected?.membership.archived)}
+            >
+              <Text style={styles.btnGhostText}>
+                {selected?.membership.archived
+                  ? t(locale, "chat.unarchive")
+                  : t(locale, "chat.archive")}
+              </Text>
+            </Pressable>
+          </View>
+          {callNote && <Text style={styles.muted}>{callNote}</Text>}
+          {remoteStreamUrl ? (
+            <RTCView streamURL={remoteStreamUrl} style={styles.remoteVideo} objectFit="cover" />
+          ) : null}
+
           <Text style={styles.label}>{t(locale, "chat.disappearing")}</Text>
           <View style={styles.ttlRow}>
             {TTL_OPTIONS.map((opt) => {
@@ -287,6 +493,9 @@ export default function MessagesScreen() {
             })}
           </View>
           {busy && <ActivityIndicator color="#0f6b5c" />}
+          {messages.length === 0 && (
+            <Text style={styles.muted}>{t(locale, "chat.noMessages")}</Text>
+          )}
           {messages.map((m) => (
             <View key={m.id} style={styles.bubble}>
               <Text style={styles.body}>{plaintexts[m.id] ?? "[ciphertext]"}</Text>
@@ -301,7 +510,7 @@ export default function MessagesScreen() {
             value={draft}
             onChangeText={setDraft}
             multiline
-            placeholder={t(locale, "chat.send")}
+            placeholder={t(locale, "chat.message")}
           />
           <Pressable
             style={[styles.btn, busy && styles.btnDisabled]}
@@ -379,4 +588,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   body: { color: "#1c2b2a", fontSize: 16, lineHeight: 24 },
+  remoteVideo: {
+    width: "100%",
+    height: 220,
+    backgroundColor: "#18232b",
+    marginBottom: 12,
+    borderRadius: 8,
+  },
 });

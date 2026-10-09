@@ -534,8 +534,6 @@ export default function BibleScreen() {
   const chapterAnnotations = annotations.filter(
     (a) => a.book === bookId && a.chapter === chapterNum,
   );
-  const bookNameLocale = bookLocaleKey(locale);
-  const currentBook = getBook(bookId) ?? books[0];
   const passageTitle = `${currentBook?.name[bookNameLocale] ?? bookId} ${chapterNum}`;
   const prevCursor = useMemo(() => adjacentChapter(bookId, chapterNum, -1), [bookId, chapterNum]);
   const nextCursor = useMemo(() => adjacentChapter(bookId, chapterNum, 1), [bookId, chapterNum]);
