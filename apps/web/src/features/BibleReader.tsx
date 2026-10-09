@@ -10,6 +10,7 @@ import {
   isPartnerId,
   listBooks,
   listDownloadableCorpusCatalog,
+  listStudyMaterials,
   listTranslations,
   type InstalledTranslationSummary,
   type TranslationMeta,
@@ -24,12 +25,26 @@ import {
   type ReaderSkinId,
 } from "../lib/reader-skins";
 import {
+  fontSizePtToRem,
+  fontStackFor,
+  fontsByGroup,
+  loadReaderFontId,
+  loadReaderFontSizePt,
+  READER_FONT_SIZES_PT,
+  saveReaderFontId,
+  saveReaderFontSizePt,
+  type ReaderFontId,
+  type ReaderFontSizePt,
+} from "../lib/reader-fonts";
+import {
   bibleLocalDb,
   densifyChapterVerses,
   ensureBootCorpusSeeded,
   installDownloadedPack,
   readLocalChapter,
 } from "../lib/bible-local-db";
+
+type DockPanel = "note" | "study" | "search" | "speak" | null;
 
 type AnnotationRow = {
   id: string;
@@ -311,11 +326,14 @@ export function BibleReader() {
   const [tidPickerOpen, setTidPickerOpen] = useState(false);
   const [bookId, setBookId] = useState(routeBookId);
   const [chapterNum, setChapterNum] = useState(routeChapter);
-  const [fontSize, setFontSize] = useState(1.34);
+  const [fontSizePt, setFontSizePt] = useState<ReaderFontSizePt>(() => loadReaderFontSizePt());
   const [lineHeight, setLineHeight] = useState(2.18);
-  const [serif, setSerif] = useState(true);
+  const [fontId, setFontId] = useState<ReaderFontId>(() => loadReaderFontId());
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
+  const [dockPanel, setDockPanel] = useState<DockPanel>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [speakNote, setSpeakNote] = useState<string | null>(null);
 
   /** Keep URL in WeDevote shape: /app/bible/{tid}/{book}/{chapter} */
   const goToPassage = useCallback(
@@ -360,17 +378,75 @@ export function BibleReader() {
   );
 
   const TYPO_PRESETS = {
-    compact: { fontSize: 1.1, lineHeight: 1.7, serif: false },
-    comfortable: { fontSize: 1.34, lineHeight: 2.18, serif: true },
-    spacious: { fontSize: 1.48, lineHeight: 2.35, serif: true },
+    compact: { fontSizePt: 12 as ReaderFontSizePt, lineHeight: 1.7, fontId: "heiti" as ReaderFontId },
+    comfortable: { fontSizePt: 16 as ReaderFontSizePt, lineHeight: 2.18, fontId: "songti" as ReaderFontId },
+    spacious: { fontSizePt: 18 as ReaderFontSizePt, lineHeight: 2.35, fontId: "songti" as ReaderFontId },
   } as const;
 
   function applyPreset(id: keyof typeof TYPO_PRESETS) {
     const p = TYPO_PRESETS[id];
     setPreset(id);
-    setFontSize(p.fontSize);
+    setFontSizePt(p.fontSizePt);
+    saveReaderFontSizePt(p.fontSizePt);
     setLineHeight(p.lineHeight);
-    setSerif(p.serif);
+    setFontId(p.fontId);
+    saveReaderFontId(p.fontId);
+  }
+
+  function pickFont(id: ReaderFontId) {
+    setFontId(id);
+    saveReaderFontId(id);
+  }
+
+  function pickFontSize(pt: ReaderFontSizePt) {
+    setFontSizePt(pt);
+    saveReaderFontSizePt(pt);
+  }
+
+  function toggleDock(panel: Exclude<DockPanel, null>) {
+    setDockPanel((cur) => (cur === panel ? null : panel));
+    setHighlightPaletteOpen(false);
+    if (panel === "note" && !selection) setSelection({ start: 1, end: 1 });
+  }
+
+  function stopSpeech() {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakNote(null);
+  }
+
+  function speakText(text: string) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setSpeakNote("unsupported");
+      return;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setSpeakNote("empty");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(trimmed);
+    utter.lang = locale.startsWith("zh") ? "zh-CN" : locale.startsWith("ja") ? "ja-JP" : "en-US";
+    utter.rate = 0.95;
+    utter.onend = () => setSpeakNote(null);
+    utter.onerror = () => setSpeakNote(null);
+    setSpeakNote(null);
+    window.speechSynthesis.speak(utter);
+  }
+
+  function chapterPlainText(): string {
+    if (!chapter || "external" in chapter) return "";
+    return chapter.verses.map((v) => displayVerseText(v.text)).join(" ");
+  }
+
+  function selectionPlainText(): string {
+    if (!chapter || "external" in chapter || !selection) return chapterPlainText();
+    return chapter.verses
+      .filter((v) => v.verse >= selection.start && v.verse <= selection.end)
+      .map((v) => displayVerseText(v.text))
+      .join(" ");
   }
 
   useEffect(() => {
@@ -396,7 +472,6 @@ export function BibleReader() {
   const [pickerChapter, setPickerChapter] = useState(routeChapter);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [highlightPaletteOpen, setHighlightPaletteOpen] = useState(false);
-  const [noteComposeOpen, setNoteComposeOpen] = useState(false);
   const [focusVerse, setFocusVerse] = useState<number | null>(null);
   const [installedByTid, setInstalledByTid] = useState<
     Record<string, InstalledTranslationSummary>
@@ -412,7 +487,25 @@ export function BibleReader() {
     [currentBook?.chapters],
   );
   const corpusCatalog = useMemo(() => listDownloadableCorpusCatalog(), []);
-  const readerFont = serif ? "var(--br-font-reader)" : "var(--br-font-ui)";
+  const fontSize = fontSizePtToRem(fontSizePt);
+  const readerFont = fontStackFor(fontId);
+  const studyLang = bookNameLocale;
+  const studyLinks = useMemo(() => listStudyMaterials({ language: studyLang }), [studyLang]);
+  const chapterNotes = useMemo(
+    () =>
+      decryptedNotes.filter((n) => {
+        const m = n.label.match(/:(\d+)/);
+        if (!m) return true;
+        return true;
+      }),
+    [decryptedNotes],
+  );
+  const searchHits = useMemo(() => {
+    if (!chapter || "external" in chapter) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return chapter.verses.filter((v) => displayVerseText(v.text).toLowerCase().includes(q));
+  }, [chapter, searchQuery]);
 
   const refreshInstalledCorpus = useCallback(async () => {
     try {
@@ -713,7 +806,7 @@ export function BibleReader() {
     dragAnchor.current = verse;
     setSelection({ start: verse, end: verse });
     setHighlightPaletteOpen(false);
-    setNoteComposeOpen(false);
+    setDockPanel(null);
   }
 
   function extendSelection(verse: number) {
@@ -1168,27 +1261,48 @@ export function BibleReader() {
               ))}
             </div>
           </div>
-          <div className="bible-settings-row">
+          <div className="bible-settings-row bible-settings-row--stack">
             <span>{t("reader.fontFamily")}</span>
-            <div className="bible-more-actions">
-              <button type="button" className={`bible-text-btn${serif ? " is-on" : ""}`} onClick={() => setSerif(true)}>
-                {t("reader.serif")}
-              </button>
-              <button type="button" className={`bible-text-btn${!serif ? " is-on" : ""}`} onClick={() => setSerif(false)}>
-                {t("reader.sans")}
-              </button>
-            </div>
+            {(
+              [
+                ["zh", "reader.fontZh"],
+                ["en", "reader.fontEn"],
+                ["ja", "reader.fontJa"],
+              ] as const
+            ).map(([group, labelKey]) => (
+              <div key={group} className="bible-font-group">
+                <span className="bible-font-group-label">{t(labelKey)}</span>
+                <div className="bible-more-actions bible-font-chips" data-testid={`reader-fonts-${group}`}>
+                  {fontsByGroup(group).map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`bible-text-btn bible-font-chip${fontId === f.id ? " is-on" : ""}`}
+                      style={{ fontFamily: f.stack }}
+                      data-testid={`reader-font-${f.id}`}
+                      onClick={() => pickFont(f.id)}
+                    >
+                      {t(f.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
           <div className="bible-settings-row">
             <span>{t("reader.fontSize")}</span>
-            <div className="bible-more-actions">
-              <button type="button" className="bible-text-btn" onClick={() => setFontSize((s) => Math.max(0.9, +(s - 0.08).toFixed(2)))}>
-                A−
-              </button>
-              <span className="bible-hint">{fontSize.toFixed(2)}</span>
-              <button type="button" className="bible-text-btn" onClick={() => setFontSize((s) => Math.min(1.8, +(s + 0.08).toFixed(2)))}>
-                A+
-              </button>
+            <div className="bible-more-actions bible-size-chips" data-testid="reader-font-sizes">
+              {READER_FONT_SIZES_PT.map((pt) => (
+                <button
+                  key={pt}
+                  type="button"
+                  className={`bible-text-btn${fontSizePt === pt ? " is-on" : ""}`}
+                  data-testid={`reader-size-${pt}`}
+                  onClick={() => pickFontSize(pt)}
+                >
+                  {pt}
+                </button>
+              ))}
             </div>
           </div>
           <div className="bible-settings-row">
@@ -1352,24 +1466,47 @@ export function BibleReader() {
       )}
 
       {!selection && (
-        <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.note")}>
+        <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.moreTools")}>
           <button
             type="button"
-            className={`bible-dock-btn${noteComposeOpen ? " is-on" : ""}`}
+            className={`bible-dock-btn${dockPanel === "note" ? " is-on" : ""}`}
             data-testid="reader-dock-note"
-            onClick={() => {
-              setNoteComposeOpen((v) => !v);
-              if (!selection) setSelection({ start: 1, end: 1 });
-              setHighlightPaletteOpen(false);
-            }}
+            onClick={() => toggleDock("note")}
           >
             {t("reader.note")}
+          </button>
+          <span className="bible-dock-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className={`bible-dock-btn${dockPanel === "study" ? " is-on" : ""}`}
+            data-testid="reader-dock-study"
+            onClick={() => toggleDock("study")}
+          >
+            {t("reader.study")}
+          </button>
+          <span className="bible-dock-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
+            data-testid="reader-dock-search"
+            onClick={() => toggleDock("search")}
+          >
+            {t("reader.search")}
+          </button>
+          <span className="bible-dock-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className={`bible-dock-btn${dockPanel === "speak" ? " is-on" : ""}`}
+            data-testid="reader-dock-speak"
+            onClick={() => toggleDock("speak")}
+          >
+            {t("reader.speak")}
           </button>
         </div>
       )}
 
-      {(noteComposeOpen || (selection && noteComposeOpen)) && (
-        <div className="bible-note-compose bible-note-compose--float" data-testid="reader-note-compose">
+      {dockPanel === "note" && (
+        <div className="bible-dock-panel" data-testid="reader-note-compose">
           <h2>
             {t("reader.note")}
             {selectionLabel ? ` · ${selectionLabel}` : ""}
@@ -1384,6 +1521,101 @@ export function BibleReader() {
             {t("reader.saveNote")}
           </button>
           {noteMsg && <p className="bible-hint">{humanizeStatus(t, noteMsg)}</p>}
+        </div>
+      )}
+
+      {dockPanel === "study" && (
+        <div className="bible-dock-panel" data-testid="reader-study-panel">
+          <h2>{t("reader.study")}</h2>
+          <p className="bible-hint">{t("reader.studyHint")}</p>
+          <h3>{t("reader.studyNotes")}</h3>
+          <ul className="bible-dock-list">
+            {chapterNotes.length === 0 && <li className="muted">{t("reader.studyNoNotes")}</li>}
+            {chapterNotes.map((n) => (
+              <li key={n.id}>
+                <strong>{n.label}</strong>
+                <p>{n.text}</p>
+              </li>
+            ))}
+          </ul>
+          <h3>{t("reader.studyLinks")}</h3>
+          <ul className="bible-dock-list">
+            {studyLinks.map((m) => (
+              <li key={m.id}>
+                <a href={m.url} target="_blank" rel="noreferrer">
+                  {m.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {dockPanel === "search" && (
+        <div className="bible-dock-panel" data-testid="reader-search-panel">
+          <h2>{t("reader.search")}</h2>
+          <p className="bible-hint">{t("reader.searchHint")}</p>
+          <div className="field">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("reader.searchPlaceholder")}
+              data-testid="reader-search-input"
+              autoFocus
+            />
+          </div>
+          <ul className="bible-dock-list">
+            {searchQuery.trim() && searchHits.length === 0 && (
+              <li className="muted">{t("reader.searchEmpty")}</li>
+            )}
+            {searchHits.map((v) => (
+              <li key={v.verse}>
+                <button
+                  type="button"
+                  className="linkish"
+                  onClick={() => {
+                    setFocusVerse(v.verse);
+                    setSelection({ start: v.verse, end: v.verse });
+                    setDockPanel(null);
+                  }}
+                >
+                  <strong>
+                    {passageTitle}:{v.verse}
+                  </strong>
+                  <span className="muted"> {displayVerseText(v.text)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {dockPanel === "speak" && (
+        <div className="bible-dock-panel" data-testid="reader-speak-panel">
+          <h2>{t("reader.speak")}</h2>
+          <div className="toolbar">
+            <button
+              type="button"
+              className="btn"
+              data-testid="reader-speak-chapter"
+              onClick={() => speakText(chapterPlainText())}
+            >
+              {t("reader.speakChapter")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="reader-speak-selection"
+              onClick={() => speakText(selectionPlainText())}
+            >
+              {t("reader.speakSelection")}
+            </button>
+            <button type="button" className="btn ghost" data-testid="reader-speak-stop" onClick={stopSpeech}>
+              {t("reader.speakStop")}
+            </button>
+          </div>
+          {speakNote === "unsupported" && <p className="bible-hint">{t("reader.speakUnsupported")}</p>}
+          {speakNote === "empty" && <p className="bible-hint">{t("reader.speakEmpty")}</p>}
         </div>
       )}
 

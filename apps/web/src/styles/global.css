@@ -1042,10 +1042,90 @@ body:has(.bible-reader) .tab-bar a.active::after {
   box-shadow: var(--lh-glass-shadow);
 }
 
-.bible-note-compose--float {
+.bible-note-compose--float,
+.bible-dock-panel {
   margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--br-line);
+  padding: 0.95rem 1rem 1.05rem;
+  border: 1px solid var(--lh-glass-border);
+  border-radius: 16px;
+  background: var(--lh-glass-strong);
+  backdrop-filter: var(--lh-glass-blur);
+  -webkit-backdrop-filter: var(--lh-glass-blur);
+  box-shadow: var(--lh-glass-shadow);
+  animation: bible-controls-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bible-dock-panel h2 {
+  margin: 0 0 0.45rem;
+  font-family: var(--br-font-reader);
+  font-size: 1.05rem;
+}
+
+.bible-dock-panel h3 {
+  margin: 0.85rem 0 0.4rem;
+  font-size: 0.9rem;
+  font-family: var(--br-font-reader);
+}
+
+.bible-dock-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.bible-dock-list li {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--br-line);
+}
+
+.bible-dock-list li:last-child {
+  border-bottom: 0;
+}
+
+.bible-font-group {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.bible-font-group-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--br-muted);
+}
+
+.bible-font-chips,
+.bible-size-chips {
+  flex-wrap: wrap;
+  gap: 0.4rem 0.55rem !important;
+}
+
+.bible-font-chip {
+  padding: 0.35rem 0.55rem !important;
+  border: 1px solid var(--lh-glass-border) !important;
+  border-radius: 10px !important;
+  background: var(--lh-glass) !important;
+  border-bottom-color: var(--lh-glass-border) !important;
+}
+
+.bible-font-chip.is-on,
+.bible-size-chips .bible-text-btn.is-on {
+  border-color: color-mix(in srgb, var(--br-accent) 45%, transparent) !important;
+  background: var(--br-accent-soft) !important;
+  color: var(--br-accent) !important;
+}
+
+.bible-size-chips .bible-text-btn {
+  min-width: 2.1rem;
+  text-align: center;
+  padding: 0.3rem 0.45rem !important;
+  border: 1px solid var(--lh-glass-border) !important;
+  border-radius: 8px !important;
+  background: var(--lh-glass) !important;
+  border-bottom-color: var(--lh-glass-border) !important;
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes bible-controls-in {
