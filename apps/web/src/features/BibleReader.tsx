@@ -890,7 +890,8 @@ export function BibleReader() {
     dragAnchor.current = verse;
     setSelection({ start: verse, end: verse });
     setHighlightPaletteOpen(false);
-    setDockPanel(null);
+    // Keep 研读/搜索/朗读 open so verse picks refresh study tools; close only chrome overlays.
+    setDockPanel((cur) => (cur === "note" ? null : cur));
   }
 
   function extendSelection(verse: number) {
@@ -1497,7 +1498,7 @@ export function BibleReader() {
 
       {renderChapterNav("reader-bottom", "bottom")}
 
-      {selection && (
+      {selection && dockPanel !== "study" && dockPanel !== "search" && dockPanel !== "speak" && (
         <div className="bible-selection-bar" data-testid="reader-selection-bar" role="toolbar">
           <span className="bible-hint">{selectionLabel}</span>
           {selectionAlreadyHighlighted ? (
@@ -1549,8 +1550,7 @@ export function BibleReader() {
         </div>
       )}
 
-      {!selection && (
-        <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.moreTools")}>
+      <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.moreTools")}>
           <button
             type="button"
             className={`bible-dock-btn${dockPanel === "note" ? " is-on" : ""}`}
@@ -1587,7 +1587,6 @@ export function BibleReader() {
             {t("reader.speak")}
           </button>
         </div>
-      )}
 
       {dockPanel === "note" && (
         <div className="bible-dock-panel" data-testid="reader-note-compose">

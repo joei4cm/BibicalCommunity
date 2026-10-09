@@ -188,10 +188,17 @@ export function crossRefsForVerse(chapter: CommentaryChapter, verse: number): Cr
   const seen = new Set<string>();
 
   for (const entry of entries) {
-    const theme = entry.text.split("\n")[0]?.replace(/\.$/, "").trim();
+    const themeLine = entry.text.split("\n")[0]?.replace(/\.$/, "").trim();
+    const theme =
+      themeLine && themeLine.length < 80 && !/^\d+\s/.test(themeLine) ? themeLine : undefined;
     if (entry.references?.length) {
+      let themeUsed = false;
       for (const r of entry.references) {
         const bookId = r.book ? bookIdFromNumber(r.book) : undefined;
+        // Skip self-reference to the current verse.
+        if (r.book === chapter.book && r.chapter === chapter.chapter && r.verse === verse) {
+          continue;
+        }
         const key = r.osis ?? r.ref;
         if (!key || seen.has(key)) continue;
         seen.add(key);
@@ -201,16 +208,10 @@ export function crossRefsForVerse(chapter: CommentaryChapter, verse: number): Cr
           bookId,
           chapter: r.chapter,
           verse: r.verse,
-          theme: theme && theme.length < 80 ? theme : undefined,
+          theme: !themeUsed ? theme : undefined,
         });
+        themeUsed = true;
       }
-      continue;
-    }
-    // Parse bare TSK text lines when structured refs are missing.
-    for (const line of entry.text.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (!/[;,]|\d/.test(trimmed) || trimmed.length > 200) continue;
     }
   }
   return out;
