@@ -22,9 +22,10 @@ All three boot tids must include:
 
 ## Downloadable peers
 
-| tid | Teaching-set fixtures |
-|-----|----------------------|
-| `kjv`, `asv`, `cuvt`, `kougo`, `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Same 7-ref teaching set |
+| tid | Fixtures |
+|-----|----------|
+| `web`, `kjv`, `asv` | **PD dense key chapters** in-repo (26 refs via `fetch-pd-corpus-fixtures.mjs`). **Full Protestant canon** is seeded to R2 only (`seed-r2-pd-full.mjs`) — not committed to git. |
+| `cuvt`, `kougo`, `rcuv`, `ccb`, `lzz`, `shinkaiyaku` | Same 7-ref teaching set (licensed samples; full text via R2 entitlement) |
 
 ## Chapter JSON shape
 

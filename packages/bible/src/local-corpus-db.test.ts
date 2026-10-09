@@ -5,9 +5,11 @@ import {
   BOOT_TEACHING_CHAPTER_REFS,
   LocalCorpusDb,
   MemoryLocalCorpusStore,
+  PD_DENSE_CHAPTER_REFS,
   buildDemoDownloadPack,
   buildDownloadPackPayloadJson,
   listDownloadableCorpusCatalog,
+  listProtestantChapterRefs,
   parseDownloadPackPayload,
   probeLocalCorpusPipeline,
 } from "./local-corpus-db.js";
@@ -20,9 +22,16 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
     boot.map((b) => b.translationId).sort(),
     [...BOOT_DEFAULT_TRANSLATION_IDS].sort(),
   );
+  const cuvs = boot.find((b) => b.translationId === "cuvs");
+  const shin = boot.find((b) => b.translationId === "shinKyoudou");
+  const web = boot.find((b) => b.translationId === "web");
+  assert.ok(cuvs && shin && web);
   for (const b of boot) {
     assert.deepEqual(b.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], b.translationId);
   }
+  assert.equal(web.fullPackAvailable, true);
+  assert.ok((web.fullPackChapterCount ?? 0) >= 1100);
+  assert.equal(cuvs.fullPackAvailable, undefined);
   const esv = catalog.find((p) => p.translationId === "esv");
   assert.ok(esv);
   assert.equal(esv.installMode, "external");
@@ -30,10 +39,19 @@ test("boot catalog is slim: cuvs + web + shinKyoudou; ESV is external", () => {
   assert.ok(downloadable.length >= 5);
   assert.ok(downloadable.some((p) => p.translationId === "cuvt"));
   assert.ok(downloadable.some((p) => p.translationId === "kougo"));
-  for (const tid of ["kjv", "asv", "cuvt", "kougo", "rcuv", "ccb", "lzz", "shinkaiyaku"]) {
+  for (const tid of ["cuvt", "kougo", "rcuv", "ccb", "lzz", "shinkaiyaku"]) {
     const row = downloadable.find((p) => p.translationId === tid);
     assert.ok(row, tid);
     assert.deepEqual(row.chapterRefs, [...BOOT_TEACHING_CHAPTER_REFS], tid);
+  }
+  const fullRefs = listProtestantChapterRefs();
+  assert.ok(fullRefs.length >= 1100);
+  for (const tid of ["kjv", "asv"]) {
+    const row = downloadable.find((p) => p.translationId === tid);
+    assert.ok(row, tid);
+    assert.deepEqual(row.chapterRefs, [...PD_DENSE_CHAPTER_REFS], tid);
+    assert.equal(row.fullPackAvailable, true);
+    assert.equal(row.fullPackChapterCount, fullRefs.length);
   }
 });
 

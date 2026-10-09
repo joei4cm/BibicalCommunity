@@ -56,6 +56,26 @@ for (const tid of ["kjv", "asv", "cuvt", "kougo", "rcuv", "ccb", "lzz", "shinkai
 }
 console.log("CORPUS_BOOT_TEACHING_PARITY_OK");
 
+// Public-domain denser packs (full chapter verse text via fetch-pd-corpus-fixtures.mjs)
+const pdDense = [
+  "Gen.1.json", "Exod.20.json", "Ps.1.json", "Ps.23.json", "Prov.3.json", "Isa.53.json",
+  "Matt.5.json", "Matt.6.json", "Matt.28.json", "Mark.1.json", "Luke.2.json",
+  "John.1.json", "John.3.json", "John.14.json", "John.15.json", "Acts.2.json",
+  "Rom.8.json", "Rom.12.json", "1Cor.13.json", "Eph.2.json", "Phil.4.json", "Col.3.json",
+  "Heb.11.json", "Jas.1.json", "1John.4.json", "Rev.21.json",
+];
+for (const tid of ["web", "kjv", "asv"]) {
+  const files = readdirSync(join(FIX, tid)).filter((f) => f.endsWith(".json"));
+  for (const need of pdDense) {
+    if (!files.includes(need)) throw new Error("PD dense fixture missing " + tid + "/" + need);
+  }
+  const john1 = JSON.parse(readFileSync(join(FIX, tid, "John.1.json"), "utf8"));
+  if (!Array.isArray(john1.verses) || john1.verses.length < 40) {
+    throw new Error("PD dense " + tid + "/John.1 expected full chapter verses, got " + (john1.verses?.length ?? 0));
+  }
+}
+console.log("CORPUS_PD_DENSE_FIXTURES_OK tids=web,kjv,asv refs=" + pdDense.length);
+
 const probe = await probeCorpusJsonImport(byTid);
 if (!probe.ok) throw new Error("probeCorpusJsonImport failed " + JSON.stringify(probe));
 

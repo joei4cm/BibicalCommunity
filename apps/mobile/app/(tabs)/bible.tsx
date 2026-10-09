@@ -217,10 +217,11 @@ export default function BibleScreen() {
     if (!apiBase) return;
     void ensureBootCorpusSeeded(async (tid) => {
       try {
+        // Boot must stay slim (teaching-set), even when R2 holds full PD WEB.
         const pack = await api<{
           chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
           source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}`);
+        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=boot`);
         return { chapters: pack.chapters, source: pack.source };
       } catch {
         return null;
@@ -464,19 +465,44 @@ export default function BibleScreen() {
     setDownloadingTid(targetTid);
     setAnnMsg(null);
     try {
-      const pack = await api<{
-        chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
-        source?: string;
-      }>(`/v1/bible/corpus-download/${encodeURIComponent(targetTid)}`);
-      if (!pack.chapters?.length) {
-        setAnnMsg("corpus_download_empty");
-        return;
+      let after: string | null = null;
+      let installedTotal = 0;
+      let pages = 0;
+      let done = false;
+      while (!done) {
+        const qs: string =
+          "scope=full&limit=100" + (after ? `&after=${encodeURIComponent(after)}` : "");
+        type PackPage = {
+          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+          source?: string;
+          done?: boolean;
+          nextAfter?: string | null;
+          totalChapterKeys?: number;
+        };
+        const pack: PackPage = await api<PackPage>(
+          `/v1/bible/corpus-download/${encodeURIComponent(targetTid)}?${qs}`,
+        );
+        if (!pack.chapters?.length && pages === 0) {
+          setAnnMsg("corpus_download_empty");
+          return;
+        }
+        if (pack.chapters?.length) {
+          const { installed } = await installDownloadedPack(targetTid, pack.chapters);
+          installedTotal += installed;
+        }
+        pages += 1;
+        setAnnMsg(
+          `corpus_installed:${installedTotal}${pack.totalChapterKeys ? `/${pack.totalChapterKeys}` : ""}`,
+        );
+        if (pack.done !== false || !pack.nextAfter) {
+          done = true;
+        } else {
+          after = pack.nextAfter;
+        }
       }
-      const { installed } = await installDownloadedPack(targetTid, pack.chapters);
-      setAnnMsg(`corpus_installed:${installed}`);
       await refreshInstalledCorpus();
       if (targetTid === translationId) {
-        setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installed}`);
+        setCorpusHint(`${t(locale, "reader.corpusLocalDb")} · ${installedTotal}`);
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local) {
           setExternal(null);
@@ -571,6 +597,9 @@ export default function BibleScreen() {
                       : pack.installMode !== "external"
                         ? ` · ${pack.chapterRefs.length} ${t(locale, "reader.corpusCatalogChapters")}`
                         : ""}
+                    {pack.fullPackAvailable && pack.fullPackChapterCount
+                      ? ` · ${t(locale, "reader.corpusCatalogFullPack")} ${pack.fullPackChapterCount}`
+                      : ""}
                   </Text>
                 </View>
                 <View style={styles.catalogActions}>
@@ -584,7 +613,9 @@ export default function BibleScreen() {
                       <Text style={styles.btnGhostText}>
                         {busy
                           ? t(locale, "reader.corpusCatalogDownloading")
-                          : t(locale, "reader.corpusDownload")}
+                          : pack.fullPackAvailable
+                            ? t(locale, "reader.corpusDownloadFull")
+                            : t(locale, "reader.corpusDownload")}
                       </Text>
                     </Pressable>
                   ) : null}
