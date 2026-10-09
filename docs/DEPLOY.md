@@ -138,6 +138,22 @@ LIVE_R2=1 LIVE_API_BASE=https://api.example.com LIVE_R2_SKIP_DEPLOY=1 bash scrip
 #   node scripts/seed-r2-pd-full.mjs https://api.example.com "$TOKEN" web
 ```
 
+**Cursor Cloud / CI secrets required for `CORPUS_LIVE_R2_OK` (production account — not wrangler `--temporary`):**
+
+| Secret | Purpose |
+|--------|---------|
+| `CLOUDFLARE_API_TOKEN` | Workers + D1 + R2 edit (R2 write required) |
+| `CLOUDFLARE_ACCOUNT_ID` | Account id pasted into `wrangler.production.toml` |
+
+Also replace `YOUR_CLOUDFLARE_ACCOUNT_ID` / `YOUR_D1_DATABASE_ID` in `apps/api/wrangler.production.toml`, create the R2 bucket `logoshome-media`, then re-run `bash scripts/live-r2-bootstrap.sh`. Temporary/preview accounts cannot create R2 buckets (API auth 10000).
+
+**Live-shaped partner IdP (authorize URL hosts, no mock):**
+
+```bash
+bash scripts/run-live-idp-probe.sh
+# Expect: PARTNER_LIVE_IDP_OK (+ PARTNER_LIVE_TOKEN_EXCHANGE_OPEN until real client secrets exist)
+```
+
 See also `apps/api/scripts/seed-r2-sample.md` for the MEDIA object key format. Licensed full corpora require entitlement grants and publisher contracts — samples are demos only.
 
 ## 7. Deploy web (Cloudflare Pages)
