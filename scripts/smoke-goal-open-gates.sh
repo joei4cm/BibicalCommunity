@@ -27,3 +27,16 @@ grep -q 'DEVICE_HANDSET_E2E_OPEN' /tmp/goal-open-device.log && OPEN=$((OPEN + 1)
 grep -q 'LIBSIGNAL_WORKERS_OPEN' /tmp/goal-open-libsignal.log && OPEN=$((OPEN + 1)) || true
 
 echo "GOAL_OPEN_GATES_OK remaining=$OPEN need=CF_R2_token,partner_live_IdP,physical_handset,official_workers_libsignal_wasm"
+echo "INFO: close checklist → docs/goal-open-blockers.md"
+if grep -q 'CORPUS_LIVE_R2_OPEN' /tmp/goal-open-r2.log; then
+  echo "NEXT: CORPUS_LIVE_R2 — set CLOUDFLARE_API_TOKEN+CLOUDFLARE_ACCOUNT_ID, fill wrangler.production.toml, bash scripts/live-r2-bootstrap.sh"
+fi
+if grep -q 'PARTNER_LIVE_IDP_OPEN' /tmp/goal-open-idp.log; then
+  echo "NEXT: PARTNER_LIVE_IDP — wire real Endao/WeRead OAuth hosts, PARTNER_LIVE_IDP=1 bash scripts/smoke-partner-live-idp.sh <LIVE_API>"
+fi
+if grep -q 'DEVICE_HANDSET_E2E_OPEN' /tmp/goal-open-device.log; then
+  echo "NEXT: DEVICE_HANDSET_E2E — attach physical handset (shaped Playwright already PASS)"
+fi
+if grep -q 'LIBSIGNAL_WORKERS_OPEN' /tmp/goal-open-libsignal.log; then
+  echo "NEXT: LIBSIGNAL_WORKERS — blocked upstream (no official Signal WASM/Workers build); product fallback=x25519"
+fi
