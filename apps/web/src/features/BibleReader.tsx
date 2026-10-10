@@ -1103,9 +1103,16 @@ export function BibleReader() {
     if (focusVerse == null) return;
     // Wait until chapter prose is mounted so ?verse= survives the load race.
     if (!chapter || "external" in chapter || !("verses" in chapter)) return;
-    const el = document.querySelector(`[data-testid="reader-prose"] [data-verse="${focusVerse}"]`);
-    if (el instanceof HTMLElement) {
-      el.scrollIntoView({ behavior: "smooth", block: focusVerse === 1 ? "start" : "center" });
+    const prose = document.querySelector('[data-testid="reader-prose"]');
+    const el = prose?.querySelector(`[data-verse="${focusVerse}"]`);
+    if (focusVerse === 1 && prose instanceof HTMLElement) {
+      // Keep chapter lead + section heading in view (verse start would clip them).
+      prose.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (el instanceof HTMLElement) {
+      const block = el.closest(".verse-block");
+      const heading = block?.querySelector(".verse-section-heading");
+      const target = heading instanceof HTMLElement ? heading : el;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     // Scroll only — do not auto-open selection/highlight chrome on chapter jumps.
     setFocusVerse(null);
