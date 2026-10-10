@@ -1329,7 +1329,7 @@ export function BibleReader() {
       .map((lang) => ({
         lang,
         label: labels[lang],
-        items: translations.filter((tr) => tr.language === lang || (lang === "zh" && tr.language === "zh")),
+        items: translations.filter((tr) => tr.language === lang),
       }))
       .filter((g) => g.items.length > 0);
   }, [translations, t]);
