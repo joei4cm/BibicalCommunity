@@ -12,8 +12,11 @@ test("John.1 has ordered section titles", () => {
   }
 });
 
-test("unknown chapters return empty", () => {
-  assert.deepEqual(sectionHeadingsFor("Obad", 1), []);
+test("chapters without curated titles get a soft chapter heading", () => {
+  const rows = sectionHeadingsFor("Obad", 1);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.verse, 1);
+  assert.ok(rows[0]!.title.zh.includes("俄巴底亚"));
 });
 
 test("gospel openers include section titles", () => {
@@ -21,4 +24,5 @@ test("gospel openers include section titles", () => {
   assert.ok(sectionHeadingsFor("Mark", 1).length >= 2);
   assert.ok(sectionHeadingsFor("Luke", 2).length >= 2);
   assert.ok(sectionHeadingsFor("Acts", 2).length >= 2);
+  assert.ok(sectionHeadingsFor("John", 8).length >= 1);
 });

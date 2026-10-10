@@ -257,11 +257,16 @@ function translationAllowed(t: TranslationMeta): boolean {
 export function listTranslations(filter?: {
   language?: TranslationLanguage;
   availableOnly?: boolean;
+  /** Exclude external deep-link / SSO stubs (picker shows only downloadable packs). */
+  offlineCapableOnly?: boolean;
 }): TranslationMeta[] {
   return TRANSLATION_REGISTRY.filter((t) => {
     if (!translationAllowed(t)) return false;
     if (filter?.language && t.language !== filter.language) return false;
     if (filter?.availableOnly && !t.available) return false;
+    if (filter?.offlineCapableOnly) {
+      if (t.license === "external" || t.provider === "external") return false;
+    }
     return true;
   });
 }

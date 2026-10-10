@@ -36,13 +36,14 @@ import {
   type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
-import { api, getToken } from "../lib/api";
+import { API_BASE, api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { decryptJson, encryptJson } from "../lib/note-crypto";
 import {
   applyReaderSkin,
+  appThemeAllowsReaderSkins,
   loadReaderSkin,
-  READER_SKIN_IDS,
+  READER_SKIN_DAY_IDS,
   type ReaderSkinId,
 } from "../lib/reader-skins";
 import {
@@ -65,7 +66,7 @@ import {
   readLocalChapter,
 } from "../lib/bible-local-db";
 
-type DockPanel = "note" | "study" | "search" | "speak" | null;
+type DockPanel = "note" | "study" | "search" | "speak" | "settings" | null;
 type StudyTab = "commentary" | "dict" | "crossrefs";
 
 type AnnotationRow = {
@@ -395,7 +396,10 @@ export function BibleReader() {
   const params = useParams<{ tid?: string; bookSlug?: string; chapter?: string }>();
   const [searchParams] = useSearchParams();
   const books = useMemo(() => listBooks(), []);
-  const routeTid = params.tid && listTranslations().some((tr) => tr.id === params.tid) ? params.tid : "cuvs";
+  const routeTid =
+    params.tid && listTranslations({ offlineCapableOnly: true }).some((tr) => tr.id === params.tid)
+      ? params.tid
+      : "cuvs";
   const routeBookId = bookIdFromSlug(params.bookSlug ?? "john") ?? "John";
   const routeChapter = Math.max(1, Number(params.chapter ?? "1") || 1);
   const routeVerse = (() => {
@@ -416,7 +420,18 @@ export function BibleReader() {
   const [fontId, setFontId] = useState<ReaderFontId>(() => loadReaderFontId());
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
+  const [appTheme, setAppTheme] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("lh.theme") ?? "day" : "day",
+  );
+  const skinsEnabled = appThemeAllowsReaderSkins(appTheme);
   const [dockPanel, setDockPanel] = useState<DockPanel>(null);
+  const [dockCollapsed, setDockCollapsed] = useState(() => {
+    if (typeof localStorage === "undefined") return false;
+    return localStorage.getItem("lh.readerDockCollapsed") === "1";
+  });
+  const [chapterBookmarkId, setChapterBookmarkId] = useState<string | null>(null);
+  const [panshiError, setPanshiError] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [speakNote, setSpeakNote] = useState<string | null>(null);
   const [studyTab, setStudyTab] = useState<StudyTab>("commentary");
@@ -443,6 +458,11 @@ export function BibleReader() {
       setSecondChapter(null);
       setSelection(null);
       setHighlightPaletteOpen(false);
+      setChapterBookmarkId(null);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute("src");
+      }
       navigate(path, { replace });
       setTranslationId(tid);
       setBookId(nextBookId);
@@ -552,8 +572,33 @@ export function BibleReader() {
   }
 
   useEffect(() => {
-    applyReaderSkin(readerSkin);
-  }, [readerSkin]);
+    const onStorage = () => setAppTheme(localStorage.getItem("lh.theme") ?? "day");
+    window.addEventListener("storage", onStorage);
+    const tick = window.setInterval(() => {
+      const next = localStorage.getItem("lh.theme") ?? "day";
+      setAppTheme((cur) => (cur === next ? cur : next));
+    }, 1200);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.clearInterval(tick);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!skinsEnabled) {
+      // Night / high-contrast: app theme owns the look; clear parchment/paper/ink.
+      applyReaderSkin("default");
+      if (typeof document !== "undefined") {
+        delete document.documentElement.dataset.readerSkin;
+      }
+      return;
+    }
+    applyReaderSkin(readerSkin === "ink" ? "default" : readerSkin);
+  }, [readerSkin, skinsEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("lh.readerDockCollapsed", dockCollapsed ? "1" : "0");
+  }, [dockCollapsed]);
   const [noteText, setNoteText] = useState("");
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
@@ -584,7 +629,7 @@ export function BibleReader() {
     Record<string, InstalledTranslationSummary>
   >({});
   const [downloadingTid, setDownloadingTid] = useState<string | null>(null);
-  const translations = listTranslations();
+  const translations = listTranslations({ offlineCapableOnly: true });
   const locale = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
   const bookNameLocale = bookLocaleKey(i18n.language || "zh-CN");
   const currentBook = getBook(bookId) ?? books[0];
@@ -912,6 +957,7 @@ export function BibleReader() {
       const highlights: Record<number, string> = {};
       const highlightIds: Record<number, string> = {};
       const marks: { id: string; label: string }[] = [];
+      let chapterBm: string | null = null;
       const colorMap: Record<string, string> = {
         amber: "#f5d76e",
         mint: "#a8e6cf",
@@ -948,12 +994,16 @@ export function BibleReader() {
             id: row.id,
             label: `${row.book} ${row.chapter}:${row.verseStart ?? 1}`,
           });
+          if (sameChapter && !chapterBm) {
+            chapterBm = row.id;
+          }
         }
       }
       setDecryptedNotes(notes);
       setHighlightByVerse(highlights);
       setHighlightIdByVerse(highlightIds);
       setBookmarks(marks);
+      setChapterBookmarkId(chapterBm);
     } catch {
       /* listing is optional when offline / unauthenticated */
     }
@@ -1149,6 +1199,51 @@ export function BibleReader() {
     });
     setNoteMsg("bookmark_ok");
     await refreshNotes();
+  }
+
+  async function removeBookmark(id: string) {
+    if (!getToken()) return;
+    try {
+      await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch {
+      /* ignore */
+    }
+    setChapterBookmarkId(null);
+    await refreshNotes();
+  }
+
+  async function toggleChapterBookmark() {
+    if (chapterBookmarkId) {
+      await removeBookmark(chapterBookmarkId);
+      return;
+    }
+    await addBookmark(selection?.start ?? 1);
+  }
+
+  function panshiAudioSrc(): string {
+    return `${API_BASE}/v1/bible/audio/panshi?book=${encodeURIComponent(bookId)}&chapter=${chapterNum}`;
+  }
+
+  function playPanshiChapter() {
+    setPanshiError(false);
+    stopSpeech();
+    const el = audioRef.current;
+    if (!el) {
+      setPanshiError(true);
+      return;
+    }
+    el.src = panshiAudioSrc();
+    void el.play().catch(() => setPanshiError(true));
+  }
+
+  function stopPanshi() {
+    const el = audioRef.current;
+    if (el) {
+      el.pause();
+      el.removeAttribute("src");
+      el.load();
+    }
+    setPanshiError(false);
   }
 
   async function addHighlight(color: string) {
@@ -1419,37 +1514,6 @@ export function BibleReader() {
               ▾
             </span>
           </button>
-          <button
-            type="button"
-            className={`bible-gear-btn${layoutOpen ? " is-on" : ""}`}
-            data-testid="reader-layout-btn"
-            aria-label={t("reader.settings")}
-            aria-expanded={layoutOpen}
-            onClick={() => {
-              setLayoutOpen((v) => !v);
-              setPassagePickerOpen(false);
-              setTidPickerOpen(false);
-              setSettingsOpen(false);
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm9.4 3.1-1.1-.6c.1-.3.1-.7.1-1s0-.7-.1-1l1.1-.6a1 1 0 0 0 .4-1.3l-1-1.7a1 1 0 0 0-1.3-.4l-1.1.6a7.2 7.2 0 0 0-1.7-1l-.2-1.2A1 1 0 0 0 15.4 2h-2.8a1 1 0 0 0-1 .9l-.2 1.2c-.6.2-1.2.6-1.7 1l-1.1-.6a1 1 0 0 0-1.3.4l-1 1.7a1 1 0 0 0 .4 1.3l1.1.6c-.1.3-.1.7-.1 1s0 .7.1 1l-1.1.6a1 1 0 0 0-.4 1.3l1 1.7a1 1 0 0 0 1.3.4l1.1-.6c.5.4 1.1.7 1.7 1l.2 1.2a1 1 0 0 0 1 .9h2.8a1 1 0 0 0 1-.9l.2-1.2c.6-.2 1.2-.6 1.7-1l1.1.6a1 1 0 0 0 1.3-.4l1-1.7a1 1 0 0 0-.4-1.3Z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="bible-gear-btn"
-            data-testid="reader-top-bookmark"
-            aria-label={t("reader.bookmark")}
-            onClick={() => void addBookmark(selection?.start ?? 1)}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="currentColor" d="M6 2h12a1 1 0 0 1 1 1v19l-7-4-7 4V3a1 1 0 0 1 1-1Z" />
-            </svg>
-          </button>
         </div>
       </header>
 
@@ -1621,8 +1685,15 @@ export function BibleReader() {
         </div>
       )}
 
-      {layoutOpen && (
-        <div className="bible-modal-backdrop" role="presentation" onClick={() => setLayoutOpen(false)}>
+      {(layoutOpen || dockPanel === "settings") && (
+        <div
+          className="bible-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            setLayoutOpen(false);
+            if (dockPanel === "settings") setDockPanel(null);
+          }}
+        >
         <div
           className="bible-settings-sheet bible-modal-sheet"
           data-testid="reader-layout-sheet"
@@ -1633,18 +1704,24 @@ export function BibleReader() {
         >
           <div className="bible-settings-row">
             <span>{t("reader.colorTheme")}</span>
-            <div className="bible-more-actions" data-testid="reader-skin">
-              {READER_SKIN_IDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`bible-text-btn${readerSkin === id ? " is-on" : ""}`}
-                  onClick={() => setReaderSkin(id)}
-                >
-                  {t(`reader.skin.${id}`)}
-                </button>
-              ))}
-            </div>
+            {skinsEnabled ? (
+              <div className="bible-more-actions" data-testid="reader-skin">
+                {READER_SKIN_DAY_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`bible-text-btn${readerSkin === id ? " is-on" : ""}`}
+                    onClick={() => setReaderSkin(id)}
+                  >
+                    {t(`reader.skin.${id}`)}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="bible-hint" data-testid="reader-skin-day-only">
+                {t("reader.skinDayOnly")}
+              </p>
+            )}
           </div>
           <div className="bible-settings-row bible-settings-row--stack">
             <span>{t("reader.fontFamily")}</span>
@@ -1799,104 +1876,160 @@ export function BibleReader() {
 
       {renderChapterNav("reader-bottom", "bottom")}
 
-      {selection && !dockPanel && (
-        <div className="bible-selection-bar" data-testid="reader-selection-bar" role="toolbar">
-          <span className="bible-hint">{selectionLabel}</span>
-          {selectionAlreadyHighlighted ? (
+      <div
+        className={`bible-reading-dock${dockCollapsed ? " is-collapsed" : ""}`}
+        data-testid="reader-dock"
+        role="toolbar"
+        aria-label={t("reader.moreTools")}
+      >
+        {dockCollapsed ? (
+          <button
+            type="button"
+            className="bible-dock-btn bible-dock-btn--expand"
+            data-testid="reader-dock-expand"
+            aria-label={t("reader.dockExpand")}
+            onClick={() => setDockCollapsed(false)}
+          >
+            ▴
+          </button>
+        ) : (
+          <>
             <button
               type="button"
-              className="bible-dock-btn bible-dock-btn--danger"
-              data-testid="reader-unhighlight"
+              className={`bible-dock-btn${dockPanel === "note" ? " is-on" : ""}`}
+              data-testid="reader-dock-note"
+              onClick={() => toggleDock("note")}
+            >
+              {t("reader.note")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`bible-dock-btn${dockPanel === "study" ? " is-on" : ""}`}
+              data-testid="reader-dock-study"
+              onClick={() => toggleDock("study")}
+            >
+              {t("reader.study")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
+              data-testid="reader-dock-search"
+              onClick={() => toggleDock("search")}
+            >
+              {t("reader.search")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`bible-dock-btn${dockPanel === "speak" ? " is-on" : ""}`}
+              data-testid="reader-dock-speak"
+              onClick={() => toggleDock("speak")}
+            >
+              {t("reader.speak")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`bible-dock-btn${highlightPaletteOpen || Boolean(selection) ? " is-on" : ""}`}
+              data-testid="reader-highlight-toggle"
               onClick={() => {
-                if (selection) {
-                  for (let v = selection.start; v <= selection.end; v += 1) {
-                    void removeHighlightAt(v);
-                  }
-                  setSelection(null);
-                }
+                setHighlightPaletteOpen((v) => !v);
+                setDockPanel(null);
               }}
             >
-              {t("reader.clearHighlight")}
+              {t("reader.highlight")}
             </button>
-          ) : (
-            <>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`bible-dock-btn${dockPanel === "settings" || layoutOpen ? " is-on" : ""}`}
+              data-testid="reader-layout-btn"
+              onClick={() => {
+                setLayoutOpen(false);
+                toggleDock("settings");
+              }}
+            >
+              {t("reader.settings")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`bible-dock-btn${chapterBookmarkId ? " is-on" : ""}`}
+              data-testid="reader-top-bookmark"
+              aria-label={chapterBookmarkId ? t("reader.bookmarkOn") : t("reader.bookmarkOff")}
+              aria-pressed={Boolean(chapterBookmarkId)}
+              onClick={() => void toggleChapterBookmark()}
+            >
+              {t("reader.bookmark")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className="bible-dock-btn"
+              data-testid="reader-dock-collapse"
+              aria-label={t("reader.dockCollapse")}
+              onClick={() => {
+                setDockCollapsed(true);
+                setHighlightPaletteOpen(false);
+              }}
+            >
+              ▾
+            </button>
+          </>
+        )}
+        {!dockCollapsed && highlightPaletteOpen && (
+          <div className="bible-dock-highlight-tray" data-testid="reader-selection-bar">
+            {selection && <span className="bible-hint">{selectionLabel}</span>}
+            {selectionAlreadyHighlighted ? (
               <button
                 type="button"
-                className={`bible-dock-btn${highlightPaletteOpen ? " is-on" : ""}`}
-                data-testid="reader-highlight-toggle"
-                onClick={() => setHighlightPaletteOpen((v) => !v)}
+                className="bible-dock-btn bible-dock-btn--danger"
+                data-testid="reader-unhighlight"
+                onClick={() => {
+                  if (selection) {
+                    for (let v = selection.start; v <= selection.end; v += 1) {
+                      void removeHighlightAt(v);
+                    }
+                    setSelection(null);
+                    setHighlightPaletteOpen(false);
+                  }
+                }}
               >
-                {t("reader.highlight")}
+                {t("reader.clearHighlight")}
               </button>
-              {highlightPaletteOpen && (
-                <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
-                  {HIGHLIGHT_COLORS.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="bible-swatch"
-                      style={{ background: c.value }}
-                      aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
-                      data-testid={`reader-highlight-${c.id}`}
-                      onClick={() => void addHighlight(c.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-          <button
-            type="button"
-            className="bible-dock-btn"
-            data-testid="reader-clear-selection"
-            onClick={() => {
-              setSelection(null);
-              setHighlightPaletteOpen(false);
-            }}
-          >
-            {t("reader.clearSelection")}
-          </button>
-        </div>
-      )}
-
-      <div className="bible-reading-dock" data-testid="reader-dock" role="toolbar" aria-label={t("reader.moreTools")}>
-          <button
-            type="button"
-            className={`bible-dock-btn${dockPanel === "note" ? " is-on" : ""}`}
-            data-testid="reader-dock-note"
-            onClick={() => toggleDock("note")}
-          >
-            {t("reader.note")}
-          </button>
-          <span className="bible-dock-sep" aria-hidden="true" />
-          <button
-            type="button"
-            className={`bible-dock-btn${dockPanel === "study" ? " is-on" : ""}`}
-            data-testid="reader-dock-study"
-            onClick={() => toggleDock("study")}
-          >
-            {t("reader.study")}
-          </button>
-          <span className="bible-dock-sep" aria-hidden="true" />
-          <button
-            type="button"
-            className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
-            data-testid="reader-dock-search"
-            onClick={() => toggleDock("search")}
-          >
-            {t("reader.search")}
-          </button>
-          <span className="bible-dock-sep" aria-hidden="true" />
-          <button
-            type="button"
-            className={`bible-dock-btn${dockPanel === "speak" ? " is-on" : ""}`}
-            data-testid="reader-dock-speak"
-            onClick={() => toggleDock("speak")}
-          >
-            {t("reader.speak")}
-          </button>
-        </div>
-
+            ) : (
+              <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
+                {HIGHLIGHT_COLORS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="bible-swatch"
+                    style={{ background: c.value }}
+                    aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
+                    data-testid={`reader-highlight-${c.id}`}
+                    onClick={() => void addHighlight(c.id)}
+                  />
+                ))}
+              </div>
+            )}
+            {selection && (
+              <button
+                type="button"
+                className="bible-dock-btn"
+                data-testid="reader-clear-selection"
+                onClick={() => {
+                  setSelection(null);
+                  setHighlightPaletteOpen(false);
+                }}
+              >
+                {t("reader.clearSelection")}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       {dockPanel === "note" && (
         <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
         <div
@@ -2222,7 +2355,15 @@ export function BibleReader() {
       )}
 
       {dockPanel === "speak" && (
-        <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
+        <div
+          className="bible-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            setDockPanel(null);
+            stopPanshi();
+            stopSpeech();
+          }}
+        >
         <div
           className="bible-dock-panel bible-dock-panel--modal"
           data-testid="reader-speak-panel"
@@ -2231,15 +2372,66 @@ export function BibleReader() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bible-modal-close-row">
-            <button type="button" className="bible-text-btn" onClick={() => setDockPanel(null)}>✕</button>
+            <button
+              type="button"
+              className="bible-text-btn"
+              onClick={() => {
+                setDockPanel(null);
+                stopPanshi();
+                stopSpeech();
+              }}
+            >
+              ✕
+            </button>
           </div>
           <h2>{t("reader.speak")}</h2>
+          <p className="bible-hint">{t("reader.speakPanshiHint")}</p>
           <div className="toolbar">
             <button
               type="button"
               className="btn"
+              data-testid="reader-speak-panshi"
+              onClick={() => playPanshiChapter()}
+            >
+              {t("reader.speakPanshi")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="reader-speak-stop"
+              onClick={() => {
+                stopPanshi();
+                stopSpeech();
+              }}
+            >
+              {t("reader.speakStop")}
+            </button>
+          </div>
+          <audio
+            ref={audioRef}
+            key={`${bookId}-${chapterNum}`}
+            controls
+            className="bible-panshi-player"
+            data-testid="reader-panshi-player"
+            src={panshiAudioSrc()}
+            preload="none"
+            onError={() => setPanshiError(true)}
+            onPlay={() => {
+              setPanshiError(false);
+              stopSpeech();
+            }}
+          />
+          {panshiError && <p className="bible-hint">{t("reader.speakPanshiError")}</p>}
+          <h3>{t("reader.speakBrowser")}</h3>
+          <div className="toolbar">
+            <button
+              type="button"
+              className="btn ghost"
               data-testid="reader-speak-chapter"
-              onClick={() => speakText(chapterPlainText())}
+              onClick={() => {
+                stopPanshi();
+                speakText(chapterPlainText());
+              }}
             >
               {t("reader.speakChapter")}
             </button>
@@ -2247,12 +2439,12 @@ export function BibleReader() {
               type="button"
               className="btn ghost"
               data-testid="reader-speak-selection"
-              onClick={() => speakText(selectionPlainText())}
+              onClick={() => {
+                stopPanshi();
+                speakText(selectionPlainText());
+              }}
             >
               {t("reader.speakSelection")}
-            </button>
-            <button type="button" className="btn ghost" data-testid="reader-speak-stop" onClick={stopSpeech}>
-              {t("reader.speakStop")}
             </button>
           </div>
           {speakNote === "unsupported" && <p className="bible-hint">{t("reader.speakUnsupported")}</p>}
@@ -2261,20 +2453,25 @@ export function BibleReader() {
         </div>
       )}
 
-      {(bookmarks.length > 0 || decryptedNotes.length > 0) && (
+      {(bookmarks.some((b) => b.label.startsWith(`${bookId} ${chapterNum}:`)) ||
+        decryptedNotes.some((n) => n.label.startsWith(`${bookId} ${chapterNum}:`))) && (
         <div className="bible-more-body" style={{ marginTop: "1.25rem" }}>
           <div className="bible-side-block">
             <h2>{t("reader.bookmark")}</h2>
             <ul>
-              {bookmarks.map((b) => (
-                <li key={b.id}>{b.label}</li>
-              ))}
+              {bookmarks
+                .filter((b) => b.label.startsWith(`${bookId} ${chapterNum}:`))
+                .map((b) => (
+                  <li key={b.id}>{b.label}</li>
+                ))}
             </ul>
           </div>
           <div className="bible-side-block">
             <h2>{t("reader.notesPanel")}</h2>
             <ul>
-              {decryptedNotes.map((n) => (
+              {decryptedNotes
+                .filter((n) => n.label.startsWith(`${bookId} ${chapterNum}:`))
+                .map((n) => (
                 <li key={n.id}>
                   <strong>{n.label}</strong>
                   <p>{n.text}</p>
