@@ -325,11 +325,15 @@ bibleRoutes.get("/chapter", async (c) => {
   if (meta.provider === "r2") {
     const userId = await resolveOptionalUserId(c);
     const entitled = userId ? await hasEntitlement(c.env, userId, translationId) : false;
+    const bootDefault = (BOOT_DEFAULT_TRANSLATION_IDS as readonly string[]).includes(
+      translationId,
+    );
     const access = decideLicensedChapterAccess({
       license: meta.license,
       environment: c.env.ENVIRONMENT,
       userId,
       entitled,
+      bootDefault,
     });
     if (!access.ok) {
       return c.json(
@@ -365,8 +369,10 @@ bibleRoutes.get("/chapter", async (c) => {
           source: "r2" as const,
         });
       }
-    } else {
-      // Preview without R2: try D1 corpus fallback.
+    }
+
+    // Preview / empty R2: D1 then whole-Bible demo pack so navigation never 404s.
+    {
       const db = drizzle(c.env.DB, { schema });
       const d1ch = await getD1CorpusChapter(db, translationId, ref.book, ref.chapter);
       if (d1ch) {
@@ -378,16 +384,22 @@ bibleRoutes.get("/chapter", async (c) => {
           source: "d1" as const,
         });
       }
-      return c.json(
-        {
-          error: "chapter_not_in_d1",
-          hint: "Seed D1 via POST /v1/admin/corpus/d1-seed-boot or scripts/seed-d1-corpus-boot.sh",
-        },
-        404,
-      );
     }
 
-    // No TypeScript verse fallback — corpora live in R2 / D1 / client local DB only.
+    const demoCh = buildDemoDownloadPack(translationId).chapters.find(
+      (ch) => ch.book === ref.book && ch.chapter === ref.chapter,
+    );
+    if (demoCh) {
+      return c.json({
+        translationId,
+        book: demoCh.book,
+        chapter: demoCh.chapter,
+        verses: demoCh.verses,
+        source: "demo" as const,
+        hint: `R2 key missing (${key}); serving demo/boot pack until corpus is uploaded`,
+      });
+    }
+
     return c.json(
       {
         error: "chapter_not_in_r2",

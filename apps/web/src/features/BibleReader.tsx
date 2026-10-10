@@ -676,17 +676,36 @@ export function BibleReader() {
           });
           return;
         }
-        const data = await api<ChapterPayload>(
-          `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
-        );
-        if (cancelled) return;
-        if (data && "verses" in data && Array.isArray(data.verses)) {
-          setChapter({
-            ...data,
-            verses: densifyChapterVerses(translationId, bookId, chapterNum, data.verses),
-          });
-        } else {
-          setChapter(data);
+        try {
+          const data = await api<ChapterPayload>(
+            `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
+          );
+          if (cancelled) return;
+          if (data && "verses" in data && Array.isArray(data.verses)) {
+            setChapter({
+              ...data,
+              verses: densifyChapterVerses(translationId, bookId, chapterNum, data.verses),
+            });
+          } else {
+            setChapter(data);
+          }
+        } catch (netErr) {
+          // Licensed R2 / missing corpus must not block book/chapter navigation.
+          const demo = densifyChapterVerses(translationId, bookId, chapterNum, []);
+          if (demo.length > 0) {
+            if (!cancelled) {
+              setChapter({
+                translationId,
+                book: bookId,
+                chapter: chapterNum,
+                verses: demo,
+                source: "local-demo",
+              });
+              setError(null);
+            }
+            return;
+          }
+          throw netErr;
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "error");

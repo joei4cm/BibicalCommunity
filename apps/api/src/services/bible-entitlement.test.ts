@@ -42,6 +42,17 @@ test("production licensed without entitlement is forbidden", () => {
   assert.deepEqual(d, { ok: false, status: 403, error: "entitlement_required" });
 });
 
+test("production boot-default licensed allows authenticated users without row", () => {
+  const d = decideLicensedChapterAccess({
+    license: "licensed",
+    environment: "production",
+    userId: "u1",
+    entitled: false,
+    bootDefault: true,
+  });
+  assert.deepEqual(d, { ok: true, reason: "boot_default" });
+});
+
 test("production licensed with entitlement passes", () => {
   const d = decideLicensedChapterAccess({
     license: "licensed",

@@ -15,9 +15,10 @@ import {
 const DB_NAME = "lh-bible";
 const STORE = "chapters";
 const DB_VERSION = 1;
-/** Bump when boot seed source changes (demo → download/R2 fixtures). */
 /** Bump when boot set changes (cuvs+nasb whole-Bible / denser demo chapters). */
-const BOOT_FLAG = "lh.bible.bootSeeded.v8";
+const BOOT_FLAG = "lh.bible.bootSeeded.v9";
+/** Re-seed even if flag is set when installed chapters look truncated. */
+const BOOT_MIN_CHAPTERS = 1000;
 
 /** Prefer denser demo prose when a downloaded teaching chapter is still a thin scaffold. */
 function enrichSparseChaptersFromDemo(
@@ -215,7 +216,18 @@ export async function ensureBootCorpusSeeded(
     return { seeded: false, tids: [], sources };
   }
   if (localStorage.getItem(BOOT_FLAG) === "1") {
-    return { seeded: false, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
+    try {
+      const installed = await bibleLocalDb.listInstalled();
+      const incomplete = BOOT_DEFAULT_TRANSLATION_IDS.some((tid) => {
+        const row = installed.find((r) => r.translationId === tid);
+        return !row || row.chapterCount < BOOT_MIN_CHAPTERS;
+      });
+      if (!incomplete) {
+        return { seeded: false, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
+      }
+    } catch {
+      /* fall through and re-seed */
+    }
   }
   for (const tid of BOOT_DEFAULT_TRANSLATION_IDS) {
     let chapters: R2ChapterJson[] | null = null;
