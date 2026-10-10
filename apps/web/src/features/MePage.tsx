@@ -446,6 +446,16 @@ export function MePage() {
 
   const signedIn = Boolean(profile?.uid);
 
+  function signOut() {
+    setToken(null);
+    setProfile(null);
+    setDevices([]);
+    setCurrentDeviceId(null);
+    setPassword("");
+    setMsg(null);
+    setMeSection("account");
+  }
+
   return (
     <section className="fade-up me-page app-folio" data-testid="me-page">
       <h1 className="page-title">{t("nav.me")}</h1>
@@ -502,10 +512,9 @@ export function MePage() {
         </div>
       )}
 
-      {(!signedIn || meSection === "account") && (
+      {!signedIn && (
       <div className="panel" data-testid="me-auth-panel">
         <h2>{t("me.account")}</h2>
-        {signedIn ? <p className="muted">{t("me.signOutHint")}</p> : null}
         <form
           id="lh-auth-form"
           onSubmit={(e) => {
@@ -566,6 +575,20 @@ export function MePage() {
           </div>
         </form>
       </div>
+      )}
+
+      {signedIn && meSection === "account" && (
+        <div className="panel" data-testid="me-account-panel">
+          <h2>{t("me.account")}</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("me.signedInAs", { uid: profile?.uid ?? "" })}
+          </p>
+          <div className="toolbar">
+            <button type="button" className="btn ghost" data-testid="me-sign-out" onClick={signOut}>
+              {t("me.signOut")}
+            </button>
+          </div>
+        </div>
       )}
 
       {signedIn && meSection === "profile" && (

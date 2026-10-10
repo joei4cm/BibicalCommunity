@@ -66,6 +66,12 @@ export function ChatPanel() {
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
+  const [listTab, setListTab] = useState<"chats" | "friends" | "archived">("friends");
+  const [sheet, setSheet] = useState<"none" | "discover" | "compose">("none");
+  const [discoverQ, setDiscoverQ] = useState("");
+  const [discoverHits, setDiscoverHits] = useState<
+    { id: string; uid: string; nickname: string | null }[]
+  >([]);
   const callRef = useRef<CallSession | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -73,6 +79,30 @@ export function ChatPanel() {
     () => conversations.find((c) => c.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+
+  const activeConversations = useMemo(
+    () => conversations.filter((c) => !c.membership.archived),
+    [conversations],
+  );
+  const archivedConversations = useMemo(
+    () => conversations.filter((c) => c.membership.archived),
+    [conversations],
+  );
+  const friends = useMemo(() => {
+    const map = new Map<string, { userId: string; label: string; conversationId?: string }>();
+    for (const c of conversations) {
+      if (c.kind !== "dm") continue;
+      for (const peer of c.peerUserIds ?? []) {
+        if (!peer || map.has(peer)) continue;
+        map.set(peer, {
+          userId: peer,
+          label: c.title?.trim() || peer.slice(0, 12),
+          conversationId: c.id,
+        });
+      }
+    }
+    return [...map.values()];
+  }, [conversations]);
 
   const refreshConversations = useCallback(async () => {
     if (!getToken()) {
@@ -169,17 +199,19 @@ export function ChatPanel() {
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
-  async function createConversation() {
+  async function createConversation(explicitIds?: string[], explicitKind?: "dm" | "group") {
     if (!getToken()) {
       setNote("login_required");
       return;
     }
     setBusy(true);
     try {
-      const ids = memberIds
-        .split(/[\s,]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const useKind = explicitKind ?? kind;
+      const ids = (explicitIds ??
+        memberIds
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean));
       if (ids.length === 0) {
         setNote("members_required");
         return;
@@ -187,21 +219,60 @@ export function ChatPanel() {
       const res = await api<{ id: string }>("/v1/chat/conversations", {
         method: "POST",
         body: JSON.stringify({
-          kind,
-          title: kind === "group" ? title || undefined : undefined,
+          kind: useKind,
+          title: useKind === "group" ? title || undefined : undefined,
           memberIds: ids,
         }),
       });
       setMemberIds("");
       setTitle("");
+      setSheet("none");
       await refreshConversations();
       setSelectedId(res.id);
+      setListTab("chats");
       setNote(null);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function discoverUsers() {
+    if (!getToken()) {
+      setNote("login_required");
+      return;
+    }
+    const q = discoverQ.trim();
+    if (!q) {
+      setDiscoverHits([]);
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api<{ results: { id: string; uid: string; nickname: string | null }[] }>(
+        `/v1/me/search?q=${encodeURIComponent(q)}`,
+      );
+      setDiscoverHits(res.results);
+      setNote(null);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openOrStartDm(userId: string) {
+    const existing = conversations.find(
+      (c) => c.kind === "dm" && (c.peerUserIds ?? []).includes(userId),
+    );
+    if (existing) {
+      setSelectedId(existing.id);
+      setSheet("none");
+      setListTab("chats");
+      return;
+    }
+    await createConversation([userId], "dm");
   }
 
   async function sendMessage() {
@@ -399,70 +470,60 @@ export function ChatPanel() {
     setCallNote((prev) => `${prev ?? ""} · hung-up`);
   }
 
+  function convoLabel(c: Conversation) {
+    return c.title || (c.kind === "group" ? t("chat.group") : t("chat.dm"));
+  }
+
   return (
-    <div className="panel" data-testid="home-chat-panel">
-      <h2>{t("home.messages")}</h2>
-      <p className="muted">{t("chat.cryptoHint")}</p>
-      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
-
-      <div className="field">
-        <label>{t("chat.newConversation")}</label>
-        <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
-          <option value="dm">{t("chat.dm")}</option>
-          <option value="group">{t("chat.group")}</option>
-        </select>
-      </div>
-      {kind === "group" && (
-        <div className="field">
-          <label>{t("chat.title")}</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+    <div className="panel chat-home" data-testid="home-chat-panel">
+      <div className="chat-home-header">
+        <div>
+          <h2 style={{ marginBottom: "0.2rem" }}>{t("home.messages")}</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            {t("chat.inboxHint")}
+          </p>
         </div>
-      )}
-      <div className="field">
-        <label>{t("chat.members")}</label>
-        <input
-          value={memberIds}
-          onChange={(e) => setMemberIds(e.target.value)}
-          placeholder={t("chat.selfNote")}
-        />
-      </div>
-      <button type="button" className="btn" disabled={busy} onClick={() => void createConversation()}>
-        {t("chat.create")}
-      </button>
-
-      <ul className="list" style={{ marginTop: "1rem" }}>
-        {conversations.length === 0 && <li className="muted">{t("chat.empty")}</li>}
-        {conversations.map((c) => (
-          <li key={c.id}>
+        {!selected && (
+          <div className="toolbar" style={{ margin: 0 }}>
             <button
               type="button"
-              className={`convo-row${selectedId === c.id ? " is-selected" : ""}`}
-              onClick={() => setSelectedId(c.id)}
+              className="btn ghost"
+              data-testid="chat-discover-open"
+              onClick={() => setSheet("discover")}
             >
-              <strong>
-                {c.title || (c.kind === "group" ? t("chat.group") : t("chat.dm"))}
-              </strong>
-              <div className="muted">
-                {c.disappearingTtlSec
-                  ? ` · ${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
-                  : ""}
-                {c.membership.archived ? ` · ${t("chat.archived")}` : ""}
-                {selectedId === c.id ? ` · ${t("chat.selected")}` : ""}
-              </div>
+              {t("chat.discoverFriends")}
             </button>
-          </li>
-        ))}
-      </ul>
+            <button
+              type="button"
+              className="btn"
+              data-testid="chat-compose-open"
+              onClick={() => {
+                setKind("group");
+                setSheet("compose");
+              }}
+            >
+              {t("chat.createGroup")}
+            </button>
+          </div>
+        )}
+      </div>
+      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
-      {favorites.length > 0 && (
-        <p className="muted">
-          {t("chat.favorites")}: {favorites.length}
-        </p>
-      )}
-
-      {selected && (
+      {selected ? (
         <>
-          <div className="field" style={{ marginTop: "1rem" }}>
+          <div className="toolbar">
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="chat-back-list"
+              onClick={() => setSelectedId(null)}
+            >
+              {t("chat.backToList")}
+            </button>
+            <strong>{convoLabel(selected)}</strong>
+          </div>
+
+          <div className="field" style={{ marginTop: "0.75rem" }}>
             <label>{t("chat.disappearing")}</label>
             <select
               value={selected.disappearingTtlSec ?? ""}
@@ -542,6 +603,194 @@ export function ChatPanel() {
             {t("chat.send")}
           </button>
         </>
+      ) : (
+        <>
+          <div className="plans-tabs" role="tablist" data-testid="chat-list-tabs">
+            {(
+              [
+                ["friends", "chat.tabFriends"],
+                ["chats", "chat.tabChats"],
+                ["archived", "chat.tabArchived"],
+              ] as const
+            ).map(([id, key]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={listTab === id}
+                className={`plans-tab${listTab === id ? " is-active" : ""}`}
+                data-testid={`chat-tab-${id}`}
+                onClick={() => setListTab(id)}
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
+
+          {listTab === "friends" && (
+            <ul className="list" data-testid="chat-friends-list">
+              {friends.length === 0 && <li className="muted">{t("chat.friendsEmpty")}</li>}
+              {friends.map((f) => (
+                <li key={f.userId}>
+                  <button
+                    type="button"
+                    className="convo-row"
+                    onClick={() => void openOrStartDm(f.userId)}
+                  >
+                    <strong>{f.label}</strong>
+                    <div className="muted">{f.userId}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {listTab === "chats" && (
+            <ul className="list" data-testid="chat-active-list">
+              {activeConversations.length === 0 && <li className="muted">{t("chat.empty")}</li>}
+              {activeConversations.map((c) => (
+                <li key={c.id}>
+                  <button type="button" className="convo-row" onClick={() => setSelectedId(c.id)}>
+                    <strong>{convoLabel(c)}</strong>
+                    <div className="muted">
+                      {c.kind === "group" ? t("chat.group") : t("chat.dm")}
+                      {c.disappearingTtlSec
+                        ? ` · ${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
+                        : ""}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {listTab === "archived" && (
+            <ul className="list" data-testid="chat-archived-list">
+              {archivedConversations.length === 0 && (
+                <li className="muted">{t("chat.archivedEmpty")}</li>
+              )}
+              {archivedConversations.map((c) => (
+                <li key={c.id}>
+                  <button type="button" className="convo-row" onClick={() => setSelectedId(c.id)}>
+                    <strong>{convoLabel(c)}</strong>
+                    <div className="muted">{t("chat.archived")}</div>
+                  </button>
+                </li>
+              ))}
+              {favorites.length > 0 && (
+                <li className="muted">
+                  {t("chat.favorites")}: {favorites.length}
+                </li>
+              )}
+            </ul>
+          )}
+        </>
+      )}
+
+      {sheet !== "none" && (
+        <div
+          className="chat-sheet-backdrop"
+          role="presentation"
+          onClick={() => setSheet("none")}
+        >
+          <div
+            className="chat-sheet"
+            role="dialog"
+            aria-modal="true"
+            data-testid={sheet === "discover" ? "chat-discover-sheet" : "chat-compose-sheet"}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="chat-sheet-head">
+              <h3 style={{ margin: 0 }}>
+                {sheet === "discover" ? t("chat.discoverFriends") : t("chat.createGroup")}
+              </h3>
+              <button type="button" className="btn ghost" onClick={() => setSheet("none")}>
+                ✕
+              </button>
+            </div>
+
+            {sheet === "discover" && (
+              <>
+                <p className="muted">{t("chat.discoverHint")}</p>
+                <div className="field">
+                  <label>{t("me.searchUid")}</label>
+                  <input
+                    value={discoverQ}
+                    onChange={(e) => setDiscoverQ(e.target.value)}
+                    placeholder={t("me.searchUid")}
+                    data-testid="chat-discover-input"
+                  />
+                </div>
+                <button type="button" className="btn" disabled={busy} onClick={() => void discoverUsers()}>
+                  {t("me.search")}
+                </button>
+                <ul className="list" style={{ marginTop: "0.75rem" }}>
+                  {discoverHits.length === 0 && <li className="muted">{t("chat.discoverEmpty")}</li>}
+                  {discoverHits.map((hit) => (
+                    <li key={hit.id}>
+                      <button
+                        type="button"
+                        className="convo-row"
+                        data-testid={`chat-discover-hit-${hit.uid}`}
+                        onClick={() => void openOrStartDm(hit.id)}
+                      >
+                        <strong>{hit.nickname || hit.uid}</strong>
+                        <div className="muted">UID {hit.uid}</div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ marginTop: "0.5rem" }}
+                  onClick={() => {
+                    setKind("dm");
+                    setSheet("compose");
+                  }}
+                >
+                  {t("chat.newDmById")}
+                </button>
+              </>
+            )}
+
+            {sheet === "compose" && (
+              <>
+                <div className="field">
+                  <label>{t("chat.newConversation")}</label>
+                  <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
+                    <option value="dm">{t("chat.dm")}</option>
+                    <option value="group">{t("chat.group")}</option>
+                  </select>
+                </div>
+                {kind === "group" && (
+                  <div className="field">
+                    <label>{t("chat.title")}</label>
+                    <input value={title} onChange={(e) => setTitle(e.target.value)} />
+                  </div>
+                )}
+                <div className="field">
+                  <label>{t("chat.members")}</label>
+                  <input
+                    value={memberIds}
+                    onChange={(e) => setMemberIds(e.target.value)}
+                    placeholder={t("chat.selfNote")}
+                    data-testid="chat-compose-members"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy}
+                  data-testid="chat-compose-create"
+                  onClick={() => void createConversation()}
+                >
+                  {t("chat.create")}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

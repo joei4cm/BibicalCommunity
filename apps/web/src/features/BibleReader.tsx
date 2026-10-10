@@ -1258,7 +1258,15 @@ export function BibleReader() {
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
 
       {tidPickerOpen && (
-        <div className="bible-picker" data-testid="reader-tid-picker" role="dialog" aria-label={t("reader.pickTranslation")}>
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setTidPickerOpen(false)}>
+        <div
+          className="bible-picker bible-modal-sheet"
+          data-testid="reader-tid-picker"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("reader.pickTranslation")}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="bible-picker-steps">
             <span className="bible-hint">{t("reader.pickTranslation")}</span>
             <button type="button" className="bible-text-btn" onClick={() => setTidPickerOpen(false)}>
@@ -1284,10 +1292,18 @@ export function BibleReader() {
             ))}
           </ul>
         </div>
+        </div>
       )}
 
       {passagePickerOpen && (
-        <div className="bible-picker" data-testid="reader-passage-picker" role="dialog">
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setPassagePickerOpen(false)}>
+        <div
+          className="bible-picker bible-modal-sheet"
+          data-testid="reader-passage-picker"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="bible-picker-steps">
             {(["book", "chapter", "verse"] as const).map((step) => (
               <button
@@ -1366,10 +1382,19 @@ export function BibleReader() {
             </ul>
           )}
         </div>
+        </div>
       )}
 
       {layoutOpen && (
-        <div className="bible-settings-sheet" data-testid="reader-layout-sheet" role="dialog" aria-label={t("reader.layout")}>
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setLayoutOpen(false)}>
+        <div
+          className="bible-settings-sheet bible-modal-sheet"
+          data-testid="reader-layout-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("reader.layout")}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="bible-settings-row">
             <span>{t("reader.colorTheme")}</span>
             <div className="bible-more-actions" data-testid="reader-skin">
@@ -1501,6 +1526,7 @@ export function BibleReader() {
             </div>
           )}
         </div>
+        </div>
       )}
 
       <div className="bible-folio" data-testid="reader-folio">
@@ -1537,7 +1563,7 @@ export function BibleReader() {
 
       {renderChapterNav("reader-bottom", "bottom")}
 
-      {selection && dockPanel !== "study" && dockPanel !== "search" && dockPanel !== "speak" && (
+      {selection && !dockPanel && (
         <div className="bible-selection-bar" data-testid="reader-selection-bar" role="toolbar">
           <span className="bible-hint">{selectionLabel}</span>
           {selectionAlreadyHighlighted ? (
@@ -1628,7 +1654,17 @@ export function BibleReader() {
         </div>
 
       {dockPanel === "note" && (
-        <div className="bible-dock-panel" data-testid="reader-note-compose">
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
+        <div
+          className="bible-dock-panel bible-dock-panel--modal"
+          data-testid="reader-note-compose"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bible-modal-close-row">
+            <button type="button" className="bible-text-btn" onClick={() => setDockPanel(null)}>✕</button>
+          </div>
           <h2>
             {t("reader.note")}
             {selectionLabel ? ` · ${selectionLabel}` : ""}
@@ -1644,10 +1680,21 @@ export function BibleReader() {
           </button>
           {noteMsg && <p className="bible-hint">{humanizeStatus(t, noteMsg)}</p>}
         </div>
+        </div>
       )}
 
       {dockPanel === "study" && (
-        <div className="bible-dock-panel" data-testid="reader-study-panel">
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
+        <div
+          className="bible-dock-panel bible-dock-panel--modal"
+          data-testid="reader-study-panel"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bible-modal-close-row">
+            <button type="button" className="bible-text-btn" onClick={() => setDockPanel(null)}>✕</button>
+          </div>
           <h2>{t("reader.study")}</h2>
           <p className="bible-hint">
             {t("reader.studyHint")}
@@ -1877,10 +1924,21 @@ export function BibleReader() {
             ))}
           </ul>
         </div>
+        </div>
       )}
 
       {dockPanel === "search" && (
-        <div className="bible-dock-panel" data-testid="reader-search-panel">
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
+        <div
+          className="bible-dock-panel bible-dock-panel--modal"
+          data-testid="reader-search-panel"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bible-modal-close-row">
+            <button type="button" className="bible-text-btn" onClick={() => setDockPanel(null)}>✕</button>
+          </div>
           <h2>{t("reader.search")}</h2>
           <p className="bible-hint">{t("reader.searchHint")}</p>
           <div className="field">
@@ -1916,10 +1974,21 @@ export function BibleReader() {
             ))}
           </ul>
         </div>
+        </div>
       )}
 
       {dockPanel === "speak" && (
-        <div className="bible-dock-panel" data-testid="reader-speak-panel">
+        <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
+        <div
+          className="bible-dock-panel bible-dock-panel--modal"
+          data-testid="reader-speak-panel"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bible-modal-close-row">
+            <button type="button" className="bible-text-btn" onClick={() => setDockPanel(null)}>✕</button>
+          </div>
           <h2>{t("reader.speak")}</h2>
           <div className="toolbar">
             <button
@@ -1944,6 +2013,7 @@ export function BibleReader() {
           </div>
           {speakNote === "unsupported" && <p className="bible-hint">{t("reader.speakUnsupported")}</p>}
           {speakNote === "empty" && <p className="bible-hint">{t("reader.speakEmpty")}</p>}
+        </div>
         </div>
       )}
 

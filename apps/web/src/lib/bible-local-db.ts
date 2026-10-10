@@ -17,7 +17,7 @@ const STORE = "chapters";
 const DB_VERSION = 1;
 /** Bump when boot seed source changes (demo → download/R2 fixtures). */
 /** Bump when boot set changes (cuvs+nasb whole-Bible / denser demo chapters). */
-const BOOT_FLAG = "lh.bible.bootSeeded.v7";
+const BOOT_FLAG = "lh.bible.bootSeeded.v8";
 
 /** Prefer denser demo prose when a downloaded teaching chapter is still a thin scaffold. */
 function enrichSparseChaptersFromDemo(

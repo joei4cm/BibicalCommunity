@@ -55,7 +55,8 @@ test("install download pack into local DB then read chapter", async () => {
   const raw = buildDownloadPackPayloadJson(pack);
   const again = parseDownloadPackPayload(raw);
   assert.equal(again.translationId, "rcuv");
-  assert.ok(again.chapters.length >= 3);
+  assert.equal(again.chapters.length, listProtestantChapterRefs().length);
+  assert.ok(again.chapters.some((c) => c.book === "Gen" && c.chapter === 1));
 
   const result = await db.installPack("rcuv", again.chapters);
   assert.equal(result.installed, again.chapters.length);

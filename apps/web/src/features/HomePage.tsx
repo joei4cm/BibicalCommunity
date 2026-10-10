@@ -47,7 +47,7 @@ type HomeSection = "church" | "forum" | "chat";
 
 export function HomePage() {
   const { t } = useTranslation();
-  const [homeSection, setHomeSection] = useState<HomeSection>("forum");
+  const [homeSection, setHomeSection] = useState<HomeSection>("chat");
   const [churches, setChurches] = useState<Church[]>([]);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [board, setBoard] = useState<Board>("notice");
