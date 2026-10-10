@@ -43,7 +43,16 @@ type AdminGroup = {
   id: string;
   churchId: string;
   name: string;
+  kind?: string;
+  parentId?: string | null;
   createdAt: number;
+};
+
+type GroupMemberRow = {
+  userId: string;
+  uid: string | null;
+  nickname: string | null;
+  role: string;
 };
 
 type AdminUser = {
@@ -98,8 +107,13 @@ export function AdminConsole() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [groupName, setGroupName] = useState("");
+  const [groupKind, setGroupKind] = useState<"small_group" | "department">("small_group");
   const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [groupMembers, setGroupMembers] = useState<GroupMemberRow[]>([]);
+  const [addMemberUserId, setAddMemberUserId] = useState("");
+  const [addMemberAsLeader, setAddMemberAsLeader] = useState(false);
   const [churchName, setChurchName] = useState("");
   const [bootstrapSecret, setBootstrapSecret] = useState("");
   const [churchFilter, setChurchFilter] = useState("");
@@ -164,13 +178,29 @@ export function AdminConsole() {
   const loadGroups = useCallback(async () => {
     if (!getToken() || !churchId) {
       setGroups([]);
+      setActiveGroupId(null);
+      setGroupMembers([]);
       return;
     }
     const r = await api<{ groups: AdminGroup[] }>(
       `/v1/admin/churches/${encodeURIComponent(churchId)}/groups`,
     );
     setGroups(r.groups);
+    setActiveGroupId((prev) =>
+      prev && r.groups.some((g) => g.id === prev) ? prev : (r.groups[0]?.id ?? null),
+    );
   }, [churchId]);
+
+  const loadGroupMembers = useCallback(async () => {
+    if (!getToken() || !activeGroupId) {
+      setGroupMembers([]);
+      return;
+    }
+    const r = await api<{ members: GroupMemberRow[] }>(
+      `/v1/home/groups/${encodeURIComponent(activeGroupId)}/members`,
+    );
+    setGroupMembers(r.members ?? []);
+  }, [activeGroupId]);
 
   const loadUsers = useCallback(async () => {
     if (!getToken()) return;
@@ -197,6 +227,13 @@ export function AdminConsole() {
       setNote(e instanceof Error ? e.message : "error"),
     );
   }, [access, loadMembers, loadGroups, loadUsers, loadWipes]);
+
+  useEffect(() => {
+    if (!access?.canAccessConsole || section !== "groups") return;
+    void loadGroupMembers()
+      .then(() => setNote((n) => (n === "forbidden" ? null : n)))
+      .catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [access, section, loadGroupMembers]);
 
   useEffect(() => {
     if (selected) setChurchName(selected.name);
@@ -290,14 +327,60 @@ export function AdminConsole() {
   async function createGroup() {
     if (!churchId || !groupName.trim()) return;
     await run(async () => {
-      await api(`/v1/admin/churches/${encodeURIComponent(churchId)}/groups`, {
-        method: "POST",
-        body: JSON.stringify({ name: groupName.trim() }),
-      });
+      const created = await api<{ id: string }>(
+        `/v1/admin/churches/${encodeURIComponent(churchId)}/groups`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name: groupName.trim(), kind: groupKind }),
+        },
+      );
       setGroupName("");
-      setNote("saved");
+      setNote("group_created");
       await loadGroups();
       await loadChurches();
+      if (created.id) setActiveGroupId(created.id);
+    });
+  }
+
+  async function addToGroup() {
+    if (!activeGroupId || !addMemberUserId) return;
+    await run(async () => {
+      await api(`/v1/home/groups/${encodeURIComponent(activeGroupId)}/members`, {
+        method: "POST",
+        body: JSON.stringify({
+          userId: addMemberUserId,
+          role: addMemberAsLeader ? "leader" : "member",
+        }),
+      });
+      setAddMemberUserId("");
+      setAddMemberAsLeader(false);
+      setNote("group_member_added");
+      await loadGroupMembers();
+      await loadMembers();
+    });
+  }
+
+  async function removeFromGroup(userId: string) {
+    if (!activeGroupId) return;
+    await run(async () => {
+      await api(
+        `/v1/home/groups/${encodeURIComponent(activeGroupId)}/members/${encodeURIComponent(userId)}`,
+        { method: "DELETE" },
+      );
+      setNote("group_member_removed");
+      await loadGroupMembers();
+    });
+  }
+
+  async function setGroupMemberRole(userId: string, role: "leader" | "member") {
+    if (!activeGroupId) return;
+    await run(async () => {
+      await api(`/v1/home/groups/${encodeURIComponent(activeGroupId)}/members`, {
+        method: "POST",
+        body: JSON.stringify({ userId, role }),
+      });
+      setNote("saved");
+      await loadGroupMembers();
     });
   }
 
@@ -691,76 +774,211 @@ export function AdminConsole() {
       {section === "groups" && churchId && (
         <div className="panel" data-testid="admin-groups-panel">
           <h2 style={{ marginTop: 0 }}>{t("admin.sectionGroups")}</h2>
-          <ul className="list" data-testid="admin-group-list">
-            {groups.length === 0 && <li className="muted">{t("home.noGroups")}</li>}
-            {groups.map((g) => (
-              <li key={g.id}>
-                <strong>{g.name}</strong>
-                <div className="muted">{g.id}</div>
-                {renameGroupId === g.id ? (
-                  <div className="toolbar" style={{ marginTop: "0.5rem" }}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("admin.groupsHint")}
+          </p>
+
+          <div className="admin-groups-layout">
+            <div className="admin-groups-list" data-testid="admin-group-list">
+              <h3>{t("admin.groupList")}</h3>
+              {groups.length === 0 && <p className="muted">{t("home.noGroups")}</p>}
+              <ul className="list">
+                {groups.map((g) => (
+                  <li key={g.id}>
+                    <button
+                      type="button"
+                      className={`church-row${activeGroupId === g.id ? " is-selected" : ""}`}
+                      onClick={() => setActiveGroupId(g.id)}
+                      data-testid={`admin-group-${g.id}`}
+                    >
+                      <div className="church-row-title">{g.name}</div>
+                      <div className="muted">
+                        {g.kind === "department"
+                          ? t("home.kind.department")
+                          : t("home.kind.smallGroup")}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <h3 style={{ marginTop: "1.25rem" }}>{t("home.createGroup")}</h3>
+              <div className="field">
+                <label>{t("home.groupName")}</label>
+                <input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  data-testid="admin-group-name"
+                />
+              </div>
+              <div className="field">
+                <label>{t("home.groupKind")}</label>
+                <select
+                  value={groupKind}
+                  onChange={(e) => setGroupKind(e.target.value as "small_group" | "department")}
+                >
+                  <option value="small_group">{t("home.kind.smallGroup")}</option>
+                  <option value="department">{t("home.kind.department")}</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !groupName.trim()}
+                data-testid="admin-create-group"
+                onClick={() => void createGroup()}
+              >
+                {t("home.createGroup")}
+              </button>
+            </div>
+
+            <div className="admin-group-detail" data-testid="admin-group-members">
+              {activeGroupId ? (
+                <>
+                  <h3>
+                    {groups.find((g) => g.id === activeGroupId)?.name ?? t("home.manageGroupMembers")}
+                  </h3>
+                  <p className="muted" style={{ marginTop: 0 }}>
+                    {t("home.manageGroupMembers")}
+                  </p>
+
+                  <ul className="list">
+                    {groupMembers.length === 0 && (
+                      <li className="muted">{t("home.noGroupMembers")}</li>
+                    )}
+                    {groupMembers.map((m) => (
+                      <li key={m.userId}>
+                        <strong>{m.nickname || m.uid || m.userId}</strong>
+                        <div className="muted">
+                          {m.role === "leader" ? t("home.role.groupLeader") : t("home.role.member")}
+                        </div>
+                        <div className="toolbar" style={{ marginTop: "0.4rem" }}>
+                          {m.role !== "leader" ? (
+                            <button
+                              type="button"
+                              className="btn ghost"
+                              disabled={busy}
+                              onClick={() => void setGroupMemberRole(m.userId, "leader")}
+                            >
+                              {t("home.makeLeader")}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn ghost"
+                              disabled={busy}
+                              onClick={() => void setGroupMemberRole(m.userId, "member")}
+                            >
+                              {t("home.removeLeader")}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn danger"
+                            disabled={busy}
+                            onClick={() => void removeFromGroup(m.userId)}
+                          >
+                            {t("home.removeGroupMember")}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <h3 style={{ marginTop: "1.1rem" }}>{t("home.addGroupMember")}</h3>
+                  <div className="field">
+                    <label>{t("home.pickMember")}</label>
+                    <select
+                      value={addMemberUserId}
+                      onChange={(e) => setAddMemberUserId(e.target.value)}
+                      data-testid="admin-add-group-member"
+                    >
+                      <option value="">{t("home.pickMember")}</option>
+                      {members
+                        .filter((m) => !groupMembers.some((gm) => gm.userId === m.userId))
+                        .map((m) => (
+                          <option key={m.userId} value={m.userId}>
+                            {m.uid ?? m.userId}
+                            {m.verified ? "" : ` (${t("me.pendingVerify")})`}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <label className="role-check" style={{ marginBottom: "0.65rem" }}>
                     <input
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      aria-label={t("home.groupName")}
+                      type="checkbox"
+                      checked={addMemberAsLeader}
+                      onChange={(e) => setAddMemberAsLeader(e.target.checked)}
                     />
-                    <button type="button" className="btn" disabled={busy} onClick={() => void renameGroup()}>
-                      {t("me.save")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      onClick={() => {
-                        setRenameGroupId(null);
-                        setRenameValue("");
-                      }}
-                    >
-                      {t("admin.cancel")}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="toolbar" style={{ marginTop: "0.5rem" }}>
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        setRenameGroupId(g.id);
-                        setRenameValue(g.name);
-                      }}
-                    >
-                      {t("admin.renameGroup")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn danger"
-                      disabled={busy}
-                      onClick={() => void deleteGroup(g.id)}
-                    >
-                      {t("admin.deleteGroup")}
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          <div className="field" style={{ marginTop: "1rem" }}>
-            <label>{t("home.groupName")}</label>
-            <input
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              data-testid="admin-group-name"
-            />
+                    {t("home.addAsLeader")}
+                  </label>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy || !addMemberUserId}
+                    onClick={() => void addToGroup()}
+                  >
+                    {t("home.addGroupMember")}
+                  </button>
+
+                  <details className="plans-advanced" style={{ marginTop: "1.25rem" }}>
+                    <summary>{t("admin.groupSettings")}</summary>
+                    {renameGroupId === activeGroupId ? (
+                      <div className="toolbar" style={{ marginTop: "0.65rem" }}>
+                        <input
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          aria-label={t("home.groupName")}
+                        />
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={busy}
+                          onClick={() => void renameGroup()}
+                        >
+                          {t("me.save")}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => {
+                            setRenameGroupId(null);
+                            setRenameValue("");
+                          }}
+                        >
+                          {t("admin.cancel")}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="toolbar" style={{ marginTop: "0.65rem" }}>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          disabled={busy}
+                          onClick={() => {
+                            setRenameGroupId(activeGroupId);
+                            setRenameValue(groups.find((g) => g.id === activeGroupId)?.name ?? "");
+                          }}
+                        >
+                          {t("admin.renameGroup")}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn danger"
+                          disabled={busy}
+                          onClick={() => void deleteGroup(activeGroupId)}
+                        >
+                          {t("admin.deleteGroup")}
+                        </button>
+                      </div>
+                    )}
+                  </details>
+                </>
+              ) : (
+                <p className="muted">{t("admin.pickGroupHint")}</p>
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy || !groupName.trim()}
-            data-testid="admin-create-group"
-            onClick={() => void createGroup()}
-          >
-            {t("home.createGroup")}
-          </button>
         </div>
       )}
 
