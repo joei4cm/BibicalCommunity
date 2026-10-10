@@ -7,11 +7,15 @@ import {
   canVerifyMembers,
   churchRoleSchema,
   createId,
+  forumAdminPatchSchema,
   forumPostSchema,
+  forumRespondSchema,
+  forumRiddlePayloadSchema,
   groupKindSchema,
   groupRoleSchema,
   isAllowedExternalMediaUrl,
   isOwnedMediaKey,
+  isChurchAdminRoles,
   parseRolesJson,
   securityModeSchema,
   primaryChurchRole,
@@ -26,6 +30,7 @@ import {
   applyHostilePrivacyFloorsToChurch,
 } from "../services/hostile-privacy";
 import { openField } from "../services/field-crypto";
+import { sha256Hex } from "../services/crypto";
 import {
   assertCanManageGroupMembers,
   buildOrgTree,
@@ -33,6 +38,30 @@ import {
   loadPlatformAdmin,
   syncPrimaryRole,
 } from "../services/church-access";
+
+function parsePayloadJson(raw: string | null | undefined): Record<string, unknown> {
+  try {
+    const v = JSON.parse(raw || "{}") as unknown;
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function publicPostPayload(kind: string, payload: Record<string, unknown>) {
+  if (kind === "riddle") {
+    const { answer: _a, ...rest } = payload;
+    return rest;
+  }
+  return payload;
+}
+
+function canModeratePosts(
+  roles: readonly ChurchRole[],
+  platformAdmin: boolean,
+): boolean {
+  return platformAdmin || isChurchAdminRoles(roles) || roles.includes("elder");
+}
 
 function memberGroupIds(membership: { groupIdsJson: string }): string[] {
   try {
@@ -313,6 +342,29 @@ homeRoutes.get("/:churchId/org-tree", async (c) => {
   }
 });
 
+function serializeForumPost(p: typeof schema.forumPosts.$inferSelect) {
+  const payload = publicPostPayload(p.kind, parsePayloadJson(p.payloadJson));
+  return {
+    id: p.id,
+    churchId: p.churchId,
+    groupId: p.groupId,
+    authorId: p.authorId,
+    board: p.board,
+    kind: p.kind,
+    title: p.title,
+    body: p.body,
+    externalMediaUrl: p.externalMediaUrl,
+    mediaKey: p.mediaKey,
+    payload,
+    pinned: Boolean(p.pinned),
+    pinnedAt: p.pinnedAt,
+    readonly: Boolean(p.readonly),
+    expiresAt: p.expiresAt,
+    expired: Boolean(p.expiresAt && p.expiresAt <= Date.now()),
+    createdAt: p.createdAt,
+  };
+}
+
 homeRoutes.get("/:churchId/posts", async (c) => {
   const db = drizzle(c.env.DB, { schema });
   const churchId = c.req.param("churchId");
@@ -328,7 +380,7 @@ homeRoutes.get("/:churchId/posts", async (c) => {
   )[0];
   if (!membership) return c.json({ error: "forbidden" }, 403);
 
-  const posts = await db
+  let posts = await db
     .select()
     .from(schema.forumPosts)
     .where(
@@ -337,16 +389,26 @@ homeRoutes.get("/:churchId/posts", async (c) => {
         : eq(schema.forumPosts.churchId, churchId),
     );
 
+  posts = posts.filter((p) => !p.deletedAt);
+
   if (board === "group") {
     const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
     const allowed = new Set(ctx?.groupIds.length ? ctx.groupIds : memberGroupIds(membership));
-    return c.json({ posts: posts.filter((p) => p.groupId && allowed.has(p.groupId)) });
+    posts = posts.filter((p) => p.groupId && allowed.has(p.groupId));
   }
 
-  return c.json({ posts });
+  posts.sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    const ap = a.pinnedAt ?? 0;
+    const bp = b.pinnedAt ?? 0;
+    if (ap !== bp) return bp - ap;
+    return b.createdAt - a.createdAt;
+  });
+
+  return c.json({ posts: posts.map(serializeForumPost) });
 });
 
-/** Board index for community L1 navigation. */
+/** Board index for 大道 L1 navigation. */
 homeRoutes.get("/:churchId/boards", async (c) => {
   const churchId = c.req.param("churchId");
   const db = drizzle(c.env.DB, { schema });
@@ -361,10 +423,9 @@ homeRoutes.get("/:churchId/boards", async (c) => {
   )[0];
   if (!membership) return c.json({ error: "forbidden" }, 403);
 
-  const posts = await db
-    .select()
-    .from(schema.forumPosts)
-    .where(eq(schema.forumPosts.churchId, churchId));
+  const posts = (
+    await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.churchId, churchId))
+  ).filter((p) => !p.deletedAt);
 
   const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
   const allowedGroups = new Set(ctx?.groupIds ?? memberGroupIds(membership));
@@ -420,6 +481,21 @@ homeRoutes.post("/posts", async (c) => {
     if (!obj) return c.json({ error: "media_key_not_found" }, 400);
   }
 
+  const payload = { ...(body.payload ?? {}) };
+  let answerHash: string | null = null;
+  if (body.kind === "riddle") {
+    const r = forumRiddlePayloadSchema.parse(payload);
+    answerHash = await sha256Hex(r.answer.trim().toLowerCase());
+    delete payload.answer;
+    if (r.hint) payload.hint = r.hint;
+  }
+  const expiresAt =
+    body.expiresAt ??
+    (typeof payload.expiresAt === "number" ? payload.expiresAt : null);
+  if (body.kind === "timed" && expiresAt) {
+    payload.expiresAt = expiresAt;
+  }
+
   const id = createId("post");
   await db.insert(schema.forumPosts).values({
     id,
@@ -427,13 +503,253 @@ homeRoutes.post("/posts", async (c) => {
     groupId: body.groupId,
     authorId: userId,
     board: body.board,
+    kind: body.kind,
     title: body.title,
-    body: body.body,
+    body: body.body ?? "",
     externalMediaUrl: body.externalMediaUrl,
     mediaKey: body.mediaKey,
+    payloadJson: JSON.stringify(payload),
+    answerHash,
+    pinned: false,
+    pinnedAt: null,
+    readonly: false,
+    expiresAt: body.kind === "timed" ? expiresAt : expiresAt,
+    deletedAt: null,
     createdAt: Date.now(),
   });
-  return c.json({ id, mediaKey: body.mediaKey ?? null }, 201);
+  return c.json({ id, mediaKey: body.mediaKey ?? null, kind: body.kind }, 201);
+});
+
+/** Single post + interaction summary. */
+homeRoutes.get("/posts/:postId", async (c) => {
+  const postId = c.req.param("postId");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const post = (
+    await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.id, postId)).limit(1)
+  )[0];
+  if (!post || post.deletedAt) return c.json({ error: "not_found" }, 404);
+
+  const ctx = await loadMembershipContext(db, userId, post.churchId);
+  if (!ctx) return c.json({ error: "forbidden" }, 403);
+  if (post.board === "group" && post.groupId && !ctx.groupIds.includes(post.groupId)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const responses = await db
+    .select()
+    .from(schema.forumPostResponses)
+    .where(eq(schema.forumPostResponses.postId, postId));
+
+  const mine = responses.filter((r) => r.userId === userId);
+  const stats: Record<string, unknown> = { responseCount: responses.length };
+
+  if (post.kind === "poll") {
+    const counts: Record<string, number> = {};
+    for (const r of responses.filter((x) => x.action === "vote")) {
+      const opt = String(parsePayloadJson(r.payloadJson).optionIndex ?? "");
+      counts[opt] = (counts[opt] ?? 0) + 1;
+    }
+    stats.voteCounts = counts;
+    stats.myVote = mine.find((m) => m.action === "vote")
+      ? parsePayloadJson(mine.find((m) => m.action === "vote")!.payloadJson)
+      : null;
+  } else if (post.kind === "chain") {
+    stats.entries = responses
+      .filter((r) => r.action === "chain")
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        text: String(parsePayloadJson(r.payloadJson).text ?? ""),
+        createdAt: r.createdAt,
+      }));
+  } else if (post.kind === "survey") {
+    stats.submissionCount = responses.filter((r) => r.action === "survey").length;
+    stats.submitted = mine.some((m) => m.action === "survey");
+  } else if (post.kind === "riddle") {
+    const solved = responses.some((r) => r.action === "riddle" && parsePayloadJson(r.payloadJson).correct);
+    stats.solvedCount = responses.filter(
+      (r) => r.action === "riddle" && parsePayloadJson(r.payloadJson).correct,
+    ).length;
+    stats.iSolved = mine.some((m) => m.action === "riddle" && parsePayloadJson(m.payloadJson).correct);
+    stats.anySolved = solved;
+  }
+
+  return c.json({
+    post: serializeForumPost(post),
+    stats,
+    canModerate: canModeratePosts(ctx.roles, ctx.platformAdmin),
+  });
+});
+
+/** Interact with a collectable / playful post. */
+homeRoutes.post("/posts/:postId/respond", async (c) => {
+  const postId = c.req.param("postId");
+  const body = forumRespondSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const post = (
+    await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.id, postId)).limit(1)
+  )[0];
+  if (!post || post.deletedAt) return c.json({ error: "not_found" }, 404);
+  if (post.readonly) return c.json({ error: "readonly" }, 403);
+  if (post.expiresAt && post.expiresAt <= Date.now()) return c.json({ error: "expired" }, 403);
+
+  const ctx = await loadMembershipContext(db, userId, post.churchId);
+  if (!ctx) return c.json({ error: "forbidden" }, 403);
+
+  const existing = await db
+    .select()
+    .from(schema.forumPostResponses)
+    .where(
+      and(eq(schema.forumPostResponses.postId, postId), eq(schema.forumPostResponses.userId, userId)),
+    );
+
+  if (body.action === "vote") {
+    if (post.kind !== "poll") return c.json({ error: "wrong_kind" }, 400);
+    const optionIndex = Number(body.payload.optionIndex);
+    const options = (parsePayloadJson(post.payloadJson).options as string[] | undefined) ?? [];
+    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= options.length) {
+      return c.json({ error: "bad_option" }, 400);
+    }
+    const prev = existing.find((e) => e.action === "vote");
+    if (prev) {
+      await db
+        .update(schema.forumPostResponses)
+        .set({ payloadJson: JSON.stringify({ optionIndex }) })
+        .where(eq(schema.forumPostResponses.id, prev.id));
+    } else {
+      await db.insert(schema.forumPostResponses).values({
+        id: createId("fpr"),
+        postId,
+        userId,
+        action: "vote",
+        payloadJson: JSON.stringify({ optionIndex }),
+        createdAt: Date.now(),
+      });
+    }
+    return c.json({ ok: true });
+  }
+
+  if (body.action === "chain") {
+    if (post.kind !== "chain" && post.kind !== "text") return c.json({ error: "wrong_kind" }, 400);
+    const text = String(body.payload.text ?? "").trim();
+    if (!text || text.length > 500) return c.json({ error: "bad_text" }, 400);
+    const max = Number(parsePayloadJson(post.payloadJson).maxEntries ?? 0);
+    const chainCount = (
+      await db
+        .select()
+        .from(schema.forumPostResponses)
+        .where(
+          and(eq(schema.forumPostResponses.postId, postId), eq(schema.forumPostResponses.action, "chain")),
+        )
+    ).length;
+    if (max > 0 && chainCount >= max) return c.json({ error: "chain_full" }, 400);
+    await db.insert(schema.forumPostResponses).values({
+      id: createId("fpr"),
+      postId,
+      userId,
+      action: "chain",
+      payloadJson: JSON.stringify({ text }),
+      createdAt: Date.now(),
+    });
+    return c.json({ ok: true });
+  }
+
+  if (body.action === "survey") {
+    if (post.kind !== "survey") return c.json({ error: "wrong_kind" }, 400);
+    if (existing.some((e) => e.action === "survey")) return c.json({ error: "already_submitted" }, 409);
+    await db.insert(schema.forumPostResponses).values({
+      id: createId("fpr"),
+      postId,
+      userId,
+      action: "survey",
+      payloadJson: JSON.stringify({ answers: body.payload.answers ?? {} }),
+      createdAt: Date.now(),
+    });
+    return c.json({ ok: true });
+  }
+
+  if (body.action === "riddle") {
+    if (post.kind !== "riddle") return c.json({ error: "wrong_kind" }, 400);
+    const guess = String(body.payload.guess ?? "").trim().toLowerCase();
+    if (!guess) return c.json({ error: "bad_guess" }, 400);
+    const correct = post.answerHash ? (await sha256Hex(guess)) === post.answerHash : false;
+    await db.insert(schema.forumPostResponses).values({
+      id: createId("fpr"),
+      postId,
+      userId,
+      action: "riddle",
+      payloadJson: JSON.stringify({ correct, guess: correct ? guess : undefined }),
+      createdAt: Date.now(),
+    });
+    return c.json({ ok: true, correct });
+  }
+
+  return c.json({ error: "bad_action" }, 400);
+});
+
+/** Pin / readonly / soft-delete (moderators). */
+homeRoutes.patch("/posts/:postId", async (c) => {
+  const postId = c.req.param("postId");
+  const body = forumAdminPatchSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const post = (
+    await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.id, postId)).limit(1)
+  )[0];
+  if (!post || post.deletedAt) return c.json({ error: "not_found" }, 404);
+  const ctx = await loadMembershipContext(db, userId, post.churchId);
+  if (!ctx || !canModeratePosts(ctx.roles, ctx.platformAdmin)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const patch: Partial<typeof schema.forumPosts.$inferInsert> = {};
+  if (body.pinned !== undefined) {
+    patch.pinned = body.pinned;
+    patch.pinnedAt = body.pinned ? Date.now() : null;
+  }
+  if (body.readonly !== undefined) patch.readonly = body.readonly;
+  if (body.deleted === true) patch.deletedAt = Date.now();
+  if (Object.keys(patch).length === 0) return c.json({ error: "empty_patch" }, 400);
+  await db.update(schema.forumPosts).set(patch).where(eq(schema.forumPosts.id, postId));
+  return c.json({ ok: true });
+});
+
+/** Export collectable responses (poll / chain / survey) as JSON for moderators. */
+homeRoutes.get("/posts/:postId/export", async (c) => {
+  const postId = c.req.param("postId");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const post = (
+    await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.id, postId)).limit(1)
+  )[0];
+  if (!post || post.deletedAt) return c.json({ error: "not_found" }, 404);
+  const ctx = await loadMembershipContext(db, userId, post.churchId);
+  if (!ctx || !canModeratePosts(ctx.roles, ctx.platformAdmin)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  if (!["poll", "chain", "survey"].includes(post.kind)) {
+    return c.json({ error: "not_exportable" }, 400);
+  }
+  const responses = await db
+    .select()
+    .from(schema.forumPostResponses)
+    .where(eq(schema.forumPostResponses.postId, postId));
+  const rows = responses.map((r) => ({
+    id: r.id,
+    userId: r.userId,
+    action: r.action,
+    payload: parsePayloadJson(r.payloadJson),
+    createdAt: r.createdAt,
+  }));
+  return c.json({
+    postId: post.id,
+    kind: post.kind,
+    title: post.title,
+    exportedAt: Date.now(),
+    rows,
+  });
 });
 
 const createGroupSchema = z.object({

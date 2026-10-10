@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { ChurchRole, GroupKind, SecurityMode } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
-import { ExternalMedia } from "./media";
+import { DadaoPanel } from "./DadaoPanel";
 
 type Caps = {
   platformAdmin?: boolean;
@@ -25,20 +25,6 @@ type Church = {
   securityMode?: SecurityMode;
   groups?: string[];
   capabilities?: Caps;
-};
-
-type Board = "notice" | "general" | "group";
-
-type ForumPost = {
-  id: string;
-  churchId: string;
-  groupId?: string | null;
-  board: Board;
-  title: string;
-  body: string;
-  externalMediaUrl?: string | null;
-  mediaKey?: string | null;
-  createdAt: number;
 };
 
 type ChurchMember = {
@@ -76,8 +62,6 @@ type OrgTreeResponse = {
   leaders: OrgPerson[];
 };
 
-type BoardInfo = { id: Board; postCount: number; latestAt: number | null };
-
 type HomeSection = "home" | "forum" | "manage";
 type ManageSub = "groups" | "verify" | "roles";
 type ManageableGroup = {
@@ -92,7 +76,6 @@ type GroupMemberRow = {
   nickname: string | null;
   role: string;
 };
-const BOARDS: Board[] = ["notice", "general", "group"];
 const ASSIGNABLE_ROLES: ChurchRole[] = [
   "admin",
   "elder",
@@ -159,7 +142,7 @@ export function HomePage() {
   const [homeSection, setHomeSection] = useState<HomeSection>(() => {
     if (typeof window === "undefined") return "home";
     const raw = window.location.hash.replace(/^#/, "");
-    return raw === "manage" || raw === "forum" || raw === "home" ? raw : "home";
+    return raw === "forum" || raw === "manage" || raw === "home" ? raw : "home";
   });
   const [manageSub, setManageSub] = useState<ManageSub>("groups");
   const [churches, setChurches] = useState<Church[]>([]);
@@ -167,9 +150,6 @@ export function HomePage() {
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [manageGroups, setManageGroups] = useState<ManageableGroup[]>([]);
   const [groupRoster, setGroupRoster] = useState<GroupMemberRow[]>([]);
-  const [board, setBoard] = useState<Board | null>(null);
-  const [boards, setBoards] = useState<BoardInfo[]>([]);
-  const [posts, setPosts] = useState<ForumPost[]>([]);
   const [org, setOrg] = useState<OrgTreeResponse | null>(null);
   const [activePerson, setActivePerson] = useState<OrgPerson | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -177,11 +157,6 @@ export function HomePage() {
   const [slug, setSlug] = useState("");
   const [joinSlug, setJoinSlug] = useState("");
   const [securityMode, setSecurityMode] = useState<SecurityMode>("standard");
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
-  const [mediaKey, setMediaKey] = useState<string | null>(null);
-  const [composeGroupId, setComposeGroupId] = useState("");
   const [busy, setBusy] = useState(false);
   const [members, setMembers] = useState<ChurchMember[]>([]);
   const [groupName, setGroupName] = useState("");
@@ -294,28 +269,6 @@ export function HomePage() {
     setOrg(r);
   }, [selectedChurchId]);
 
-  const loadBoards = useCallback(async () => {
-    if (!getToken() || !selectedChurchId) {
-      setBoards([]);
-      return;
-    }
-    const r = await api<{ boards: BoardInfo[] }>(
-      `/v1/home/${encodeURIComponent(selectedChurchId)}/boards`,
-    );
-    setBoards(r.boards ?? []);
-  }, [selectedChurchId]);
-
-  const loadPosts = useCallback(async () => {
-    if (!getToken() || !selectedChurchId || !board) {
-      setPosts([]);
-      return;
-    }
-    const r = await api<{ posts: ForumPost[] }>(
-      `/v1/home/${encodeURIComponent(selectedChurchId)}/posts?board=${encodeURIComponent(board)}`,
-    );
-    setPosts(r.posts);
-  }, [selectedChurchId, board]);
-
   const loadMembers = useCallback(async () => {
     if (!getToken() || !selectedChurchId || !(canVerify || isGroupLeader || canCreateGroup)) {
       setMembers([]);
@@ -362,14 +315,6 @@ export function HomePage() {
   }, [loadOrg]);
 
   useEffect(() => {
-    void loadBoards().catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [loadBoards]);
-
-  useEffect(() => {
-    void loadPosts().catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [loadPosts]);
-
-  useEffect(() => {
     void loadMembers().catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [loadMembers]);
 
@@ -394,7 +339,7 @@ export function HomePage() {
   useEffect(() => {
     const onHash = () => {
       const raw = window.location.hash.replace(/^#/, "");
-      if (raw === "manage" || raw === "forum" || raw === "home") {
+      if (raw === "forum" || raw === "manage" || raw === "home") {
         setHomeSection(raw);
       }
     };
@@ -491,90 +436,6 @@ export function HomePage() {
       await refresh();
       setSelectedChurchId(joined.churchId);
       setHomeSection("home");
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function uploadAttachment(file: File) {
-    if (!getToken()) {
-      setNote("login_required");
-      return;
-    }
-    setBusy(true);
-    try {
-      const minted = await api<{ key: string; putUrl: string }>("/v1/media/upload-url", {
-        method: "POST",
-      });
-      const putRes = await fetch(minted.putUrl, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-          "Content-Type": file.type || "application/octet-stream",
-        },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error("media_upload_failed");
-      setMediaKey(minted.key);
-      setNote("media_uploaded");
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function openAttachment(key: string) {
-    if (!getToken()) {
-      setNote("login_required");
-      return;
-    }
-    try {
-      const res = await fetch(`/v1/media/${key}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (!res.ok) throw new Error("media_fetch_failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
-    }
-  }
-
-  async function composePost() {
-    if (!getToken() || !selectedChurchId || !board) {
-      setNote("login_required");
-      return;
-    }
-    if (board === "group" && !composeGroupId) {
-      setNote("group_required");
-      return;
-    }
-    setBusy(true);
-    try {
-      const payload: Record<string, string> = {
-        churchId: selectedChurchId,
-        board,
-        title: title.trim(),
-        body: body.trim(),
-      };
-      if (board === "group" && composeGroupId) payload.groupId = composeGroupId;
-      if (mediaUrl.trim()) payload.externalMediaUrl = mediaUrl.trim();
-      if (mediaKey) payload.mediaKey = mediaKey;
-      await api("/v1/home/posts", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setTitle("");
-      setBody("");
-      setMediaUrl("");
-      setMediaKey(null);
-      await loadPosts();
-      await loadBoards();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -899,159 +760,14 @@ export function HomePage() {
         </>
       )}
 
-      {homeSection === "forum" && selectedChurchId && (
-        <div className="panel" data-testid="home-forum-panel">
-          {churches.length > 1 && (
-            <div className="field">
-              <label>{t("home.pickHome")}</label>
-              <select
-                value={selectedChurchId}
-                onChange={(e) => {
-                  setSelectedChurchId(e.target.value);
-                  setBoard(null);
-                }}
-                data-testid="home-forum-church-select"
-              >
-                {churches.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {!board ? (
-            <>
-              <h2>{t("home.boards")}</h2>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {t("home.boardsHint")}
-              </p>
-              <ul className="board-card-list" data-testid="home-board-list">
-                {BOARDS.map((b) => {
-                  const info = boards.find((x) => x.id === b);
-                  return (
-                    <li key={b}>
-                      <button
-                        type="button"
-                        className="board-card"
-                        onClick={() => setBoard(b)}
-                        data-testid={`home-board-${b}`}
-                      >
-                        <div className="board-card-title">{t(`home.board.${b}`)}</div>
-                        <div className="muted">
-                          {t("home.boardPostCount", { count: info?.postCount ?? 0 })}
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          ) : (
-            <>
-              <div className="toolbar" style={{ marginBottom: "0.75rem" }}>
-                <button type="button" className="btn ghost" onClick={() => setBoard(null)}>
-                  {t("home.backBoards")}
-                </button>
-              </div>
-              <h2>{t(`home.board.${board}`)}</h2>
-              <ul className="list">
-                {posts.length === 0 && <li className="muted">{t("home.noPosts")}</li>}
-                {posts.map((p) => (
-                  <li key={p.id}>
-                    <article className="post-row">
-                      <div className="post-row-title">{p.title}</div>
-                      <p className="post-row-body">{p.body}</p>
-                      <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.82rem" }}>
-                        {t("home.postedAt")} · {new Date(p.createdAt).toLocaleString()}
-                      </p>
-                      {p.externalMediaUrl ? <ExternalMedia url={p.externalMediaUrl} /> : null}
-                      {p.mediaKey ? (
-                        <p className="muted">
-                          <button
-                            type="button"
-                            className="linkish"
-                            data-testid="home-open-attachment"
-                            onClick={() => void openAttachment(p.mediaKey!)}
-                          >
-                            {t("home.attachment")}
-                          </button>
-                        </p>
-                      ) : null}
-                    </article>
-                  </li>
-                ))}
-              </ul>
-
-              <h3>{t("home.compose")}</h3>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {t("home.composeHint")}
-              </p>
-              {board === "group" && (
-                <div className="field">
-                  <label>{t("home.board.group")}</label>
-                  <select
-                    value={composeGroupId}
-                    onChange={(e) => setComposeGroupId(e.target.value)}
-                  >
-                    <option value="">{t("home.selectGroup")}</option>
-                    {membershipGroups.map((gid) => (
-                      <option key={gid} value={gid}>
-                        {gid}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="field">
-                <label>{t("home.postTitle")}</label>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>{t("home.postBody")}</label>
-                <textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
-              </div>
-              <details className="plans-advanced">
-                <summary>{t("home.mediaUrl")}</summary>
-                <div className="field" style={{ marginTop: "0.65rem" }}>
-                  <label>{t("home.mediaUrl")}</label>
-                  <input
-                    value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=…"
-                  />
-                </div>
-                <div className="field">
-                  <label>{t("home.attachment")}</label>
-                  <input
-                    type="file"
-                    accept="image/*,audio/*,video/*"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void uploadAttachment(f);
-                    }}
-                  />
-                  {mediaKey ? <p className="muted">{mediaKey}</p> : null}
-                </div>
-              </details>
-              <button type="button" className="btn" disabled={busy} onClick={() => void composePost()}>
-                {t("home.post")}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {homeSection === "forum" && !selectedChurchId && (
-        <div className="panel" data-testid="home-forum-empty">
-          <p className="muted" style={{ marginTop: 0 }}>
-            {t("home.forumNeedHome")}
-          </p>
-          <button type="button" className="btn" onClick={() => setHomeSection("home")}>
-            {t("home.goHome")}
-          </button>
-        </div>
+      {homeSection === "forum" && (
+        <DadaoPanel
+          churchId={selectedChurchId}
+          churches={churches.map((c) => ({ id: c.id, name: c.name }))}
+          onSelectChurch={setSelectedChurchId}
+          membershipGroups={membershipGroups}
+          onNeedHome={() => setHomeSection("home")}
+        />
       )}
 
       {homeSection === "manage" && selectedChurchId && (

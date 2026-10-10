@@ -15,7 +15,42 @@ export const localeSchema = z.preprocess(
   (v) => (v === undefined || v === null || v === "" ? "zh-CN" : normalizeLocale(v)),
   z.enum(["zh-CN", "en", "ja"]),
 );
-export const themeSchema = z.enum(["day", "sepia", "night", "highContrast"]);
+export const themeSchema = z.enum(["day", "blush", "sepia", "night", "highContrast"]);
+
+/** 大道 post kinds. */
+export const FORUM_POST_KINDS = ["text", "poll", "chain", "survey", "riddle", "timed"] as const;
+export type ForumPostKind = (typeof FORUM_POST_KINDS)[number];
+export const forumPostKindSchema = z.enum(FORUM_POST_KINDS);
+
+export const forumPollPayloadSchema = z.object({
+  options: z.array(z.string().min(1).max(120)).min(2).max(12),
+});
+
+export const forumChainPayloadSchema = z.object({
+  prompt: z.string().min(1).max(500).optional(),
+  maxEntries: z.number().int().min(1).max(500).optional(),
+});
+
+export const forumSurveyQuestionSchema = z.object({
+  id: z.string().min(1).max(40),
+  text: z.string().min(1).max(300),
+  type: z.enum(["single", "multi", "text"]).default("single"),
+  options: z.array(z.string().min(1).max(120)).max(12).optional(),
+});
+
+export const forumSurveyPayloadSchema = z.object({
+  questions: z.array(forumSurveyQuestionSchema).min(1).max(20),
+});
+
+export const forumRiddlePayloadSchema = z.object({
+  /** Plain answer at create time; server stores hash only. */
+  answer: z.string().min(1).max(200),
+  hint: z.string().max(300).optional(),
+});
+
+export const forumTimedPayloadSchema = z.object({
+  expiresAt: z.number().int().positive(),
+});
 
 export const privacySettingsSchema = z.object({
   discoverableByHandle: z.boolean().default(true),
@@ -109,12 +144,17 @@ export const forumPostSchema = z
     churchId: z.string(),
     groupId: z.string().optional(),
     board: z.enum(["notice", "group", "general"]).default("general"),
+    kind: forumPostKindSchema.default("text"),
     title: z.string().min(1).max(200),
-    body: z.string().min(1).max(20000),
+    body: z.string().max(20000).default(""),
     /** Allowlisted youtube/vimeo/https audio|video URL (validated server-side). */
     externalMediaUrl: z.string().url().optional(),
     /** R2 object key from POST /v1/media/upload-url (must be owned by author). */
     mediaKey: z.string().min(1).max(512).optional(),
+    /** Kind-specific payload (poll options, survey questions, etc.). */
+    payload: z.record(z.unknown()).optional().default({}),
+    /** For timed posts; also accepted inside payload.expiresAt. */
+    expiresAt: z.number().int().positive().optional(),
   })
   .superRefine((val, ctx) => {
     if (val.board === "group" && !val.groupId) {
@@ -124,7 +164,56 @@ export const forumPostSchema = z
         path: ["groupId"],
       });
     }
+    if (val.kind === "text" && !val.body.trim() && !val.mediaKey && !val.externalMediaUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "text post needs body or media",
+        path: ["body"],
+      });
+    }
+    if (val.kind === "poll") {
+      const p = forumPollPayloadSchema.safeParse(val.payload);
+      if (!p.success) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalid poll payload", path: ["payload"] });
+      }
+    }
+    if (val.kind === "survey") {
+      const p = forumSurveyPayloadSchema.safeParse(val.payload);
+      if (!p.success) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalid survey payload", path: ["payload"] });
+      }
+    }
+    if (val.kind === "riddle") {
+      const p = forumRiddlePayloadSchema.safeParse(val.payload);
+      if (!p.success) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalid riddle payload", path: ["payload"] });
+      }
+    }
+    if (val.kind === "timed") {
+      const exp =
+        val.expiresAt ??
+        (typeof val.payload?.expiresAt === "number" ? val.payload.expiresAt : undefined);
+      if (!exp || exp <= Date.now()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "timed post needs future expiresAt",
+          path: ["expiresAt"],
+        });
+      }
+    }
   });
+
+export const forumRespondSchema = z.object({
+  /** poll | chain | survey | riddle */
+  action: z.enum(["vote", "chain", "survey", "riddle"]),
+  payload: z.record(z.unknown()).default({}),
+});
+
+export const forumAdminPatchSchema = z.object({
+  pinned: z.boolean().optional(),
+  readonly: z.boolean().optional(),
+  deleted: z.boolean().optional(),
+});
 
 export const wipeCommandSchema = z.object({
   userId: z.string(),
