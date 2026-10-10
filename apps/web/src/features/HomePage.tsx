@@ -679,10 +679,6 @@ export function HomePage() {
     }
   }
 
-  function greetPerson(p: OrgPerson) {
-    navigate(`/app/chat?peer=${encodeURIComponent(p.userId)}`);
-  }
-
   async function sendAssemblyNotify() {
     if (!selectedChurchId || !assemblyNotifyTitle.trim()) return;
     setBusy(true);
@@ -1042,9 +1038,6 @@ export function HomePage() {
                   </div>
                 </dl>
                 <div className="toolbar">
-                  <button type="button" className="btn" onClick={() => greetPerson(activePerson)}>
-                    {t("home.greet")}
-                  </button>
                   <button
                     type="button"
                     className="btn"

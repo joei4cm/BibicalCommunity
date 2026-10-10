@@ -3341,12 +3341,61 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 
 .im-composer {
   display: flex;
-  align-items: flex-end;
-  gap: 0.45rem;
-  padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom));
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom));
   border-top: 1px solid var(--br-line, var(--lh-border));
   background: var(--lh-bg-elevated, #fff);
   flex-shrink: 0;
+}
+
+.im-composer-tools {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.im-tool {
+  min-width: 2.4rem;
+  padding-inline: 0.35rem;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.im-tool.is-active {
+  background: color-mix(in srgb, var(--lh-accent) 12%, transparent);
+}
+
+.im-emoji-panel {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.2rem;
+  max-height: 7.5rem;
+  overflow: auto;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--br-line, var(--lh-border));
+  background: var(--lh-bg, #f6f4f1);
+}
+
+.im-emoji-btn {
+  border: 0;
+  background: transparent;
+  font-size: 1.35rem;
+  line-height: 1.4;
+  padding: 0.15rem;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.im-emoji-btn:hover {
+  background: color-mix(in srgb, var(--lh-ink) 8%, transparent);
+}
+
+.im-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
 }
 
 .sheet-panel .btn:not(.ghost) {
@@ -3365,6 +3414,38 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 
 .im-send {
   flex-shrink: 0;
+}
+
+.chat-media {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.chat-media-image {
+  display: block;
+  max-width: min(100%, 16rem);
+  max-height: 14rem;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.chat-media-video {
+  display: block;
+  max-width: min(100%, 16rem);
+  max-height: 14rem;
+  border-radius: 10px;
+  background: #111;
+}
+
+.chat-media-audio {
+  width: min(100%, 16rem);
+}
+
+.chat-media-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 550;
 }
 
 .im-kind-tabs {

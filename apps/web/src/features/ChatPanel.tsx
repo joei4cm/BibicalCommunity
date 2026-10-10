@@ -20,8 +20,41 @@ import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
 import { SheetPortal } from "../components/SheetPortal";
+import {
+  encodeChatPayload,
+  parseChatPayload,
+  payloadPreview,
+  type ChatPayload,
+} from "../lib/chat-payload";
 
 type ConversationKind = "dm" | "group" | "seminar";
+
+const EMOJI_PICKER = [
+  "😀",
+  "😁",
+  "😂",
+  "😊",
+  "😍",
+  "🙏",
+  "👍",
+  "👏",
+  "❤️",
+  "🔥",
+  "✨",
+  "🎉",
+  "😇",
+  "🤝",
+  "💪",
+  "🕊️",
+  "✝️",
+  "📖",
+  "🏠",
+  "🌸",
+  "☀️",
+  "🌙",
+  "⭐",
+  "✅",
+];
 
 type Conversation = {
   id: string;
@@ -90,8 +123,13 @@ export function ChatPanel({
   const [directory, setDirectory] = useState<
     { userId: string; uid: string | null; nickname: string | null }[]
   >([]);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const callRef = useRef<CallSession | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const mediaLoadedRef = useRef<Set<string>>(new Set());
 
   const selected = useMemo(
     () => conversations.find((c) => c.id === selectedId) ?? null,
@@ -398,55 +436,62 @@ export function ChatPanel({
     await createConversation([userId], "dm");
   }
 
+  async function sendEncryptedPayload(payload: ChatPayload) {
+    if (!selectedId) return;
+    const plaintext = encodeChatPayload(payload);
+    const peers = peersFor(selectedId);
+    const expiresAt = selected?.disappearingTtlSec
+      ? Date.now() + selected.disappearingTtlSec * 1000
+      : undefined;
+
+    let ratchetHeader: string;
+    let ciphertext: string;
+    let mode: string;
+
+    if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
+      const fanout = await encryptGroupFanout({
+        conversationId: selectedId,
+        plaintext,
+        fromUserId: selfUserId,
+        peerUserIds: peers,
+        expiresAt,
+      });
+      ratchetHeader = fanout.ratchetHeader;
+      ciphertext = fanout.ciphertext;
+      mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
+    } else {
+      const enc = await encryptChatMessage(selectedId, plaintext, peers[0] ?? null);
+      ratchetHeader = enc.ratchetHeader;
+      ciphertext = enc.ciphertext;
+      mode = enc.mode;
+    }
+
+    const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        ratchetHeader,
+        ciphertext,
+        contentType: "msg",
+        expiresAt,
+      }),
+    });
+    localStorage.setItem(`lh.msg.${res.id}`, plaintext);
+    if (mode === "degraded") {
+      setNote("chat_degraded_no_peer_keys");
+    } else {
+      setNote(null);
+    }
+    await loadMessages(selectedId);
+  }
+
   async function sendMessage() {
     if (!selectedId || !draft.trim()) return;
     setBusy(true);
     try {
       const text = draft.trim();
-      const peers = peersFor(selectedId);
-      const expiresAt = selected?.disappearingTtlSec
-        ? Date.now() + selected.disappearingTtlSec * 1000
-        : undefined;
-
-      let ratchetHeader: string;
-      let ciphertext: string;
-      let mode: string;
-
-      if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
-        const fanout = await encryptGroupFanout({
-          conversationId: selectedId,
-          plaintext: text,
-          fromUserId: selfUserId,
-          peerUserIds: peers,
-          expiresAt,
-        });
-        ratchetHeader = fanout.ratchetHeader;
-        ciphertext = fanout.ciphertext;
-        mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
-      } else {
-        const enc = await encryptChatMessage(selectedId, text, peers[0] ?? null);
-        ratchetHeader = enc.ratchetHeader;
-        ciphertext = enc.ciphertext;
-        mode = enc.mode;
-      }
-
-      const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({
-          ratchetHeader,
-          ciphertext,
-          contentType: "msg",
-          expiresAt,
-        }),
-      });
-      localStorage.setItem(`lh.msg.${res.id}`, text);
-      if (mode === "degraded") {
-        setNote("chat_degraded_no_peer_keys");
-      } else {
-        setNote(null);
-      }
       setDraft("");
-      await loadMessages(selectedId);
+      setEmojiOpen(false);
+      await sendEncryptedPayload({ v: 1, kind: "text", text });
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -454,8 +499,93 @@ export function ChatPanel({
     }
   }
 
+  async function sendAttachment(file: File) {
+    if (!selectedId || !getToken()) return;
+    setBusy(true);
+    try {
+      const minted = await api<{ key: string; putUrl: string }>("/v1/media/upload-url", {
+        method: "POST",
+      });
+      const putRes = await fetch(minted.putUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("media_upload_failed");
+      const caption = draft.trim();
+      setDraft("");
+      setEmojiOpen(false);
+      await sendEncryptedPayload({
+        v: 1,
+        kind: "media",
+        mediaKey: minted.key,
+        mime: file.type || "application/octet-stream",
+        name: file.name || "file",
+        text: caption || undefined,
+      });
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function insertEmoji(emoji: string) {
+    const el = composerRef.current;
+    if (!el) {
+      setDraft((prev) => prev + emoji);
+      return;
+    }
+    const start = el.selectionStart ?? draft.length;
+    const end = el.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  useEffect(() => {
+    const keys = [
+      ...new Set(
+        Object.values(plaintexts)
+          .map((raw) => parseChatPayload(raw))
+          .filter((p): p is Extract<ChatPayload, { kind: "media" }> => p?.kind === "media")
+          .map((p) => p.mediaKey),
+      ),
+    ].filter((k) => !mediaLoadedRef.current.has(k));
+    if (keys.length === 0 || !getToken()) return;
+    let cancelled = false;
+    void (async () => {
+      for (const key of keys) {
+        mediaLoadedRef.current.add(key);
+        try {
+          const res = await fetch(`/v1/media/${encodeURIComponent(key)}`, {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          });
+          if (!res.ok || cancelled) continue;
+          const blob = await res.blob();
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob);
+          setMediaUrls((prev) => ({ ...prev, [key]: url }));
+        } catch {
+          mediaLoadedRef.current.delete(key);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [plaintexts]);
+
   async function favoriteMessage(m: ChatMessage) {
-    const text = plaintexts[m.id] ?? "";
+    const text = payloadPreview(plaintexts[m.id], plaintexts[m.id] ?? "");
     const key = await sessionKeyFor(selectedId ?? "fav");
     const enc = await encryptSessionPayload(key, text, "fav");
     await api("/v1/chat/favorites", {
@@ -689,42 +819,126 @@ export function ChatPanel({
 
           <div className="im-messages chat-thread">
             {messages.length === 0 && <p className="muted im-empty">{t("chat.noMessages")}</p>}
-            {messages.map((m) => (
-              <div key={m.id} className="chat-bubble">
-                <p className="chat-bubble-text">{plaintexts[m.id] ?? t("common.loading")}</p>
-                <div className="muted im-bubble-meta">
-                  {new Date(m.createdAt).toLocaleString()}
-                  {m.expiresAt
-                    ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
-                    : ""}
+            {messages.map((m) => {
+              const payload = parseChatPayload(plaintexts[m.id]);
+              const loading = plaintexts[m.id] == null;
+              return (
+                <div key={m.id} className="chat-bubble">
+                  {loading && <p className="chat-bubble-text">{t("common.loading")}</p>}
+                  {!loading && payload?.kind === "media" && (
+                    <div className="chat-media">
+                      {payload.mime.startsWith("image/") && mediaUrls[payload.mediaKey] ? (
+                        <img
+                          className="chat-media-image"
+                          src={mediaUrls[payload.mediaKey]}
+                          alt={payload.name}
+                        />
+                      ) : payload.mime.startsWith("audio/") && mediaUrls[payload.mediaKey] ? (
+                        <audio className="chat-media-audio" controls src={mediaUrls[payload.mediaKey]} />
+                      ) : payload.mime.startsWith("video/") && mediaUrls[payload.mediaKey] ? (
+                        <video className="chat-media-video" controls src={mediaUrls[payload.mediaKey]} />
+                      ) : (
+                        <a
+                          className="chat-media-file"
+                          href={mediaUrls[payload.mediaKey] || `#`}
+                          download={payload.name}
+                          onClick={(e) => {
+                            if (!mediaUrls[payload.mediaKey]) e.preventDefault();
+                          }}
+                        >
+                          📎 {payload.name}
+                        </a>
+                      )}
+                      {payload.text ? <p className="chat-bubble-text">{payload.text}</p> : null}
+                    </div>
+                  )}
+                  {!loading && payload?.kind === "text" && (
+                    <p className="chat-bubble-text">{payload.text}</p>
+                  )}
+                  <div className="muted im-bubble-meta">
+                    {new Date(m.createdAt).toLocaleString()}
+                    {m.expiresAt
+                      ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
+                      : ""}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <footer className="im-composer">
             {note && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
-            <textarea
-              rows={1}
-              className="im-composer-input"
-              value={draft}
-              placeholder={t("chat.message")}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendMessage();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="btn im-send"
-              disabled={busy || !draft.trim()}
-              onClick={() => void sendMessage()}
-            >
-              {t("chat.send")}
-            </button>
+            <div className="im-composer-tools">
+              <button
+                type="button"
+                className="btn ghost im-tool"
+                data-testid="chat-attach-open"
+                aria-label={t("chat.attach")}
+                disabled={busy}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                📎
+              </button>
+              <button
+                type="button"
+                className={`btn ghost im-tool${emojiOpen ? " is-active" : ""}`}
+                data-testid="chat-emoji-open"
+                aria-label={t("chat.emoji")}
+                aria-expanded={emojiOpen}
+                onClick={() => setEmojiOpen((v) => !v)}
+              >
+                😊
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="sr-only"
+                accept="image/*,audio/*,video/*,.pdf,.txt,.doc,.docx"
+                data-testid="chat-attach-input"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void sendAttachment(f);
+                }}
+              />
+            </div>
+            {emojiOpen && (
+              <div className="im-emoji-panel" data-testid="chat-emoji-panel" role="listbox">
+                {EMOJI_PICKER.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className="im-emoji-btn"
+                    onClick={() => insertEmoji(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="im-composer-row">
+              <textarea
+                ref={composerRef}
+                rows={1}
+                className="im-composer-input"
+                value={draft}
+                placeholder={t("chat.message")}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn im-send"
+                disabled={busy || !draft.trim()}
+                onClick={() => void sendMessage()}
+              >
+                {t("chat.send")}
+              </button>
+            </div>
           </footer>
         </div>
       ) : (
