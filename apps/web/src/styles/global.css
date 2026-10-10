@@ -2501,8 +2501,9 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 }
 
+/* No fill-mode: a lingering transform creates a containing block and traps position:fixed sheets. */
 .fade-up {
-  animation: fade-up 360ms ease both;
+  animation: fade-up 360ms ease;
 }
 
 .reader-dual {
@@ -3111,7 +3112,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   position: fixed;
   right: max(1rem, env(safe-area-inset-right));
   bottom: calc(4.25rem + env(safe-area-inset-bottom));
-  z-index: 40;
+  z-index: 60;
   width: 3.25rem;
   height: 3.25rem;
   border: 0;
@@ -3297,9 +3298,35 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 
 .im-messages {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 0.85rem 0.85rem 0.5rem;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Override folio chat-thread cap so the IM composer stays docked to the bottom. */
+.im-thread .im-messages.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0.85rem 0.85rem 0.5rem;
+  border: 0;
+}
+
+.im-thread .chat-bubble {
+  padding: 0.45rem 0.65rem;
+  border-bottom: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 88%, var(--lh-ink) 4%);
+  max-width: min(92%, 28rem);
+}
+
+.im-thread .chat-bubble-text {
+  font-family: inherit;
 }
 
 .im-empty {
@@ -3316,9 +3343,14 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   display: flex;
   align-items: flex-end;
   gap: 0.45rem;
-  padding: 0.55rem 0.65rem calc(0.65rem + env(safe-area-inset-bottom));
+  padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom));
   border-top: 1px solid var(--br-line, var(--lh-border));
   background: var(--lh-bg-elevated, #fff);
+  flex-shrink: 0;
+}
+
+.sheet-panel .btn:not(.ghost) {
+  width: 100%;
 }
 
 .im-composer-input {
@@ -3357,7 +3389,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   position: fixed;
   right: max(1rem, env(safe-area-inset-right));
   bottom: calc(4.35rem + env(safe-area-inset-bottom));
-  z-index: 40;
+  z-index: 60;
   width: 3.25rem;
   height: 3.25rem;
   border: 0;
@@ -3370,10 +3402,20 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   box-shadow: 0 10px 28px color-mix(in srgb, var(--lh-accent) 40%, transparent);
 }
 
+/* Sheets hide the tab bar — keep FAB clear of thumbs without fighting nav. */
+body:has(.sheet-backdrop) .tab-bar {
+  display: none;
+}
+
+body:has(.sheet-backdrop) .comms-fab,
+body:has(.sheet-backdrop) .dadao-fab {
+  display: none;
+}
+
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 80;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -3383,9 +3425,10 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 
 .sheet-panel {
   width: min(32rem, 100%);
-  max-height: min(85dvh, 40rem);
+  max-height: min(88dvh, 42rem);
   overflow: auto;
-  padding: 0.35rem 1rem calc(1.15rem + env(safe-area-inset-bottom) + 3.75rem);
+  margin: 0;
+  padding: 0.35rem 1rem calc(1rem + env(safe-area-inset-bottom));
   border-radius: 16px 16px 0 0;
   background: var(--lh-bg-elevated, var(--lh-glass-strong, #fff));
   color: var(--lh-ink);

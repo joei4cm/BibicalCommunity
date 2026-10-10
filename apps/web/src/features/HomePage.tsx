@@ -18,6 +18,7 @@ const OFFICE_ASSIGNABLE_ROLES = ASSIGNABLE_CHURCH_ROLES.filter((r) =>
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { DadaoPanel } from "./DadaoPanel";
+import { SheetPortal } from "../components/SheetPortal";
 
 type Caps = {
   platformAdmin?: boolean;
@@ -992,6 +993,7 @@ export function HomePage() {
           )}
 
           {activePerson && (
+            <SheetPortal>
             <div
               className="sheet-backdrop"
               role="presentation"
@@ -1062,6 +1064,7 @@ export function HomePage() {
                 </div>
               </div>
             </div>
+            </SheetPortal>
           )}
         </>
       )}

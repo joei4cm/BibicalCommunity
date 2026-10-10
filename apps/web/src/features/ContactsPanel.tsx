@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
+import { SheetPortal } from "../components/SheetPortal";
 
 type Contact = {
   userId: string;
@@ -209,6 +210,7 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
       </button>
 
       {sheetOpen && (
+        <SheetPortal>
         <div className="sheet-backdrop" role="presentation" onClick={() => setSheetOpen(false)}>
           <div
             className="sheet-panel"
@@ -245,6 +247,7 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
             </button>
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   );

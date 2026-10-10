@@ -4,6 +4,7 @@ import type { ForumPostKind } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { ExternalMedia } from "./media";
+import { SheetPortal } from "../components/SheetPortal";
 
 type Board = "notice" | "general" | "group";
 type BoardInfo = { id: Board; postCount: number; latestAt: number | null };
@@ -637,8 +638,9 @@ export function DadaoPanel({
         </button>
       )}
 
-      {/* Compose sheet — bottom sheet above tab bar */}
+      {/* Compose sheet — viewport bottom sheet via portal */}
       {composeOpen && board && (
+        <SheetPortal>
         <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
           <div
             className="sheet-panel dadao-compose-sheet"
@@ -773,6 +775,7 @@ export function DadaoPanel({
             </div>
           </div>
         </div>
+        </SheetPortal>
       )}
 
     </div>

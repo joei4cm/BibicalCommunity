@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
+import { SheetPortal } from "../components/SheetPortal";
 
 type CalEvent = {
   id: string;
@@ -339,6 +340,7 @@ export function CalendarPanel() {
       </button>
 
       {composeOpen && (
+        <SheetPortal>
         <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
           <div
             className="sheet-panel"
@@ -384,6 +386,7 @@ export function CalendarPanel() {
             </button>
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   );

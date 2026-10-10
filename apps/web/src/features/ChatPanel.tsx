@@ -19,6 +19,7 @@ import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
+import { SheetPortal } from "../components/SheetPortal";
 
 type ConversationKind = "dm" | "group" | "seminar";
 
@@ -85,6 +86,10 @@ export function ChatPanel({
   const [discoverHits, setDiscoverHits] = useState<
     { id: string; uid: string; nickname: string | null }[]
   >([]);
+  const [peerLabels, setPeerLabels] = useState<Record<string, string>>({});
+  const [directory, setDirectory] = useState<
+    { userId: string; uid: string | null; nickname: string | null }[]
+  >([]);
   const callRef = useRef<CallSession | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -126,6 +131,24 @@ export function ChatPanel({
     void api<{ id?: string; userId?: string }>("/v1/me")
       .then((me) => setSelfUserId(me.id ?? me.userId ?? null))
       .catch(() => setSelfUserId(null));
+  }, []);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    void api<{
+      contacts: { userId: string; uid: string | null; nickname: string | null }[];
+    }>("/v1/friends/directory")
+      .then((res) => {
+        const map: Record<string, string> = {};
+        for (const c of res.contacts) {
+          map[c.userId] = c.nickname || c.uid || c.userId.slice(0, 10);
+        }
+        setPeerLabels(map);
+        setDirectory(res.contacts);
+      })
+      .catch(() => {
+        /* directory is optional for labels */
+      });
   }, []);
 
   const peerFromQuery = searchParams.get("peer");
@@ -579,6 +602,11 @@ export function ChatPanel({
   function convoLabel(c: Conversation) {
     if (isCoworkerAssemblyConversationTitle(c.title)) return t("home.assembly.title");
     if (c.title) return c.title;
+    if (c.kind === "dm") {
+      const peer = (c.peerUserIds ?? [])[0];
+      if (peer && peerLabels[peer]) return peerLabels[peer];
+      if (peer) return peer.slice(0, 10);
+    }
     return kindLabel(c.kind);
   }
 
@@ -599,7 +627,9 @@ export function ChatPanel({
             </button>
             <div className="im-thread-title">
               <strong>{convoLabel(selected)}</strong>
-              <span className="muted">{kindLabel(selected.kind)}</span>
+              {selected.kind !== "dm" && (
+                <span className="muted">{kindLabel(selected.kind)}</span>
+              )}
             </div>
             <details className="im-more">
               <summary className="btn ghost">···</summary>
@@ -729,12 +759,14 @@ export function ChatPanel({
                 <li key={c.id}>
                   <button type="button" className="convo-row" onClick={() => setSelectedId(c.id)}>
                     <strong>{convoLabel(c)}</strong>
-                    <div className="muted">
-                      {kindLabel(c.kind)}
-                      {c.disappearingTtlSec
-                        ? ` · ${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
-                        : ""}
-                    </div>
+                    {(c.kind !== "dm" || c.disappearingTtlSec) && (
+                      <div className="muted">
+                        {c.kind !== "dm" ? kindLabel(c.kind) : ""}
+                        {c.disappearingTtlSec
+                          ? `${c.kind !== "dm" ? " · " : ""}${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
+                          : ""}
+                      </div>
+                    )}
                   </button>
                 </li>
               ))}
@@ -778,6 +810,7 @@ export function ChatPanel({
       )}
 
       {sheet !== "none" && (
+        <SheetPortal>
         <div
           className="sheet-backdrop"
           role="presentation"
@@ -841,44 +874,80 @@ export function ChatPanel({
                   <select
                     value={kind}
                     onChange={(e) => setKind(e.target.value as ConversationKind)}
+                    data-testid="chat-compose-kind"
                   >
                     <option value="dm">{t("chat.dm")}</option>
                     <option value="group">{t("chat.group")}</option>
                     <option value="seminar">{t("comms.seminar")}</option>
                   </select>
                 </div>
-                {(kind === "group" || kind === "seminar") && (
-                  <div className="field">
-                    <label>{t("chat.title")}</label>
-                    <input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder={kind === "seminar" ? t("comms.seminarTitleHint") : undefined}
-                    />
-                  </div>
+                {kind === "dm" ? (
+                  <>
+                    <p className="muted" style={{ marginTop: 0 }}>
+                      {t("chat.discoverHint")}
+                    </p>
+                    <ul className="list" data-testid="chat-compose-contacts">
+                      {directory.length === 0 && (
+                        <li className="muted">{t("chat.discoverEmpty")}</li>
+                      )}
+                      {directory.map((c) => (
+                        <li key={c.userId}>
+                          <button
+                            type="button"
+                            className="convo-row"
+                            data-testid={`chat-compose-contact-${c.uid || c.userId}`}
+                            onClick={() => void openOrStartDm(c.userId)}
+                          >
+                            <strong>{c.nickname || c.uid || c.userId.slice(0, 10)}</strong>
+                            {c.uid ? <div className="muted">UID {c.uid}</div> : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      data-testid="chat-compose-search-switch"
+                      onClick={() => setSheet("discover")}
+                    >
+                      {t("chat.discoverFriends")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="field">
+                      <label>{t("chat.title")}</label>
+                      <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={kind === "seminar" ? t("comms.seminarTitleHint") : undefined}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>{t("chat.members")}</label>
+                      <input
+                        value={memberIds}
+                        onChange={(e) => setMemberIds(e.target.value)}
+                        placeholder={t("chat.selfNote")}
+                        data-testid="chat-compose-members"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy}
+                      data-testid="chat-compose-create"
+                      onClick={() => void createConversation()}
+                    >
+                      {t("chat.create")}
+                    </button>
+                  </>
                 )}
-                <div className="field">
-                  <label>{t("chat.members")}</label>
-                  <input
-                    value={memberIds}
-                    onChange={(e) => setMemberIds(e.target.value)}
-                    placeholder={t("chat.selfNote")}
-                    data-testid="chat-compose-members"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy}
-                  data-testid="chat-compose-create"
-                  onClick={() => void createConversation()}
-                >
-                  {t("chat.create")}
-                </button>
               </>
             )}
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   );
