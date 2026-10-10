@@ -1,15 +1,21 @@
 import { and, eq } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import {
+  canConveneCoworkerAssembly,
   canCreateGroup,
   canManageDepartments,
   canVerifyMembers,
   canViewerSeePerson,
+  coworkerAssemblyConversationTitle,
+  deriveChurchRoleLayer,
   groupKindSchema,
+  isChurchAdminRoles,
+  isCoworkerAssemblyMember,
   parseRolesJson,
   primaryChurchRole,
   serializeRoles,
   type ChurchRole,
+  type ChurchRoleLayer,
   type GroupKind,
   type GroupRole,
   type OrgTreeGroup,
@@ -165,7 +171,7 @@ export async function assertCanManageGroupMembers(
     throw err;
   }
   const isLeader = ctx.ledGroupIds.includes(groupId);
-  const isAdmin = ctx.roles.includes("admin");
+  const isAdmin = isChurchAdminRoles(ctx.roles);
   const isDeaconDept =
     canManageDepartments(ctx.roles, ctx.platformAdmin) && group.kind === "department";
   if (!isLeader && !isAdmin && !isDeaconDept) {
@@ -205,6 +211,7 @@ export async function buildOrgTree(
   viewer: {
     roles: ChurchRole[];
     ledGroupIds: string[];
+    roleLayer: ChurchRoleLayer;
     capabilities: Record<string, boolean>;
   };
   tree: OrgTreeGroup[];
@@ -254,6 +261,7 @@ export async function buildOrgTree(
     groupMembersByGroup.set(row.groupId, list);
   }
 
+  const groupsById = new Map(groups.map((g) => [g.id, g]));
   const personCache = new Map<string, OrgTreePerson>();
   async function toPerson(m: typeof schema.churchMembers.$inferSelect): Promise<OrgTreePerson> {
     const cached = personCache.get(m.userId);
@@ -263,12 +271,19 @@ export async function buildOrgTree(
     const groupRoles = gmInChurch
       .filter((g) => g.userId === m.userId)
       .map((g) => ({ groupId: g.groupId, role: g.role as GroupRole }));
+    const groupNames = groupRoles
+      .map((gr) => groupsById.get(gr.groupId)?.name)
+      .filter((n): n is string => Boolean(n));
     const person: OrgTreePerson = {
       userId: m.userId,
       uid: user?.uid ?? null,
       nickname: user
         ? await openField(env, m.userId, "nickname", user.nicknameCt)
         : null,
+      signature: user
+        ? await openField(env, m.userId, "signature", user.signatureCt)
+        : null,
+      groupNames: [...new Set(groupNames)],
       roles,
       groupRoles,
       verified: m.verified,
@@ -364,9 +379,132 @@ export async function buildOrgTree(
         manageDepartments: canManageDepartments(ctx.roles, ctx.platformAdmin),
         manageChurch: ctx.platformAdmin,
         isGroupLeader: ctx.ledGroupIds.length > 0,
+        conveneAssembly: canConveneCoworkerAssembly(ctx.roles, ctx.platformAdmin),
       },
+      roleLayer: deriveChurchRoleLayer(ctx.roles, ctx.ledGroupIds.length > 0),
     },
     tree: roots,
     leaders,
   };
 }
+
+export type AssemblyMember = OrgTreePerson & {
+  roleLayer: ChurchRoleLayer;
+  assemblyReasons: Array<"elder" | "deacon" | "group_leader" | "coworker">;
+};
+
+/** Derived mailing-list for 同工大会 (not an org-tree node). */
+export async function buildCoworkerAssembly(
+  db: Db,
+  env: Env,
+  churchId: string,
+  viewerUserId: string,
+  opts?: { includeChurchCoworkers?: boolean },
+): Promise<{
+  churchId: string;
+  includeChurchCoworkers: boolean;
+  conversationTitle: string;
+  members: AssemblyMember[];
+  viewer: {
+    isMember: boolean;
+    canNotify: boolean;
+    canOpenChat: boolean;
+    roles: ChurchRole[];
+    roleLayer: ChurchRoleLayer;
+  };
+}> {
+  const includeChurchCoworkers = opts?.includeChurchCoworkers ?? true;
+  const ctx = await loadMembershipContext(db, viewerUserId, churchId);
+  if (!ctx) {
+    const err = new Error("forbidden") as Error & { status: number };
+    err.status = 403;
+    throw err;
+  }
+
+  const members = await db
+    .select()
+    .from(schema.churchMembers)
+    .where(eq(schema.churchMembers.churchId, churchId));
+  const groups = await db
+    .select()
+    .from(schema.churchGroups)
+    .where(eq(schema.churchGroups.churchId, churchId));
+  const groupIdSet = new Set(groups.map((g) => g.id));
+  const allGm = await db.select().from(schema.churchGroupMembers);
+  const gmInChurch = allGm.filter((g) => groupIdSet.has(g.groupId));
+
+  const groupsById = new Map(groups.map((g) => [g.id, g]));
+  const assembly: AssemblyMember[] = [];
+  for (const m of members) {
+    const roles = parseRolesJson(m.rolesJson, m.role);
+    const groupRoles = gmInChurch
+      .filter((g) => g.userId === m.userId)
+      .map((g) => ({ groupId: g.groupId, role: g.role as GroupRole }));
+    const isGroupLeader = groupRoles.some((g) => g.role === "leader");
+    if (
+      !isCoworkerAssemblyMember({
+        roles,
+        isGroupLeader,
+        includeChurchCoworkers,
+      })
+    ) {
+      continue;
+    }
+
+    const user = (
+      await db.select().from(schema.users).where(eq(schema.users.id, m.userId)).limit(1)
+    )[0];
+    const reasons: AssemblyMember["assemblyReasons"] = [];
+    if (roles.includes("elder")) reasons.push("elder");
+    if (roles.includes("deacon")) reasons.push("deacon");
+    if (isGroupLeader) reasons.push("group_leader");
+    if (includeChurchCoworkers && roles.includes("coworker")) reasons.push("coworker");
+
+    const groupNames = groupRoles
+      .map((gr) => groupsById.get(gr.groupId)?.name)
+      .filter((n): n is string => Boolean(n));
+
+    assembly.push({
+      userId: m.userId,
+      uid: user?.uid ?? null,
+      nickname: user ? await openField(env, m.userId, "nickname", user.nicknameCt) : null,
+      signature: user ? await openField(env, m.userId, "signature", user.signatureCt) : null,
+      groupNames: [...new Set(groupNames)],
+      roles,
+      groupRoles,
+      verified: m.verified,
+      roleLayer: deriveChurchRoleLayer(roles, isGroupLeader),
+      assemblyReasons: reasons,
+    });
+  }
+
+  assembly.sort((a, b) => {
+    const la = a.nickname || a.uid || a.userId;
+    const lb = b.nickname || b.uid || b.userId;
+    return la.localeCompare(lb);
+  });
+
+  const viewerIsMember = assembly.some((p) => p.userId === viewerUserId);
+  const canConvene = canConveneCoworkerAssembly(ctx.roles, ctx.platformAdmin);
+  // Members of the list can see it; conveners (安全官/长老/平台) can always see/act.
+  if (!viewerIsMember && !canConvene) {
+    const err = new Error("forbidden") as Error & { status: number };
+    err.status = 403;
+    throw err;
+  }
+
+  return {
+    churchId,
+    includeChurchCoworkers,
+    conversationTitle: coworkerAssemblyConversationTitle(churchId),
+    members: assembly,
+    viewer: {
+      isMember: viewerIsMember,
+      canNotify: canConvene,
+      canOpenChat: canConvene || viewerIsMember,
+      roles: ctx.roles,
+      roleLayer: deriveChurchRoleLayer(ctx.roles, ctx.ledGroupIds.length > 0),
+    },
+  };
+}
+

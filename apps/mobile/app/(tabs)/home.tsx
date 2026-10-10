@@ -43,7 +43,7 @@ type ForumPost = {
 type ChurchWithGroups = Church & { groups?: string[] };
 
 function isChurchAdmin(role: string): boolean {
-  return role === "admin" || role === "security_officer";
+  return role === "security_officer" || role === "admin";
 }
 
 const BOARDS: Board[] = ["notice", "general", "group"];

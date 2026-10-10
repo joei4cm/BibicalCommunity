@@ -702,12 +702,11 @@ export function AdminConsole() {
                         aria-label={t("admin.memberRole")}
                         onChange={(e) => void patchMember(m.userId, { role: e.target.value })}
                       >
-                        <option value="member">member</option>
-                        <option value="admin">admin</option>
-                        <option value="elder">elder</option>
-                        <option value="deacon">deacon</option>
-                        <option value="coworker">coworker</option>
-                        <option value="security_officer">security_officer</option>
+                        <option value="member">{t("home.role.member")}</option>
+                        <option value="elder">{t("home.role.elder")}</option>
+                        <option value="deacon">{t("home.role.deacon")}</option>
+                        <option value="coworker">{t("home.role.coworker")}</option>
+                        <option value="security_officer">{t("home.role.securityOfficer")}</option>
                       </select>
                       {!m.verified && (
                         <button

@@ -435,6 +435,16 @@ select {
   font-weight: 650;
 }
 
+.assembly-panel {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--br-line);
+}
+
+.assembly-panel h3 {
+  margin-bottom: 0.35rem;
+}
+
 .role-check-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

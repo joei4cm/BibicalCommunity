@@ -6,6 +6,7 @@ import {
   decryptSessionPayload,
   encryptSessionPayload,
 } from "@logoshome/crypto";
+import { isCoworkerAssemblyConversationTitle } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
@@ -124,6 +125,7 @@ export function ChatPanel() {
   }, []);
 
   const peerFromQuery = searchParams.get("peer");
+  const conversationFromQuery = searchParams.get("conversation");
   useEffect(() => {
     if (!peerFromQuery || !getToken()) return;
     let cancelled = false;
@@ -166,6 +168,35 @@ export function ChatPanel() {
       cancelled = true;
     };
   }, [peerFromQuery, setSearchParams]);
+
+  useEffect(() => {
+    if (!conversationFromQuery || !getToken()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resList = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
+        if (cancelled) return;
+        setConversations(resList.conversations);
+        if (resList.conversations.some((c) => c.id === conversationFromQuery)) {
+          setSelectedId(conversationFromQuery);
+          setListTab("chats");
+        }
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("conversation");
+            return next;
+          },
+          { replace: true },
+        );
+      } catch (e) {
+        if (!cancelled) setNote(e instanceof Error ? e.message : "error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationFromQuery, setSearchParams]);
 
   const peersFor = useCallback(
     (conversationId: string | null) => {
@@ -517,6 +548,7 @@ export function ChatPanel() {
   }
 
   function convoLabel(c: Conversation) {
+    if (isCoworkerAssemblyConversationTitle(c.title)) return t("home.assembly.title");
     return c.title || (c.kind === "group" ? t("chat.group") : t("chat.dm"));
   }
 

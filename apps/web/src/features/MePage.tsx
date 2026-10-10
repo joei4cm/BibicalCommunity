@@ -139,7 +139,7 @@ export function MePage() {
 
   const isChurchAdmin = profile?.churches?.some((c) => {
     const roles = (c as { roles?: string[] }).roles ?? [c.role];
-    return roles.includes("admin") || roles.includes("security_officer");
+    return roles.includes("security_officer") || roles.includes("admin");
   });
 
   async function refresh() {

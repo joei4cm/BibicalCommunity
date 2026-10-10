@@ -13,9 +13,9 @@ export type AdminChurchScope = {
   securityMode: string;
 };
 
-/** Console / church-admin APIs: admin or security_officer only. */
+/** Console / church-admin APIs: 安全官 (legacy admin accepted). */
 export function isChurchAdminRole(role: string): boolean {
-  return role === "admin" || role === "security_officer";
+  return role === "security_officer" || role === "admin";
 }
 
 function membershipIsAdmin(m: { role: string; rolesJson?: string | null }): boolean {

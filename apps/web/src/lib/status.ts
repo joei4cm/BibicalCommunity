@@ -41,6 +41,7 @@ export function humanizeStatus(
     group_member_added: "home.addGroupMember",
     group_member_removed: "home.removeGroupMember",
     roles_updated: "home.saveRoles",
+    assembly_notify_sent: "home.assembly.notifySent",
     "home.postedOk": "home.postedOk",
     "home.exportOk": "home.exportOk",
     readonly: "home.readonly",
