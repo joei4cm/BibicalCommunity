@@ -64,10 +64,22 @@ bibleRoutes.get("/audio/panshi", async (c) => {
   const upstream = panshiAudioUpstreamUrl(book, chapter);
   if (!upstream) return c.json({ error: "invalid_ref" }, 400);
   try {
+    // Upstream often rejects bare datacenter clients; spoof the god66 player.
     const res = await fetch(upstream, {
-      headers: { Accept: "audio/mpeg,*/*" },
+      headers: {
+        Accept: "audio/mpeg,*/*",
+        "User-Agent":
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        Referer: "http://www.god66.cn/langdu/66.htm",
+        Origin: "http://www.god66.cn",
+      },
     });
-    if (!res.ok) return c.json({ error: "audio_upstream_failed", status: res.status }, 502);
+    if (!res.ok) {
+      return c.json(
+        { error: "audio_upstream_failed", status: res.status, upstream },
+        502,
+      );
+    }
     const headers = new Headers();
     headers.set("Content-Type", res.headers.get("Content-Type") ?? "audio/mpeg");
     headers.set("Cache-Control", "public, max-age=86400");
@@ -76,7 +88,7 @@ bibleRoutes.get("/audio/panshi", async (c) => {
     if (len) headers.set("Content-Length", len);
     return new Response(res.body, { status: 200, headers });
   } catch {
-    return c.json({ error: "audio_fetch_failed" }, 502);
+    return c.json({ error: "audio_fetch_failed", upstream }, 502);
   }
 });
 

@@ -13,6 +13,7 @@ import {
   listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
+  PANSHI_WEB_PLAYER,
   sectionHeadingsFor,
   STUDY_COMMENTARIES,
   commentaryDisplayName,
@@ -2421,7 +2422,19 @@ export function BibleReader() {
               stopSpeech();
             }}
           />
-          {panshiError && <p className="bible-hint">{t("reader.speakPanshiError")}</p>}
+          {panshiError && (
+            <p className="bible-hint">
+              {t("reader.speakPanshiError")}{" "}
+              <a href={PANSHI_WEB_PLAYER} target="_blank" rel="noreferrer">
+                {t("reader.speakPanshiOpen")}
+              </a>
+            </p>
+          )}
+          <p className="bible-hint">
+            <a href={PANSHI_WEB_PLAYER} target="_blank" rel="noreferrer" data-testid="reader-speak-panshi-web">
+              {t("reader.speakPanshiOpen")}
+            </a>
+          </p>
           <h3>{t("reader.speakBrowser")}</h3>
           <div className="toolbar">
             <button

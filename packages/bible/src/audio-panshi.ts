@@ -29,3 +29,6 @@ export function panshiAudioUpstreamUrl(bookId: string, chapter: number): string 
   if (!rel) return null;
   return `${PANSHI_MP3_BASE}${rel}`;
 }
+
+/** Public landing page for 磐石有声圣经 (HTTPS site; player is HTTP CDN). */
+export const PANSHI_WEB_PLAYER = "http://www.god66.cn/langdu/66.htm";
