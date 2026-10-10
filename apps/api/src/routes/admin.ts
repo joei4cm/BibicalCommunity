@@ -2,7 +2,14 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { createId, wipeCommandSchema } from "@logoshome/shared";
+import {
+  createId,
+  parseRolesJson,
+  primaryChurchRole,
+  securityModeSchema,
+  wipeCommandSchema,
+  type ChurchRole,
+} from "@logoshome/shared";
 import type { Env } from "../env";
 import { requireMedia } from "../media-binding";
 import * as schema from "../db/schema";
@@ -19,7 +26,7 @@ import {
   seedPdBookToR2,
 } from "../services/pd-corpus-seed";
 import { countD1CorpusChapters, seedD1BootCorpus } from "../services/corpus-d1";
-import { securityModeSchema } from "@logoshome/shared";
+import { syncPrimaryRole } from "../services/church-access";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
@@ -189,11 +196,13 @@ adminRoutes.get("/churches/:churchId/members", async (c) => {
     const user = (
       await db.select().from(schema.users).where(eq(schema.users.id, m.userId)).limit(1)
     )[0];
+    const roles = parseRolesJson(m.rolesJson, m.role);
     out.push({
       membershipId: m.id,
       userId: m.userId,
       uid: user?.uid ?? null,
-      role: m.role,
+      role: primaryChurchRole(roles),
+      roles,
       verified: m.verified,
       tombstoned: Boolean(user?.tombstoned),
       platformRole: user?.platformRole ?? null,
@@ -205,7 +214,12 @@ adminRoutes.get("/churches/:churchId/members", async (c) => {
 });
 
 const patchMemberSchema = z.object({
-  role: z.enum(["member", "admin", "security_officer"]).optional(),
+  role: z
+    .enum(["member", "admin", "security_officer", "elder", "deacon", "coworker"])
+    .optional(),
+  roles: z
+    .array(z.enum(["member", "admin", "security_officer", "elder", "deacon", "coworker"]))
+    .optional(),
   verified: z.boolean().optional(),
   groupIds: z.array(z.string()).optional(),
 });
@@ -235,7 +249,19 @@ adminRoutes.patch("/churches/:churchId/members/:userId", async (c) => {
   if (!member) return c.json({ error: "not_found" }, 404);
 
   const patch: Partial<typeof schema.churchMembers.$inferInsert> = {};
-  if (body.role) patch.role = body.role;
+  if (body.roles?.length) {
+    const synced = syncPrimaryRole(body.roles as ChurchRole[]);
+    patch.role = synced.role;
+    patch.rolesJson = synced.rolesJson;
+  } else if (body.role) {
+    const merged = new Set(parseRolesJson(member.rolesJson, member.role));
+    // Replace primary: keep non-member extras only if still listed? Prefer set primary.
+    const next = [body.role as ChurchRole, ...[...merged].filter((r) => r !== body.role && r !== "member")];
+    if (!next.includes("member") && body.role === "member") next.push("member");
+    const synced = syncPrimaryRole(next.length ? next : ["member"]);
+    patch.role = synced.role;
+    patch.rolesJson = synced.rolesJson;
+  }
   if (body.verified !== undefined) patch.verified = body.verified;
   if (body.groupIds) patch.groupIdsJson = JSON.stringify(body.groupIds);
   await db.update(schema.churchMembers).set(patch).where(eq(schema.churchMembers.id, member.id));
@@ -282,6 +308,9 @@ adminRoutes.get("/churches/:churchId/groups", async (c) => {
       id: g.id,
       churchId: g.churchId,
       name: g.name,
+      parentId: g.parentId,
+      kind: g.kind,
+      sortOrder: g.sortOrder,
       createdAt: g.createdAt,
     })),
   });
@@ -295,15 +324,24 @@ adminRoutes.post("/churches/:churchId/groups", async (c) => {
   } catch {
     return c.json({ error: "forbidden" }, 403);
   }
-  const body = z.object({ name: z.string().min(1).max(120) }).parse(await c.req.json());
+  const body = z
+    .object({
+      name: z.string().min(1).max(120),
+      kind: z.enum(["department", "small_group"]).optional().default("small_group"),
+      parentId: z.string().optional(),
+    })
+    .parse(await c.req.json());
   const id = createId("cgrp");
   await db.insert(schema.churchGroups).values({
     id,
     churchId,
     name: body.name,
+    kind: body.kind,
+    parentId: body.parentId ?? null,
+    sortOrder: 0,
     createdAt: Date.now(),
   });
-  return c.json({ id, name: body.name, churchId }, 201);
+  return c.json({ id, name: body.name, churchId, kind: body.kind, parentId: body.parentId ?? null }, 201);
 });
 
 adminRoutes.patch("/groups/:groupId", async (c) => {

@@ -1,11 +1,7 @@
 @import "../../../../packages/ui/src/tokens.css";
 
 :root {
-  --lh-glass: color-mix(in srgb, #faf8f4 68%, transparent);
-  --lh-glass-strong: color-mix(in srgb, #faf8f4 82%, transparent);
-  --lh-glass-border: rgba(28, 42, 50, 0.1);
   --lh-glass-blur: blur(22px) saturate(1.2);
-  --lh-glass-shadow: 0 12px 32px rgba(24, 35, 43, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   --lh-control-radius: 12px;
 }
 
@@ -25,14 +21,21 @@ body {
   margin: 0;
   font-family: var(--lh-font-ui);
   color: var(--lh-ink);
-  background-color: #d8dee6;
+  background-color: var(--lh-bg);
   background-image:
-    radial-gradient(ellipse 95% 55% at 50% -8%, rgba(255, 248, 236, 0.78), transparent 58%),
-    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.08), transparent 55%),
-    radial-gradient(ellipse 45% 30% at 92% 70%, rgba(120, 100, 70, 0.05), transparent 50%),
-    linear-gradient(185deg, #c8d0db 0%, #dde3ea 28%, #eef1f4 62%, #f7f5f1 100%);
+    radial-gradient(ellipse 95% 55% at 50% -8%, var(--lh-glow), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 8% 92%, color-mix(in srgb, var(--lh-accent) 10%, transparent), transparent 55%),
+    radial-gradient(ellipse 45% 30% at 92% 70%, color-mix(in srgb, var(--lh-ink) 4%, transparent), transparent 50%),
+    linear-gradient(
+      185deg,
+      var(--lh-atmosphere-deep) 0%,
+      var(--lh-atmosphere-mid) 28%,
+      var(--lh-bg) 62%,
+      var(--lh-bg-elevated) 100%
+    );
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 220ms ease, color 220ms ease;
 }
 
 body::before {
@@ -150,12 +153,12 @@ select {
 
 /* Shared dawn-folio surface for Plans / Home / Me (match reader, not sage green) */
 .app-folio {
-  --br-ink: #18232b;
-  --br-muted: #5f6d78;
-  --br-line: rgba(28, 42, 50, 0.12);
-  --br-accent: #1c3d48;
-  --br-accent-soft: rgba(28, 61, 72, 0.09);
-  --br-glow: rgba(255, 248, 236, 0.72);
+  --br-ink: var(--lh-ink);
+  --br-muted: var(--lh-ink-muted);
+  --br-line: var(--lh-border);
+  --br-accent: var(--lh-accent);
+  --br-accent-soft: var(--lh-accent-soft);
+  --br-glow: var(--lh-glow);
   --br-font-reader: "Noto Serif SC", "Literata", "Noto Serif JP", "Source Serif 4", serif;
   --br-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
   color: var(--br-ink);
@@ -345,6 +348,107 @@ select {
   color: var(--br-ink);
 }
 
+.org-tree {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.org-tree-node {
+  margin: 0.55rem 0 0.35rem;
+  padding-left: 0.65rem;
+  border-left: 1.5px solid var(--br-line);
+}
+
+.org-tree.depth-0 > .org-tree-node {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.org-tree-label {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.org-tree-people {
+  list-style: none;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0;
+}
+
+.org-person-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: start;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.15rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--br-line) 70%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+
+.org-person-btn:hover .org-person-name {
+  color: var(--br-accent);
+}
+
+.org-person-name {
+  font-family: var(--br-font-reader);
+  font-size: 1.02rem;
+}
+
+.org-person-roles {
+  font-size: 0.8rem;
+}
+
+.board-card-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.board-card {
+  width: 100%;
+  text-align: start;
+  border: 1px solid var(--br-line);
+  background: color-mix(in srgb, var(--lh-bg-elevated) 55%, transparent);
+  padding: 0.9rem 1rem;
+  border-radius: 0;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.board-card:hover {
+  border-color: color-mix(in srgb, var(--br-accent) 45%, var(--br-line));
+  background: var(--br-accent-soft);
+}
+
+.board-card-title {
+  font-family: var(--br-font-reader);
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+
+.role-check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.role-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+}
+
 .app-folio .board-tabs {
   gap: 0;
   margin: 0 0 0.85rem;
@@ -442,17 +546,23 @@ select {
 }
 
 body:has(.app-folio) {
-  background-color: #dfe4ea;
+  background-color: var(--lh-bg);
   background-image:
-    radial-gradient(ellipse 95% 55% at 50% -8%, rgba(255, 248, 236, 0.72), transparent 58%),
-    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.07), transparent 55%),
-    linear-gradient(185deg, #cfd7e0 0%, #e4e8ee 28%, #eef2f4 62%, #f7f5f1 100%);
+    radial-gradient(ellipse 95% 55% at 50% -8%, var(--lh-glow), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 8% 92%, color-mix(in srgb, var(--lh-accent) 9%, transparent), transparent 55%),
+    linear-gradient(
+      185deg,
+      var(--lh-atmosphere-deep) 0%,
+      var(--lh-atmosphere-mid) 28%,
+      var(--lh-bg) 62%,
+      var(--lh-bg-elevated) 100%
+    );
 }
 
 body:has(.app-folio) .tab-bar {
-  background: color-mix(in srgb, #f4f2ee 78%, transparent);
-  border-top: 1px solid rgba(28, 42, 50, 0.09);
-  backdrop-filter: blur(22px) saturate(1.1);
+  background: var(--lh-glass);
+  border-top: 1px solid var(--lh-glass-border);
+  backdrop-filter: var(--lh-glass-blur);
 }
 
 body:has(.app-folio) .tab-bar a {
@@ -460,7 +570,7 @@ body:has(.app-folio) .tab-bar a {
 }
 
 body:has(.app-folio) .tab-bar a.active {
-  color: #1c3d48;
+  color: var(--lh-accent);
   background: transparent;
   box-shadow: none;
   font-weight: 700;
@@ -473,7 +583,7 @@ body:has(.app-folio) .tab-bar a.active::after {
   right: 30%;
   bottom: 0.18rem;
   height: 1.5px;
-  background: #1c3d48;
+  background: var(--lh-accent);
 }
 
 body:has(.app-folio) .tab-bar a {
@@ -652,14 +762,14 @@ body:has(.app-folio) .tab-bar a {
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
 }
 
-/* —— Bible reader: dawn folio (quiet study light, open page) —— */
+/* —— Bible reader: open folio driven by app theme + optional day skins —— */
 .bible-reader {
-  --br-ink: #18232b;
-  --br-muted: #5f6d78;
-  --br-line: rgba(28, 42, 50, 0.12);
-  --br-accent: #1c3d48;
-  --br-accent-soft: rgba(28, 61, 72, 0.09);
-  --br-glow: rgba(255, 248, 236, 0.72);
+  --br-ink: var(--lh-reader-verse, var(--lh-ink));
+  --br-muted: var(--lh-ink-muted);
+  --br-line: var(--lh-reader-border, var(--lh-border));
+  --br-accent: var(--lh-reader-verse-num, var(--lh-accent));
+  --br-accent-soft: var(--lh-accent-soft);
+  --br-glow: var(--lh-glow);
   --br-font-reader: "Noto Serif SC", "Literata", "Noto Serif JP", "Source Serif 4", serif;
   --br-font-display: "Fraunces", "Noto Serif SC", "Literata", serif;
   --br-font-ui: "Source Sans 3", "Noto Sans SC", "Noto Sans JP", sans-serif;
@@ -679,14 +789,20 @@ body:has(.app-folio) .tab-bar a {
   }
 }
 
-/* Full-bleed reading atmosphere — stone dawn, not muddy sage */
+/* Full-bleed reading atmosphere — follows app theme / reader skin tokens */
 body:has(.bible-reader) {
-  background-color: #dfe4ea;
+  background-color: var(--lh-reader-bg, var(--lh-bg));
   background-image:
-    radial-gradient(ellipse 95% 55% at 50% -8%, var(--br-glow), transparent 58%),
-    radial-gradient(ellipse 55% 40% at 8% 92%, rgba(60, 90, 110, 0.07), transparent 55%),
-    radial-gradient(ellipse 50% 35% at 96% 78%, rgba(120, 100, 70, 0.05), transparent 50%),
-    linear-gradient(185deg, #cfd7e0 0%, #e4e8ee 28%, #eef2f4 62%, #f7f5f1 100%);
+    radial-gradient(ellipse 95% 55% at 50% -8%, var(--lh-glow), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 8% 92%, color-mix(in srgb, var(--lh-accent) 9%, transparent), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 96% 78%, color-mix(in srgb, var(--lh-ink) 4%, transparent), transparent 50%),
+    linear-gradient(
+      185deg,
+      var(--lh-atmosphere-deep) 0%,
+      var(--lh-atmosphere-mid) 28%,
+      var(--lh-reader-bg, var(--lh-bg)) 62%,
+      var(--lh-bg-elevated) 100%
+    );
 }
 
 body:has(.bible-reader)::before {
@@ -707,7 +823,17 @@ body:has(.bible-reader)::after {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 85% 65% at 50% 38%, transparent 52%, rgba(24, 35, 43, 0.04) 100%);
+    radial-gradient(
+      ellipse 85% 65% at 50% 38%,
+      transparent 52%,
+      color-mix(in srgb, var(--lh-ink) 6%, transparent) 100%
+    );
+}
+
+[data-theme="night"] body:has(.bible-reader)::before,
+[data-theme="night"] body::before {
+  opacity: 0.05;
+  mix-blend-mode: soft-light;
 }
 
 .app-shell:has(.bible-reader) {
@@ -722,9 +848,9 @@ body:has(.bible-reader)::after {
 
 /* Reading tab bar: soft glass, active = weight + hairline */
 body:has(.bible-reader) .tab-bar {
-  background: color-mix(in srgb, #f4f2ee 78%, transparent);
-  border-top: 1px solid rgba(28, 42, 50, 0.09);
-  backdrop-filter: blur(22px) saturate(1.1);
+  background: var(--lh-glass);
+  border-top: 1px solid var(--lh-glass-border);
+  backdrop-filter: var(--lh-glass-blur);
 }
 
 body:has(.bible-reader) .tab-bar a {
@@ -1540,7 +1666,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   margin: 0;
   padding: 0.55rem 0.35rem 1.35rem;
   background:
-    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(255, 252, 246, 0.55), transparent 70%);
+    radial-gradient(ellipse 90% 55% at 50% 0%, color-mix(in srgb, var(--lh-glow) 70%, transparent), transparent 70%);
   box-shadow: none;
   border-radius: 0;
   border: 0;
@@ -1579,7 +1705,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   word-break: break-word;
   font-weight: 400;
   font-optical-sizing: auto;
-  color: #1a242c;
+  color: var(--br-ink);
   text-wrap: pretty;
 }
 
@@ -1623,8 +1749,8 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .verse-inline.verse-selected {
-  background: rgba(28, 61, 72, 0.11);
-  box-shadow: inset 0 -2px 0 rgba(28, 61, 72, 0.28);
+  background: color-mix(in srgb, var(--br-accent) 14%, transparent);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--br-accent) 40%, transparent);
   outline: none;
 }
 
@@ -1974,18 +2100,57 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 }
 
-/* Skin variants: ink color only — keep open folio (no card) */
-[data-reader-skin="parchment"] .bible-reader .reader {
+/* Day skins: full-bleed page plane (not a boxed card) */
+[data-reader-skin="parchment"] body:has(.bible-reader) {
+  --lh-reader-bg: #f3e6c8;
+  --lh-atmosphere-mid: #ebdfc4;
+  --lh-atmosphere-deep: #e0cfa8;
+  --lh-glow: rgba(255, 248, 230, 0.7);
+  background-image:
+    linear-gradient(180deg, rgba(255, 248, 230, 0.55), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(90, 60, 20, 0.03) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse 95% 55% at 50% -8%, var(--lh-glow), transparent 58%),
+    linear-gradient(185deg, var(--lh-atmosphere-deep) 0%, var(--lh-atmosphere-mid) 40%, var(--lh-reader-bg) 100%);
+}
+
+[data-reader-skin="parchment"] .bible-reader {
   --br-ink: #3a2c1c;
-  color: #3a2c1c;
+  --br-muted: #6d5a4e;
+  --br-accent: #8a5a2b;
+  --br-accent-soft: rgba(138, 90, 43, 0.12);
+  --br-line: rgba(90, 60, 20, 0.15);
 }
 
-[data-reader-skin="paper"] .bible-reader .reader {
-  color: #1a1a1a;
+[data-reader-skin="paper"] body:has(.bible-reader) {
+  --lh-reader-bg: #fbfbf8;
+  --lh-atmosphere-mid: #f3f3ef;
+  --lh-atmosphere-deep: #e8e8e2;
+  --lh-glow: rgba(255, 255, 255, 0.55);
 }
 
-[data-reader-skin="ink"] .bible-reader .reader {
-  color: #d7e2ec;
+[data-reader-skin="paper"] .bible-reader {
+  --br-ink: #1a1a1a;
+  --br-muted: #5a5a5a;
+  --br-accent: #2a2a2a;
+  --br-line: rgba(0, 0, 0, 0.1);
+}
+
+[data-reader-skin="ink"] body:has(.bible-reader) {
+  --lh-reader-bg: #0b1218;
+  --lh-atmosphere-mid: #101820;
+  --lh-atmosphere-deep: #070c10;
+  --lh-glow: rgba(40, 90, 120, 0.28);
+  background-image:
+    radial-gradient(800px 400px at 20% 0%, rgba(40, 90, 120, 0.28), transparent 55%),
+    linear-gradient(185deg, var(--lh-atmosphere-deep) 0%, var(--lh-atmosphere-mid) 40%, var(--lh-reader-bg) 100%);
+}
+
+[data-reader-skin="ink"] .bible-reader {
+  --br-ink: #d7e2ec;
+  --br-muted: #8aa0b2;
+  --br-accent: #7ec8ff;
+  --br-accent-soft: rgba(126, 200, 255, 0.12);
+  --br-line: rgba(215, 226, 236, 0.12);
 }
 
 [data-reader-skin="ink"] .bible-prose .verse-num {
@@ -1993,48 +2158,13 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .reader {
-  background: var(--lh-reader-bg);
+  background: transparent;
   color: var(--lh-reader-verse, inherit);
-  border-radius: var(--lh-radius);
+  border-radius: 0;
   padding: 1.25rem 1.1rem 1.5rem;
-  border: 1px solid var(--lh-reader-border, var(--lh-border));
+  border: 0;
   font-family: var(--lh-font-reader);
-  transition: background 220ms ease, color 220ms ease, box-shadow 220ms ease;
-}
-
-[data-reader-skin="parchment"] .reader {
-  --lh-reader-bg: #f3e6c8;
-  color: #3a2c1c;
-  background:
-    linear-gradient(180deg, rgba(255, 248, 230, 0.55), transparent 40%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(90, 60, 20, 0.03) 0 1px,
-      transparent 1px 4px
-    ),
-    var(--lh-reader-bg);
-  box-shadow: inset 0 0 40px rgba(90, 60, 20, 0.08);
-}
-
-[data-reader-skin="paper"] .reader {
-  --lh-reader-bg: #fbfbf8;
-  color: #1a1a1a;
-  background: var(--lh-reader-bg);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
-}
-
-[data-reader-skin="ink"] .reader {
-  --lh-reader-bg: #0b1218;
-  color: #d7e2ec;
-  background:
-    radial-gradient(800px 400px at 20% 0%, rgba(40, 90, 120, 0.25), transparent 55%),
-    var(--lh-reader-bg);
-  border-color: rgba(215, 226, 236, 0.12);
-}
-
-[data-reader-skin="ink"] .verse-num {
-  color: #7ec8ff;
+  transition: background 220ms ease, color 220ms ease;
 }
 
 .reader h2 {

@@ -612,6 +612,9 @@ export function AdminConsole() {
                       >
                         <option value="member">member</option>
                         <option value="admin">admin</option>
+                        <option value="elder">elder</option>
+                        <option value="deacon">deacon</option>
+                        <option value="coworker">coworker</option>
                         <option value="security_officer">security_officer</option>
                       </select>
                       {!m.verified && (

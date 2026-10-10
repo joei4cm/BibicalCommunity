@@ -67,7 +67,10 @@ export const churchMembers = sqliteTable("church_members", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
+  /** Legacy primary role; keep in sync with rolesJson[0] for older clients. */
   role: text("role").notNull().default("member"),
+  /** JSON array of ChurchRole — supports multi-role membership. */
+  rolesJson: text("roles_json").notNull().default("[]"),
   verified: integer("verified", { mode: "boolean" }).notNull().default(false),
   groupIdsJson: text("group_ids_json").notNull().default("[]"),
   createdAt: integer("created_at", { mode: "number" }).notNull(),
@@ -79,8 +82,32 @@ export const churchGroups = sqliteTable("church_groups", {
     .notNull()
     .references(() => churches.id),
   name: text("name").notNull(),
+  parentId: text("parent_id"),
+  /** department | small_group */
+  kind: text("kind").notNull().default("small_group"),
+  sortOrder: integer("sort_order", { mode: "number" }).notNull().default(0),
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
+
+export const churchGroupMembers = sqliteTable(
+  "church_group_members",
+  {
+    id: text("id").primaryKey(),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => churchGroups.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    /** leader | member */
+    role: text("role").notNull().default("member"),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [
+    index("church_group_members_group_idx").on(t.groupId),
+    index("church_group_members_user_idx").on(t.userId),
+  ],
+);
 
 export const messageFavorites = sqliteTable("message_favorites", {
   id: text("id").primaryKey(),

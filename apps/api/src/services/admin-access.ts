@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { isChurchAdminRoles, parseRolesJson } from "@logoshome/shared";
 import * as schema from "../db/schema";
 
 type Db = DrizzleD1Database<typeof schema>;
@@ -12,8 +13,13 @@ export type AdminChurchScope = {
   securityMode: string;
 };
 
+/** Console / church-admin APIs: admin or security_officer only. */
 export function isChurchAdminRole(role: string): boolean {
   return role === "admin" || role === "security_officer";
+}
+
+function membershipIsAdmin(m: { role: string; rolesJson?: string | null }): boolean {
+  return isChurchAdminRoles(parseRolesJson(m.rolesJson, m.role));
 }
 
 export async function loadAdminAccess(
@@ -36,7 +42,7 @@ export async function loadAdminAccess(
 
   const churches: AdminChurchScope[] = [];
   for (const m of memberships) {
-    if (!isChurchAdminRole(m.role) && !platformAdmin) continue;
+    if (!membershipIsAdmin(m) && !platformAdmin) continue;
     const church = (
       await db.select().from(schema.churches).where(eq(schema.churches.id, m.churchId)).limit(1)
     )[0];
@@ -45,7 +51,7 @@ export async function loadAdminAccess(
       churchId: church.id,
       name: church.name,
       slug: church.slug,
-      role: platformAdmin && !isChurchAdminRole(m.role) ? "platform_admin" : m.role,
+      role: platformAdmin && !membershipIsAdmin(m) ? "platform_admin" : m.role,
       securityMode: church.securityMode,
     });
   }
@@ -73,7 +79,7 @@ export async function assertChurchAdmin(
       .select()
       .from(schema.churchMembers)
       .where(eq(schema.churchMembers.userId, userId))
-  ).find((m) => m.churchId === churchId && isChurchAdminRole(m.role));
+  ).find((m) => m.churchId === churchId && membershipIsAdmin(m));
   if (!membership) {
     const err = new Error("forbidden") as Error & { status: number };
     err.status = 403;

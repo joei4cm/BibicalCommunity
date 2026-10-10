@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq } from "drizzle-orm";
-import { profileUpdateSchema, type PrivacySettings } from "@logoshome/shared";
+import {
+  isChurchAdminRoles,
+  parseRolesJson,
+  primaryChurchRole,
+  profileUpdateSchema,
+  type PrivacySettings,
+} from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
@@ -29,11 +35,13 @@ meRoutes.get("/", async (c) => {
     const church = (
       await db.select().from(schema.churches).where(eq(schema.churches.id, m.churchId)).limit(1)
     )[0];
+    const roles = parseRolesJson(m.rolesJson, m.role);
     churches.push({
       churchId: m.churchId,
       name: church?.name ?? null,
       slug: church?.slug ?? null,
-      role: m.role,
+      role: primaryChurchRole(roles),
+      roles,
       verified: m.verified,
       groups: JSON.parse(m.groupIdsJson || "[]"),
     });
@@ -42,7 +50,7 @@ meRoutes.get("/", async (c) => {
   const platformAdmin = user.platformRole === "platform_admin";
   const canAccessAdminConsole =
     platformAdmin ||
-    churches.some((ch) => ch.role === "admin" || ch.role === "security_officer");
+    churches.some((ch) => isChurchAdminRoles(ch.roles ?? [ch.role as "member"]));
 
   return c.json({
     id: user.id,
