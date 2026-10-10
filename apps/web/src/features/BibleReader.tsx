@@ -1105,9 +1105,9 @@ export function BibleReader() {
     if (!chapter || "external" in chapter || !("verses" in chapter)) return;
     const prose = document.querySelector('[data-testid="reader-prose"]');
     const el = prose?.querySelector(`[data-verse="${focusVerse}"]`);
-    if (focusVerse === 1 && prose instanceof HTMLElement) {
-      // Keep chapter lead + section heading in view (verse start would clip them).
-      prose.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (focusVerse === 1) {
+      // Reset to page top so topbar, chapter lead, and section heading stay visible.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (el instanceof HTMLElement) {
       const block = el.closest(".verse-block");
       const heading = block?.querySelector(".verse-section-heading");
