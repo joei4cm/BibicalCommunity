@@ -61,6 +61,13 @@ test("PD + licensed downloadable translations use provider r2 (not local TS)", (
   }
 });
 
+test("offlineCapableOnly hides external deep-link translations", () => {
+  const offline = listTranslations({ offlineCapableOnly: true });
+  assert.ok(offline.some((t) => t.id === "cuvs"));
+  assert.ok(offline.every((t) => t.provider !== "external" && t.license !== "external"));
+  assert.ok(!offline.some((t) => t.id === "endao" || t.id === "weread" || t.id === "niv"));
+});
+
 test("boot catalog is 和合本 + NASB whole-Bible; ESV is external", () => {
   const catalog = listDownloadableCorpusCatalog();
   const boot = catalog.filter((p) => p.installMode === "boot");

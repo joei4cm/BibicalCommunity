@@ -13,12 +13,20 @@ import {
 export const READER_SKIN_IDS = ["default", "parchment", "paper", "ink"] as const;
 export type ReaderSkinId = (typeof READER_SKIN_IDS)[number];
 
+/** Day/sepia app themes may pick these; night uses app chrome only (no parchment/ink). */
+export const READER_SKIN_DAY_IDS = ["default", "parchment", "paper"] as const;
+export type ReaderSkinDayId = (typeof READER_SKIN_DAY_IDS)[number];
+
 // Keep first-party pack catalog aligned with skin ids.
 if (
   !READER_SKIN_IDS.every((id) => FIRST_PARTY_THEME_PACKS.some((p) => p.id === id)) ||
   FIRST_PARTY_THEME_PACKS.length < READER_SKIN_IDS.length
 ) {
   throw new Error("READER_SKIN_IDS out of sync with FIRST_PARTY_THEME_PACKS");
+}
+
+export function appThemeAllowsReaderSkins(theme: string | null | undefined): boolean {
+  return theme === "day" || theme === "sepia" || !theme;
 }
 
 const STORAGE_KEY = "lh.readerSkin";

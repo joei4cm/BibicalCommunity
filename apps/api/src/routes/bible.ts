@@ -13,6 +13,7 @@ import {
   listStudyMaterials,
   listTranslations,
   loadChapter,
+  panshiAudioUpstreamUrl,
   parseDownloadPackPayload,
   parseR2ChapterJson,
   parseR2ChapterObjectKey,
@@ -43,13 +44,40 @@ export const bibleRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 bibleRoutes.get("/translations", (c) => {
   const language = c.req.query("language") as "zh" | "en" | "ja" | undefined;
   const availableOnly = c.req.query("availableOnly") === "1";
+  const offlineCapableOnly = c.req.query("offlineCapableOnly") === "1";
   return c.json({
-    translations: listTranslations({ language, availableOnly }),
+    translations: listTranslations({ language, availableOnly, offlineCapableOnly }),
     partners: {
       endaoSso: c.env.ENDAO_SSO_ENABLED === "true",
       wereadSso: c.env.WEREAD_SSO_ENABLED === "true",
     },
   });
+});
+
+/**
+ * HTTPS proxy for 磐石有声圣经 chapter MP3 (upstream is HTTP-only).
+ * GET /v1/bible/audio/panshi?book=John&chapter=1
+ */
+bibleRoutes.get("/audio/panshi", async (c) => {
+  const book = String(c.req.query("book") ?? "").trim();
+  const chapter = Number(c.req.query("chapter") ?? "0");
+  const upstream = panshiAudioUpstreamUrl(book, chapter);
+  if (!upstream) return c.json({ error: "invalid_ref" }, 400);
+  try {
+    const res = await fetch(upstream, {
+      headers: { Accept: "audio/mpeg,*/*" },
+    });
+    if (!res.ok) return c.json({ error: "audio_upstream_failed", status: res.status }, 502);
+    const headers = new Headers();
+    headers.set("Content-Type", res.headers.get("Content-Type") ?? "audio/mpeg");
+    headers.set("Cache-Control", "public, max-age=86400");
+    headers.set("Access-Control-Allow-Origin", "*");
+    const len = res.headers.get("Content-Length");
+    if (len) headers.set("Content-Length", len);
+    return new Response(res.body, { status: 200, headers });
+  } catch {
+    return c.json({ error: "audio_fetch_failed" }, 502);
+  }
 });
 
 const studyLangSchema = z.enum(["zh", "en", "ja"]);
