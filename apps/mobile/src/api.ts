@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { kvDelete, kvGet, kvSet } from "./secure-kv";
 
 const TOKEN_KEY = "lh.token";
 const API_BASE_KEY = "lh.apiBase";
@@ -48,11 +49,25 @@ export function getToken(): string | null {
   return memoryToken;
 }
 
+/**
+ * Restore session from SecureStore (Keychain/Keystore fingerprint vault)
+ * so relaunch auto-logs in without re-entering the password.
+ */
 export async function hydrateToken(): Promise<void> {
   await hydrateApiBase();
   if (tokenHydrated) return;
   try {
-    memoryToken = await AsyncStorage.getItem(TOKEN_KEY);
+    const { value } = await kvGet(TOKEN_KEY);
+    memoryToken = value;
+    // One-time migrate from legacy AsyncStorage if SecureStore was empty.
+    if (!memoryToken) {
+      const legacy = await AsyncStorage.getItem(TOKEN_KEY);
+      if (legacy) {
+        memoryToken = legacy;
+        await kvSet(TOKEN_KEY, legacy);
+        await AsyncStorage.removeItem(TOKEN_KEY).catch(() => undefined);
+      }
+    }
   } catch {
     memoryToken = null;
   }
@@ -62,8 +77,9 @@ export async function hydrateToken(): Promise<void> {
 export async function setToken(token: string | null): Promise<void> {
   memoryToken = token;
   try {
-    if (token) await AsyncStorage.setItem(TOKEN_KEY, token);
-    else await AsyncStorage.removeItem(TOKEN_KEY);
+    if (token) await kvSet(TOKEN_KEY, token);
+    else await kvDelete(TOKEN_KEY);
+    await AsyncStorage.removeItem(TOKEN_KEY).catch(() => undefined);
   } catch {
     // Persistence failed; memory token still applies for this session.
   }

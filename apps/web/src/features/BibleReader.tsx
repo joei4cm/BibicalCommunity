@@ -653,6 +653,43 @@ export function BibleReader() {
     }).then(() => setBootTick((n) => n + 1));
   }, []);
 
+  /** After login, warm public-domain 和合本 into R2 book-by-book (survives navigation). */
+  useEffect(() => {
+    if (!getToken()) return;
+    const warmKey = "lh.bible.cuvsWarm.v1";
+    if (localStorage.getItem(warmKey) === "1") return;
+    if ((window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm) return;
+    (window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm = true;
+    void (async () => {
+      try {
+        for (let bookNr = 1; bookNr <= 66; bookNr += 1) {
+          await api(`/v1/bible/corpus-warm/cuvs?bookNr=${bookNr}`, { method: "POST" });
+        }
+        localStorage.setItem(warmKey, "1");
+        const pack = await api<{
+          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+          source?: string;
+        }>(`/v1/bible/corpus-download/cuvs?scope=full`);
+        if (pack.chapters?.length && pack.source !== "demo") {
+          await installDownloadedPack("cuvs", pack.chapters);
+          try {
+            await api("/v1/bible/entitlements", {
+              method: "POST",
+              body: JSON.stringify({ translationId: "cuvs" }),
+            });
+          } catch {
+            /* PD cuvs does not require entitlement */
+          }
+          setBootTick((n) => n + 1);
+        }
+      } catch {
+        /* chapter route still lazy-fills per book */
+      } finally {
+        (window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm = false;
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -912,6 +949,15 @@ export function BibleReader() {
         );
         if (pack.done !== false || !pack.nextAfter) break;
         after = pack.nextAfter;
+      }
+      // Web download = grant corpus access for this account (licensed tids).
+      try {
+        await api("/v1/bible/entitlements", {
+          method: "POST",
+          body: JSON.stringify({ translationId: targetTid }),
+        });
+      } catch {
+        /* PD / already granted */
       }
       await refreshInstalledCorpus();
       if (targetTid === translationId) {

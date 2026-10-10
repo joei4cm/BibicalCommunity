@@ -86,7 +86,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     abbreviation: "NASB",
     name: { "zh-CN": "新美国标准译本", en: "New American Standard Bible", ja: "NASB" },
     language: "en",
-    /** Licensed — install as whole-Bible R2 pack (never TypeScript densify). */
+    /** Lockman-licensed — full text only via authorized R2 upload (never getbible). */
     license: "licensed",
     provider: "r2",
     available: true,
@@ -116,7 +116,8 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     abbreviation: "和合本",
     name: { "zh-CN": "和合本（简体）", en: "Chinese Union Version (Simplified)", ja: "和合本（簡体）" },
     language: "zh",
-    license: "licensed",
+    /** 1919 和合本简体 is treated as public-domain (getbible `cus` source). */
+    license: "public-domain",
     provider: "r2",
     /** Served via R2 path when chapter JSON is present (UI may attempt load). */
     available: true,

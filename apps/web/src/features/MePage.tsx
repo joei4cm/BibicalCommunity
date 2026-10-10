@@ -495,6 +495,7 @@ export function MePage() {
     setPassword("");
     setMsg(null);
     setMeSection("account");
+    window.location.assign("/app/login");
   }
 
   return (
@@ -507,118 +508,38 @@ export function MePage() {
         </div>
       )}
 
-      {signedIn ? (
-        <div className="folio-hero" data-testid="me-auth-status">
-          <p className="folio-hero-name">{nickname || profile?.nickname || profile?.uid}</p>
-          <p className="folio-hero-meta">
-            {t("me.signedIn")} · UID <strong data-testid="me-uid">{profile?.uid}</strong>
-            {msg ? ` · ${humanizeStatus(t, msg)}` : null}
-          </p>
-        </div>
-      ) : (
-        <div className="panel folio-gate" data-testid="me-welcome-gate">
-          <p className="muted" style={{ marginTop: 0 }}>
-            {t("me.gateWelcome")}
-          </p>
-          {msg ? (
-            <p className="auth-status" role="status" data-testid="me-auth-status">
-              {humanizeStatus(t, msg)}
-            </p>
-          ) : null}
-        </div>
-      )}
-
-      {signedIn && (
-        <div className="plans-tabs" role="tablist" data-testid="me-section-tabs">
-          {(
-            [
-              ["account", "me.tabAccount"],
-              ["profile", "me.tabProfile"],
-              ["privacy", "me.tabPrivacy"],
-              ["devices", "me.tabDevices"],
-            ] as const
-          ).map(([id, key]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={meSection === id}
-              className={`plans-tab${meSection === id ? " is-active" : ""}`}
-              data-testid={`me-tab-${id}`}
-              onClick={() => setMeSection(id)}
-            >
-              {t(key)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!signedIn && (
-      <div className="panel" data-testid="me-auth-panel">
-        <h2>{t("me.account")}</h2>
-        <form
-          id="lh-auth-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void login();
-          }}
-        >
-          <div className="field">
-            <label htmlFor="lh-handle">{t("auth.handle")}</label>
-            <input
-              id="lh-handle"
-              name="handle"
-              autoComplete="username"
-              data-testid="me-handle"
-              value={handle}
-              onChange={(e) => setHandle(e.target.value)}
-              onInput={(e) => setHandle((e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="lh-password">{t("auth.password")}</label>
-            <input
-              id="lh-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              data-testid="me-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="lh-nickname-auth">{t("me.nickname")}</label>
-            <input
-              id="lh-nickname-auth"
-              name="nickname"
-              autoComplete="nickname"
-              data-testid="me-nickname"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              onInput={(e) => setNickname((e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div className="toolbar">
-            <button
-              type="button"
-              className="btn"
-              data-testid="me-register"
-              disabled={authBusy}
-              onClick={() => void register()}
-            >
-              {authBusy ? t("me.working") : t("auth.register")}
-            </button>
-            <button type="submit" className="btn ghost" data-testid="me-login" disabled={authBusy}>
-              {authBusy ? t("me.working") : t("auth.login")}
-            </button>
-          </div>
-        </form>
+      <div className="folio-hero" data-testid="me-auth-status">
+        <p className="folio-hero-name">{nickname || profile?.nickname || profile?.uid}</p>
+        <p className="folio-hero-meta">
+          {t("me.signedIn")} · UID <strong data-testid="me-uid">{profile?.uid}</strong>
+          {msg ? ` · ${humanizeStatus(t, msg)}` : null}
+        </p>
       </div>
-      )}
 
-      {signedIn && meSection === "account" && (
+      <div className="plans-tabs" role="tablist" data-testid="me-section-tabs">
+        {(
+          [
+            ["account", "me.tabAccount"],
+            ["profile", "me.tabProfile"],
+            ["privacy", "me.tabPrivacy"],
+            ["devices", "me.tabDevices"],
+          ] as const
+        ).map(([id, key]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={meSection === id}
+            className={`plans-tab${meSection === id ? " is-active" : ""}`}
+            data-testid={`me-tab-${id}`}
+            onClick={() => setMeSection(id)}
+          >
+            {t(key)}
+          </button>
+        ))}
+      </div>
+
+      {meSection === "account" && (
         <div className="panel" data-testid="me-account-panel">
           <h2>{t("me.account")}</h2>
           <p className="muted" style={{ marginTop: 0 }}>
@@ -632,7 +553,7 @@ export function MePage() {
         </div>
       )}
 
-      {signedIn && meSection === "profile" && (
+      {meSection === "profile" && (
       <div className="panel" data-testid="me-profile-panel">
         <h2>{t("me.profile")}</h2>
         <div className="field">
@@ -653,7 +574,7 @@ export function MePage() {
       </div>
       )}
 
-      {signedIn && meSection === "privacy" && (
+      {meSection === "privacy" && (
       <div className="panel" data-testid="me-settings-panel">
         <h2>{t("me.settings")}</h2>
         <h3>{t("me.privacy")}</h3>
@@ -772,7 +693,7 @@ export function MePage() {
       </div>
       )}
 
-      {signedIn && meSection === "profile" && (
+      {meSection === "profile" && (
       <div className="panel" data-testid="me-churches-panel">
         <h2>{t("me.churches")}</h2>
         <ul className="list">
@@ -815,7 +736,7 @@ export function MePage() {
       </div>
       )}
 
-      {signedIn && meSection === "devices" && (
+      {meSection === "devices" && (
       <div className="panel" data-testid="me-devices-panel">
         <details className="plans-advanced" open>
           <summary>{t("me.devices")}</summary>

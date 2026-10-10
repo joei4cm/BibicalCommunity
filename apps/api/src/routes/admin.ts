@@ -633,7 +633,7 @@ adminRoutes.post("/corpus/pd-seed", async (c) => {
 
   const body = z
     .object({
-      tid: z.enum(["web", "kjv", "asv"]),
+      tid: z.enum(["web", "kjv", "asv", "cuvs"]),
       bookNr: z.number().int().min(1).max(66),
     })
     .parse(await c.req.json());

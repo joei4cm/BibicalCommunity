@@ -31,6 +31,11 @@ import {
   getD1CorpusChapter,
   listD1CorpusChaptersPage,
 } from "../services/corpus-d1";
+import {
+  ensurePdChapterInR2,
+  isPdSeedTranslationId,
+  seedPdBookToR2,
+} from "../services/pd-corpus-seed";
 import { sha256Hex } from "../services/crypto";
 
 export const bibleRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -272,6 +277,43 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
   });
 });
 
+/**
+ * Authenticated warm of one PD book into R2 (getbible → MEDIA).
+ * Clients call bookNr 1..66 after login so 和合本/WEB/KJV/ASV become full text
+ * without requiring platform_admin for the initial public-domain fill.
+ */
+bibleRoutes.post("/corpus-warm/:translationId", requireAuth, async (c) => {
+  const translationId = c.req.param("translationId");
+  if (!isPdSeedTranslationId(translationId)) {
+    return c.json(
+      { error: "not_pd_seedable", hint: "Only public-domain tids can be warmed this way" },
+      400,
+    );
+  }
+  const bookNr = Number(c.req.query("bookNr") ?? "0");
+  if (!Number.isFinite(bookNr) || bookNr < 1 || bookNr > 66) {
+    return c.json({ error: "invalid_book_nr" }, 400);
+  }
+  const media = c.env.MEDIA;
+  if (!media) return c.json({ error: "media_unbound" }, 503);
+  try {
+    const result = await seedPdBookToR2(media, translationId, bookNr);
+    return c.json({
+      ok: true,
+      translationId,
+      bookNr,
+      book: result.book,
+      chaptersPut: result.chaptersPut,
+      source: result.source,
+      nextBookNr: bookNr < 66 ? bookNr + 1 : null,
+      done: bookNr >= 66,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "warm_failed";
+    return c.json({ error: "corpus_warm_failed", detail }, 502);
+  }
+});
+
 async function resolveOptionalUserId(c: {
   req: { header: (name: string) => string | undefined };
   env: Env;
@@ -371,7 +413,7 @@ bibleRoutes.get("/chapter", async (c) => {
       }
     }
 
-    // Preview / empty R2: D1 then whole-Bible demo pack so navigation never 404s.
+    // Preview / empty R2: D1, then lazy PD getbible→R2 fill, then demo pack.
     {
       const db = drizzle(c.env.DB, { schema });
       const d1ch = await getD1CorpusChapter(db, translationId, ref.book, ref.chapter);
@@ -383,6 +425,29 @@ bibleRoutes.get("/chapter", async (c) => {
           verses: d1ch.verses,
           source: "d1" as const,
         });
+      }
+    }
+
+    if (c.env.MEDIA && isPdSeedTranslationId(translationId)) {
+      try {
+        const filled = await ensurePdChapterInR2(
+          c.env.MEDIA,
+          translationId,
+          ref.book,
+          ref.chapter,
+        );
+        if (filled) {
+          return c.json({
+            translationId,
+            book: filled.book,
+            chapter: filled.chapter,
+            verses: filled.verses,
+            source: "r2" as const,
+            filledFrom: "getbible" as const,
+          });
+        }
+      } catch {
+        /* fall through to demo */
       }
     }
 
