@@ -12,6 +12,7 @@ import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { openField, sealField } from "../services/field-crypto";
+import { hmacHex } from "../services/crypto";
 
 export const meRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
@@ -70,16 +71,24 @@ meRoutes.get("/", async (c) => {
 
 /**
  * Privacy-scoped discovery. UID lookup respects discoverableByUid.
- * Handle search returns empty because only handleHash is stored server-side.
+ * Handle lookup uses HANDLE_PEPPER HMAC (plaintext handle is never stored).
  */
 meRoutes.get("/search", async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   if (!q) return c.json({ results: [] });
 
   const db = drizzle(c.env.DB, { schema });
-  const candidate = (
+  let candidate = (
     await db.select().from(schema.users).where(eq(schema.users.uid, q.toUpperCase())).limit(1)
   )[0];
+
+  if (!candidate) {
+    const pepper = c.env.HANDLE_PEPPER ?? "dev-handle-pepper";
+    const handleHash = await hmacHex(pepper, q.toLowerCase());
+    candidate = (
+      await db.select().from(schema.users).where(eq(schema.users.handleHash, handleHash)).limit(1)
+    )[0];
+  }
 
   if (!candidate || candidate.tombstoned) {
     return c.json({ results: [] });
@@ -92,6 +101,7 @@ meRoutes.get("/search", async (c) => {
     return c.json({ results: [] });
   }
 
+  // UID discovery gate; handle matches are allowed when discoverableByUid is on (same surface).
   if (!privacy.discoverableByUid) {
     return c.json({ results: [] });
   }

@@ -435,11 +435,50 @@ select {
   font-weight: 650;
 }
 
+.assembly-panel {
+  margin-top: 0.85rem;
+}
+
+.assembly-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.assembly-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--br-ink-muted, var(--br-muted, #6b645c));
+  border: 1px solid var(--br-line);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.assembly-include-coworkers {
+  margin: 0.35rem 0 0.75rem;
+}
+
+.role-group {
+  margin: 0.75rem 0 0.35rem;
+  padding: 0.55rem 0.7rem 0.35rem;
+  border: 1px solid var(--br-line);
+  border-radius: 0.35rem;
+}
+
+.role-group legend {
+  padding: 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--br-ink-muted, var(--br-muted, #6b645c));
+}
+
 .role-check-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem 0.75rem;
-  margin: 0.65rem 0 0.85rem;
+  margin: 0.35rem 0 0.55rem;
 }
 
 .role-check {
@@ -673,6 +712,10 @@ body:has(.app-folio) .tab-bar a {
   padding: 0;
   background: transparent;
   border-bottom: 1px solid var(--lh-border);
+}
+
+.comms-tabs {
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .plans-tab {
@@ -1428,6 +1471,126 @@ body:has(.bible-reader) .tab-bar a.active::after {
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.65rem;
+}
+
+.org-tree-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.org-tree-caret {
+  display: inline-block;
+  width: 1em;
+  color: var(--br-muted, var(--lh-ink-muted));
+}
+
+.person-card-meta {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.35rem 0 0.85rem;
+}
+
+.person-card-meta > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.person-card-meta dt {
+  font-size: 0.78rem;
+  color: var(--br-muted, var(--lh-ink-muted));
+}
+
+.person-card-meta dd {
+  margin: 0;
+}
+
+.cal-month {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.cal-cell {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  min-height: 2.6rem;
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cal-cell.is-muted {
+  opacity: 0.4;
+}
+
+.cal-cell.is-selected {
+  border-color: var(--br-accent, var(--lh-accent));
+  background: color-mix(in srgb, var(--br-accent, var(--lh-accent)) 12%, transparent);
+}
+
+.cal-dot {
+  font-size: 0.68rem;
+  color: var(--br-accent, var(--lh-accent));
+}
+
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.cal-week-day {
+  appearance: none;
+  border: 1px solid var(--br-line, var(--lh-border));
+  background: transparent;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-height: 6rem;
+}
+
+.cal-week-day.is-selected {
+  border-color: var(--br-accent, var(--lh-accent));
+}
+
+.cal-week-day ul {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.convo-row.is-unread {
+  border-left: 3px solid var(--br-accent, var(--lh-accent));
+  padding-left: 0.55rem;
 }
 
 .bible-dock-panel h2 {

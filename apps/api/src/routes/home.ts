@@ -3,9 +3,12 @@ import { drizzle } from "drizzle-orm/d1";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
+  canAssignChurchRoles,
+  canConveneCoworkerAssembly,
   canCreateGroup,
   canVerifyMembers,
   churchRoleSchema,
+  coworkerAssemblyConversationTitle,
   createId,
   forumAdminPatchSchema,
   forumPostSchema,
@@ -33,6 +36,7 @@ import { openField } from "../services/field-crypto";
 import { sha256Hex } from "../services/crypto";
 import {
   assertCanManageGroupMembers,
+  buildCoworkerAssembly,
   buildOrgTree,
   loadMembershipContext,
   loadPlatformAdmin,
@@ -142,6 +146,7 @@ homeRoutes.get("/churches", async (c) => {
           manageChurch: platformAdmin,
           isGroupLeader: Boolean(ctx?.ledGroupIds.length),
           ledGroupIds: ctx?.ledGroupIds ?? [],
+          conveneAssembly: canConveneCoworkerAssembly(roles, platformAdmin),
         },
       });
     }
@@ -169,7 +174,8 @@ homeRoutes.post("/churches", async (c) => {
   const memberId = createId("cmbr");
   const now = Date.now();
   const securityMode = body.securityMode ?? "standard";
-  const roles: ChurchRole[] = ["admin"];
+  // Creator is 安全官; soft-recommend 长老 office on the same membership.
+  const roles: ChurchRole[] = ["security_officer", "elder"];
   const synced = syncPrimaryRole(roles);
   await db.insert(schema.churches).values({
     id: churchId,
@@ -340,6 +346,159 @@ homeRoutes.get("/:churchId/org-tree", async (c) => {
     if (status === 403) return c.json({ error: "forbidden" }, 403);
     throw e;
   }
+});
+
+/**
+ * 同工大会 — mailing-list / convene channel (derived membership; not an org-tree node).
+ * Query: includeCoworkers=0 to exclude church-level coworker office.
+ */
+homeRoutes.get("/:churchId/coworker-assembly", async (c) => {
+  const churchId = c.req.param("churchId");
+  const includeRaw = c.req.query("includeCoworkers");
+  const includeChurchCoworkers = includeRaw !== "0" && includeRaw !== "false";
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    const result = await buildCoworkerAssembly(db, c.env, churchId, c.get("userId"), {
+      includeChurchCoworkers,
+    });
+    return c.json(result);
+  } catch (e) {
+    const status = (e as { status?: number }).status ?? 500;
+    if (status === 403) return c.json({ error: "forbidden" }, 403);
+    throw e;
+  }
+});
+
+const assemblyNotifySchema = z.object({
+  title: z.string().min(1).max(200),
+  body: z.string().max(8000).optional().default(""),
+});
+
+/** Post a notice board item addressed to 同工大会 (conveners only). */
+homeRoutes.post("/:churchId/coworker-assembly/notify", async (c) => {
+  const churchId = c.req.param("churchId");
+  const body = assemblyNotifySchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  let assembly: Awaited<ReturnType<typeof buildCoworkerAssembly>>;
+  try {
+    assembly = await buildCoworkerAssembly(db, c.env, churchId, userId);
+  } catch (e) {
+    const status = (e as { status?: number }).status ?? 500;
+    if (status === 403) return c.json({ error: "forbidden" }, 403);
+    throw e;
+  }
+  if (!assembly.viewer.canNotify) return c.json({ error: "forbidden" }, 403);
+
+  const id = createId("post");
+  await db.insert(schema.forumPosts).values({
+    id,
+    churchId,
+    groupId: null,
+    authorId: userId,
+    board: "notice",
+    kind: "text",
+    title: body.title,
+    body: body.body ?? "",
+    externalMediaUrl: null,
+    mediaKey: null,
+    payloadJson: JSON.stringify({
+      assemblyNotify: true,
+      audienceUserIds: assembly.members.map((m) => m.userId),
+    }),
+    answerHash: null,
+    pinned: false,
+    pinnedAt: null,
+    readonly: false,
+    expiresAt: null,
+    deletedAt: null,
+    createdAt: Date.now(),
+  });
+  return c.json(
+    {
+      id,
+      board: "notice",
+      audienceCount: assembly.members.length,
+    },
+    201,
+  );
+});
+
+/** Open or create the 同工大会 group chat; sync current mailing-list members. */
+homeRoutes.post("/:churchId/coworker-assembly/chat", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  let assembly: Awaited<ReturnType<typeof buildCoworkerAssembly>>;
+  try {
+    assembly = await buildCoworkerAssembly(db, c.env, churchId, userId);
+  } catch (e) {
+    const status = (e as { status?: number }).status ?? 500;
+    if (status === 403) return c.json({ error: "forbidden" }, 403);
+    throw e;
+  }
+  if (!assembly.viewer.canOpenChat) return c.json({ error: "forbidden" }, 403);
+
+  const title = coworkerAssemblyConversationTitle(churchId);
+  const memberships = await db
+    .select()
+    .from(schema.conversationMembers)
+    .where(eq(schema.conversationMembers.userId, userId));
+
+  let conversationId: string | null = null;
+  for (const m of memberships) {
+    const convo = (
+      await db
+        .select()
+        .from(schema.conversations)
+        .where(eq(schema.conversations.id, m.conversationId))
+        .limit(1)
+    )[0];
+    if (convo?.kind === "group" && convo.title === title) {
+      conversationId = convo.id;
+      break;
+    }
+  }
+
+  const memberIds = new Set(assembly.members.map((m) => m.userId));
+  memberIds.add(userId);
+
+  if (!conversationId) {
+    conversationId = createId("convo");
+    await db.insert(schema.conversations).values({
+      id: conversationId,
+      kind: "group",
+      title,
+      disappearingTtlSec: null,
+      createdBy: userId,
+      createdAt: Date.now(),
+    });
+    for (const mid of memberIds) {
+      await db.insert(schema.conversationMembers).values({
+        id: createId("cm"),
+        conversationId,
+        userId: mid,
+        role: mid === userId ? "owner" : "member",
+      });
+    }
+    return c.json({ conversationId, created: true, memberCount: memberIds.size }, 201);
+  }
+
+  const existing = await db
+    .select()
+    .from(schema.conversationMembers)
+    .where(eq(schema.conversationMembers.conversationId, conversationId));
+  const existingIds = new Set(existing.map((e) => e.userId));
+  for (const mid of memberIds) {
+    if (existingIds.has(mid)) continue;
+    await db.insert(schema.conversationMembers).values({
+      id: createId("cm"),
+      conversationId,
+      userId: mid,
+      role: "member",
+    });
+  }
+  return c.json({ conversationId, created: false, memberCount: memberIds.size });
 });
 
 function serializeForumPost(p: typeof schema.forumPosts.$inferSelect) {
@@ -824,7 +983,7 @@ homeRoutes.get("/:churchId/groups", async (c) => {
 
   const canSeeAll =
     ctx.platformAdmin ||
-    ctx.roles.includes("admin") ||
+    isChurchAdminRoles(ctx.roles) ||
     ctx.roles.includes("deacon") ||
     ctx.roles.includes("elder");
 
@@ -842,7 +1001,7 @@ homeRoutes.get("/:churchId/groups", async (c) => {
       sortOrder: g.sortOrder,
       canManage:
         ctx.platformAdmin ||
-        ctx.roles.includes("admin") ||
+        isChurchAdminRoles(ctx.roles) ||
         ctx.ledGroupIds.includes(g.id) ||
         (ctx.roles.includes("deacon") && g.kind === "department"),
     }))
@@ -1075,12 +1234,12 @@ const patchRolesSchema = z.object({
   roles: z.array(churchRoleSchema).min(1),
 });
 
-/** Church admin / platform admin assigns multi-roles. */
+/** 安全官 / platform admin assigns multi-roles (职分 + 安全官). */
 homeRoutes.post("/members/roles", async (c) => {
   const body = patchRolesSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
   const ctx = await loadMembershipContext(db, c.get("userId"), body.churchId);
-  if (!ctx || !(ctx.platformAdmin || ctx.roles.includes("admin"))) {
+  if (!ctx || !canAssignChurchRoles(ctx.roles, ctx.platformAdmin)) {
     return c.json({ error: "forbidden" }, 403);
   }
   const target = (

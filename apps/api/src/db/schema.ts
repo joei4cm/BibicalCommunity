@@ -293,6 +293,102 @@ export const oneTimePrekeys = sqliteTable(
   ],
 );
 
+export const friendRequests = sqliteTable(
+  "friend_requests",
+  {
+    id: text("id").primaryKey(),
+    fromUserId: text("from_user_id")
+      .notNull()
+      .references(() => users.id),
+    toUserId: text("to_user_id")
+      .notNull()
+      .references(() => users.id),
+    message: text("message"),
+    status: text("status").notNull().default("pending"),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+    respondedAt: integer("responded_at", { mode: "number" }),
+  },
+  (t) => [
+    index("friend_requests_to_idx").on(t.toUserId, t.status),
+    index("friend_requests_from_idx").on(t.fromUserId, t.status),
+  ],
+);
+
+export const friendships = sqliteTable(
+  "friendships",
+  {
+    id: text("id").primaryKey(),
+    userAId: text("user_a_id")
+      .notNull()
+      .references(() => users.id),
+    userBId: text("user_b_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [
+    index("friendships_a_idx").on(t.userAId),
+    index("friendships_b_idx").on(t.userBId),
+  ],
+);
+
+export const calendarEvents = sqliteTable(
+  "calendar_events",
+  {
+    id: text("id").primaryKey(),
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => users.id),
+    title: text("title").notNull(),
+    notes: text("notes"),
+    startAt: integer("start_at", { mode: "number" }).notNull(),
+    endAt: integer("end_at", { mode: "number" }),
+    allDay: integer("all_day", { mode: "boolean" }).notNull().default(false),
+    source: text("source").notNull().default("local"),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("calendar_events_owner_start_idx").on(t.ownerUserId, t.startAt)],
+);
+
+export const calendarInvites = sqliteTable(
+  "calendar_invites",
+  {
+    id: text("id").primaryKey(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => calendarEvents.id),
+    inviteeUserId: text("invitee_user_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status").notNull().default("pending"),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+    respondedAt: integer("responded_at", { mode: "number" }),
+  },
+  (t) => [index("calendar_invites_invitee_idx").on(t.inviteeUserId, t.status)],
+);
+
+export const inboxMessages = sqliteTable(
+  "inbox_messages",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    payloadJson: text("payload_json").notNull().default("{}"),
+    relatedUserId: text("related_user_id"),
+    readAt: integer("read_at", { mode: "number" }),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [
+    index("inbox_messages_user_idx").on(t.userId, t.createdAt),
+    index("inbox_messages_unread_idx").on(t.userId, t.readAt),
+  ],
+);
+
 /**
  * Preview/temporary Workers without R2: chapter JSON lives in D1.
  * Production corpora remain on R2 (`CORPUS_LIVE_R2_*`).
