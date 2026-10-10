@@ -184,7 +184,7 @@ export default function MeScreen() {
       return;
     }
     try {
-      const res = await api<{ token: string }>("/v1/auth/register", {
+      const res = await api<{ token: string; uid?: string; userId?: string }>("/v1/auth/register", {
         method: "POST",
         body: JSON.stringify({
           handle,
@@ -194,8 +194,17 @@ export default function MeScreen() {
         }),
       });
       await setToken(res.token);
+      setProfile({
+        id: res.userId ?? "",
+        uid: res.uid ?? handle,
+        nickname: nickname || handle,
+        legalName: null,
+        signature: null,
+        privacy: DEFAULT_PRIVACY,
+        churches: [],
+      });
       setMsg("registered");
-      await refresh();
+      await refresh().catch(() => undefined);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     }
@@ -207,17 +216,34 @@ export default function MeScreen() {
       return;
     }
     try {
-      const res = await api<{ token: string }>("/v1/auth/login", {
+      const res = await api<{ token: string; uid?: string; userId?: string }>("/v1/auth/login", {
         method: "POST",
         body: JSON.stringify({ handleOrEmail: handle, password, platform: "ios" }),
       });
       await setToken(res.token);
+      setProfile({
+        id: res.userId ?? "",
+        uid: res.uid ?? handle,
+        nickname: nickname || handle,
+        legalName: null,
+        signature: null,
+        privacy: DEFAULT_PRIVACY,
+        churches: [],
+      });
       setMsg("logged_in");
-      await refresh();
+      await refresh().catch(() => undefined);
       await checkPendingWipe();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     }
+  }
+
+  async function signOut() {
+    await setToken(null);
+    setProfile(null);
+    setPassword("");
+    setSearchResults([]);
+    setMsg(null);
   }
 
   async function saveProfile() {
@@ -375,6 +401,7 @@ export default function MeScreen() {
   }
 
   const statusText = humanizeStatus(locale, msg);
+  const signedIn = Boolean(profile?.uid);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
@@ -396,35 +423,50 @@ export default function MeScreen() {
         <Text style={styles.btnText}>{t(locale, "me.serverUrlSave")}</Text>
       </Pressable>
 
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "auth.login")}</Text>
-      <Text style={styles.label}>Handle / UID</Text>
-      <TextInput style={styles.input} value={handle} onChangeText={setHandle} autoCapitalize="none" />
-      <Text style={styles.label}>Password</Text>
-      <TextInput
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
-      <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
-
-      <View style={styles.row}>
-        <Pressable style={styles.btn} onPress={() => void register()}>
-          <Text style={styles.btnText}>{t(locale, "auth.register")}</Text>
-        </Pressable>
-        <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => void login()}>
-          <Text style={[styles.btnText, styles.btnGhostText]}>{t(locale, "auth.login")}</Text>
-        </Pressable>
-      </View>
-
-      {profile?.uid && (
-        <Text style={styles.body}>
-          UID: <Text style={styles.strong}>{profile.uid}</Text>
-        </Text>
+      {!signedIn ? (
+        <>
+          <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "auth.login")}</Text>
+          <Text style={styles.muted}>{t(locale, "auth.loginHint")}</Text>
+          <Text style={styles.label}>Handle / UID</Text>
+          <TextInput
+            style={styles.input}
+            value={handle}
+            onChangeText={setHandle}
+            autoCapitalize="none"
+          />
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
+          <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
+          <View style={styles.row}>
+            <Pressable style={styles.btn} onPress={() => void register()}>
+              <Text style={styles.btnText}>{t(locale, "auth.register")}</Text>
+            </Pressable>
+            <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => void login()}>
+              <Text style={[styles.btnText, styles.btnGhostText]}>{t(locale, "auth.login")}</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.tabAccount")}</Text>
+          <Text style={styles.body}>
+            {t(locale, "me.signedIn")} · UID: <Text style={styles.strong}>{profile?.uid}</Text>
+          </Text>
+          <Pressable style={[styles.btn, styles.btnGhost, { marginTop: 12 }]} onPress={() => void signOut()}>
+            <Text style={[styles.btnText, styles.btnGhostText]}>{t(locale, "me.signOut")}</Text>
+          </Pressable>
+        </>
       )}
       {statusText && <Text style={styles.muted}>{statusText}</Text>}
 
+      {signedIn && (
+        <>
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.profile")}</Text>
       <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
       <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
@@ -478,8 +520,10 @@ export default function MeScreen() {
       >
         <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
       </Pressable>
+        </>
+      )}
 
-      <Text style={styles.label}>{t(locale, "landing.theme")}</Text>
+      <Text style={[styles.label, { marginTop: 28 }]}>{t(locale, "landing.theme")}</Text>
       <View style={styles.row}>
         {THEME_IDS.map((id) => {
           const active = id === theme;
@@ -511,6 +555,8 @@ export default function MeScreen() {
         })}
       </View>
 
+      {signedIn && (
+        <>
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "security.deviceKeys")}</Text>
       <Text style={styles.muted}>{t(locale, "security.deviceKeysHint")}</Text>
       <Text style={styles.muted}>
@@ -570,6 +616,8 @@ export default function MeScreen() {
       >
         <Text style={styles.btnText}>{t(locale, "security.wipe")}</Text>
       </Pressable>
+        </>
+      )}
     </ScrollView>
   );
 }
