@@ -1085,8 +1085,9 @@ body:has(.bible-reader) .tab-bar a.active::after {
   width: max-content;
   max-width: calc(100% - 1.25rem);
   margin-inline: auto;
-  bottom: calc(5.15rem + env(safe-area-inset-bottom));
-  z-index: 46;
+  /* Sit above the reading dock so highlight actions never block Note/Study. */
+  bottom: calc(8.35rem + env(safe-area-inset-bottom));
+  z-index: 47;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

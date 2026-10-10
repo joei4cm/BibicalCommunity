@@ -1563,7 +1563,7 @@ export function BibleReader() {
 
       {renderChapterNav("reader-bottom", "bottom")}
 
-      {selection && dockPanel !== "study" && dockPanel !== "search" && dockPanel !== "speak" && (
+      {selection && !dockPanel && (
         <div className="bible-selection-bar" data-testid="reader-selection-bar" role="toolbar">
           <span className="bible-hint">{selectionLabel}</span>
           {selectionAlreadyHighlighted ? (
