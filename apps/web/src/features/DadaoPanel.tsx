@@ -772,8 +772,6 @@ export function DadaoPanel({
         </div>
       )}
 
-      {/* silence unused FORUM_POST_KINDS import warning if tree-shaken differently */}
-      <span hidden>{FORUM_POST_KINDS.length}</span>
     </div>
   );
 }

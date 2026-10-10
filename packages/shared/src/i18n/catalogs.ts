@@ -1117,7 +1117,7 @@ export const ja: Record<string, string> = {
   "plans.devotionToday": "今日のデボーション",
   "plans.manageAdvanced": "管理・作成",
   "home.gateHint": "ログインすると教会コミュニティと掲示板を利用できます",
-  "home.communityHint": "ホームと掲示板はここ；DM・グループは「メッセージ」へ。",
+  "home.communityHint": "ホームと大道はここ；DM・グループは「メッセージ」へ。",
   "home.goLogin": "ログインへ",
   "home.goChurch": "ホームに参加",
   "home.pickChurch": "現在のホーム",
