@@ -20,9 +20,11 @@ import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
 
+type ConversationKind = "dm" | "group" | "seminar";
+
 type Conversation = {
   id: string;
-  kind: "dm" | "group";
+  kind: ConversationKind;
   title: string | null;
   disappearingTtlSec: number | null;
   createdBy: string;
@@ -53,14 +55,20 @@ async function sessionKeyFor(conversationId: string) {
   return deriveSessionKey(`lh-convo:${conversationId}`);
 }
 
-export function ChatPanel() {
+export function ChatPanel({
+  initialPeer,
+  onPeerConsumed,
+}: {
+  initialPeer?: string | null;
+  onPeerConsumed?: () => void;
+} = {}) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
-  const [kind, setKind] = useState<"dm" | "group">("dm");
+  const [kind, setKind] = useState<ConversationKind>("dm");
   const [title, setTitle] = useState("");
   const [memberIds, setMemberIds] = useState("");
   const [draft, setDraft] = useState("");
@@ -69,7 +77,7 @@ export function ChatPanel() {
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
-  const [listTab, setListTab] = useState<"chats" | "friends" | "archived">("friends");
+  const [listTab, setListTab] = useState<"dm" | "group" | "seminar" | "archived">("dm");
   const [sheet, setSheet] = useState<"none" | "discover" | "compose">("none");
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverHits, setDiscoverHits] = useState<
@@ -91,21 +99,10 @@ export function ChatPanel() {
     () => conversations.filter((c) => c.membership.archived),
     [conversations],
   );
-  const friends = useMemo(() => {
-    const map = new Map<string, { userId: string; label: string; conversationId?: string }>();
-    for (const c of conversations) {
-      if (c.kind !== "dm") continue;
-      for (const peer of c.peerUserIds ?? []) {
-        if (!peer || map.has(peer)) continue;
-        map.set(peer, {
-          userId: peer,
-          label: c.title?.trim() || peer.slice(0, 12),
-          conversationId: c.id,
-        });
-      }
-    }
-    return [...map.values()];
-  }, [conversations]);
+  const filteredActive = useMemo(() => {
+    if (listTab === "archived") return [];
+    return activeConversations.filter((c) => c.kind === listTab);
+  }, [activeConversations, listTab]);
 
   const refreshConversations = useCallback(async () => {
     if (!getToken()) {
@@ -139,7 +136,7 @@ export function ChatPanel() {
         );
         if (existing) {
           setSelectedId(existing.id);
-          setListTab("chats");
+          setListTab("dm");
         } else {
           const res = await api<{ id: string }>("/v1/chat/conversations", {
             method: "POST",
@@ -150,8 +147,9 @@ export function ChatPanel() {
           if (cancelled) return;
           setConversations(again.conversations);
           setSelectedId(res.id);
-          setListTab("chats");
+          setListTab("dm");
         }
+        onPeerConsumed?.();
         setSearchParams(
           (prev) => {
             const next = new URLSearchParams(prev);
@@ -167,7 +165,20 @@ export function ChatPanel() {
     return () => {
       cancelled = true;
     };
-  }, [peerFromQuery, setSearchParams]);
+  }, [peerFromQuery, setSearchParams, onPeerConsumed]);
+
+  // Allow parent to nudge a peer open without relying solely on the URL effect race.
+  useEffect(() => {
+    if (!initialPeer || peerFromQuery) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("peer", initialPeer);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [initialPeer, peerFromQuery, setSearchParams]);
 
   useEffect(() => {
     if (!conversationFromQuery || !getToken()) return;
@@ -177,9 +188,14 @@ export function ChatPanel() {
         const resList = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
         if (cancelled) return;
         setConversations(resList.conversations);
-        if (resList.conversations.some((c) => c.id === conversationFromQuery)) {
+        const found = resList.conversations.find((c) => c.id === conversationFromQuery);
+        if (found) {
           setSelectedId(conversationFromQuery);
-          setListTab("chats");
+          setListTab(
+            found.kind === "group" || found.kind === "seminar" || found.kind === "dm"
+              ? found.kind
+              : "dm",
+          );
         }
         setSearchParams(
           (prev) => {
@@ -276,7 +292,7 @@ export function ChatPanel() {
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
-  async function createConversation(explicitIds?: string[], explicitKind?: "dm" | "group") {
+  async function createConversation(explicitIds?: string[], explicitKind?: ConversationKind) {
     if (!getToken()) {
       setNote("login_required");
       return;
@@ -297,7 +313,7 @@ export function ChatPanel() {
         method: "POST",
         body: JSON.stringify({
           kind: useKind,
-          title: useKind === "group" ? title || undefined : undefined,
+          title: useKind === "dm" ? undefined : title || undefined,
           memberIds: ids,
         }),
       });
@@ -306,7 +322,7 @@ export function ChatPanel() {
       setSheet("none");
       await refreshConversations();
       setSelectedId(res.id);
-      setListTab("chats");
+      setListTab(useKind);
       setNote(null);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -346,7 +362,7 @@ export function ChatPanel() {
     if (existing) {
       setSelectedId(existing.id);
       setSheet("none");
-      setListTab("chats");
+      setListTab("dm");
       return;
     }
     await createConversation([userId], "dm");
@@ -547,40 +563,39 @@ export function ChatPanel() {
     setCallNote((prev) => `${prev ?? ""} · hung-up`);
   }
 
+  function kindLabel(k: ConversationKind) {
+    if (k === "seminar") return t("comms.seminar");
+    if (k === "group") return t("chat.group");
+    return t("chat.dm");
+  }
+
   function convoLabel(c: Conversation) {
     if (isCoworkerAssemblyConversationTitle(c.title)) return t("home.assembly.title");
-    return c.title || (c.kind === "group" ? t("chat.group") : t("chat.dm"));
+    if (c.title) return c.title;
+    return kindLabel(c.kind);
   }
 
   return (
     <div className="panel chat-home" data-testid="home-chat-panel">
       <div className="chat-home-header">
         <div>
-          <h2 style={{ marginBottom: "0.2rem" }}>{t("home.messages")}</h2>
+          <h2 style={{ marginBottom: "0.2rem" }}>{t("comms.chat")}</h2>
           <p className="muted" style={{ margin: 0 }}>
-            {t("chat.inboxHint")}
+            {t("comms.chatHint")}
           </p>
         </div>
         {!selected && (
           <div className="toolbar" style={{ margin: 0 }}>
             <button
               type="button"
-              className="btn ghost"
-              data-testid="chat-discover-open"
-              onClick={() => setSheet("discover")}
-            >
-              {t("chat.discoverFriends")}
-            </button>
-            <button
-              type="button"
               className="btn"
               data-testid="chat-compose-open"
               onClick={() => {
-                setKind("group");
+                setKind(listTab === "archived" ? "dm" : listTab);
                 setSheet("compose");
               }}
             >
-              {t("chat.createGroup")}
+              {t("comms.newChat")}
             </button>
           </div>
         )}
@@ -683,11 +698,12 @@ export function ChatPanel() {
         </>
       ) : (
         <>
-          <div className="plans-tabs" role="tablist" data-testid="chat-list-tabs">
+          <div className="manage-subtabs" role="tablist" data-testid="chat-list-tabs">
             {(
               [
-                ["friends", "chat.tabFriends"],
-                ["chats", "chat.tabChats"],
+                ["dm", "chat.dm"],
+                ["group", "chat.group"],
+                ["seminar", "comms.seminar"],
                 ["archived", "chat.tabArchived"],
               ] as const
             ).map(([id, key]) => (
@@ -696,7 +712,7 @@ export function ChatPanel() {
                 type="button"
                 role="tab"
                 aria-selected={listTab === id}
-                className={`plans-tab${listTab === id ? " is-active" : ""}`}
+                className={`manage-subtab${listTab === id ? " is-active" : ""}`}
                 data-testid={`chat-tab-${id}`}
                 onClick={() => setListTab(id)}
               >
@@ -705,33 +721,15 @@ export function ChatPanel() {
             ))}
           </div>
 
-          {listTab === "friends" && (
-            <ul className="list" data-testid="chat-friends-list">
-              {friends.length === 0 && <li className="muted">{t("chat.friendsEmpty")}</li>}
-              {friends.map((f) => (
-                <li key={f.userId}>
-                  <button
-                    type="button"
-                    className="convo-row"
-                    onClick={() => void openOrStartDm(f.userId)}
-                  >
-                    <strong>{f.label}</strong>
-                    <div className="muted">{f.userId}</div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {listTab === "chats" && (
+          {listTab !== "archived" && (
             <ul className="list" data-testid="chat-active-list">
-              {activeConversations.length === 0 && <li className="muted">{t("chat.empty")}</li>}
-              {activeConversations.map((c) => (
+              {filteredActive.length === 0 && <li className="muted">{t("chat.empty")}</li>}
+              {filteredActive.map((c) => (
                 <li key={c.id}>
                   <button type="button" className="convo-row" onClick={() => setSelectedId(c.id)}>
                     <strong>{convoLabel(c)}</strong>
                     <div className="muted">
-                      {c.kind === "group" ? t("chat.group") : t("chat.dm")}
+                      {kindLabel(c.kind)}
                       {c.disappearingTtlSec
                         ? ` · ${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
                         : ""}
@@ -780,7 +778,7 @@ export function ChatPanel() {
           >
             <div className="chat-sheet-head">
               <h3 style={{ margin: 0 }}>
-                {sheet === "discover" ? t("chat.discoverFriends") : t("chat.createGroup")}
+                {sheet === "discover" ? t("chat.discoverFriends") : t("comms.newChat")}
               </h3>
               <button type="button" className="btn ghost" onClick={() => setSheet("none")}>
                 ✕
@@ -818,17 +816,6 @@ export function ChatPanel() {
                     </li>
                   ))}
                 </ul>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  style={{ marginTop: "0.5rem" }}
-                  onClick={() => {
-                    setKind("dm");
-                    setSheet("compose");
-                  }}
-                >
-                  {t("chat.newDmById")}
-                </button>
               </>
             )}
 
@@ -836,15 +823,23 @@ export function ChatPanel() {
               <>
                 <div className="field">
                   <label>{t("chat.newConversation")}</label>
-                  <select value={kind} onChange={(e) => setKind(e.target.value as "dm" | "group")}>
+                  <select
+                    value={kind}
+                    onChange={(e) => setKind(e.target.value as ConversationKind)}
+                  >
                     <option value="dm">{t("chat.dm")}</option>
                     <option value="group">{t("chat.group")}</option>
+                    <option value="seminar">{t("comms.seminar")}</option>
                   </select>
                 </div>
-                {kind === "group" && (
+                {(kind === "group" || kind === "seminar") && (
                   <div className="field">
                     <label>{t("chat.title")}</label>
-                    <input value={title} onChange={(e) => setTitle(e.target.value)} />
+                    <input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder={kind === "seminar" ? t("comms.seminarTitleHint") : undefined}
+                    />
                   </div>
                 )}
                 <div className="field">

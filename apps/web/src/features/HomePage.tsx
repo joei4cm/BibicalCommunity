@@ -48,6 +48,8 @@ type OrgPerson = {
   userId: string;
   uid: string | null;
   nickname: string | null;
+  signature?: string | null;
+  groupNames?: string[];
   roles: ChurchRole[];
   groupRoles: { groupId: string; role: string }[];
   verified: boolean;
@@ -121,48 +123,79 @@ function OrgTreeView({
   depth,
   onPerson,
   t,
+  expanded,
+  toggle,
 }: {
   nodes: OrgNode[];
   depth: number;
   onPerson: (p: OrgPerson) => void;
   t: (k: string) => string;
+  expanded: Set<string>;
+  toggle: (id: string) => void;
 }) {
   if (!nodes.length) return null;
   return (
     <ul className={`org-tree depth-${Math.min(depth, 3)}`} data-testid="org-tree">
-      {nodes.map((node) => (
-        <li key={node.id} className="org-tree-node">
-          <div className="org-tree-label">
-            <strong>{node.name}</strong>
-            <span className="muted">
-              {" "}
-              · {t(node.kind === "department" ? "home.kind.department" : "home.kind.smallGroup")}
-            </span>
-          </div>
-          {node.members.length > 0 && (
-            <ul className="org-tree-people">
-              {node.members.map((p) => (
-                <li key={`${node.id}-${p.userId}`}>
-                  <button type="button" className="org-person-btn" onClick={() => onPerson(p)}>
-                    <span className="org-person-name">{personLabel(p)}</span>
-                    <span className="muted org-person-roles">
-                      {p.roles.filter((r) => r !== "member").length
-                        ? p.roles
-                            .filter((r) => r !== "member")
-                            .map((r) => t(`home.role.${roleLabelKey(r)}`))
-                            .join(" · ")
-                        : p.groupRoles.some((g) => g.groupId === node.id && g.role === "leader")
-                          ? t("home.role.groupLeader")
-                          : t("home.role.member")}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <OrgTreeView nodes={node.children} depth={depth + 1} onPerson={onPerson} t={t} />
-        </li>
-      ))}
+      {nodes.map((node) => {
+        const open = expanded.has(node.id);
+        const hasBody = node.members.length > 0 || node.children.length > 0;
+        return (
+          <li key={node.id} className="org-tree-node">
+            <div className="org-tree-label">
+              {hasBody ? (
+                <button
+                  type="button"
+                  className="org-tree-toggle"
+                  aria-expanded={open}
+                  onClick={() => toggle(node.id)}
+                >
+                  <span className="org-tree-caret" aria-hidden>
+                    {open ? "▾" : "▸"}
+                  </span>
+                  <strong>{node.name}</strong>
+                </button>
+              ) : (
+                <strong>{node.name}</strong>
+              )}
+              <span className="muted">
+                {" "}
+                · {t(node.kind === "department" ? "home.kind.department" : "home.kind.smallGroup")}
+              </span>
+            </div>
+            {open && node.members.length > 0 && (
+              <ul className="org-tree-people">
+                {node.members.map((p) => (
+                  <li key={`${node.id}-${p.userId}`}>
+                    <button type="button" className="org-person-btn" onClick={() => onPerson(p)}>
+                      <span className="org-person-name">{personLabel(p)}</span>
+                      <span className="muted org-person-roles">
+                        {p.roles.filter((r) => r !== "member").length
+                          ? p.roles
+                              .filter((r) => r !== "member")
+                              .map((r) => t(`home.role.${roleLabelKey(r)}`))
+                              .join(" · ")
+                          : p.groupRoles.some((g) => g.groupId === node.id && g.role === "leader")
+                            ? t("home.role.groupLeader")
+                            : t("home.role.member")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {open && (
+              <OrgTreeView
+                nodes={node.children}
+                depth={depth + 1}
+                onPerson={onPerson}
+                t={t}
+                expanded={expanded}
+                toggle={toggle}
+              />
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -187,6 +220,8 @@ export function HomePage() {
   const [assemblyNotifyTitle, setAssemblyNotifyTitle] = useState("");
   const [assemblyNotifyBody, setAssemblyNotifyBody] = useState("");
   const [activePerson, setActivePerson] = useState<OrgPerson | null>(null);
+  const [orgExpanded, setOrgExpanded] = useState<Set<string>>(new Set());
+  const [friendBusy, setFriendBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -200,6 +235,14 @@ export function HomePage() {
   const [manageMemberUserId, setManageMemberUserId] = useState("");
   const [roleTargetUserId, setRoleTargetUserId] = useState("");
   const [roleDraft, setRoleDraft] = useState<ChurchRole[]>(["member"]);
+  useEffect(() => {
+    if (!org?.tree?.length) return;
+    setOrgExpanded((prev) => {
+      if (prev.size) return prev;
+      return new Set(org.tree.map((n) => n.id));
+    });
+  }, [org]);
+
 
   const selectedChurch = churches.find((c) => c.id === selectedChurchId) ?? null;
   const caps = selectedChurch?.capabilities ?? org?.viewer.capabilities ?? {};
@@ -626,6 +669,21 @@ export function HomePage() {
     }
   }
 
+  async function addFriendFromCard(p: OrgPerson) {
+    setFriendBusy(true);
+    try {
+      await api("/v1/friends/request", {
+        method: "POST",
+        body: JSON.stringify({ userId: p.userId }),
+      });
+      setNote("friend_request_sent");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setFriendBusy(false);
+    }
+  }
+
   function greetPerson(p: OrgPerson) {
     navigate(`/app/chat?peer=${encodeURIComponent(p.userId)}`);
   }
@@ -815,6 +873,15 @@ export function HomePage() {
                   depth={0}
                   onPerson={setActivePerson}
                   t={t}
+                  expanded={orgExpanded}
+                  toggle={(id) =>
+                    setOrgExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      return next;
+                    })
+                  }
                 />
               )}
               {org.leaders.length > 0 && (
@@ -941,16 +1008,50 @@ export function HomePage() {
           {activePerson && (
             <div className="panel person-sheet" data-testid="home-person-sheet">
               <h3>{personLabel(activePerson)}</h3>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {activePerson.roles.join(" · ")}
-                {activePerson.uid ? ` · ${activePerson.uid}` : ""}
-              </p>
+              <dl className="person-card-meta">
+                <div>
+                  <dt>{t("home.card.nickname")}</dt>
+                  <dd>{activePerson.nickname || t("home.card.noNickname")}</dd>
+                </div>
+                <div>
+                  <dt>{t("home.card.groups")}</dt>
+                  <dd>
+                    {(activePerson.groupNames && activePerson.groupNames.length
+                      ? activePerson.groupNames.join(" · ")
+                      : t("home.card.noGroup"))}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t("home.card.signature")}</dt>
+                  <dd>{activePerson.signature?.trim() || t("home.card.noSignature")}</dd>
+                </div>
+                <div>
+                  <dt>{t("home.card.roles")}</dt>
+                  <dd>
+                    {activePerson.roles.length
+                      ? activePerson.roles
+                          .map((r) => t(`home.role.${roleLabelKey(r)}`))
+                          .join(" · ")
+                      : t("home.role.member")}
+                  </dd>
+                </div>
+              </dl>
               <div className="toolbar">
                 <button type="button" className="btn" onClick={() => greetPerson(activePerson)}>
                   {t("home.greet")}
                 </button>
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="home-add-friend"
+                  disabled={friendBusy}
+                  onClick={() => void addFriendFromCard(activePerson)}
+                  title={t("home.addFriend")}
+                >
+                  {t("home.addFriend")}
+                </button>
                 <Link className="btn ghost" to={`/app/chat?peer=${encodeURIComponent(activePerson.userId)}`}>
-                  {t("home.addFriendChat")}
+                  {t("comms.openChat")}
                 </Link>
                 <button type="button" className="btn ghost" onClick={() => setActivePerson(null)}>
                   {t("admin.cancel")}

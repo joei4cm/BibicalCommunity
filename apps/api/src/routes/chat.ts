@@ -10,7 +10,7 @@ export const chatRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 chatRoutes.use("*", requireAuth);
 
 const createConvoSchema = z.object({
-  kind: z.enum(["dm", "group"]),
+  kind: z.enum(["dm", "group", "seminar"]),
   title: z.string().optional(),
   memberIds: z.array(z.string()).min(1),
   disappearingTtlSec: z.number().int().positive().optional(),
