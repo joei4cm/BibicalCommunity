@@ -463,6 +463,54 @@ select {
   margin: 0 0 0.55rem;
 }
 
+.manage-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.85rem 0 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--br-line, var(--lh-border));
+}
+
+.manage-subtab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  color: var(--br-muted, var(--lh-ink-muted));
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manage-subtab:hover {
+  background: var(--br-accent-soft, var(--lh-accent-soft));
+  color: var(--br-ink, var(--lh-ink));
+}
+
+.manage-subtab.is-active {
+  background: var(--br-accent-soft, var(--lh-accent-soft));
+  color: var(--br-accent, var(--lh-accent));
+}
+
+.manage-groups-split {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+  gap: 1.25rem 1.5rem;
+  align-items: start;
+}
+
+.manage-group-cards {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .manage-groups-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 .me-admin-entry {
   margin-top: 1.15rem;
   padding-top: 1rem;
@@ -2405,6 +2453,56 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .admin-banner {
   margin: 0 0 0.75rem;
+}
+
+.admin-groups-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: 1.25rem 1.75rem;
+  align-items: start;
+  margin-top: 0.85rem;
+}
+
+.admin-groups-list h3,
+.admin-group-detail h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+}
+
+.admin-groups-layout .church-row {
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.admin-groups-layout .church-row:hover {
+  background: var(--lh-accent-soft);
+}
+
+.admin-groups-layout .church-row.is-selected {
+  background: var(--lh-accent-soft);
+  border-color: color-mix(in srgb, var(--lh-accent) 35%, transparent);
+}
+
+.admin-groups-layout .church-row-title {
+  font-weight: 650;
+}
+
+.admin-groups-layout .church-row.is-selected .church-row-title {
+  color: var(--lh-accent);
+}
+
+@media (max-width: 800px) {
+  .admin-groups-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 800px) {

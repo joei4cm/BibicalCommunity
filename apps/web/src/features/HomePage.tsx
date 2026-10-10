@@ -79,6 +79,19 @@ type OrgTreeResponse = {
 type BoardInfo = { id: Board; postCount: number; latestAt: number | null };
 
 type HomeSection = "home" | "forum" | "manage";
+type ManageSub = "groups" | "verify" | "roles";
+type ManageableGroup = {
+  id: string;
+  name: string;
+  kind: string;
+  canManage: boolean;
+};
+type GroupMemberRow = {
+  userId: string;
+  uid: string | null;
+  nickname: string | null;
+  role: string;
+};
 const BOARDS: Board[] = ["notice", "general", "group"];
 const ASSIGNABLE_ROLES: ChurchRole[] = [
   "admin",
@@ -144,9 +157,12 @@ export function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [homeSection, setHomeSection] = useState<HomeSection>("home");
+  const [manageSub, setManageSub] = useState<ManageSub>("groups");
   const [churches, setChurches] = useState<Church[]>([]);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+  const [manageGroups, setManageGroups] = useState<ManageableGroup[]>([]);
+  const [groupRoster, setGroupRoster] = useState<GroupMemberRow[]>([]);
   const [board, setBoard] = useState<Board | null>(null);
   const [boards, setBoards] = useState<BoardInfo[]>([]);
   const [posts, setPosts] = useState<ForumPost[]>([]);
@@ -232,17 +248,24 @@ export function HomePage() {
   }, [members, org]);
 
   const groupOptions = useMemo(() => {
-    const opts: { id: string; name: string }[] = [];
+    // Prefer API list (includes empty groups admins can manage).
+    if (manageGroups.length > 0) {
+      return manageGroups
+        .filter((g) => (canCreateGroup ? true : g.canManage))
+        .map((g) => ({ id: g.id, name: g.name, kind: g.kind }));
+    }
+    const opts: { id: string; name: string; kind: string }[] = [];
     const walk = (nodes: OrgNode[]) => {
       for (const n of nodes) {
-        opts.push({ id: n.id, name: n.name });
+        opts.push({ id: n.id, name: n.name, kind: n.kind });
         walk(n.children);
       }
     };
     if (org) walk(org.tree);
-    const prefer = ledGroupIds.length ? new Set(ledGroupIds) : null;
-    return prefer ? opts.filter((o) => prefer.has(o.id)) : opts;
-  }, [org, ledGroupIds]);
+    if (canCreateGroup) return opts;
+    const prefer = new Set(ledGroupIds);
+    return opts.filter((o) => prefer.has(o.id));
+  }, [manageGroups, org, ledGroupIds, canCreateGroup]);
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -290,7 +313,7 @@ export function HomePage() {
   }, [selectedChurchId, board]);
 
   const loadMembers = useCallback(async () => {
-    if (!getToken() || !selectedChurchId || !canVerify) {
+    if (!getToken() || !selectedChurchId || !(canVerify || isGroupLeader || canCreateGroup)) {
       setMembers([]);
       return;
     }
@@ -298,7 +321,33 @@ export function HomePage() {
       `/v1/home/${encodeURIComponent(selectedChurchId)}/members`,
     );
     setMembers(r.members ?? []);
-  }, [selectedChurchId, canVerify]);
+  }, [selectedChurchId, canVerify, isGroupLeader, canCreateGroup]);
+
+  const loadManageGroups = useCallback(async () => {
+    if (!getToken() || !selectedChurchId) {
+      setManageGroups([]);
+      return;
+    }
+    const r = await api<{ groups: ManageableGroup[] }>(
+      `/v1/home/${encodeURIComponent(selectedChurchId)}/groups`,
+    );
+    setManageGroups(r.groups ?? []);
+  }, [selectedChurchId]);
+
+  const loadGroupRoster = useCallback(async () => {
+    if (!getToken() || !manageGroupId) {
+      setGroupRoster([]);
+      return;
+    }
+    try {
+      const r = await api<{ members: GroupMemberRow[] }>(
+        `/v1/home/groups/${encodeURIComponent(manageGroupId)}/members`,
+      );
+      setGroupRoster(r.members ?? []);
+    } catch {
+      setGroupRoster([]);
+    }
+  }, [manageGroupId]);
 
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
@@ -321,8 +370,48 @@ export function HomePage() {
   }, [loadMembers]);
 
   useEffect(() => {
+    if (homeSection !== "manage") return;
+    void loadManageGroups().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [homeSection, loadManageGroups]);
+
+  useEffect(() => {
+    if (homeSection !== "manage" || manageSub !== "groups") return;
+    void loadGroupRoster().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [homeSection, manageSub, loadGroupRoster]);
+
+  useEffect(() => {
     if (homeSection === "manage" && !showManageTab) setHomeSection("home");
   }, [homeSection, showManageTab]);
+
+  useEffect(() => {
+    const available: ManageSub[] = [];
+    if (isGroupLeader || canCreateGroup) available.push("groups");
+    if (canVerify) available.push("verify");
+    if (canCreateGroup) available.push("roles");
+    const first = available[0];
+    if (first && !available.includes(manageSub)) {
+      setManageSub(first);
+    }
+  }, [isGroupLeader, canCreateGroup, canVerify, manageSub]);
+
+  useEffect(() => {
+    setManageGroupId("");
+  }, [selectedChurchId]);
+
+  useEffect(() => {
+    if (!manageGroupId && groupOptions.length > 0) {
+      const firstManageable =
+        groupOptions.find((g) => manageGroups.find((m) => m.id === g.id)?.canManage) ??
+        groupOptions[0];
+      if (firstManageable) setManageGroupId(firstManageable.id);
+    } else if (
+      manageGroupId &&
+      groupOptions.length > 0 &&
+      !groupOptions.some((g) => g.id === manageGroupId)
+    ) {
+      setManageGroupId(groupOptions[0]?.id ?? "");
+    }
+  }, [groupOptions, manageGroupId, manageGroups]);
 
   async function createChurch() {
     if (!getToken()) {
@@ -503,6 +592,8 @@ export function HomePage() {
       setNote("group_created");
       await refresh();
       await loadOrg();
+      await loadManageGroups();
+      setManageSub("groups");
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -520,6 +611,7 @@ export function HomePage() {
       });
       setManageMemberUserId("");
       setNote("group_member_added");
+      await loadGroupRoster();
       await loadOrg();
       await refresh();
     } catch (e) {
@@ -537,8 +629,27 @@ export function HomePage() {
         { method: "DELETE" },
       );
       setNote("group_member_removed");
+      await loadGroupRoster();
       await loadOrg();
       await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setGroupLeader(userId: string, role: "leader" | "member") {
+    if (!manageGroupId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/home/groups/${encodeURIComponent(manageGroupId)}/members`, {
+        method: "POST",
+        body: JSON.stringify({ userId, role }),
+      });
+      setNote("saved");
+      await loadGroupRoster();
+      await loadOrg();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -919,8 +1030,178 @@ export function HomePage() {
             {t("home.manageMobileHint")}
           </p>
 
-          {canVerify && (
-            <div className="manage-block" data-testid="manage-verify">
+          <div className="manage-subtabs" role="tablist" data-testid="manage-subtabs">
+            {(
+              [
+                ...(isGroupLeader || canCreateGroup
+                  ? ([["groups", t("home.manageSub.groups")]] as const)
+                  : []),
+                ...(canVerify ? ([["verify", t("home.manageSub.verify")]] as const) : []),
+                ...(canCreateGroup ? ([["roles", t("home.manageSub.roles")]] as const) : []),
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={manageSub === id}
+                className={`manage-subtab${manageSub === id ? " is-active" : ""}`}
+                data-testid={`manage-sub-${id}`}
+                onClick={() => setManageSub(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {manageSub === "groups" && (isGroupLeader || canCreateGroup) && (
+            <div data-testid="manage-group-members">
+              <div className="manage-groups-split">
+                <div>
+                  <h3>{t("admin.groupList")}</h3>
+                  <ul className="list manage-group-cards">
+                    {groupOptions.length === 0 && (
+                      <li className="muted">{t("home.noGroups")}</li>
+                    )}
+                    {groupOptions.map((g) => (
+                      <li key={g.id}>
+                        <button
+                          type="button"
+                          className={`church-row${manageGroupId === g.id ? " is-selected" : ""}`}
+                          onClick={() => setManageGroupId(g.id)}
+                        >
+                          <div className="church-row-title">{g.name}</div>
+                          <div className="muted">
+                            {g.kind === "department"
+                              ? t("home.kind.department")
+                              : t("home.kind.smallGroup")}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {canCreateGroup && (
+                    <div className="manage-block" data-testid="manage-create-group">
+                      <h3>{t("home.createGroup")}</h3>
+                      <div className="field">
+                        <label>{t("home.groupName")}</label>
+                        <input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>{t("home.groupKind")}</label>
+                        <select
+                          value={groupKind}
+                          onChange={(e) => setGroupKind(e.target.value as GroupKind)}
+                        >
+                          <option value="small_group">{t("home.kind.smallGroup")}</option>
+                          <option value="department">{t("home.kind.department")}</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={busy}
+                        onClick={() => void createGroup()}
+                      >
+                        {t("home.createGroup")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  {manageGroupId ? (
+                    <>
+                      <h3>
+                        {groupOptions.find((g) => g.id === manageGroupId)?.name ??
+                          t("home.manageGroupMembers")}
+                      </h3>
+                      <p className="muted" style={{ marginTop: 0 }}>
+                        {t("home.manageGroupMembers")}
+                      </p>
+                      <ul className="list">
+                        {groupRoster.length === 0 && (
+                          <li className="muted">{t("home.noGroupMembers")}</li>
+                        )}
+                        {groupRoster.map((p) => (
+                          <li key={p.userId}>
+                            <strong>{p.nickname || p.uid || p.userId}</strong>
+                            <div className="muted">
+                              {p.role === "leader"
+                                ? t("home.role.groupLeader")
+                                : t("home.role.member")}
+                            </div>
+                            <div className="toolbar" style={{ marginTop: "0.35rem" }}>
+                              {p.role !== "leader" ? (
+                                <button
+                                  type="button"
+                                  className="btn ghost"
+                                  disabled={busy}
+                                  onClick={() => void setGroupLeader(p.userId, "leader")}
+                                >
+                                  {t("home.makeLeader")}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn ghost"
+                                  disabled={busy}
+                                  onClick={() => void setGroupLeader(p.userId, "member")}
+                                >
+                                  {t("home.removeLeader")}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="btn danger"
+                                disabled={busy}
+                                onClick={() => void removeGroupMember(manageGroupId, p.userId)}
+                              >
+                                {t("home.removeGroupMember")}
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <h3 style={{ marginTop: "1rem" }}>{t("home.addGroupMember")}</h3>
+                      <div className="field">
+                        <label>{t("home.pickMember")}</label>
+                        <select
+                          value={manageMemberUserId}
+                          onChange={(e) => setManageMemberUserId(e.target.value)}
+                          data-testid="manage-member-picker"
+                        >
+                          <option value="">{t("home.pickMember")}</option>
+                          {directoryPeople
+                            .filter((p) => !groupRoster.some((g) => g.userId === p.userId))
+                            .map((p) => (
+                              <option key={p.userId} value={p.userId}>
+                                {p.label}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={busy || !manageMemberUserId}
+                        onClick={() => void addGroupMember()}
+                      >
+                        {t("home.addGroupMember")}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="muted">{t("admin.pickGroupHint")}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {manageSub === "verify" && canVerify && (
+            <div data-testid="manage-verify">
               <h3>{t("home.verifyMember")}</h3>
               <ul className="list">
                 {pendingMembers.length === 0 && (
@@ -944,95 +1225,8 @@ export function HomePage() {
             </div>
           )}
 
-          {canCreateGroup && (
-            <div className="manage-block" data-testid="manage-create-group">
-              <h3>{t("home.createGroup")}</h3>
-              <div className="field">
-                <label>{t("home.groupName")}</label>
-                <input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>{t("home.groupKind")}</label>
-                <select
-                  value={groupKind}
-                  onChange={(e) => setGroupKind(e.target.value as GroupKind)}
-                >
-                  <option value="small_group">{t("home.kind.smallGroup")}</option>
-                  <option value="department">{t("home.kind.department")}</option>
-                </select>
-              </div>
-              <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
-                {t("home.createGroup")}
-              </button>
-            </div>
-          )}
-
-          {(isGroupLeader || canCreateGroup) && (
-            <div className="manage-block" data-testid="manage-group-members">
-              <h3>{t("home.manageGroupMembers")}</h3>
-              <div className="field">
-                <label>{t("home.selectGroup")}</label>
-                <select value={manageGroupId} onChange={(e) => setManageGroupId(e.target.value)}>
-                  <option value="">{t("home.selectGroup")}</option>
-                  {groupOptions.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>{t("home.pickMember")}</label>
-                <select
-                  value={manageMemberUserId}
-                  onChange={(e) => setManageMemberUserId(e.target.value)}
-                  data-testid="manage-member-picker"
-                >
-                  <option value="">{t("home.pickMember")}</option>
-                  {directoryPeople.map((p) => (
-                    <option key={p.userId} value={p.userId}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button type="button" className="btn" disabled={busy} onClick={() => void addGroupMember()}>
-                {t("home.addGroupMember")}
-              </button>
-              {manageGroupId && org && (
-                <ul className="list" style={{ marginTop: "0.75rem" }}>
-                  {(() => {
-                    const find = (nodes: OrgNode[]): OrgNode | null => {
-                      for (const n of nodes) {
-                        if (n.id === manageGroupId) return n;
-                        const c = find(n.children);
-                        if (c) return c;
-                      }
-                      return null;
-                    };
-                    const node = find(org.tree);
-                    return (node?.members ?? []).map((p) => (
-                      <li key={p.userId}>
-                        {personLabel(p)}
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          style={{ marginLeft: "0.5rem" }}
-                          disabled={busy}
-                          onClick={() => void removeGroupMember(manageGroupId, p.userId)}
-                        >
-                          {t("home.removeGroupMember")}
-                        </button>
-                      </li>
-                    ));
-                  })()}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {canCreateGroup && (
-            <div className="manage-block" data-testid="manage-roles">
+          {manageSub === "roles" && canCreateGroup && (
+            <div data-testid="manage-roles">
               <h3>{t("home.assignRoles")}</h3>
               <div className="field">
                 <label>{t("home.pickMember")}</label>
@@ -1043,9 +1237,11 @@ export function HomePage() {
                     setRoleTargetUserId(id);
                     const hit = directoryPeople.find((p) => p.userId === id);
                     if (hit?.roles.length) {
-                      setRoleDraft(hit.roles.filter((r): r is ChurchRole =>
-                        (ASSIGNABLE_ROLES as readonly string[]).includes(r),
-                      ));
+                      setRoleDraft(
+                        hit.roles.filter((r): r is ChurchRole =>
+                          (ASSIGNABLE_ROLES as readonly string[]).includes(r),
+                        ),
+                      );
                     }
                   }}
                   data-testid="manage-role-picker"
@@ -1086,8 +1282,8 @@ export function HomePage() {
               <p className="muted" style={{ marginTop: 0 }}>
                 {t("home.manageAdvancedHint")}
               </p>
-              <Link className="btn ghost" to="/app/admin">
-                {t("admin.open")}
+              <Link className="btn ghost" to="/app/admin#groups">
+                {t("admin.openGroups")}
               </Link>
             </div>
           )}
