@@ -163,7 +163,6 @@ export function HomePage() {
   const [mediaKey, setMediaKey] = useState<string | null>(null);
   const [composeGroupId, setComposeGroupId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [verifyUserId, setVerifyUserId] = useState("");
   const [members, setMembers] = useState<ChurchMember[]>([]);
   const [groupName, setGroupName] = useState("");
   const [groupKind, setGroupKind] = useState<GroupKind>("small_group");
@@ -171,8 +170,6 @@ export function HomePage() {
   const [manageMemberUserId, setManageMemberUserId] = useState("");
   const [roleTargetUserId, setRoleTargetUserId] = useState("");
   const [roleDraft, setRoleDraft] = useState<ChurchRole[]>(["member"]);
-  const [wipeUserId, setWipeUserId] = useState("");
-  const [wipeDeviceId, setWipeDeviceId] = useState("");
 
   const selectedChurch = churches.find((c) => c.id === selectedChurchId) ?? null;
   const caps = selectedChurch?.capabilities ?? org?.viewer.capabilities ?? {};
@@ -197,8 +194,55 @@ export function HomePage() {
       : [];
     return selectedChurch?.groups?.length ? selectedChurch.groups : fromOrg;
   }, [org, selectedChurch]);
-  const showManageTab = canCreateGroup || canVerify || canManageChurch || isGroupLeader;
+  const showManageTab = canCreateGroup || canVerify || isGroupLeader;
   const pendingMembers = members.filter((m) => !m.verified);
+
+  const directoryPeople = useMemo(() => {
+    const map = new Map<string, { userId: string; label: string; roles: string[] }>();
+    for (const m of members) {
+      map.set(m.userId, {
+        userId: m.userId,
+        label: m.nickname || m.uid || m.userId,
+        roles: m.roles ?? [m.role],
+      });
+    }
+    const walk = (nodes: OrgNode[]) => {
+      for (const n of nodes) {
+        for (const p of n.members) {
+          if (!map.has(p.userId)) {
+            map.set(p.userId, {
+              userId: p.userId,
+              label: personLabel(p),
+              roles: p.roles,
+            });
+          }
+        }
+        walk(n.children);
+      }
+    };
+    if (org) {
+      walk(org.tree);
+      for (const p of org.leaders) {
+        if (!map.has(p.userId)) {
+          map.set(p.userId, { userId: p.userId, label: personLabel(p), roles: p.roles });
+        }
+      }
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [members, org]);
+
+  const groupOptions = useMemo(() => {
+    const opts: { id: string; name: string }[] = [];
+    const walk = (nodes: OrgNode[]) => {
+      for (const n of nodes) {
+        opts.push({ id: n.id, name: n.name });
+        walk(n.children);
+      }
+    };
+    if (org) walk(org.tree);
+    const prefer = ledGroupIds.length ? new Set(ledGroupIds) : null;
+    return prefer ? opts.filter((o) => prefer.has(o.id)) : opts;
+  }, [org, ledGroupIds]);
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -334,54 +378,6 @@ export function HomePage() {
     }
   }
 
-  async function switchSecurityMode(mode: SecurityMode) {
-    if (!getToken() || !selectedChurchId || !canManageChurch) {
-      setNote("login_required");
-      return;
-    }
-    setBusy(true);
-    try {
-      await api(`/v1/home/churches/${encodeURIComponent(selectedChurchId)}/security`, {
-        method: "PATCH",
-        body: JSON.stringify({ securityMode: mode }),
-      });
-      setNote(mode === "hostile" ? "hostile_enabled" : "standard_enabled");
-      await refresh();
-      await loadOrg();
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function adminWipe() {
-    if (!getToken() || !wipeUserId.trim()) {
-      setNote("login_required");
-      return;
-    }
-    if (!window.confirm(t("security.adminWipeConfirm"))) return;
-    setBusy(true);
-    try {
-      const payload: Record<string, string> = {
-        userId: wipeUserId.trim(),
-        reasonCode: "admin",
-      };
-      if (wipeDeviceId.trim()) payload.deviceId = wipeDeviceId.trim();
-      await api("/v1/admin/wipe", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setWipeUserId("");
-      setWipeDeviceId("");
-      setNote("admin_wipe_issued");
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function uploadAttachment(file: File) {
     if (!getToken()) {
       setNote("login_required");
@@ -466,8 +462,8 @@ export function HomePage() {
     }
   }
 
-  async function verifyMember(userId?: string) {
-    const target = (userId ?? verifyUserId).trim();
+  async function verifyMember(userId: string) {
+    const target = userId.trim();
     if (!getToken() || !selectedChurchId || !target) {
       setNote("login_required");
       return;
@@ -478,7 +474,6 @@ export function HomePage() {
         method: "POST",
         body: JSON.stringify({ churchId: selectedChurchId, userId: target }),
       });
-      setVerifyUserId("");
       setNote("member_verified");
       await refresh();
       await loadMembers();
@@ -921,13 +916,38 @@ export function HomePage() {
         <div className="panel" data-testid="home-manage-panel">
           <h2>{t("home.tabManage")}</h2>
           <p className="muted" style={{ marginTop: 0 }}>
-            {t("home.manageHint")}
+            {t("home.manageMobileHint")}
           </p>
 
+          {canVerify && (
+            <div className="manage-block" data-testid="manage-verify">
+              <h3>{t("home.verifyMember")}</h3>
+              <ul className="list">
+                {pendingMembers.length === 0 && (
+                  <li className="muted">{t("home.membersNonePending")}</li>
+                )}
+                {pendingMembers.map((m) => (
+                  <li key={m.userId}>
+                    <strong>{m.nickname || m.uid || m.userId}</strong>
+                    <div className="muted">{(m.roles ?? [m.role]).join(" · ")}</div>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy}
+                      onClick={() => void verifyMember(m.userId)}
+                    >
+                      {t("home.verify")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {canCreateGroup && (
-            <details className="plans-advanced" open>
-              <summary>{t("home.createGroup")}</summary>
-              <div className="field" style={{ marginTop: "0.75rem" }}>
+            <div className="manage-block" data-testid="manage-create-group">
+              <h3>{t("home.createGroup")}</h3>
+              <div className="field">
                 <label>{t("home.groupName")}</label>
                 <input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
               </div>
@@ -944,30 +964,37 @@ export function HomePage() {
               <button type="button" className="btn" disabled={busy} onClick={() => void createGroup()}>
                 {t("home.createGroup")}
               </button>
-            </details>
+            </div>
           )}
 
           {(isGroupLeader || canCreateGroup) && (
-            <details className="plans-advanced" style={{ marginTop: "0.85rem" }} open={isGroupLeader}>
-              <summary>{t("home.manageGroupMembers")}</summary>
-              <div className="field" style={{ marginTop: "0.75rem" }}>
+            <div className="manage-block" data-testid="manage-group-members">
+              <h3>{t("home.manageGroupMembers")}</h3>
+              <div className="field">
                 <label>{t("home.selectGroup")}</label>
                 <select value={manageGroupId} onChange={(e) => setManageGroupId(e.target.value)}>
                   <option value="">{t("home.selectGroup")}</option>
-                  {(ledGroupIds.length ? ledGroupIds : membershipGroups).map((gid) => (
-                    <option key={gid} value={gid}>
-                      {gid}
+                  {groupOptions.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="field">
-                <label>{t("home.verifyUserId")}</label>
-                <input
+                <label>{t("home.pickMember")}</label>
+                <select
                   value={manageMemberUserId}
                   onChange={(e) => setManageMemberUserId(e.target.value)}
-                  placeholder="usr_…"
-                />
+                  data-testid="manage-member-picker"
+                >
+                  <option value="">{t("home.pickMember")}</option>
+                  {directoryPeople.map((p) => (
+                    <option key={p.userId} value={p.userId}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button type="button" className="btn" disabled={busy} onClick={() => void addGroupMember()}>
                 {t("home.addGroupMember")}
@@ -1001,55 +1028,35 @@ export function HomePage() {
                   })()}
                 </ul>
               )}
-            </details>
-          )}
-
-          {canVerify && (
-            <details className="plans-advanced" style={{ marginTop: "0.85rem" }} open={pendingMembers.length > 0}>
-              <summary>{t("home.verifyMember")}</summary>
-              <ul className="list">
-                {pendingMembers.length === 0 && <li className="muted">{t("home.membersNonePending")}</li>}
-                {pendingMembers.map((m) => (
-                  <li key={m.userId}>
-                    <strong>{m.nickname || m.uid || m.userId}</strong>
-                    <div className="muted">
-                      {(m.roles ?? [m.role]).join(" · ")} · {m.userId}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy}
-                      onClick={() => void verifyMember(m.userId)}
-                    >
-                      {t("home.verify")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <div className="field" style={{ marginTop: "1rem" }}>
-                <label>{t("home.verifyUserId")}</label>
-                <input
-                  value={verifyUserId}
-                  onChange={(e) => setVerifyUserId(e.target.value)}
-                  placeholder="usr_…"
-                />
-              </div>
-              <button type="button" className="btn" disabled={busy} onClick={() => void verifyMember()}>
-                {t("home.verify")}
-              </button>
-            </details>
+            </div>
           )}
 
           {canCreateGroup && (
-            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
-              <summary>{t("home.assignRoles")}</summary>
-              <div className="field" style={{ marginTop: "0.75rem" }}>
-                <label>{t("home.verifyUserId")}</label>
-                <input
+            <div className="manage-block" data-testid="manage-roles">
+              <h3>{t("home.assignRoles")}</h3>
+              <div className="field">
+                <label>{t("home.pickMember")}</label>
+                <select
                   value={roleTargetUserId}
-                  onChange={(e) => setRoleTargetUserId(e.target.value)}
-                  placeholder="usr_…"
-                />
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setRoleTargetUserId(id);
+                    const hit = directoryPeople.find((p) => p.userId === id);
+                    if (hit?.roles.length) {
+                      setRoleDraft(hit.roles.filter((r): r is ChurchRole =>
+                        (ASSIGNABLE_ROLES as readonly string[]).includes(r),
+                      ));
+                    }
+                  }}
+                  data-testid="manage-role-picker"
+                >
+                  <option value="">{t("home.pickMember")}</option>
+                  {directoryPeople.map((p) => (
+                    <option key={p.userId} value={p.userId}>
+                      {p.label} · {p.roles.join(",")}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="role-check-grid">
                 {ASSIGNABLE_ROLES.map((r) => (
@@ -1070,62 +1077,19 @@ export function HomePage() {
               <button type="button" className="btn" disabled={busy} onClick={() => void saveRoles()}>
                 {t("home.saveRoles")}
               </button>
-            </details>
-          )}
-
-          {canManageChurch && (
-            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
-              <summary>{t("home.securityMode")}</summary>
-              <p className="muted">
-                {selectedChurch?.securityMode === "hostile"
-                  ? t("home.securityMode.hostileHint")
-                  : t("home.securityMode.standardHint")}
-              </p>
-              <div className="toolbar">
-                <button
-                  type="button"
-                  className={`btn ghost${selectedChurch?.securityMode === "standard" ? " active-toggle" : ""}`}
-                  disabled={busy || selectedChurch?.securityMode === "standard"}
-                  onClick={() => void switchSecurityMode("standard")}
-                >
-                  {t("home.securityMode.standard")}
-                </button>
-                <button
-                  type="button"
-                  className={`btn ghost${selectedChurch?.securityMode === "hostile" ? " active-toggle" : ""}`}
-                  disabled={busy || selectedChurch?.securityMode === "hostile"}
-                  onClick={() => void switchSecurityMode("hostile")}
-                >
-                  {t("home.securityMode.hostile")}
-                </button>
-              </div>
-            </details>
+            </div>
           )}
 
           {(canManageChurch || canVerify) && (
-            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
-              <summary>{t("security.adminWipe")}</summary>
-              <p className="muted">{t("security.adminWipeHint")}</p>
-              <div className="field">
-                <label>{t("security.adminWipeUserId")}</label>
-                <input
-                  value={wipeUserId}
-                  onChange={(e) => setWipeUserId(e.target.value)}
-                  placeholder="usr_…"
-                />
-              </div>
-              <div className="field">
-                <label>{t("security.adminWipeDeviceId")}</label>
-                <input
-                  value={wipeDeviceId}
-                  onChange={(e) => setWipeDeviceId(e.target.value)}
-                  placeholder="dev_… (optional)"
-                />
-              </div>
-              <button type="button" className="btn danger" disabled={busy} onClick={() => void adminWipe()}>
-                {t("security.adminWipe")}
-              </button>
-            </details>
+            <div className="manage-block" data-testid="manage-advanced-link">
+              <h3>{t("admin.title")}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("home.manageAdvancedHint")}
+              </p>
+              <Link className="btn ghost" to="/app/admin">
+                {t("admin.open")}
+              </Link>
+            </div>
           )}
         </div>
       )}

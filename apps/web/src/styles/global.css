@@ -449,6 +449,26 @@ select {
   font-size: 0.92rem;
 }
 
+.manage-block {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--br-line);
+}
+
+.manage-block:first-of-type {
+  margin-top: 0.75rem;
+}
+
+.manage-block h3 {
+  margin: 0 0 0.55rem;
+}
+
+.me-admin-entry {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--br-line);
+}
+
 .app-folio .board-tabs {
   gap: 0;
   margin: 0 0 0.85rem;
@@ -2305,6 +2325,104 @@ body:has(.bible-reader) .tab-bar a.active::after {
 .btn.active-toggle {
   background: var(--lh-accent-soft);
   color: var(--lh-accent);
+}
+
+.admin-shell {
+  min-height: 100dvh;
+  background: var(--lh-bg);
+  color: var(--lh-ink);
+}
+
+.admin-console {
+  display: grid;
+  grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+  min-height: 100dvh;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1rem 1.5rem;
+  border-right: 1px solid var(--lh-border);
+  background: var(--lh-bg-elevated);
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+}
+
+.admin-sidebar-brand .brand {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.admin-sidebar-role {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.admin-nav-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  color: var(--lh-ink-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-nav-item:hover {
+  background: var(--lh-accent-soft);
+  color: var(--lh-ink);
+}
+
+.admin-nav-item.is-active {
+  background: var(--lh-accent-soft);
+  color: var(--lh-accent);
+}
+
+.admin-sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.admin-main {
+  padding: 1.25rem 1.35rem 2.5rem;
+  min-width: 0;
+}
+
+.admin-banner {
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 800px) {
+  .admin-console {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--lh-border);
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
 }
 
 .admin-section-tabs {

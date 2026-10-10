@@ -461,32 +461,41 @@ export function AdminConsole() {
   ];
 
   return (
-    <section className="fade-up" data-testid="admin-console">
-      <h1 className="brand">{t("admin.title")}</h1>
-      <p className="muted">
-        {access?.platformAdmin ? t("admin.platformAdmin") : t("admin.churchAdmin")}
-        {note ? ` · ${humanizeStatus(t, note)}` : ""}
-      </p>
+    <section className="admin-console fade-up" data-testid="admin-console">
+      <aside className="admin-sidebar" aria-label={t("admin.title")}>
+        <div className="admin-sidebar-brand">
+          <h1 className="brand">{t("admin.title")}</h1>
+          <p className="muted admin-sidebar-role">
+            {access?.platformAdmin ? t("admin.platformAdmin") : t("admin.churchAdmin")}
+          </p>
+        </div>
+        <nav className="admin-nav" role="tablist">
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={section === s.id}
+              className={`admin-nav-item${section === s.id ? " is-active" : ""}`}
+              data-testid={`admin-tab-${s.id}`}
+              onClick={() => goSection(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+        <div className="admin-sidebar-foot">
+          <p className="muted" style={{ fontSize: "0.82rem" }}>
+            {t("admin.desktopHint")}
+          </p>
+          <Link className="btn ghost" to="/app/home" data-testid="admin-back-app">
+            {t("admin.backToApp")}
+          </Link>
+        </div>
+      </aside>
 
-      <div
-        className="toolbar board-tabs admin-section-tabs"
-        role="tablist"
-        aria-label={t("admin.title")}
-      >
-        {sections.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={section === s.id}
-            className={`btn ghost${section === s.id ? " active-toggle" : ""}`}
-            data-testid={`admin-tab-${s.id}`}
-            onClick={() => goSection(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <div className="admin-main">
+        {note ? <p className="muted admin-banner">{humanizeStatus(t, note)}</p> : null}
 
       <div className="panel" data-testid="admin-church-picker">
         <h2 style={{ marginTop: 0 }}>{t("admin.selectHome")}</h2>
@@ -902,6 +911,7 @@ export function AdminConsole() {
           </button>
         </div>
       )}
+      </div>
     </section>
   );
 }
