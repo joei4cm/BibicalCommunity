@@ -230,7 +230,9 @@ export function AdminConsole() {
 
   useEffect(() => {
     if (!access?.canAccessConsole || section !== "groups") return;
-    void loadGroupMembers().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void loadGroupMembers()
+      .then(() => setNote((n) => (n === "forbidden" ? null : n)))
+      .catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [access, section, loadGroupMembers]);
 
   useEffect(() => {

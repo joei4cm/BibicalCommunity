@@ -156,7 +156,11 @@ function OrgTreeView({
 export function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [homeSection, setHomeSection] = useState<HomeSection>("home");
+  const [homeSection, setHomeSection] = useState<HomeSection>(() => {
+    if (typeof window === "undefined") return "home";
+    const raw = window.location.hash.replace(/^#/, "");
+    return raw === "manage" || raw === "forum" || raw === "home" ? raw : "home";
+  });
   const [manageSub, setManageSub] = useState<ManageSub>("groups");
   const [churches, setChurches] = useState<Church[]>([]);
   const [platformAdmin, setPlatformAdmin] = useState(false);
@@ -380,8 +384,35 @@ export function HomePage() {
   }, [homeSection, manageSub, loadGroupRoster]);
 
   useEffect(() => {
-    if (homeSection === "manage" && !showManageTab) setHomeSection("home");
-  }, [homeSection, showManageTab]);
+    // Wait until churches have loaded — otherwise caps are still empty and we'd
+    // bounce #manage → home before admin capabilities arrive.
+    if (homeSection === "manage" && !showManageTab && churches.length > 0) {
+      setHomeSection("home");
+    }
+  }, [homeSection, showManageTab, churches.length]);
+
+  useEffect(() => {
+    const onHash = () => {
+      const raw = window.location.hash.replace(/^#/, "");
+      if (raw === "manage" || raw === "forum" || raw === "home") {
+        setHomeSection(raw);
+      }
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const next = `#${homeSection}`;
+    if (window.location.hash !== next) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${next}`,
+      );
+    }
+  }, [homeSection]);
 
   useEffect(() => {
     const available: ManageSub[] = [];
