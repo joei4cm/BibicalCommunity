@@ -143,7 +143,7 @@ export async function assertCanManageGroupMembers(
   db: Db,
   userId: string,
   groupId: string,
-): Promise<{ ctx: MembershipContext; group: typeof schema.churchGroups.$inferSelect }> {
+): Promise<{ ctx: MembershipContext | null; group: typeof schema.churchGroups.$inferSelect }> {
   const group = (
     await db.select().from(schema.churchGroups).where(eq(schema.churchGroups.id, groupId)).limit(1)
   )[0];
@@ -152,6 +152,12 @@ export async function assertCanManageGroupMembers(
     err.status = 404;
     throw err;
   }
+  const platformAdmin = await loadPlatformAdmin(db, userId);
+  // Platform admins may manage any church's groups even without membership.
+  if (platformAdmin) {
+    const ctx = await loadMembershipContext(db, userId, group.churchId);
+    return { ctx, group };
+  }
   const ctx = await loadMembershipContext(db, userId, group.churchId);
   if (!ctx) {
     const err = new Error("forbidden") as Error & { status: number };
@@ -159,7 +165,7 @@ export async function assertCanManageGroupMembers(
     throw err;
   }
   const isLeader = ctx.ledGroupIds.includes(groupId);
-  const isAdmin = ctx.platformAdmin || ctx.roles.includes("admin");
+  const isAdmin = ctx.roles.includes("admin");
   const isDeaconDept =
     canManageDepartments(ctx.roles, ctx.platformAdmin) && group.kind === "department";
   if (!isLeader && !isAdmin && !isDeaconDept) {

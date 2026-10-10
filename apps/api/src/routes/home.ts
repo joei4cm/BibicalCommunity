@@ -810,6 +810,84 @@ homeRoutes.post("/groups", async (c) => {
   );
 });
 
+/** List groups the viewer can manage (or belongs to). */
+homeRoutes.get("/:churchId/groups", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
+  if (!ctx) return c.json({ error: "forbidden" }, 403);
+
+  const all = await db
+    .select()
+    .from(schema.churchGroups)
+    .where(eq(schema.churchGroups.churchId, churchId));
+
+  const canSeeAll =
+    ctx.platformAdmin ||
+    ctx.roles.includes("admin") ||
+    ctx.roles.includes("deacon") ||
+    ctx.roles.includes("elder");
+
+  const groups = all
+    .filter((g) => {
+      if (canSeeAll) return true;
+      if (ctx.ledGroupIds.includes(g.id) || ctx.groupIds.includes(g.id)) return true;
+      return false;
+    })
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      kind: g.kind,
+      parentId: g.parentId,
+      sortOrder: g.sortOrder,
+      canManage:
+        ctx.platformAdmin ||
+        ctx.roles.includes("admin") ||
+        ctx.ledGroupIds.includes(g.id) ||
+        (ctx.roles.includes("deacon") && g.kind === "department"),
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  return c.json({ churchId, groups });
+});
+
+/** List members of a group (managers see full roster). */
+homeRoutes.get("/groups/:groupId/members", async (c) => {
+  const groupId = c.req.param("groupId");
+  const db = drizzle(c.env.DB, { schema });
+  try {
+    const { group } = await assertCanManageGroupMembers(db, c.get("userId"), groupId);
+    const rows = await db
+      .select()
+      .from(schema.churchGroupMembers)
+      .where(eq(schema.churchGroupMembers.groupId, groupId));
+    const members = [];
+    for (const row of rows) {
+      const user = (
+        await db.select().from(schema.users).where(eq(schema.users.id, row.userId)).limit(1)
+      )[0];
+      members.push({
+        userId: row.userId,
+        uid: user?.uid ?? null,
+        nickname: user ? await openField(c.env, row.userId, "nickname", user.nicknameCt) : null,
+        role: row.role,
+      });
+    }
+    return c.json({
+      groupId,
+      churchId: group.churchId,
+      name: group.name,
+      kind: group.kind,
+      members,
+    });
+  } catch (e) {
+    const status = (e as { status?: number }).status ?? 500;
+    if (status === 404) return c.json({ error: "not_found" }, 404);
+    if (status === 403) return c.json({ error: "forbidden" }, 403);
+    throw e;
+  }
+});
+
 const patchGroupMemberSchema = z.object({
   userId: z.string().min(1),
   role: groupRoleSchema.optional().default("member"),
@@ -910,7 +988,7 @@ homeRoutes.delete("/groups/:groupId/members/:userId", async (c) => {
   }
 });
 
-/** Roster for verify / management (church admin+) or visibility-filtered directory. */
+/** Roster for verify / management (church admin+) or group-leader add-member picker. */
 homeRoutes.get("/:churchId/members", async (c) => {
   const churchId = c.req.param("churchId");
   const db = drizzle(c.env.DB, { schema });
@@ -918,8 +996,9 @@ homeRoutes.get("/:churchId/members", async (c) => {
   if (!ctx) return c.json({ error: "forbidden" }, 403);
 
   const canManage = canVerifyMembers(ctx.roles, ctx.platformAdmin);
-  if (!canManage && !ctx.platformAdmin) {
-    // Non-admins use org-tree for directory; keep this for admin verify UX.
+  const isGroupLeader = ctx.ledGroupIds.length > 0;
+  if (!canManage && !ctx.platformAdmin && !isGroupLeader) {
+    // Non-managers use org-tree for directory.
     return c.json({ error: "forbidden" }, 403);
   }
 
@@ -930,6 +1009,8 @@ homeRoutes.get("/:churchId/members", async (c) => {
 
   const members = [];
   for (const m of rows) {
+    // Group leaders only need verified people for the add-member picker.
+    if (!canManage && !ctx.platformAdmin && !m.verified) continue;
     const user = (
       await db.select().from(schema.users).where(eq(schema.users.id, m.userId)).limit(1)
     )[0];
