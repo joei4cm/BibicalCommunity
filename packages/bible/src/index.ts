@@ -6,6 +6,7 @@ export * from "./books.js";
 export * from "./book-groups.js";
 export * from "./section-headings.js";
 export * from "./audio-panshi.js";
+// PANSHI_WEB_PLAYER / panshiAudioUpstreamUrl exported via audio-panshi
 export * from "./content-policy.js";
 export * from "./study.js";
 export * from "./study-tools.js";
