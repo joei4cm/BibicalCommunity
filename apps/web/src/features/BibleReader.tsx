@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -9,9 +9,11 @@ import {
   getBook,
   isPartnerId,
   listBooks,
+  listBooksGrouped,
   listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
+  sectionHeadingsFor,
   STUDY_COMMENTARIES,
   commentaryDisplayName,
   defaultStudyCommentaryId,
@@ -142,6 +144,61 @@ function verseMapFromChapter(chapter: ChapterPayload | null): Map<number, string
 }
 
 /** Verse-stacked compare: same verse number, primary + peer lines. */
+const LONG_PRESS_MS = 420;
+
+function useVerseLongPress(opts: {
+  onSelectVerse: (verse: number) => void;
+  onExtendSelection: (verse: number) => void;
+}) {
+  const timer = useRef<number | null>(null);
+  const armed = useRef(false);
+  const startXY = useRef<{ x: number; y: number } | null>(null);
+
+  function clearTimer() {
+    if (timer.current != null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
+
+  function onPointerDown(verse: number, e: ReactPointerEvent) {
+    if (e.button !== 0) return;
+    clearTimer();
+    armed.current = false;
+    startXY.current = { x: e.clientX, y: e.clientY };
+    timer.current = window.setTimeout(() => {
+      armed.current = true;
+      opts.onSelectVerse(verse);
+      try {
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }, LONG_PRESS_MS);
+  }
+
+  function onPointerMove(verse: number, e: ReactPointerEvent) {
+    if (armed.current && e.buttons === 1) {
+      opts.onExtendSelection(verse);
+      return;
+    }
+    const start = startXY.current;
+    if (!start || timer.current == null) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (dx * dx + dy * dy > 100) clearTimer();
+  }
+
+  function onPointerUp() {
+    clearTimer();
+    armed.current = false;
+    startXY.current = null;
+  }
+
+  return { onPointerDown, onPointerMove, onPointerUp };
+}
+
+
 function CompareChapterPane({
   primary,
   peer,
@@ -167,6 +224,7 @@ function CompareChapterPane({
   onExtendSelection: (verse: number) => void;
   highlightByVerse?: Record<number, string>;
 }) {
+  const press = useVerseLongPress({ onSelectVerse, onExtendSelection });
   if (!primary || "external" in primary) {
     return <p className="muted">…</p>;
   }
@@ -189,13 +247,10 @@ function CompareChapterPane({
             data-verse={v.verse}
             role="button"
             tabIndex={0}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              onSelectVerse(v.verse);
-            }}
-            onPointerEnter={(e) => {
-              if (e.buttons === 1) onExtendSelection(v.verse);
-            }}
+            onPointerDown={(e) => press.onPointerDown(v.verse, e)}
+            onPointerMove={(e) => press.onPointerMove(v.verse, e)}
+            onPointerUp={() => press.onPointerUp()}
+            onPointerCancel={() => press.onPointerUp()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
@@ -248,6 +303,9 @@ function ChapterPane({
   onExtendSelection: (verse: number) => void;
   highlightByVerse?: Record<number, string>;
 }) {
+  const press = useVerseLongPress({ onSelectVerse, onExtendSelection });
+  const headingLocale = locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : "en";
+
   if (!chapter) return <p className="muted">…</p>;
   if ("external" in chapter && chapter.external) {
     const partner = chapter.meta.ssoFlag;
@@ -275,6 +333,10 @@ function ChapterPane({
     );
   }
   if (!("verses" in chapter)) return <p className="muted">…</p>;
+
+  const headings = sectionHeadingsFor(chapter.book, chapter.chapter);
+  const headingAt = new Map(headings.map((h) => [h.verse, h]));
+
   return (
     <article
       className="reader bible-prose"
@@ -285,44 +347,40 @@ function ChapterPane({
         fontFamily,
       }}
     >
-      <div
-        className="bible-prose-body"
-        onPointerUp={() => {
-          /* drag end handled per-verse */
-        }}
-      >
+      <div className="bible-prose-body">
         <span className="chapter-lead" aria-hidden="true">
           {chapter.chapter}
         </span>
         {chapter.verses.map((v) => {
           const hl = highlightByVerse?.[v.verse];
           const selected = rangeIncludes(selection, v.verse);
+          const heading = headingAt.get(v.verse);
           return (
-            <span
-              className={`verse-inline${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
-              key={v.verse}
-              style={hl ? { backgroundColor: hl } : undefined}
-              onPointerDown={(e) => {
-                if (e.button !== 0) return;
-                (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                onSelectVerse(v.verse);
-              }}
-              onPointerEnter={(e) => {
-                if (e.buttons === 1) onExtendSelection(v.verse);
-              }}
-              onPointerUp={() => {
-                /* release drag anchor after gesture */
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
-              }}
-              role="button"
-              tabIndex={0}
-              data-verse={v.verse}
-              data-selected={selected ? "1" : "0"}
-            >
-              <sup className="verse-num">{v.verse}</sup>
-              {displayVerseText(v.text)}{" "}
+            <span key={v.verse} className="verse-block">
+              {heading ? (
+                <span className="verse-section-heading" data-testid={`reader-heading-${v.verse}`}>
+                  {heading.title[headingLocale]}
+                </span>
+              ) : null}
+              <span
+                className={`verse-inline${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
+                style={hl ? { backgroundColor: hl } : undefined}
+                onPointerDown={(e) => press.onPointerDown(v.verse, e)}
+                onPointerMove={(e) => press.onPointerMove(v.verse, e)}
+                onPointerUp={() => press.onPointerUp()}
+                onPointerCancel={() => press.onPointerUp()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
+                }}
+                role="button"
+                tabIndex={0}
+                data-verse={v.verse}
+                data-selected={selected ? "1" : "0"}
+                title={t("reader.longPressSelect")}
+              >
+                <sup className="verse-num">{v.verse}</sup>
+                {displayVerseText(v.text)}{" "}
+              </span>
             </span>
           );
         })}
@@ -380,6 +438,11 @@ export function BibleReader() {
       const book = getBook(nextBookId);
       const capped = Math.min(Math.max(1, nextChapter), book?.chapters ?? 1);
       const path = `/app/bible/${tid}/${bookSlug(nextBookId)}/${capped}`;
+      // Optimistic clear so the UI doesn't keep showing the previous chapter.
+      setChapter(null);
+      setSecondChapter(null);
+      setSelection(null);
+      setHighlightPaletteOpen(false);
       navigate(path, { replace });
       setTranslationId(tid);
       setBookId(nextBookId);
@@ -507,8 +570,13 @@ export function BibleReader() {
   const [showCatalog, setShowCatalog] = useState(false);
   const [passagePickerOpen, setPassagePickerOpen] = useState(false);
   const [pickerStep, setPickerStep] = useState<"book" | "chapter" | "verse">("book");
+  const [pickerTestament, setPickerTestament] = useState<"ot" | "nt">(
+    () => getBook(routeBookId)?.testament ?? "nt",
+  );
   const [pickerBookId, setPickerBookId] = useState(routeBookId);
   const [pickerChapter, setPickerChapter] = useState(routeChapter);
+  const folioRef = useRef<HTMLDivElement | null>(null);
+  const swipeStart = useRef<{ x: number; y: number; t: number } | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [highlightPaletteOpen, setHighlightPaletteOpen] = useState(false);
   const [focusVerse, setFocusVerse] = useState<number | null>(null);
@@ -1037,14 +1105,10 @@ export function BibleReader() {
     if (!chapter || "external" in chapter || !("verses" in chapter)) return;
     const el = document.querySelector(`[data-testid="reader-prose"] [data-verse="${focusVerse}"]`);
     if (el instanceof HTMLElement) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      selectVerse(focusVerse);
-    } else {
-      // Verse absent from this pack — still select so dock/study have a target.
-      selectVerse(focusVerse);
+      el.scrollIntoView({ behavior: "smooth", block: focusVerse === 1 ? "start" : "center" });
     }
+    // Scroll only — do not auto-open selection/highlight chrome on chapter jumps.
     setFocusVerse(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- jump once after chapter load
   }, [focusVerse, chapter]);
 
   const pickerChapterOptions = useMemo(() => {
@@ -1246,12 +1310,68 @@ export function BibleReader() {
   function openPassagePicker() {
     setPickerBookId(bookId);
     setPickerChapter(chapterNum);
+    setPickerTestament(getBook(bookId)?.testament ?? "nt");
     setPickerStep("book");
     setPassagePickerOpen(true);
     setLayoutOpen(false);
     setTidPickerOpen(false);
     setSettingsOpen(false);
   }
+
+  const translationsByLanguage = useMemo(() => {
+    const order: Array<"zh" | "en" | "ja"> = ["zh", "en", "ja"];
+    const labels: Record<"zh" | "en" | "ja", string> = {
+      zh: t("reader.langZh"),
+      en: t("reader.langEn"),
+      ja: t("reader.langJa"),
+    };
+    return order
+      .map((lang) => ({
+        lang,
+        label: labels[lang],
+        items: translations.filter((tr) => tr.language === lang || (lang === "zh" && tr.language === "zh")),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [translations, t]);
+
+  const groupedBooks = useMemo(
+    () => listBooksGrouped({ testament: pickerTestament }),
+    [pickerTestament],
+  );
+
+  /** Mobile UA: horizontal swipe turns chapter (vertical scroll preserved). */
+  useEffect(() => {
+    const el = folioRef.current;
+    if (!el) return;
+    const onStart = (e: TouchEvent) => {
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      swipeStart.current = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+    };
+    const onEnd = (e: TouchEvent) => {
+      const start = swipeStart.current;
+      swipeStart.current = null;
+      const touch = e.changedTouches[0];
+      if (!start || !touch) return;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
+      if (Date.now() - start.t > 800) return;
+      if (dx < 0 && nextCursor) {
+        goToPassage(translationId, nextCursor.bookId, nextCursor.chapter);
+        setFocusVerse(1);
+      } else if (dx > 0 && prevCursor) {
+        goToPassage(translationId, prevCursor.bookId, prevCursor.chapter);
+        setFocusVerse(1);
+      }
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, [goToPassage, nextCursor, prevCursor, translationId]);
 
   return (
     <section className="bible-reader" data-testid="bible-reader">
@@ -1344,24 +1464,33 @@ export function BibleReader() {
               ✕
             </button>
           </div>
-          <ul className="bible-picker-list" data-testid="reader-tid-list">
-            {translations.map((tr) => (
-              <li key={tr.id}>
-                <button
-                  type="button"
-                  className={`bible-picker-item${tr.id === translationId ? " is-on" : ""}`}
-                  data-testid={`reader-tid-${tr.id}`}
-                  onClick={() => {
-                    goToPassage(tr.id, bookId, chapterNum);
-                    setTidPickerOpen(false);
-                  }}
-                >
-                  <strong className="bible-tid-row-abbr">{tr.abbreviation || tr.name[locale]}</strong>
-                  <span className="bible-tid-row-name">{tr.name[locale]}</span>
-                </button>
-              </li>
+          <div className="bible-picker-grouped" data-testid="reader-tid-list">
+            {translationsByLanguage.map((group) => (
+              <div key={group.lang} className="bible-picker-group">
+                <p className="bible-picker-group-label">{group.label}</p>
+                <ul className="bible-picker-list">
+                  {group.items.map((tr) => (
+                    <li key={tr.id}>
+                      <button
+                        type="button"
+                        className={`bible-picker-item${tr.id === translationId ? " is-on" : ""}`}
+                        data-testid={`reader-tid-${tr.id}`}
+                        onClick={() => {
+                          goToPassage(tr.id, bookId, chapterNum);
+                          setTidPickerOpen(false);
+                        }}
+                      >
+                        <strong className="bible-tid-row-abbr">
+                          {tr.abbreviation || tr.name[locale]}
+                        </strong>
+                        <span className="bible-tid-row-name">{tr.name[locale]}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
         </div>
       )}
@@ -1391,23 +1520,52 @@ export function BibleReader() {
             </button>
           </div>
           {pickerStep === "book" && (
-            <ul className="bible-picker-list" data-testid="reader-picker-books">
-              {books.map((b) => (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
-                    onClick={() => {
-                      setPickerBookId(b.id);
-                      setPickerChapter(1);
-                      setPickerStep("chapter");
-                    }}
-                  >
-                    {b.name[bookNameLocale]}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="bible-picker-testament" role="tablist" data-testid="reader-picker-testament">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={pickerTestament === "ot"}
+                  className={`bible-text-btn${pickerTestament === "ot" ? " is-on" : ""}`}
+                  onClick={() => setPickerTestament("ot")}
+                >
+                  {t("reader.testamentOt")}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={pickerTestament === "nt"}
+                  className={`bible-text-btn${pickerTestament === "nt" ? " is-on" : ""}`}
+                  onClick={() => setPickerTestament("nt")}
+                >
+                  {t("reader.testamentNt")}
+                </button>
+              </div>
+              <div className="bible-picker-grouped" data-testid="reader-picker-books">
+                {groupedBooks.map(({ group, books: groupBooks }) => (
+                  <div key={group.id} className="bible-picker-group">
+                    <p className="bible-picker-group-label">{group.name[bookNameLocale]}</p>
+                    <ul className="bible-picker-list">
+                      {groupBooks.map((b) => (
+                        <li key={b.id}>
+                          <button
+                            type="button"
+                            className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
+                            onClick={() => {
+                              setPickerBookId(b.id);
+                              setPickerChapter(1);
+                              setPickerStep("chapter");
+                            }}
+                          >
+                            {b.name[bookNameLocale]}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           {pickerStep === "chapter" && (
             <ul className="bible-picker-grid" data-testid="reader-picker-chapters">
@@ -1417,11 +1575,11 @@ export function BibleReader() {
                     type="button"
                     className={`bible-picker-item${pickerChapter === n ? " is-on" : ""}`}
                     onClick={() => {
+                      // Jump immediately from v1; optional 节 tab for verse targeting.
                       setPickerChapter(n);
-                      setPickerStep("verse");
-                      if (pickerBookId !== bookId || n !== chapterNum) {
-                        goToPassage(translationId, pickerBookId, n);
-                      }
+                      setPassagePickerOpen(false);
+                      goToPassage(translationId, pickerBookId, n);
+                      setFocusVerse(1);
                     }}
                   >
                     {n}
@@ -1600,7 +1758,7 @@ export function BibleReader() {
         </div>
       )}
 
-      <div className="bible-folio" data-testid="reader-folio">
+      <div className="bible-folio" data-testid="reader-folio" ref={folioRef}>
         {dualPane ? (
           <CompareChapterPane
             primary={chapter}
@@ -1640,7 +1798,7 @@ export function BibleReader() {
           {selectionAlreadyHighlighted ? (
             <button
               type="button"
-              className="bible-dock-btn"
+              className="bible-dock-btn bible-dock-btn--danger"
               data-testid="reader-unhighlight"
               onClick={() => {
                 if (selection) {
@@ -1680,7 +1838,15 @@ export function BibleReader() {
               )}
             </>
           )}
-          <button type="button" className="bible-dock-btn" onClick={() => setSelection(null)}>
+          <button
+            type="button"
+            className="bible-dock-btn"
+            data-testid="reader-clear-selection"
+            onClick={() => {
+              setSelection(null);
+              setHighlightPaletteOpen(false);
+            }}
+          >
             {t("reader.clearSelection")}
           </button>
         </div>
