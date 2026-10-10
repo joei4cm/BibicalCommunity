@@ -3,12 +3,18 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ASSIGNABLE_CHURCH_ROLES,
+  OFFICE_ROLES,
   securityOfficerOfficeHint,
   type ChurchRole,
   type ChurchRoleLayer,
   type GroupKind,
   type SecurityMode,
 } from "@logoshome/shared";
+
+const SYSTEM_ASSIGNABLE_ROLES = ASSIGNABLE_CHURCH_ROLES.filter((r) => r === "security_officer");
+const OFFICE_ASSIGNABLE_ROLES = ASSIGNABLE_CHURCH_ROLES.filter((r) =>
+  (OFFICE_ROLES as readonly string[]).includes(r),
+);
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { DadaoPanel } from "./DadaoPanel";
@@ -114,7 +120,7 @@ function personLabel(p: { nickname?: string | null; uid?: string | null; userId:
   return p.nickname || p.uid || p.userId.slice(0, 10);
 }
 
-function roleLabelKey(role: ChurchRole): string {
+function roleLabelKey(role: string): string {
   return role === "security_officer" || role === "admin" ? "securityOfficer" : role;
 }
 
@@ -216,6 +222,7 @@ export function HomePage() {
   const [groupRoster, setGroupRoster] = useState<GroupMemberRow[]>([]);
   const [org, setOrg] = useState<OrgTreeResponse | null>(null);
   const [assembly, setAssembly] = useState<AssemblyResponse | null>(null);
+  const [includeChurchCoworkers, setIncludeChurchCoworkers] = useState(true);
   const [assemblyNotifyOpen, setAssemblyNotifyOpen] = useState(false);
   const [assemblyNotifyTitle, setAssemblyNotifyTitle] = useState("");
   const [assemblyNotifyBody, setAssemblyNotifyBody] = useState("");
@@ -353,14 +360,15 @@ export function HomePage() {
       return;
     }
     try {
+      const qs = includeChurchCoworkers ? "" : "?includeCoworkers=0";
       const r = await api<AssemblyResponse>(
-        `/v1/home/${encodeURIComponent(selectedChurchId)}/coworker-assembly`,
+        `/v1/home/${encodeURIComponent(selectedChurchId)}/coworker-assembly${qs}`,
       );
       setAssembly(r);
     } catch {
       setAssembly(null);
     }
-  }, [selectedChurchId]);
+  }, [selectedChurchId, includeChurchCoworkers]);
 
   const loadMembers = useCallback(async () => {
     if (!getToken() || !selectedChurchId || !(canVerify || isGroupLeader || canCreateGroup)) {
@@ -639,6 +647,7 @@ export function HomePage() {
       setNote("saved");
       await loadGroupRoster();
       await loadOrg();
+      await loadAssembly();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -661,6 +670,7 @@ export function HomePage() {
       setNote("roles_updated");
       await loadMembers();
       await loadOrg();
+      await loadAssembly();
       await refresh();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -904,102 +914,116 @@ export function HomePage() {
                   </ul>
                 </>
               )}
+            </div>
+          )}
 
-              {assembly && (
-                <div className="assembly-panel" data-testid="home-assembly">
-                  <h3>{t("home.assembly.title")}</h3>
-                  <p className="muted" style={{ marginTop: 0 }}>
-                    {t("home.assembly.hint")}
-                  </p>
-                  <p className="muted" style={{ marginTop: 0 }}>
-                    {t("home.assembly.memberCount", { count: assembly.members.length })}
-                    {org.viewer.roleLayer
-                      ? ` · ${t(`home.roleLayer.${org.viewer.roleLayer}`)}`
-                      : ""}
-                  </p>
-                  {assembly.members.length === 0 ? (
-                    <p className="muted">{t("home.assembly.empty")}</p>
-                  ) : (
-                    <ul className="org-tree-people">
-                      {assembly.members.map((p) => (
-                        <li key={`assembly-${p.userId}`}>
-                          <button
-                            type="button"
-                            className="org-person-btn"
-                            onClick={() => setActivePerson(p)}
-                          >
-                            <span className="org-person-name">{personLabel(p)}</span>
-                            <span className="muted org-person-roles">
-                              {p.assemblyReasons
-                                .map((reason) => t(`home.assembly.reason.${reason}`))
-                                .join(" · ")}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="toolbar">
-                    {assembly.viewer.canNotify && (
+          {selectedChurch && assembly && (
+            <div className="panel assembly-panel" data-testid="home-assembly">
+              <div className="assembly-heading">
+                <h2 style={{ margin: 0 }}>{t("home.assembly.title")}</h2>
+                <span className="assembly-badge">{t("home.assembly.badge")}</span>
+              </div>
+              <p className="muted" style={{ marginTop: "0.45rem" }}>
+                {t("home.assembly.hint")}
+              </p>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("home.assembly.memberCount", { count: assembly.members.length })}
+                {assembly.viewer.isMember ? ` · ${t("home.assembly.youAreMember")}` : ""}
+              </p>
+              {(assembly.viewer.canNotify || caps.conveneAssembly) && (
+                <label className="role-check assembly-include-coworkers">
+                  <input
+                    type="checkbox"
+                    checked={includeChurchCoworkers}
+                    onChange={(e) => setIncludeChurchCoworkers(e.target.checked)}
+                    data-testid="assembly-include-coworkers"
+                  />
+                  {t("home.assembly.includeCoworkers")}
+                </label>
+              )}
+              {assembly.members.length === 0 ? (
+                <p className="muted">{t("home.assembly.empty")}</p>
+              ) : (
+                <ul className="org-tree-people" data-testid="home-assembly-members">
+                  {assembly.members.map((p) => (
+                    <li key={`assembly-${p.userId}`}>
                       <button
                         type="button"
-                        className="btn"
-                        disabled={busy}
-                        onClick={() => {
-                          setAssemblyNotifyTitle(t("home.assembly.notifyTitle"));
-                          setAssemblyNotifyOpen(true);
-                        }}
+                        className="org-person-btn"
+                        onClick={() => setActivePerson(p)}
                       >
-                        {t("home.assembly.notify")}
+                        <span className="org-person-name">{personLabel(p)}</span>
+                        <span className="muted org-person-roles">
+                          {p.assemblyReasons
+                            .map((reason) => t(`home.assembly.reason.${reason}`))
+                            .join(" · ")}
+                        </span>
                       </button>
-                    )}
-                    {assembly.viewer.canOpenChat && (
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        disabled={busy}
-                        onClick={() => void openAssemblyChat()}
-                      >
-                        {t("home.assembly.openChat")}
-                      </button>
-                    )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="toolbar">
+                {assembly.viewer.canNotify && (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    data-testid="home-assembly-notify-btn"
+                    onClick={() => {
+                      setAssemblyNotifyTitle(t("home.assembly.notifyTitle"));
+                      setAssemblyNotifyOpen(true);
+                    }}
+                  >
+                    {t("home.assembly.notify")}
+                  </button>
+                )}
+                {assembly.viewer.canOpenChat && (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={busy}
+                    data-testid="home-assembly-chat-btn"
+                    onClick={() => void openAssemblyChat()}
+                  >
+                    {t("home.assembly.openChat")}
+                  </button>
+                )}
+              </div>
+              {assemblyNotifyOpen && (
+                <div className="manage-block" data-testid="home-assembly-notify">
+                  <div className="field">
+                    <label>{t("home.assembly.notifyTitle")}</label>
+                    <input
+                      value={assemblyNotifyTitle}
+                      onChange={(e) => setAssemblyNotifyTitle(e.target.value)}
+                    />
                   </div>
-                  {assemblyNotifyOpen && (
-                    <div className="manage-block" data-testid="home-assembly-notify">
-                      <div className="field">
-                        <label>{t("home.assembly.notifyTitle")}</label>
-                        <input
-                          value={assemblyNotifyTitle}
-                          onChange={(e) => setAssemblyNotifyTitle(e.target.value)}
-                        />
-                      </div>
-                      <div className="field">
-                        <label>{t("home.assembly.notifyBody")}</label>
-                        <textarea
-                          rows={3}
-                          value={assemblyNotifyBody}
-                          onChange={(e) => setAssemblyNotifyBody(e.target.value)}
-                        />
-                      </div>
-                      <div className="toolbar">
-                        <button
-                          type="button"
-                          className="btn"
-                          disabled={busy || !assemblyNotifyTitle.trim()}
-                          onClick={() => void sendAssemblyNotify()}
-                        >
-                          {t("home.assembly.notifySend")}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          onClick={() => setAssemblyNotifyOpen(false)}
-                        >
-                          {t("admin.cancel")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <div className="field">
+                    <label>{t("home.assembly.notifyBody")}</label>
+                    <textarea
+                      rows={3}
+                      value={assemblyNotifyBody}
+                      onChange={(e) => setAssemblyNotifyBody(e.target.value)}
+                    />
+                  </div>
+                  <div className="toolbar">
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy || !assemblyNotifyTitle.trim()}
+                      onClick={() => void sendAssemblyNotify()}
+                    >
+                      {t("home.assembly.notifySend")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => setAssemblyNotifyOpen(false)}
+                    >
+                      {t("admin.cancel")}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1277,6 +1301,9 @@ export function HomePage() {
           {manageSub === "roles" && canCreateGroup && (
             <div data-testid="manage-roles">
               <h3>{t("home.assignRoles")}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("home.assignRolesHint")}
+              </p>
               <div className="field">
                 <label>{t("home.pickMember")}</label>
                 <select
@@ -1299,27 +1326,52 @@ export function HomePage() {
                   <option value="">{t("home.pickMember")}</option>
                   {directoryPeople.map((p) => (
                     <option key={p.userId} value={p.userId}>
-                      {p.label} · {p.roles.join(",")}
+                      {p.label}
+                      {p.roles.length
+                        ? ` · ${p.roles.map((r) => t(`home.role.${roleLabelKey(r)}`)).join(" · ")}`
+                        : ""}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="role-check-grid">
-                {ASSIGNABLE_CHURCH_ROLES.map((r) => (
-                  <label key={r} className="role-check">
-                    <input
-                      type="checkbox"
-                      checked={roleDraft.includes(r)}
-                      onChange={(e) => {
-                        setRoleDraft((prev) =>
-                          e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
-                        );
-                      }}
-                    />
-                    {t(`home.role.${roleLabelKey(r)}`)}
-                  </label>
-                ))}
-              </div>
+              <fieldset className="role-group">
+                <legend>{t("home.roleGroup.system")}</legend>
+                <div className="role-check-grid">
+                  {SYSTEM_ASSIGNABLE_ROLES.map((r) => (
+                    <label key={r} className="role-check">
+                      <input
+                        type="checkbox"
+                        checked={roleDraft.includes(r)}
+                        onChange={(e) => {
+                          setRoleDraft((prev) =>
+                            e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
+                          );
+                        }}
+                      />
+                      {t(`home.role.${roleLabelKey(r)}`)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset className="role-group">
+                <legend>{t("home.roleGroup.office")}</legend>
+                <div className="role-check-grid">
+                  {OFFICE_ASSIGNABLE_ROLES.map((r) => (
+                    <label key={r} className="role-check">
+                      <input
+                        type="checkbox"
+                        checked={roleDraft.includes(r)}
+                        onChange={(e) => {
+                          setRoleDraft((prev) =>
+                            e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
+                          );
+                        }}
+                      />
+                      {t(`home.role.${roleLabelKey(r)}`)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               {roleHint.missingElder && (
                 <p className="muted" data-testid="security-officer-hint">
                   {t("home.roleHint.securityOfficer")}

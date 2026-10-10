@@ -436,20 +436,49 @@ select {
 }
 
 .assembly-panel {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--br-line);
+  margin-top: 0.85rem;
 }
 
-.assembly-panel h3 {
-  margin-bottom: 0.35rem;
+.assembly-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.assembly-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--br-ink-muted, var(--br-muted, #6b645c));
+  border: 1px solid var(--br-line);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.assembly-include-coworkers {
+  margin: 0.35rem 0 0.75rem;
+}
+
+.role-group {
+  margin: 0.75rem 0 0.35rem;
+  padding: 0.55rem 0.7rem 0.35rem;
+  border: 1px solid var(--br-line);
+  border-radius: 0.35rem;
+}
+
+.role-group legend {
+  padding: 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--br-ink-muted, var(--br-muted, #6b645c));
 }
 
 .role-check-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem 0.75rem;
-  margin: 0.65rem 0 0.85rem;
+  margin: 0.35rem 0 0.55rem;
 }
 
 .role-check {
