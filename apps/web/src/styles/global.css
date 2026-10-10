@@ -896,6 +896,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .verse-section-heading {
   display: block;
+  width: 100%;
   margin: 1.15em 0 0.45em;
   font-family: var(--br-font-ui);
   font-size: 0.92em;
@@ -903,6 +904,12 @@ body:has(.bible-reader) .tab-bar a.active::after {
   letter-spacing: 0.04em;
   color: var(--br-muted);
   clear: both;
+}
+
+.verse-block:first-of-type .verse-section-heading,
+.bible-prose-body > .verse-section-heading:first-child,
+.chapter-lead + .verse-block .verse-section-heading {
+  margin-top: 0.35em;
 }
 
 .bible-picker-list,
@@ -1599,6 +1606,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .verse-inline {
+  display: inline;
   cursor: pointer;
   border-radius: 1px;
   transition: background 150ms ease, box-shadow 150ms ease;

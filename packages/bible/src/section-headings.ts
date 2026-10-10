@@ -25,6 +25,24 @@ const HEADINGS: Record<string, SectionHeading[]> = {
   "Ps.1": [H(1, "义人与恶人", "The Two Ways", "二つの道")],
   "Ps.23": [H(1, "耶和华是我的牧者", "The Lord Is My Shepherd", "主はわが牧者")],
   "Isa.53": [H(1, "受苦的仆人", "The Suffering Servant", "苦しむしもべ")],
+  "Matt.1": [
+    H(1, "耶稣基督的家谱", "The Genealogy of Jesus", "イエスの系図"),
+    H(18, "耶稣基督的降生", "The Birth of Jesus", "イエスの誕生"),
+  ],
+  "Matt.2": [
+    H(1, "博士来朝", "The Visit of the Magi", "博士たちの訪問"),
+    H(13, "逃往埃及", "Flight to Egypt", "エジプトへの逃避"),
+    H(19, "从埃及回拿撒勒", "Return to Nazareth", "ナザレへの帰還"),
+  ],
+  "Matt.3": [
+    H(1, "施洗约翰传道", "John the Baptist", "バプテスマのヨハネ"),
+    H(13, "耶稣受洗", "The Baptism of Jesus", "イエスのバプテスマ"),
+  ],
+  "Matt.4": [
+    H(1, "受试探", "The Temptation", "誘惑"),
+    H(12, "在加利利传道", "Ministry in Galilee", "ガリラヤでの宣教"),
+    H(18, "呼召门徒", "Calling the First Disciples", "最初の弟子たち"),
+  ],
   "Matt.5": [
     H(1, "登山宝训", "The Sermon on the Mount", "山上の垂訓"),
     H(3, "八福", "The Beatitudes", "八福"),
@@ -43,6 +61,65 @@ const HEADINGS: Record<string, SectionHeading[]> = {
     H(16, "论禁食", "Fasting", "断食について"),
     H(19, "天上的财宝", "Treasures in Heaven", "天に宝を"),
     H(25, "不要忧虑", "Do Not Be Anxious", "思い悩むな"),
+  ],
+  "Matt.7": [
+    H(1, "不要论断", "Judging Others", "さばいてはならない"),
+    H(7, "祈求就得着", "Ask, Seek, Knock", "求めよ、探せ、叩け"),
+    H(13, "窄门", "The Narrow Gate", "狭い門"),
+    H(15, "假先知", "False Prophets", "偽預言者"),
+    H(24, "两个盖房子的人", "Two Builders", "二つの家"),
+  ],
+  "Matt.28": [
+    H(1, "复活", "The Resurrection", "復活"),
+    H(16, "大使命", "The Great Commission", "大宣教命令"),
+  ],
+  "Mark.1": [
+    H(1, "福音的起头", "The Beginning of the Gospel", "福音の初め"),
+    H(9, "耶稣受洗与受试探", "Baptism and Temptation", "バプテスマと誘惑"),
+    H(14, "传福音呼召门徒", "Proclaiming the Gospel", "福音の宣教"),
+    H(21, "在会堂赶鬼", "Teaching with Authority", "権威ある教え"),
+    H(29, "治病赶鬼", "Healings", "癒し"),
+    H(35, "在加利利传道", "Preaching in Galilee", "ガリラヤでの宣教"),
+  ],
+  "Mark.4": [
+    H(1, "撒种的比喻", "The Parable of the Sower", "種まきのたとえ"),
+    H(35, "平静风浪", "Jesus Calms a Storm", "嵐を静める"),
+  ],
+  "Mark.5": [
+    H(1, "格拉森被鬼附的人", "The Gerasene Demoniac", "ゲラサの悪霊憑き"),
+    H(21, "睚鲁的女儿与血漏妇人", "Jairus’s Daughter and a Sick Woman", "ヤイロの娘と病気の女"),
+  ],
+  "Luke.1": [
+    H(1, "序言", "Prologue", "序文"),
+    H(5, "施洗约翰出生的预告", "Birth of John Foretold", "ヨハネの誕生予告"),
+    H(26, "耶稣降生的预告", "Birth of Jesus Foretold", "イエスの誕生予告"),
+    H(39, "马利亚问安伊利莎白", "Mary Visits Elizabeth", "マリアの訪問"),
+    H(57, "施洗约翰出生", "Birth of John", "ヨハネの誕生"),
+  ],
+  "Luke.2": [
+    H(1, "耶稣降生", "The Birth of Jesus", "イエスの誕生"),
+    H(8, "牧羊人与天使", "Shepherds and Angels", "羊飼いと御使い"),
+    H(22, "献与主", "Jesus Presented at the Temple", "神殿での奉献"),
+    H(41, "十二岁的耶稣", "The Boy Jesus in the Temple", "神殿の少年イエス"),
+  ],
+  "Luke.15": [
+    H(1, "失羊的比喻", "The Lost Sheep", "失われた羊"),
+    H(8, "失钱的比喻", "The Lost Coin", "失われた銀貨"),
+    H(11, "浪子的比喻", "The Prodigal Son", "放蕩息子"),
+  ],
+  "Acts.1": [
+    H(1, "升天的应许", "The Promise of the Spirit", "御霊の約束"),
+    H(12, "补选使徒", "Matthias Chosen", "マッテヤの選出"),
+  ],
+  "Acts.2": [
+    H(1, "五旬节", "Pentecost", "五旬節"),
+    H(14, "彼得讲道", "Peter’s Sermon", "ペテロの説教"),
+    H(37, "三千人信主", "Three Thousand Believe", "三千人の回心"),
+    H(42, "教会生活", "The Fellowship of Believers", "信者の交わり"),
+  ],
+  "Acts.9": [
+    H(1, "扫罗归主", "The Conversion of Saul", "サウロの回心"),
+    H(32, "彼得在吕大和约帕", "Peter in Lydda and Joppa", "ペテロの働き"),
   ],
   "John.1": [
     H(1, "道成了肉身", "The Word Became Flesh", "言が肉となった"),

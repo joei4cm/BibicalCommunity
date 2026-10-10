@@ -15,3 +15,10 @@ test("John.1 has ordered section titles", () => {
 test("unknown chapters return empty", () => {
   assert.deepEqual(sectionHeadingsFor("Obad", 1), []);
 });
+
+test("gospel openers include section titles", () => {
+  assert.ok(sectionHeadingsFor("Matt", 1).length >= 2);
+  assert.ok(sectionHeadingsFor("Mark", 1).length >= 2);
+  assert.ok(sectionHeadingsFor("Luke", 2).length >= 2);
+  assert.ok(sectionHeadingsFor("Acts", 2).length >= 2);
+});
