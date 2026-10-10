@@ -1132,9 +1132,12 @@ export function BibleReader() {
           className="bible-nav-link"
           data-testid={`${testPrefix}-prev-chapter`}
           to={`/app/bible/${translationId}/${bookSlug(prevCursor.bookId)}/${prevCursor.chapter}`}
-          onClick={(e) => {
-            e.preventDefault();
-            goToPassage(translationId, prevCursor.bookId, prevCursor.chapter);
+          onClick={() => {
+            setTranslationId(translationId);
+            setBookId(prevCursor.bookId);
+            setChapterNum(prevCursor.chapter);
+            setPassagePickerOpen(false);
+            setTidPickerOpen(false);
           }}
         >
           {placement === "top" ? (
@@ -1156,9 +1159,12 @@ export function BibleReader() {
           className="bible-nav-link bible-nav-link--next"
           data-testid={`${testPrefix}-next-chapter`}
           to={`/app/bible/${translationId}/${bookSlug(nextCursor.bookId)}/${nextCursor.chapter}`}
-          onClick={(e) => {
-            e.preventDefault();
-            goToPassage(translationId, nextCursor.bookId, nextCursor.chapter);
+          onClick={() => {
+            setTranslationId(translationId);
+            setBookId(nextCursor.bookId);
+            setChapterNum(nextCursor.chapter);
+            setPassagePickerOpen(false);
+            setTidPickerOpen(false);
           }}
         >
           {placement === "top" ? (

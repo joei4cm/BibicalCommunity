@@ -189,6 +189,23 @@ export function MePage() {
   }
 
   useEffect(() => {
+    // Restore a minimal session shell from localStorage if /v1/me is slow/unavailable.
+    if (getToken()) {
+      const cachedUid = localStorage.getItem("lh.uid");
+      if (cachedUid) {
+        setProfile((prev) =>
+          prev ?? {
+            id: localStorage.getItem("lh.userId") ?? "",
+            uid: cachedUid,
+            nickname: null,
+            legalName: null,
+            signature: null,
+            privacy: DEFAULT_PRIVACY,
+            churches: [],
+          },
+        );
+      }
+    }
     void refresh().catch(() => undefined);
     void refreshDevices().catch(() => undefined);
     void checkPendingWipe();
@@ -236,6 +253,7 @@ export function MePage() {
       setToken(res.token);
       localStorage.setItem("lh.deviceId", res.deviceId);
       localStorage.setItem("lh.uid", res.uid);
+      localStorage.setItem("lh.userId", res.userId);
       // Full optimistic profile — partial objects crash render on profile.churches.map.
       setProfile({
         id: res.userId,
@@ -267,7 +285,12 @@ export function MePage() {
       const fields = readAuthForm();
       setHandle(fields.handle);
       setPassword(fields.password);
-      const res = await api<{ token: string; deviceId: string }>("/v1/auth/login", {
+      const res = await api<{
+        token: string;
+        deviceId: string;
+        uid: string;
+        userId: string;
+      }>("/v1/auth/login", {
         method: "POST",
         body: JSON.stringify({
           handleOrEmail: fields.handle,
@@ -277,8 +300,24 @@ export function MePage() {
       });
       setToken(res.token);
       localStorage.setItem("lh.deviceId", res.deviceId);
+      localStorage.setItem("lh.uid", res.uid);
+      localStorage.setItem("lh.userId", res.userId);
+      // Optimistic profile so the login form hides even if /v1/me flakes (503).
+      setProfile({
+        id: res.userId,
+        uid: res.uid,
+        nickname: fields.handle,
+        legalName: null,
+        signature: null,
+        privacy: DEFAULT_PRIVACY,
+        churches: [],
+      });
       setMsg("logged_in");
-      await refresh();
+      try {
+        await refresh();
+      } catch (refreshErr) {
+        setMsg(refreshErr instanceof Error ? refreshErr.message : "logged_in");
+      }
       await checkPendingWipe();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
@@ -444,10 +483,12 @@ export function MePage() {
     return mapped[id] ?? key;
   };
 
-  const signedIn = Boolean(profile?.uid);
+  const signedIn = Boolean(getToken() && profile?.uid);
 
   function signOut() {
     setToken(null);
+    localStorage.removeItem("lh.uid");
+    localStorage.removeItem("lh.userId");
     setProfile(null);
     setDevices([]);
     setCurrentDeviceId(null);
