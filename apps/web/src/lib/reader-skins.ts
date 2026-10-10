@@ -55,6 +55,17 @@ export function applyThemePack(pack: ThemePackManifest): void {
   localStorage.setItem(STORAGE_KEY, pack.id);
 }
 
+/** Drop inline pack overrides so app theme tokens (incl. night) win. */
+export function clearReaderSkinOverrides(): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  delete root.dataset.readerSkin;
+  root.style.removeProperty("--lh-reader-bg");
+  root.style.removeProperty("--lh-reader-verse");
+  root.style.removeProperty("--lh-reader-verse-num");
+  root.style.removeProperty("--lh-reader-border");
+}
+
 export function applyReaderSkin(skin: ReaderSkinId): void {
   const pack = getThemePack(skin);
   if (pack) {

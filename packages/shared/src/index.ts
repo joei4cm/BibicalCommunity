@@ -2,6 +2,7 @@ export * from "./ids.js";
 export * from "./schemas.js";
 export * from "./call-signaling.js";
 export * from "./embed-allowlist.js";
+export * from "./church-roles.js";
 
 import { zhCN, en, ja } from "./i18n/catalogs.js";
 import type { LocaleCode } from "./ids.js";

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   deriveSessionKey,
@@ -53,6 +54,7 @@ async function sessionKeyFor(conversationId: string) {
 
 export function ChatPanel() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -120,6 +122,50 @@ export function ChatPanel() {
       .then((me) => setSelfUserId(me.id ?? me.userId ?? null))
       .catch(() => setSelfUserId(null));
   }, []);
+
+  const peerFromQuery = searchParams.get("peer");
+  useEffect(() => {
+    if (!peerFromQuery || !getToken()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resList = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
+        if (cancelled) return;
+        setConversations(resList.conversations);
+        const existing = resList.conversations.find(
+          (c) => c.kind === "dm" && (c.peerUserIds ?? []).includes(peerFromQuery),
+        );
+        if (existing) {
+          setSelectedId(existing.id);
+          setListTab("chats");
+        } else {
+          const res = await api<{ id: string }>("/v1/chat/conversations", {
+            method: "POST",
+            body: JSON.stringify({ kind: "dm", memberIds: [peerFromQuery] }),
+          });
+          if (cancelled) return;
+          const again = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
+          if (cancelled) return;
+          setConversations(again.conversations);
+          setSelectedId(res.id);
+          setListTab("chats");
+        }
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("peer");
+            return next;
+          },
+          { replace: true },
+        );
+      } catch (e) {
+        if (!cancelled) setNote(e instanceof Error ? e.message : "error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [peerFromQuery, setSearchParams]);
 
   const peersFor = useCallback(
     (conversationId: string | null) => {

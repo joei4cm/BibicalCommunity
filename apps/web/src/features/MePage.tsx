@@ -84,8 +84,6 @@ export function MePage() {
   const [pendingWipes, setPendingWipes] = useState<PendingWipe[]>([]);
   const [keyBusy, setKeyBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
-  const [wipeUserId, setWipeUserId] = useState("");
-  const [wipeDeviceId, setWipeDeviceId] = useState("");
   const [hasDeviceKey, setHasDeviceKey] = useState(false);
   const [signalPrefer, setSignalPrefer] = useState<ProductSignalPrefer>(() =>
     loadProductSignalPrefer(),
@@ -139,9 +137,10 @@ export function MePage() {
     }
   }
 
-  const isChurchAdmin = profile?.churches?.some(
-    (c) => c.role === "admin" || c.role === "security_officer",
-  );
+  const isChurchAdmin = profile?.churches?.some((c) => {
+    const roles = (c as { roles?: string[] }).roles ?? [c.role];
+    return roles.includes("admin") || roles.includes("security_officer");
+  });
 
   async function refresh() {
     if (!getToken()) return;
@@ -441,26 +440,6 @@ export function MePage() {
     setMsg("wiped");
   }
 
-  async function adminWipe() {
-    if (!getToken() || !wipeUserId.trim()) {
-      setMsg("login_required");
-      return;
-    }
-    if (!window.confirm(t("security.adminWipeConfirm"))) return;
-    const payload: Record<string, string> = {
-      userId: wipeUserId.trim(),
-      reasonCode: "admin",
-    };
-    if (wipeDeviceId.trim()) payload.deviceId = wipeDeviceId.trim();
-    await api("/v1/admin/wipe", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    setWipeUserId("");
-    setWipeDeviceId("");
-    setMsg("admin_wipe_issued");
-  }
-
   function setLocale(lng: string) {
     localStorage.setItem("lh.locale", lng);
     void i18n.changeLanguage(lng);
@@ -550,6 +529,20 @@ export function MePage() {
               {t("me.signOut")}
             </button>
           </div>
+          {(profile?.canAccessAdminConsole || isChurchAdmin) && (
+            <div className="me-admin-entry" data-testid="me-admin-console-link">
+              <h3 style={{ marginBottom: "0.35rem" }}>{t("admin.title")}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("admin.openHint")}
+              </p>
+              <Link className="btn" to="/app/admin" data-testid="me-open-admin">
+                {t("admin.open")}
+              </Link>
+              <p className="muted" style={{ marginTop: "0.65rem", fontSize: "0.85rem" }}>
+                {t("admin.desktopHint")}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -809,41 +802,6 @@ export function MePage() {
           </button>
         </details>
 
-        {(profile?.canAccessAdminConsole || isChurchAdmin) && (
-          <details className="plans-advanced" style={{ marginTop: "0.85rem" }} data-testid="me-admin-console-link">
-            <summary>{t("admin.title")}</summary>
-            <p className="muted">{t("admin.openHint")}</p>
-            <Link className="btn" to="/app/admin" data-testid="me-open-admin">
-              {t("admin.open")}
-            </Link>
-          </details>
-        )}
-
-        {isChurchAdmin && (
-          <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
-            <summary>{t("security.adminWipe")}</summary>
-            <p className="muted">{t("security.adminWipeHint")}</p>
-            <div className="field">
-              <label>{t("security.adminWipeUserId")}</label>
-              <input
-                value={wipeUserId}
-                onChange={(e) => setWipeUserId(e.target.value)}
-                placeholder="usr_…"
-              />
-            </div>
-            <div className="field">
-              <label>{t("security.adminWipeDeviceId")}</label>
-              <input
-                value={wipeDeviceId}
-                onChange={(e) => setWipeDeviceId(e.target.value)}
-                placeholder="dev_… (optional)"
-              />
-            </div>
-            <button type="button" className="btn danger" onClick={() => void adminWipe()}>
-              {t("security.adminWipe")}
-            </button>
-          </details>
-        )}
       </div>
       )}
     </section>

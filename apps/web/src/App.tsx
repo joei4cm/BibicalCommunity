@@ -10,6 +10,7 @@ import { AdminConsole } from "./features/AdminConsole";
 import { LandingPage } from "./features/LandingPage";
 import { LoginPage } from "./features/LoginPage";
 
+/** Consumer app: Bible / Plans / Chat / Community / Me + bottom tabs. */
 function AppShell() {
   return (
     <AuthGate>
@@ -24,7 +25,6 @@ function AppShell() {
             <Route path="plans" element={<PlansPage />} />
             <Route path="chat" element={<ChatPage />} />
             <Route path="home" element={<HomePage />} />
-            <Route path="admin" element={<AdminConsole />} />
             <Route path="me" element={<MePage />} />
             <Route path="*" element={<Navigate to="/app/bible/cuvs/john/1" replace />} />
           </Routes>
@@ -35,11 +35,24 @@ function AppShell() {
   );
 }
 
+/** Desktop ops console: no consumer TabBar; full-width workbench. */
+function AdminShell() {
+  return (
+    <AuthGate>
+      <div className="admin-shell" data-testid="admin-shell">
+        <AdminConsole />
+      </div>
+    </AuthGate>
+  );
+}
+
 export function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/app/login" element={<LoginPage />} />
+      <Route path="/app/admin/*" element={<AdminShell />} />
+      <Route path="/app/admin" element={<AdminShell />} />
       <Route path="/app/*" element={<AppShell />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

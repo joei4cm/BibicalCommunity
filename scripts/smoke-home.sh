@@ -25,7 +25,11 @@ if [[ -z "${PEER:-}" ]]; then
 fi
 AUTH2="Authorization: Bearer ${TOKEN2:?TOKEN2 required when PEER is set without TOKEN2}"
 
-echo "== home create church =="
+echo "== home create church (platform admin) =="
+BOOTSTRAP_SECRET="${PLATFORM_ADMIN_BOOTSTRAP_SECRET:-dev-platform-admin-bootstrap}"
+curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"secret\":\"$BOOTSTRAP_SECRET\"}" \
+  "$BASE/v1/admin/platform/bootstrap" >/dev/null || true
 SLUG="smoke-church-$(date +%s)"
 CHURCH=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"name\":\"Smoke Church\",\"slug\":\"$SLUG\",\"securityMode\":\"standard\"}" \

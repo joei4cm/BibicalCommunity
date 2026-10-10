@@ -42,6 +42,7 @@ import { humanizeStatus } from "../lib/status";
 import { decryptJson, encryptJson } from "../lib/note-crypto";
 import {
   applyReaderSkin,
+  clearReaderSkinOverrides,
   appThemeAllowsReaderSkins,
   loadReaderSkin,
   READER_SKIN_DAY_IDS,
@@ -587,11 +588,8 @@ export function BibleReader() {
 
   useEffect(() => {
     if (!skinsEnabled) {
-      // Night / high-contrast: app theme owns the look; clear parchment/paper/ink.
-      applyReaderSkin("default");
-      if (typeof document !== "undefined") {
-        delete document.documentElement.dataset.readerSkin;
-      }
+      // Night / high-contrast: app theme owns the look; never leave day-pack inlines.
+      clearReaderSkinOverrides();
       return;
     }
     applyReaderSkin(readerSkin === "ink" ? "default" : readerSkin);
