@@ -70,7 +70,7 @@ type Section = "homes" | "users" | "groups" | "wipe" | "corpus";
 
 const SECTION_IDS: Section[] = ["homes", "users", "groups", "wipe", "corpus"];
 
-const PD_CORPUS_TIDS = ["web", "kjv", "asv"] as const;
+const PD_CORPUS_TIDS = ["web", "kjv", "asv", "cuvs"] as const;
 
 type PdCorpusStatus = {
   tid: string;

@@ -54,8 +54,12 @@ export function LandingPage() {
         <h1 className="landing-headline">{t("landing.headline")}</h1>
         <p className="landing-support">{t("landing.support")}</p>
         <div className="landing-cta">
-          <Link className="btn landing-cta-btn" to="/app">
-            {t("landing.cta")}
+          <Link
+            className="btn landing-cta-btn"
+            to={localStorage.getItem("lh.token") ? "/app/bible/cuvs/john/1" : "/app/login"}
+            data-testid="landing-cta"
+          >
+            {localStorage.getItem("lh.token") ? t("landing.ctaOpen") : t("landing.cta")}
           </Link>
         </div>
       </section>

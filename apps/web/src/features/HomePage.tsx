@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { SecurityMode } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
-import { ChatPanel } from "./ChatPanel";
 import { ExternalMedia } from "./media";
 
 type Church = {
@@ -43,11 +41,11 @@ type ChurchMember = {
 };
 
 const BOARDS: Board[] = ["notice", "general", "group"];
-type HomeSection = "church" | "forum" | "chat";
+type HomeSection = "church" | "forum";
 
 export function HomePage() {
   const { t } = useTranslation();
-  const [homeSection, setHomeSection] = useState<HomeSection>("chat");
+  const [homeSection, setHomeSection] = useState<HomeSection>("church");
   const [churches, setChurches] = useState<Church[]>([]);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [board, setBoard] = useState<Board>("notice");
@@ -348,30 +346,19 @@ export function HomePage() {
     }
   }
 
-  const loggedIn = Boolean(getToken());
-
   return (
     <section className="fade-up home-page app-folio" data-testid="home-page">
-      <h1 className="page-title">{t("nav.home")}</h1>
+      <h1 className="page-title">{t("nav.community")}</h1>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {t("home.communityHint")}
+      </p>
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
-
-      {!loggedIn && (
-        <div className="panel folio-gate" data-testid="home-login-gate">
-          <p className="muted" style={{ marginTop: 0 }}>
-            {t("home.gateHint")}
-          </p>
-          <Link className="btn" to="/app/me" data-testid="home-go-login">
-            {t("home.goLogin")}
-          </Link>
-        </div>
-      )}
 
       <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
         {(
           [
-            ["forum", t("home.tabForum")],
             ["church", t("home.tabChurch")],
-            ["chat", t("home.tabChat")],
+            ["forum", t("home.tabForum")],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -723,7 +710,6 @@ export function HomePage() {
         </div>
       )}
 
-      {homeSection === "chat" && <ChatPanel />}
     </section>
   );
 }

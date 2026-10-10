@@ -16,8 +16,8 @@ All three boot tids must include:
 
 | tid | Role |
 |-----|------|
-| `cuvs` | 和合本简体 (boot whole-Bible) |
-| `nasb` | NASB (boot whole-Bible; licensed R2) |
+| `cuvs` | 和合本简体公版 (getbible `cus` → R2 whole-Bible) |
+| `nasb` | NASB (boot; **licensed** — full text only via authorized R2 upload, not getbible) |
 | `web` | World English Bible (downloadable whole-Bible) |
 | `shinKyoudou` | 新共同訳 (downloadable) |
 

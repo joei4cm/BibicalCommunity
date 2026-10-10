@@ -4,21 +4,24 @@
  * Does NOT commit verse text into the git repo — corpora live on R2 and
  * clients install via /v1/bible/corpus-download → local DB.
  *
- * Allowed tids: web, kjv, asv only (never licensed zh/ja dumps).
+ * Allowed tids: web, kjv, asv, cuvs (cuvs ← getbible cus 和合本简体公版).
+ * Never proprietary licensed dumps (NASB, etc.).
  *
- * Usage: node scripts/seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv...]
+ * Usage: node scripts/seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv|cuvs...]
  */
 import { BOOK_LIST } from "../packages/bible/dist/index.js";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:8787";
 const TOKEN = process.argv[3];
-const ALLOWED = new Set(["web", "kjv", "asv"]);
-const tids = (process.argv.slice(4).length ? process.argv.slice(4) : ["web"]).filter((t) =>
+/** Product tid → getbible abbreviation */
+const SOURCE = { web: "web", kjv: "kjv", asv: "asv", cuvs: "cus" };
+const ALLOWED = new Set(Object.keys(SOURCE));
+const tids = (process.argv.slice(4).length ? process.argv.slice(4) : ["web", "cuvs"]).filter((t) =>
   ALLOWED.has(t),
 );
 
 if (!TOKEN || tids.length === 0) {
-  console.error("usage: seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv...]");
+  console.error("usage: seed-r2-pd-full.mjs <BASE> <TOKEN> [web|kjv|asv|cuvs...]");
   process.exit(1);
 }
 
@@ -26,7 +29,8 @@ if (!TOKEN || tids.length === 0) {
 const NR_TO_OSIS = Object.fromEntries(BOOK_LIST.map((b, i) => [i + 1, b.id]));
 
 async function fetchFull(tid) {
-  const url = `https://api.getbible.net/v2/${tid}.json`;
+  const source = SOURCE[tid] ?? tid;
+  const url = `https://api.getbible.net/v2/${source}.json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`fetch ${url} → ${res.status}`);
   return res.json();

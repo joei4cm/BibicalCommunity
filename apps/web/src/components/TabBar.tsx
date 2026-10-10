@@ -42,7 +42,8 @@ export function TabBar() {
   const tabs = [
     { to: "/app/bible/cuvs/john/1", label: t("nav.bible"), end: false },
     { to: "/app/plans", label: t("nav.plans") },
-    { to: "/app/home", label: t("nav.home") },
+    { to: "/app/chat", label: t("nav.chat"), end: false },
+    { to: "/app/home", label: t("nav.community") },
     ...(showAdmin ? [{ to: "/app/admin", label: t("nav.admin") }] : []),
     { to: "/app/me", label: t("nav.me") },
   ];
@@ -62,7 +63,9 @@ export function TabBar() {
           className={({ isActive }) => {
             const bibleActive =
               tab.to.startsWith("/app/bible") && location.pathname.startsWith("/app/bible");
-            return isActive || bibleActive ? "active" : "";
+            const chatActive =
+              tab.to.startsWith("/app/chat") && location.pathname.startsWith("/app/chat");
+            return isActive || bibleActive || chatActive ? "active" : "";
           }}
           data-testid={tab.to === "/app/admin" ? "nav-admin" : undefined}
         >

@@ -16,9 +16,21 @@ const DB_NAME = "lh-bible";
 const STORE = "chapters";
 const DB_VERSION = 1;
 /** Bump when boot set changes (cuvs+nasb whole-Bible / denser demo chapters). */
-const BOOT_FLAG = "lh.bible.bootSeeded.v9";
+const BOOT_FLAG = "lh.bible.bootSeeded.v10";
 /** Re-seed even if flag is set when installed chapters look truncated. */
 const BOOT_MIN_CHAPTERS = 1000;
+
+/** Preview/demo placeholder lines — treat as not installed for network refill. */
+export function isPlaceholderVerseText(text: string): boolean {
+  const s = text.trim();
+  return (
+    s.includes("全文尚未载入") ||
+    s.includes("full text not loaded") ||
+    s.includes("Preview)") ||
+    s.startsWith("（预览）") ||
+    s.startsWith("(Preview)")
+  );
+}
 
 /** Prefer denser demo prose when a downloaded teaching chapter is still a thin scaffold. */
 function enrichSparseChaptersFromDemo(
@@ -269,5 +281,11 @@ export async function readLocalChapter(
   book: string,
   chapter: number,
 ): Promise<LocalChapterRecord | null> {
-  return bibleLocalDb.getChapter(translationId, book, chapter);
+  const row = await bibleLocalDb.getChapter(translationId, book, chapter);
+  if (!row) return null;
+  const first = row.verses[0]?.text ?? "";
+  if (row.verses.length <= 2 && isPlaceholderVerseText(first)) {
+    return null;
+  }
+  return row;
 }
