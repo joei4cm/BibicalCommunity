@@ -174,16 +174,6 @@ function OrgTreeView({
                   <li key={`${node.id}-${p.userId}`}>
                     <button type="button" className="org-person-btn" onClick={() => onPerson(p)}>
                       <span className="org-person-name">{personLabel(p)}</span>
-                      <span className="muted org-person-roles">
-                        {p.roles.filter((r) => r !== "member").length
-                          ? p.roles
-                              .filter((r) => r !== "member")
-                              .map((r) => t(`home.role.${roleLabelKey(r)}`))
-                              .join(" · ")
-                          : p.groupRoles.some((g) => g.groupId === node.id && g.role === "leader")
-                            ? t("home.role.groupLeader")
-                            : t("home.role.member")}
-                      </span>
                     </button>
                   </li>
                 ))}
@@ -242,13 +232,7 @@ export function HomePage() {
   const [manageMemberUserId, setManageMemberUserId] = useState("");
   const [roleTargetUserId, setRoleTargetUserId] = useState("");
   const [roleDraft, setRoleDraft] = useState<ChurchRole[]>(["member"]);
-  useEffect(() => {
-    if (!org?.tree?.length) return;
-    setOrgExpanded((prev) => {
-      if (prev.size) return prev;
-      return new Set(org.tree.map((n) => n.id));
-    });
-  }, [org]);
+  // Org tree starts collapsed — person names only after the user expands a node.
 
 
   const selectedChurch = churches.find((c) => c.id === selectedChurchId) ?? null;
@@ -749,10 +733,6 @@ export function HomePage() {
 
   return (
     <section className="fade-up home-page app-folio" data-testid="home-page">
-      <h1 className="page-title">{t("nav.community")}</h1>
-      <p className="muted" style={{ marginTop: 0 }}>
-        {t("home.communityHint")}
-      </p>
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
       <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
@@ -894,26 +874,6 @@ export function HomePage() {
                   }
                 />
               )}
-              {org.leaders.length > 0 && (
-                <>
-                  <h3>{t("home.leaders")}</h3>
-                  <ul className="org-tree-people">
-                    {org.leaders.map((p) => (
-                      <li key={`leader-${p.userId}`}>
-                        <button type="button" className="org-person-btn" onClick={() => setActivePerson(p)}>
-                          <span className="org-person-name">{personLabel(p)}</span>
-                          <span className="muted org-person-roles">
-                            {p.roles
-                              .filter((r) => r !== "member")
-                              .map((r) => t(`home.role.${roleLabelKey(r)}`))
-                              .join(" · ")}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
             </div>
           )}
 
@@ -925,9 +885,6 @@ export function HomePage() {
               </div>
               <p className="muted" style={{ marginTop: "0.45rem" }}>
                 {t("home.assembly.hint")}
-              </p>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {t("home.assembly.memberCount", { count: assembly.members.length })}
                 {assembly.viewer.isMember ? ` · ${t("home.assembly.youAreMember")}` : ""}
               </p>
               {(assembly.viewer.canNotify || caps.conveneAssembly) && (
@@ -941,28 +898,33 @@ export function HomePage() {
                   {t("home.assembly.includeCoworkers")}
                 </label>
               )}
-              {assembly.members.length === 0 ? (
-                <p className="muted">{t("home.assembly.empty")}</p>
-              ) : (
-                <ul className="org-tree-people" data-testid="home-assembly-members">
-                  {assembly.members.map((p) => (
-                    <li key={`assembly-${p.userId}`}>
-                      <button
-                        type="button"
-                        className="org-person-btn"
-                        onClick={() => setActivePerson(p)}
-                      >
-                        <span className="org-person-name">{personLabel(p)}</span>
-                        <span className="muted org-person-roles">
-                          {p.assemblyReasons
-                            .map((reason) => t(`home.assembly.reason.${reason}`))
-                            .join(" · ")}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <details className="plans-advanced" data-testid="home-assembly-members-wrap">
+                <summary>
+                  {t("home.assembly.memberCount", { count: assembly.members.length })}
+                </summary>
+                {assembly.members.length === 0 ? (
+                  <p className="muted">{t("home.assembly.empty")}</p>
+                ) : (
+                  <ul className="org-tree-people" data-testid="home-assembly-members">
+                    {assembly.members.map((p) => (
+                      <li key={`assembly-${p.userId}`}>
+                        <button
+                          type="button"
+                          className="org-person-btn"
+                          onClick={() => setActivePerson(p)}
+                        >
+                          <span className="org-person-name">{personLabel(p)}</span>
+                          <span className="muted org-person-roles">
+                            {p.assemblyReasons
+                              .map((reason) => t(`home.assembly.reason.${reason}`))
+                              .join(" · ")}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </details>
               <div className="toolbar">
                 {assembly.viewer.canNotify && (
                   <button
@@ -1030,56 +992,74 @@ export function HomePage() {
           )}
 
           {activePerson && (
-            <div className="panel person-sheet" data-testid="home-person-sheet">
-              <h3>{personLabel(activePerson)}</h3>
-              <dl className="person-card-meta">
-                <div>
-                  <dt>{t("home.card.nickname")}</dt>
-                  <dd>{activePerson.nickname || t("home.card.noNickname")}</dd>
+            <div
+              className="sheet-backdrop"
+              role="presentation"
+              data-testid="home-person-sheet"
+              onClick={() => setActivePerson(null)}
+            >
+              <div
+                className="sheet-panel person-card-sheet"
+                role="dialog"
+                aria-modal="true"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sheet-handle" aria-hidden />
+                <div className="chat-sheet-head">
+                  <h3 style={{ margin: 0 }}>{personLabel(activePerson)}</h3>
+                  <button type="button" className="btn ghost" onClick={() => setActivePerson(null)}>
+                    ✕
+                  </button>
                 </div>
-                <div>
-                  <dt>{t("home.card.groups")}</dt>
-                  <dd>
-                    {(activePerson.groupNames && activePerson.groupNames.length
-                      ? activePerson.groupNames.join(" · ")
-                      : t("home.card.noGroup"))}
-                  </dd>
+                <dl className="person-card-meta">
+                  <div>
+                    <dt>{t("home.card.nickname")}</dt>
+                    <dd>{activePerson.nickname || t("home.card.noNickname")}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("home.card.groups")}</dt>
+                    <dd>
+                      {(activePerson.groupNames && activePerson.groupNames.length
+                        ? activePerson.groupNames.join(" · ")
+                        : t("home.card.noGroup"))}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("home.card.signature")}</dt>
+                    <dd>{activePerson.signature?.trim() || t("home.card.noSignature")}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("home.card.roles")}</dt>
+                    <dd>
+                      {activePerson.roles.length
+                        ? activePerson.roles
+                            .map((r) => t(`home.role.${roleLabelKey(r)}`))
+                            .join(" · ")
+                        : t("home.role.member")}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="toolbar">
+                  <button type="button" className="btn" onClick={() => greetPerson(activePerson)}>
+                    {t("home.greet")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    data-testid="home-add-friend"
+                    disabled={friendBusy}
+                    onClick={() => void addFriendFromCard(activePerson)}
+                    title={t("home.addFriend")}
+                  >
+                    {t("home.addFriend")}
+                  </button>
+                  <Link
+                    className="btn ghost"
+                    to={`/app/chat?peer=${encodeURIComponent(activePerson.userId)}`}
+                  >
+                    {t("comms.openChat")}
+                  </Link>
                 </div>
-                <div>
-                  <dt>{t("home.card.signature")}</dt>
-                  <dd>{activePerson.signature?.trim() || t("home.card.noSignature")}</dd>
-                </div>
-                <div>
-                  <dt>{t("home.card.roles")}</dt>
-                  <dd>
-                    {activePerson.roles.length
-                      ? activePerson.roles
-                          .map((r) => t(`home.role.${roleLabelKey(r)}`))
-                          .join(" · ")
-                      : t("home.role.member")}
-                  </dd>
-                </div>
-              </dl>
-              <div className="toolbar">
-                <button type="button" className="btn" onClick={() => greetPerson(activePerson)}>
-                  {t("home.greet")}
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  data-testid="home-add-friend"
-                  disabled={friendBusy}
-                  onClick={() => void addFriendFromCard(activePerson)}
-                  title={t("home.addFriend")}
-                >
-                  {t("home.addFriend")}
-                </button>
-                <Link className="btn ghost" to={`/app/chat?peer=${encodeURIComponent(activePerson.userId)}`}>
-                  {t("comms.openChat")}
-                </Link>
-                <button type="button" className="btn ghost" onClick={() => setActivePerson(null)}>
-                  {t("admin.cancel")}
-                </button>
               </div>
             </div>
           )}

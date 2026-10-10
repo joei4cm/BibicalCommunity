@@ -58,9 +58,11 @@ async function sessionKeyFor(conversationId: string) {
 export function ChatPanel({
   initialPeer,
   onPeerConsumed,
+  onThreadOpenChange,
 }: {
   initialPeer?: string | null;
   onPeerConsumed?: () => void;
+  onThreadOpenChange?: (open: boolean) => void;
 } = {}) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -90,6 +92,11 @@ export function ChatPanel({
     () => conversations.find((c) => c.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+
+  useEffect(() => {
+    onThreadOpenChange?.(Boolean(selectedId));
+    return () => onThreadOpenChange?.(false);
+  }, [selectedId, onThreadOpenChange]);
 
   const activeConversations = useMemo(
     () => conversations.filter((c) => !c.membership.archived),
@@ -576,129 +583,123 @@ export function ChatPanel({
   }
 
   return (
-    <div className="panel chat-home" data-testid="home-chat-panel">
-      <div className="chat-home-header">
-        <div>
-          <h2 style={{ marginBottom: "0.2rem" }}>{t("comms.chat")}</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("comms.chatHint")}
-          </p>
-        </div>
-        {!selected && (
-          <div className="toolbar" style={{ margin: 0 }}>
-            <button
-              type="button"
-              className="btn"
-              data-testid="chat-compose-open"
-              onClick={() => {
-                setKind(listTab === "archived" ? "dm" : listTab);
-                setSheet("compose");
-              }}
-            >
-              {t("comms.newChat")}
-            </button>
-          </div>
-        )}
-      </div>
-      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+    <div className={`chat-home im-shell${selected ? " is-thread" : ""}`} data-testid="home-chat-panel">
+      {note && !selected && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
 
       {selected ? (
-        <>
-          <div className="toolbar">
+        <div className="im-thread" data-testid="im-thread">
+          <header className="im-thread-bar">
             <button
               type="button"
-              className="btn ghost"
+              className="btn ghost im-back"
               data-testid="chat-back-list"
               onClick={() => setSelectedId(null)}
             >
-              {t("chat.backToList")}
+              ←
             </button>
-            <strong>{convoLabel(selected)}</strong>
-          </div>
+            <div className="im-thread-title">
+              <strong>{convoLabel(selected)}</strong>
+              <span className="muted">{kindLabel(selected.kind)}</span>
+            </div>
+            <details className="im-more">
+              <summary className="btn ghost">···</summary>
+              <div className="im-more-menu">
+                <div className="field">
+                  <label>{t("chat.disappearing")}</label>
+                  <select
+                    value={selected.disappearingTtlSec ?? ""}
+                    disabled={busy || selected.membership.role !== "owner"}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      void patchTtl(raw === "" ? null : Number(raw));
+                    }}
+                  >
+                    {TTL_OPTIONS.map((opt) => (
+                      <option key={String(opt.value)} value={opt.value ?? ""}>
+                        {t(opt.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="btn ghost" disabled={busy} onClick={() => void startCall()}>
+                  {t("chat.call")}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={busy || !screenShareReady}
+                  onClick={() => void shareScreen()}
+                >
+                  {t("chat.screenShare")}
+                </button>
+                <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
+                  {t("chat.stopShare")}
+                </button>
+                <button type="button" className="btn ghost" onClick={hangup}>
+                  {t("chat.hangup")}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => void archiveConversation(!selected.membership.archived)}
+                >
+                  {selected.membership.archived ? t("chat.unarchive") : t("chat.archive")}
+                </button>
+                {callNote && <p className="muted">{callNote}</p>}
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  muted={false}
+                  className="im-call-video"
+                />
+              </div>
+            </details>
+          </header>
 
-          <div className="field" style={{ marginTop: "0.75rem" }}>
-            <label>{t("chat.disappearing")}</label>
-            <select
-              value={selected.disappearingTtlSec ?? ""}
-              disabled={busy || selected.membership.role !== "owner"}
-              onChange={(e) => {
-                const raw = e.target.value;
-                void patchTtl(raw === "" ? null : Number(raw));
-              }}
-            >
-              {TTL_OPTIONS.map((opt) => (
-                <option key={String(opt.value)} value={opt.value ?? ""}>
-                  {t(opt.labelKey)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="toolbar">
-            <button type="button" className="btn ghost" disabled={busy} onClick={() => void startCall()}>
-              {t("chat.call")}
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              disabled={busy || !screenShareReady}
-              title={screenShareReady ? undefined : t("chat.screenShareUnavailable")}
-              onClick={() => void shareScreen()}
-            >
-              {t("chat.screenShare")}
-            </button>
-            <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
-              {t("chat.stopShare")}
-            </button>
-            <button type="button" className="btn ghost" onClick={hangup}>
-              {t("chat.hangup")}
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => void archiveConversation(!selected.membership.archived)}
-            >
-              {selected.membership.archived ? t("chat.unarchive") : t("chat.archive")}
-            </button>
-          </div>
-          {callNote && <p className="muted">{callNote}</p>}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            muted={false}
-            style={{ width: "100%", maxHeight: 240, background: "#18232b" }}
-          />
-
-          <div className="chat-thread">
-            {messages.length === 0 && <p className="muted">{t("chat.noMessages")}</p>}
+          <div className="im-messages chat-thread">
+            {messages.length === 0 && <p className="muted im-empty">{t("chat.noMessages")}</p>}
             {messages.map((m) => (
               <div key={m.id} className="chat-bubble">
                 <p className="chat-bubble-text">{plaintexts[m.id] ?? t("common.loading")}</p>
-                <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                <div className="muted im-bubble-meta">
                   {new Date(m.createdAt).toLocaleString()}
                   {m.expiresAt
                     ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
                     : ""}
                 </div>
-                <button type="button" className="btn ghost" onClick={() => void favoriteMessage(m)}>
-                  {t("chat.favorite")}
-                </button>
               </div>
             ))}
           </div>
 
-          <div className="field">
-            <label>{t("chat.message")}</label>
-            <textarea rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} />
-          </div>
-          <button type="button" className="btn" disabled={busy} onClick={() => void sendMessage()}>
-            {t("chat.send")}
-          </button>
-        </>
+          <footer className="im-composer">
+            {note && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
+            <textarea
+              rows={1}
+              className="im-composer-input"
+              value={draft}
+              placeholder={t("chat.message")}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendMessage();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn im-send"
+              disabled={busy || !draft.trim()}
+              onClick={() => void sendMessage()}
+            >
+              {t("chat.send")}
+            </button>
+          </footer>
+        </div>
       ) : (
         <>
-          <div className="manage-subtabs" role="tablist" data-testid="chat-list-tabs">
+          <div className="im-kind-tabs manage-subtabs" role="tablist" data-testid="chat-list-tabs">
             {(
               [
                 ["dm", "chat.dm"],
@@ -722,7 +723,7 @@ export function ChatPanel({
           </div>
 
           {listTab !== "archived" && (
-            <ul className="list" data-testid="chat-active-list">
+            <ul className="list im-convo-list" data-testid="chat-active-list">
               {filteredActive.length === 0 && <li className="muted">{t("chat.empty")}</li>}
               {filteredActive.map((c) => (
                 <li key={c.id}>
@@ -741,7 +742,7 @@ export function ChatPanel({
           )}
 
           {listTab === "archived" && (
-            <ul className="list" data-testid="chat-archived-list">
+            <ul className="list im-convo-list" data-testid="chat-archived-list">
               {archivedConversations.length === 0 && (
                 <li className="muted">{t("chat.archivedEmpty")}</li>
               )}
@@ -760,22 +761,36 @@ export function ChatPanel({
               )}
             </ul>
           )}
+
+          <button
+            type="button"
+            className="comms-fab"
+            data-testid="chat-compose-open"
+            aria-label={t("comms.newChat")}
+            onClick={() => {
+              setKind(listTab === "archived" ? "dm" : listTab);
+              setSheet("compose");
+            }}
+          >
+            +
+          </button>
         </>
       )}
 
       {sheet !== "none" && (
         <div
-          className="chat-sheet-backdrop"
+          className="sheet-backdrop"
           role="presentation"
           onClick={() => setSheet("none")}
         >
           <div
-            className="chat-sheet"
+            className="sheet-panel"
             role="dialog"
             aria-modal="true"
             data-testid={sheet === "discover" ? "chat-discover-sheet" : "chat-compose-sheet"}
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="sheet-handle" aria-hidden />
             <div className="chat-sheet-head">
               <h3 style={{ margin: 0 }}>
                 {sheet === "discover" ? t("chat.discoverFriends") : t("comms.newChat")}

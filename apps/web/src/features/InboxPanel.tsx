@@ -83,13 +83,7 @@ export function InboxPanel({
 
   return (
     <div className="inbox-panel" data-testid="comms-inbox">
-      <div className="chat-home-header">
-        <div>
-          <h2 style={{ marginBottom: "0.2rem" }}>{t("comms.inbox")}</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("comms.inboxHint")}
-          </p>
-        </div>
+      <div className="im-toolbar-row">
         <button type="button" className="btn ghost" disabled={busy} onClick={() => void markAll()}>
           {t("comms.markAllRead")}
         </button>

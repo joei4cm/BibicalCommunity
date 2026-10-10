@@ -13,15 +13,17 @@ function parseTab(raw: string | null): CommsTab {
   return "chat";
 }
 
-/** 通讯：聊天 · 联系人 · 日程 · 站内信 */
+/** 通讯：聊天 · 联系人 · 日程 · 站内信 — no duplicate page H1 (bottom nav already labels 通讯). */
 export function ChatPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = useMemo(() => parseTab(searchParams.get("tab")), [searchParams]);
   const [chatPeer, setChatPeer] = useState<string | null>(null);
+  const [threadOpen, setThreadOpen] = useState(false);
 
   const setTab = useCallback(
     (next: CommsTab) => {
+      setThreadOpen(false);
       setSearchParams(
         (prev) => {
           const p = new URLSearchParams(prev);
@@ -52,41 +54,44 @@ export function ChatPage() {
     [setSearchParams, setTab],
   );
 
-  return (
-    <section className="fade-up chat-page app-folio" data-testid="chat-page">
-      <h1 className="page-title">{t("nav.chat")}</h1>
-      <p className="muted" style={{ marginTop: 0 }}>
-        {t("comms.pageHint")}
-      </p>
+  const immersive = tab === "chat" && threadOpen;
 
-      <div className="plans-tabs comms-tabs" role="tablist" data-testid="comms-tabs">
-        {(
-          [
-            ["chat", "comms.chat"],
-            ["contacts", "comms.contacts"],
-            ["calendar", "comms.calendar"],
-            ["inbox", "comms.inbox"],
-          ] as const
-        ).map(([id, key]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            className={`plans-tab${tab === id ? " is-active" : ""}`}
-            data-testid={`comms-tab-${id}`}
-            onClick={() => setTab(id)}
-          >
-            {t(key)}
-          </button>
-        ))}
-      </div>
+  return (
+    <section
+      className={`fade-up chat-page app-folio${immersive ? " is-im-thread" : ""}`}
+      data-testid="chat-page"
+    >
+      {!immersive && (
+        <div className="comms-tabs plans-tabs" role="tablist" data-testid="comms-tabs">
+          {(
+            [
+              ["chat", "comms.chat"],
+              ["contacts", "comms.contacts"],
+              ["calendar", "comms.calendar"],
+              ["inbox", "comms.inbox"],
+            ] as const
+          ).map(([id, key]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              className={`plans-tab${tab === id ? " is-active" : ""}`}
+              data-testid={`comms-tab-${id}`}
+              onClick={() => setTab(id)}
+            >
+              {t(key)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "chat" && (
         <ChatPanel
           key={chatPeer ?? "chat"}
           initialPeer={chatPeer}
           onPeerConsumed={() => setChatPeer(null)}
+          onThreadOpenChange={setThreadOpen}
         />
       )}
       {tab === "contacts" && <ContactsPanel onOpenChat={openChatWith} />}
