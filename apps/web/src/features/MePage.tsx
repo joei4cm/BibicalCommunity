@@ -455,6 +455,7 @@ export function MePage() {
     const key = `me.theme${id[0]!.toUpperCase()}${id.slice(1)}` as const;
     const mapped: Record<ThemeId, string> = {
       day: t("me.themeDay"),
+      blush: t("me.themeBlush"),
       sepia: t("me.themeSepia"),
       night: t("me.themeNight"),
       highContrast: t("me.themeHighContrast"),

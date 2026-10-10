@@ -177,10 +177,31 @@ export const forumPosts = sqliteTable("forum_posts", {
     .notNull()
     .references(() => users.id),
   board: text("board").notNull().default("general"),
+  kind: text("kind").notNull().default("text"),
   title: text("title").notNull(),
   body: text("body").notNull(),
   externalMediaUrl: text("external_media_url"),
   mediaKey: text("media_key"),
+  payloadJson: text("payload_json").notNull().default("{}"),
+  answerHash: text("answer_hash"),
+  pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+  pinnedAt: integer("pinned_at", { mode: "number" }),
+  readonly: integer("readonly", { mode: "boolean" }).notNull().default(false),
+  expiresAt: integer("expires_at", { mode: "number" }),
+  deletedAt: integer("deleted_at", { mode: "number" }),
+  createdAt: integer("created_at", { mode: "number" }).notNull(),
+});
+
+export const forumPostResponses = sqliteTable("forum_post_responses", {
+  id: text("id").primaryKey(),
+  postId: text("post_id")
+    .notNull()
+    .references(() => forumPosts.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  action: text("action").notNull(),
+  payloadJson: text("payload_json").notNull().default("{}"),
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 

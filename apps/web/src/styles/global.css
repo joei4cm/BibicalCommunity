@@ -2738,3 +2738,188 @@ body:has(.bible-reader) .tab-bar a.active::after {
   gap: 0.5rem;
   margin-left: auto;
 }
+
+/* —— 大道 (community avenue) —— */
+.dadao-panel {
+  position: relative;
+  padding-bottom: 4.5rem;
+}
+
+.dadao-feed {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dadao-feed-card {
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 1px solid var(--br-line, var(--lh-border));
+  background: var(--lh-bg-elevated);
+  color: inherit;
+  font: inherit;
+  padding: 0.85rem 0.95rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.dadao-feed-card:hover {
+  border-color: color-mix(in srgb, var(--lh-accent) 45%, transparent);
+}
+
+.dadao-feed-card.is-pinned {
+  border-color: color-mix(in srgb, var(--lh-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--lh-accent-soft) 55%, var(--lh-bg-elevated));
+}
+
+.dadao-feed-title {
+  font-family: var(--br-font-reader, var(--lh-font-reader));
+  font-weight: 650;
+  font-size: 1.08rem;
+  margin: 0.25rem 0 0.2rem;
+}
+
+.dadao-feed-body {
+  margin: 0.25rem 0 0;
+  line-height: 1.55;
+  color: var(--br-ink, var(--lh-ink));
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dadao-feed-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.dadao-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--lh-accent-soft);
+  color: var(--lh-accent);
+}
+
+.dadao-chip.muted-chip {
+  background: transparent;
+  border: 1px solid var(--lh-border);
+  color: var(--lh-ink-muted);
+}
+
+.dadao-feed-time {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.dadao-interact {
+  margin-top: 1.1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--br-line, var(--lh-border));
+}
+
+.dadao-option {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.4rem;
+  text-align: left;
+}
+
+.dadao-chain-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.dadao-moderate {
+  margin-top: 1.15rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--br-line, var(--lh-border));
+}
+
+.dadao-fab {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  z-index: 40;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--lh-accent);
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--lh-accent) 40%, transparent);
+}
+
+.dadao-fab:hover {
+  filter: brightness(1.05);
+}
+
+.dadao-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(20, 24, 28, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.dadao-sheet {
+  width: min(32rem, 100%);
+  max-height: min(88dvh, 40rem);
+  overflow: auto;
+  background: var(--lh-bg-elevated);
+  color: var(--lh-ink);
+  border-radius: 16px 16px 0 0;
+  padding: 1.15rem 1.15rem calc(1.25rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
+  animation: dadao-sheet-up 0.22s ease;
+}
+
+@keyframes dadao-sheet-up {
+  from {
+    transform: translateY(12%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 720px) {
+  .dadao-sheet-backdrop {
+    align-items: center;
+    padding: 1.5rem;
+  }
+
+  .dadao-sheet {
+    border-radius: 14px;
+    max-height: min(80dvh, 36rem);
+  }
+
+  .dadao-fab {
+    bottom: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dadao-sheet {
+    animation: none;
+  }
+}

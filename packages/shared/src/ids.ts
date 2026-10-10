@@ -32,5 +32,6 @@ function cryptoGetRandom(len: number): Uint8Array {
 export type LocaleCode = "zh-CN" | "en" | "ja";
 export const SUPPORTED_LOCALES: LocaleCode[] = ["zh-CN", "en", "ja"];
 
-export type ThemeId = "day" | "sepia" | "night" | "highContrast";
-export const THEME_IDS: ThemeId[] = ["day", "sepia", "night", "highContrast"];
+/** App chrome themes. `day` is the default cement (cool slate) palette. */
+export type ThemeId = "day" | "blush" | "sepia" | "night" | "highContrast";
+export const THEME_IDS: ThemeId[] = ["day", "blush", "sepia", "night", "highContrast"];
