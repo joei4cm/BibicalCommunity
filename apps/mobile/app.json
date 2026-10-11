@@ -6,26 +6,29 @@
     "version": "0.1.2",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": [
-      "ios",
-      "android"
-    ],
-    "plugins": [
-      "expo-router"
-    ],
+    "platforms": ["ios", "android"],
+    "plugins": ["expo-router"],
     "ios": {
+      "bundleIdentifier": "app.logoshome.mobile",
+      "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "LogosHome needs the camera for video calls.",
         "NSMicrophoneUsageDescription": "LogosHome needs the microphone for voice and video calls."
       }
     },
     "android": {
+      "package": "app.logoshome.mobile",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.INTERNET"
       ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "logoshome-mobile"
+      }
     },
     "experiments": {
       "typedRoutes": true

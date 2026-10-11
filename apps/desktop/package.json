@@ -1,20 +1,24 @@
 {
-  "name": "@logoshome/desktop",
+  "name": "logoshome-desktop",
   "version": "0.1.2",
   "private": true,
   "description": "Electron shell packaging the LogosHome web build for Linux / macOS / Windows",
+  "author": "LogosHome <dev@logoshome.app>",
+  "homepage": "https://github.com/joei4cm/BibicalCommunity",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:linux": "electron-builder --linux AppImage deb",
-    "dist:mac": "electron-builder --mac dmg",
-    "dist:win": "electron-builder --win nsis"
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis portable"
   },
   "build": {
     "appId": "app.logoshome.desktop",
     "productName": "LogosHome",
+    "executableName": "LogosHome",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -30,22 +34,24 @@
       }
     ],
     "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Education"
+      "target": ["AppImage", "deb"],
+      "category": "Education",
+      "executableName": "LogosHome",
+      "maintainer": "LogosHome <dev@logoshome.app>",
+      "vendor": "LogosHome"
     },
     "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.education"
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.education",
+      "identity": null
     },
     "win": {
-      "target": [
-        "nsis"
-      ]
+      "target": ["nsis", "portable"],
+      "executableName": "LogosHome"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "devDependencies": {

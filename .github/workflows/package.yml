@@ -5,10 +5,20 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - "apps/native/**"
+      - "apps/mobile/**"
+      - "apps/web/**"
+      - ".github/workflows/package.yml"
 
 concurrency:
   group: package-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
 jobs:
   web-dist:
@@ -57,9 +67,38 @@ jobs:
         run: npx electron-builder --linux AppImage deb --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-linux-${{ needs.web-dist.outputs.app_version }}
-          path: apps/desktop/release/*.{AppImage,deb}
-          if-no-files-found: warn
+          name: desktop-linux
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  desktop-windows:
+    needs: web-dist
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install desktop tooling
+        working-directory: apps/desktop
+        run: npm install
+      - name: Build Windows packages
+        working-directory: apps/desktop
+        shell: bash
+        run: npx electron-builder --win nsis portable --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows
+          path: |
+            apps/desktop/release/*.exe
+          if-no-files-found: error
           retention-days: 14
 
   desktop-mac:
@@ -77,15 +116,112 @@ jobs:
       - name: Install desktop tooling
         working-directory: apps/desktop
         run: npm install
-      - name: Build macOS DMG
+      - name: Build macOS packages (unsigned)
         working-directory: apps/desktop
-        run: npx electron-builder --mac dmg --publish never
-        continue-on-error: true
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac dmg zip --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-mac-${{ needs.web-dist.outputs.app_version }}
-          path: apps/desktop/release/*.dmg
-          if-no-files-found: warn
+          name: desktop-mac
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  mobile-android:
+    needs: web-dist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Use runner Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}" | head
+      - name: Install Capacitor shell
+        working-directory: apps/native
+        run: npm install
+      - name: Sync web → Capacitor + add Android platform
+        working-directory: apps/native
+        run: |
+          npm run sync:web
+          npx cap add android
+          npx cap sync android
+      - name: Assemble Android debug APK
+        working-directory: apps/native/android
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: apps/native/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  mobile-ios:
+    needs: web-dist
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Capacitor shell
+        working-directory: apps/native
+        run: npm install
+      - name: Sync web → Capacitor + add iOS platform
+        working-directory: apps/native
+        run: |
+          npm run sync:web
+          npx cap add ios
+          npx cap sync ios
+      - name: Install CocoaPods
+        working-directory: apps/native/ios/App
+        run: pod install --repo-update
+      - name: Build iOS simulator app
+        working-directory: apps/native/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package simulator .app
+        working-directory: apps/native/ios/App
+        run: |
+          APP_PATH=$(find build -type d -name "App.app" | head -n 1)
+          test -n "$APP_PATH"
+          mkdir -p ../../release
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" ../../release/LogosHome-ios-simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator
+          path: apps/native/release/*.zip
+          if-no-files-found: error
           retention-days: 14
 
   mobile-eas:
@@ -100,7 +236,7 @@ jobs:
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "EXPO_TOKEN not configured — skipping EAS APK/IPA (set repo secret to enable)."
+            echo "EXPO_TOKEN not configured — Capacitor APK/iOS jobs still run; set EXPO_TOKEN for EAS store builds."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -123,7 +259,7 @@ jobs:
         working-directory: apps/mobile
         run: eas build --platform android --profile preview --non-interactive --no-wait
         continue-on-error: true
-      - name: EAS iOS (preview / simulator when unsigned)
+      - name: EAS iOS (preview)
         if: steps.eas.outputs.skip != 'true'
         working-directory: apps/mobile
         run: eas build --platform ios --profile preview --non-interactive --no-wait
@@ -131,7 +267,13 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [web-dist, desktop-linux, desktop-mac]
+    needs:
+      - web-dist
+      - desktop-linux
+      - desktop-windows
+      - desktop-mac
+      - mobile-android
+      - mobile-ios
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -145,9 +287,11 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            artifacts/**/*.AppImage
-            artifacts/**/*.deb
-            artifacts/**/*.dmg
+            artifacts/desktop-linux/**
+            artifacts/desktop-windows/**
+            artifacts/desktop-mac/**
+            artifacts/android-apk/**
+            artifacts/ios-simulator/**
             artifacts/web-dist/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
