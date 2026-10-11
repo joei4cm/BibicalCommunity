@@ -64,6 +64,10 @@ type HandshakeMod = {
  * `node:module`/`node:path`/`node:url` imports break `pnpm --filter web build`.
  */
 async function loadHandshake(): Promise<HandshakeMod> {
+  // Real browsers cannot import node: — Workers-shaped Node probes still can.
+  if (typeof document !== "undefined" || typeof window !== "undefined") {
+    throw new Error("opene2ee_handshake_probe_node_only");
+  }
   const nodeModule = ["node", "module"].join(":");
   const nodePath = ["node", "path"].join(":");
   const nodeUrl = ["node", "url"].join(":");

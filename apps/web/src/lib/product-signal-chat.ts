@@ -17,7 +17,7 @@ import {
 } from "@logoshome/crypto";
 import { api } from "./api";
 import { loadProductSignalPrefer } from "./product-signal-prefer";
-import { secureGet, secureSet } from "./secure-kv";
+import { secureGet, secureRemove, secureSet } from "./secure-kv";
 
 export const PRODUCT_PRIV_KEY = "lh.product.signal.priv";
 const PRODUCT_SESSION_PREFIX = "lh.product.session.";
@@ -108,6 +108,20 @@ function productSessionKey(conversationId: string, peerUserId: string): string {
   return `${PRODUCT_SESSION_PREFIX}${conversationId}:${peerUserId}`;
 }
 
+function sessionLooksUsable(session: SecureSession): boolean {
+  try {
+    const blob = JSON.parse(
+      decodeURIComponent(escape(atob(session.stateBlob))),
+    ) as { sharedMaterial?: string; role?: string; usedPQXDH?: boolean };
+    // Browser cannot finish PQXDH responder handshakes (no node: internals).
+    if (!blob.sharedMaterial) return false;
+    return true;
+  } catch {
+    // x25519 / other backends may use a different stateBlob shape — keep if present.
+    return Boolean(session.stateBlob);
+  }
+}
+
 async function loadOrEstablishSession(
   conversationId: string,
   peerUserId: string,
@@ -118,10 +132,12 @@ async function loadOrEstablishSession(
   const raw = await secureGet(key);
   if (raw) {
     try {
-      return JSON.parse(raw) as SecureSession;
+      const existing = JSON.parse(raw) as SecureSession;
+      if (sessionLooksUsable(existing)) return existing;
     } catch {
       /* re-establish */
     }
+    await secureRemove(key);
   }
   const prefer = productBackendFromIdentityPub(remote.identityKeyPub);
   const client = await getProductSignalClient(prefer);
@@ -148,14 +164,31 @@ export async function tryEncryptProductChatMessage(
 
   const prefer = productBackendFromIdentityPub(remote.identityKeyPub);
   const client = await getProductSignalClient(prefer);
-  const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
-  const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
-  await secureSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
-  return {
-    ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
-    ciphertext: enc.ciphertext,
-    mode: "product",
-  };
+  try {
+    const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
+    const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
+    await secureSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
+    return {
+      ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
+      ciphertext: enc.ciphertext,
+      mode: "product",
+    };
+  } catch {
+    // Clear broken sessions (e.g. prior PQXDH + node:module failures) and retry once.
+    await secureRemove(productSessionKey(conversationId, peerUserId));
+    try {
+      const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
+      const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
+      await secureSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
+      return {
+        ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
+        ciphertext: enc.ciphertext,
+        mode: "product",
+      };
+    } catch {
+      return null;
+    }
+  }
 }
 
 export async function tryDecryptProductChatMessage(
