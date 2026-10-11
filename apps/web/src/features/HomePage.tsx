@@ -220,6 +220,9 @@ export function HomePage() {
   const [activePerson, setActivePerson] = useState<OrgPerson | null>(null);
   const [orgExpanded, setOrgExpanded] = useState<Set<string>>(new Set());
   const [friendBusy, setFriendBusy] = useState(false);
+  const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
+  const [pendingFriendIds, setPendingFriendIds] = useState<Set<string>>(new Set());
+  const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -395,6 +398,29 @@ export function HomePage() {
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [refresh]);
+
+  const refreshFriendState = useCallback(async () => {
+    if (!getToken()) return;
+    const [me, fr, reqs] = await Promise.all([
+      api<{ id?: string; userId?: string }>("/v1/me").catch(
+        (): { id?: string; userId?: string } => ({}),
+      ),
+      api<{ friends: { user: { id: string } }[] }>("/v1/friends").catch(() => ({ friends: [] })),
+      api<{
+        outgoing: { user: { id: string } }[];
+      }>("/v1/friends/requests").catch(() => ({ outgoing: [] })),
+    ]);
+    const sid = me.id ?? me.userId ?? null;
+    if (sid) setSelfUserId(sid);
+    setFriendIds(new Set(fr.friends.map((f) => f.user.id)));
+    setPendingFriendIds(new Set(reqs.outgoing.map((r) => r.user.id)));
+  }, []);
+
+  useEffect(() => {
+    void refreshFriendState().catch(() => {
+      /* optional for card CTAs */
+    });
+  }, [refreshFriendState]);
 
   useEffect(() => {
     void loadOrg().catch((e) => setNote(e instanceof Error ? e.message : "error"));
@@ -665,13 +691,17 @@ export function HomePage() {
   }
 
   async function addFriendFromCard(p: OrgPerson) {
+    if (friendIds.has(p.userId) || pendingFriendIds.has(p.userId)) return;
+    if (selfUserId && p.userId === selfUserId) return;
     setFriendBusy(true);
     try {
       await api("/v1/friends/request", {
         method: "POST",
         body: JSON.stringify({ userId: p.userId }),
       });
+      setPendingFriendIds((prev) => new Set([...prev, p.userId]));
       setNote("friend_request_sent");
+      await refreshFriendState().catch(() => {});
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -1037,24 +1067,47 @@ export function HomePage() {
                     </dd>
                   </div>
                 </dl>
-                <div className="toolbar">
-                  <button
-                    type="button"
-                    className="btn"
-                    data-testid="home-add-friend"
-                    disabled={friendBusy}
-                    onClick={() => void addFriendFromCard(activePerson)}
-                    title={t("home.addFriend")}
-                  >
-                    {t("home.addFriend")}
-                  </button>
-                  <Link
-                    className="btn ghost"
-                    to={`/app/chat?peer=${encodeURIComponent(activePerson.userId)}`}
-                  >
-                    {t("comms.openChat")}
-                  </Link>
-                </div>
+                {(() => {
+                  const isSelf = Boolean(selfUserId && activePerson.userId === selfUserId);
+                  const isFriend = friendIds.has(activePerson.userId);
+                  const isPending = pendingFriendIds.has(activePerson.userId);
+                  return (
+                    <div className="sheet-actions person-card-actions" data-testid="home-person-actions">
+                      {isSelf ? (
+                        <p className="muted" style={{ margin: 0 }} data-testid="home-person-self">
+                          {t("home.card.self")}
+                        </p>
+                      ) : isFriend ? (
+                        <Link
+                          className="btn"
+                          data-testid="home-open-chat"
+                          to={`/app/chat?peer=${encodeURIComponent(activePerson.userId)}`}
+                        >
+                          {t("comms.openChat")}
+                        </Link>
+                      ) : isPending ? (
+                        <button
+                          type="button"
+                          className="btn"
+                          data-testid="home-friend-pending"
+                          disabled
+                        >
+                          {t("home.friendRequestSent")}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn"
+                          data-testid="home-add-friend"
+                          disabled={friendBusy}
+                          onClick={() => void addFriendFromCard(activePerson)}
+                        >
+                          {t("home.addFriend")}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             </SheetPortal>

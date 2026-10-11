@@ -170,14 +170,15 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
                 {c.uid ? ` · ${c.uid}` : ""}
               </div>
               {c.signature ? <div className="muted">{c.signature}</div> : null}
-              <div className="toolbar" style={{ marginTop: "0.4rem" }}>
-                <button type="button" className="btn ghost" onClick={() => onOpenChat(c.userId)}>
-                  {t("comms.openChat")}
-                </button>
-                {c.source !== "friend" && (
+              <div className="contacts-row-actions" style={{ marginTop: "0.4rem" }}>
+                {c.source === "friend" ? (
+                  <button type="button" className="btn" onClick={() => onOpenChat(c.userId)}>
+                    {t("comms.openChat")}
+                  </button>
+                ) : (
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn"
                     disabled={busy}
                     onClick={() => {
                       setQuery(c.uid || c.userId);
