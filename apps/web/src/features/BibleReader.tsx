@@ -449,12 +449,27 @@ export function BibleReader() {
   const [dictFocusId, setDictFocusId] = useState<string | null>(null);
   const [eastonFocus, setEastonFocus] = useState<EastonHit | null>(null);
 
-  /** Keep URL in WeDevote shape: /app/bible/{tid}/{book}/{chapter} */
+  /** Keep URL in WeDevote shape: /app/bible/{tid}/{book}/{chapter}(?verse=) */
   const goToPassage = useCallback(
-    (tid: string, nextBookId: string, nextChapter: number, replace = false) => {
+    (
+      tid: string,
+      nextBookId: string,
+      nextChapter: number,
+      replaceOrOpts: boolean | { replace?: boolean; verse?: number } = false,
+    ) => {
+      const opts =
+        typeof replaceOrOpts === "boolean"
+          ? { replace: replaceOrOpts }
+          : (replaceOrOpts ?? {});
       const book = getBook(nextBookId);
       const capped = Math.min(Math.max(1, nextChapter), book?.chapters ?? 1);
-      const path = `/app/bible/${tid}/${bookSlug(nextBookId)}/${capped}`;
+      const verse =
+        opts.verse != null && Number.isFinite(opts.verse) && opts.verse >= 1
+          ? Math.floor(opts.verse)
+          : null;
+      const path = `/app/bible/${tid}/${bookSlug(nextBookId)}/${capped}${
+        verse != null ? `?verse=${verse}` : ""
+      }`;
       // Optimistic clear so the UI doesn't keep showing the previous chapter.
       setChapter(null);
       setSecondChapter(null);
@@ -465,10 +480,11 @@ export function BibleReader() {
         audioRef.current.pause();
         audioRef.current.removeAttribute("src");
       }
-      navigate(path, { replace });
+      navigate(path, { replace: Boolean(opts.replace) });
       setTranslationId(tid);
       setBookId(nextBookId);
       setChapterNum(capped);
+      // Verse focus is applied via routeVerse → focusVerse after prose mounts.
     },
     [navigate],
   );
@@ -1150,22 +1166,28 @@ export function BibleReader() {
 
   useEffect(() => {
     if (focusVerse == null) return;
-    // Wait until chapter prose is mounted so ?verse= survives the load race.
+    // Wait until the *target* chapter prose is mounted so jumps survive load races.
     if (!chapter || "external" in chapter || !("verses" in chapter)) return;
+    if (chapter.book !== bookId || chapter.chapter !== chapterNum) return;
     const prose = document.querySelector('[data-testid="reader-prose"]');
     const el = prose?.querySelector(`[data-verse="${focusVerse}"]`);
     if (focusVerse === 1) {
       // Reset to page top so topbar, chapter lead, and section heading stay visible.
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (el instanceof HTMLElement) {
-      const block = el.closest(".verse-block");
-      const heading = block?.querySelector(".verse-section-heading");
-      const target = heading instanceof HTMLElement ? heading : el;
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFocusVerse(null);
+      return;
     }
+    if (!(el instanceof HTMLElement)) {
+      // Prose not painted yet — keep focusVerse until the next paint/load.
+      return;
+    }
+    const block = el.closest(".verse-block");
+    const heading = block?.querySelector(".verse-section-heading");
+    const target = heading instanceof HTMLElement ? heading : el;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
     // Scroll only — do not auto-open selection/highlight chrome on chapter jumps.
     setFocusVerse(null);
-  }, [focusVerse, chapter]);
+  }, [focusVerse, chapter, bookId, chapterNum]);
 
   const pickerChapterOptions = useMemo(() => {
     const book = getBook(pickerBookId);
@@ -1459,11 +1481,9 @@ export function BibleReader() {
       if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
       if (Date.now() - start.t > 800) return;
       if (dx < 0 && nextCursor) {
-        goToPassage(translationId, nextCursor.bookId, nextCursor.chapter);
-        setFocusVerse(1);
+        goToPassage(translationId, nextCursor.bookId, nextCursor.chapter, { verse: 1 });
       } else if (dx > 0 && prevCursor) {
-        goToPassage(translationId, prevCursor.bookId, prevCursor.chapter);
-        setFocusVerse(1);
+        goToPassage(translationId, prevCursor.bookId, prevCursor.chapter, { verse: 1 });
       }
     };
     el.addEventListener("touchstart", onStart, { passive: true });
@@ -1648,8 +1668,7 @@ export function BibleReader() {
                       // Jump immediately from v1; optional 节 tab for verse targeting.
                       setPickerChapter(n);
                       setPassagePickerOpen(false);
-                      goToPassage(translationId, pickerBookId, n);
-                      setFocusVerse(1);
+                      goToPassage(translationId, pickerBookId, n, { verse: 1 });
                     }}
                   >
                     {n}
@@ -1667,11 +1686,17 @@ export function BibleReader() {
                     className="bible-picker-item"
                     data-testid={`reader-picker-verse-${n}`}
                     onClick={() => {
-                      if (pickerBookId !== bookId || pickerChapter !== chapterNum) {
-                        goToPassage(translationId, pickerBookId, pickerChapter);
-                      }
-                      setFocusVerse(n);
                       setPassagePickerOpen(false);
+                      if (pickerBookId !== bookId || pickerChapter !== chapterNum) {
+                        goToPassage(translationId, pickerBookId, pickerChapter, { verse: n });
+                      } else {
+                        // Same chapter: keep prose mounted; only update ?verse= + focus.
+                        navigate(
+                          `/app/bible/${translationId}/${bookSlug(bookId)}/${chapterNum}?verse=${n}`,
+                          { replace: true },
+                        );
+                        setFocusVerse(n);
+                      }
                     }}
                   >
                     {n}
@@ -2261,8 +2286,9 @@ export function BibleReader() {
                         className="bible-study-ref-btn"
                         data-testid={`reader-study-xref-${i}`}
                         onClick={() => {
-                          goToPassage(translationId, r.bookId!, r.chapter!);
-                          if (r.verse) setFocusVerse(r.verse);
+                          goToPassage(translationId, r.bookId!, r.chapter!, {
+                            verse: r.verse ?? undefined,
+                          });
                           setDockPanel(null);
                         }}
                       >
@@ -2336,6 +2362,10 @@ export function BibleReader() {
                   type="button"
                   className="linkish"
                   onClick={() => {
+                    navigate(
+                      `/app/bible/${translationId}/${bookSlug(bookId)}/${chapterNum}?verse=${v.verse}`,
+                      { replace: true },
+                    );
                     setFocusVerse(v.verse);
                     setSelection({ start: v.verse, end: v.verse });
                     setDockPanel(null);
