@@ -10,6 +10,7 @@ import {
 } from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
+import { SheetPortal } from "../components/SheetPortal";
 import {
   DEVOTION_STEPS,
   devotionProgress,
@@ -41,6 +42,10 @@ type Subscription = {
 
 type PlanVisibility = "private" | "church" | "public";
 type PlansTab = "mine" | "discover" | "done";
+type PlansSheet = "none" | "create" | "add";
+type CreateStep = 1 | 2;
+
+type DraftDay = { ref: string; title: string };
 
 function isSubscriptionComplete(sub: Subscription): boolean {
   const total = sub.days?.length ?? 0;
@@ -58,15 +63,25 @@ function bibleHrefFromPlanRef(ref: string): string | null {
   return parsed.verseStart ? `${base}?verse=${parsed.verseStart}` : base;
 }
 
+function defaultDraftDays(): DraftDay[] {
+  return [
+    { ref: "John.1", title: "" },
+    { ref: "John.2", title: "" },
+  ];
+}
+
 export function PlansPage() {
   const { t, i18n } = useTranslation();
   const [tab, setTab] = useState<PlansTab>("mine");
+  const [sheet, setSheet] = useState<PlansSheet>("none");
+  const [createStep, setCreateStep] = useState<CreateStep>(1);
   const [csv, setCsv] = useState("day,ref,title,note\n1,John.1,Word,Begin\n2,John.2,Wedding,");
   const [createTitle, setCreateTitle] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createVisibility, setCreateVisibility] = useState<PlanVisibility>("private");
-  const [createDaysText, setCreateDaysText] = useState("1,John.1,Begin\n2,John.2,Wedding");
+  const [draftDays, setDraftDays] = useState<DraftDay[]>(defaultDraftDays);
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<DevotionStep>("pause");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -186,6 +201,40 @@ export function PlansPage() {
     if (plan) setDaysJson(JSON.stringify(plan.days, null, 2));
   }
 
+  function openCreateSheet() {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    setCreateStep(1);
+    setSheet("create");
+  }
+
+  function openAddSheet() {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    setSheet("add");
+  }
+
+  function closeSheet() {
+    setSheet("none");
+    setBusy(false);
+  }
+
+  function updateDraftDay(index: number, patch: Partial<DraftDay>) {
+    setDraftDays((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addDraftDay() {
+    setDraftDays((prev) => [...prev, { ref: "", title: "" }]);
+  }
+
+  function removeDraftDay(index: number) {
+    setDraftDays((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+  }
+
   async function createPlan() {
     if (!getToken()) {
       setMessage("login_required");
@@ -194,33 +243,64 @@ export function PlansPage() {
     const title = createTitle.trim();
     if (!title) {
       setMessage("title_required");
+      setCreateStep(1);
       return;
     }
-    let days: ReturnType<typeof parsePlanCsv>;
-    try {
-      days = parsePlanCsv(`day,ref,title,note\n${createDaysText}`);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "invalid_days");
-      return;
-    }
-    if (days.length === 0) {
+    const filled = draftDays
+      .map((row, i) => ({
+        day: i + 1,
+        ref: row.ref.trim(),
+        title: row.title.trim() || undefined,
+      }))
+      .filter((row) => row.ref.length > 0);
+    if (filled.length === 0) {
       setMessage("days_required");
+      setCreateStep(2);
       return;
     }
-    const res = await api<{ id: string }>("/v1/plans", {
-      method: "POST",
-      body: JSON.stringify({
-        title,
-        description: createDescription.trim() || undefined,
-        visibility: createVisibility,
-        days,
-      }),
-    });
-    setMessage("created:ok");
-    setCreateTitle("");
-    setCreateDescription("");
-    await refreshPlans();
-    setSelectedId(res.id);
+    for (const row of filled) {
+      if (!parseRef(row.ref)) {
+        setMessage("invalid_days");
+        setCreateStep(2);
+        return;
+      }
+    }
+    setBusy(true);
+    try {
+      const res = await api<{ id: string }>("/v1/plans", {
+        method: "POST",
+        body: JSON.stringify({
+          title,
+          description: createDescription.trim() || undefined,
+          visibility: createVisibility,
+          days: filled,
+        }),
+      });
+      try {
+        await api(`/v1/plans/${encodeURIComponent(res.id)}/subscribe`, {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+      } catch {
+        /* own plan may already be readable; subscription is best-effort */
+      }
+      setMessage("created:ok");
+      setCreateTitle("");
+      setCreateDescription("");
+      setCreateVisibility("private");
+      setDraftDays(defaultDraftDays());
+      setCreateStep(1);
+      setSheet("none");
+      await refreshPlans();
+      await refreshPublicAndSubs();
+      setSelectedId(res.id);
+      setActiveSubPlanId(res.id);
+      setTab("mine");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function importCsv() {
@@ -228,17 +308,37 @@ export function PlansPage() {
       setMessage("login_required");
       return;
     }
-    const days = parsePlanCsv(csv);
-    await api<{ id: string }>("/v1/plans", {
-      method: "POST",
-      body: JSON.stringify({
-        title: t("plans.untitled"),
-        visibility: "private",
-        days,
-      }),
-    });
-    setMessage("created:ok");
-    await refreshPlans();
+    setBusy(true);
+    try {
+      const days = parsePlanCsv(csv);
+      const res = await api<{ id: string }>("/v1/plans", {
+        method: "POST",
+        body: JSON.stringify({
+          title: createTitle.trim() || t("plans.untitled"),
+          visibility: createVisibility,
+          days,
+        }),
+      });
+      try {
+        await api(`/v1/plans/${encodeURIComponent(res.id)}/subscribe`, {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+      } catch {
+        /* best-effort */
+      }
+      setMessage("created:ok");
+      setSheet("none");
+      await refreshPlans();
+      await refreshPublicAndSubs();
+      setSelectedId(res.id);
+      setActiveSubPlanId(res.id);
+      setTab("mine");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveDays() {
@@ -269,14 +369,23 @@ export function PlansPage() {
     }
     const id = (idOverride ?? subscribeId).trim();
     if (!id) return;
-    await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-    setMessage("subscribed:ok");
-    setSubscribeId("");
-    await refreshPublicAndSubs();
-    setTab("mine");
+    setBusy(true);
+    try {
+      await api<{ id: string }>(`/v1/plans/${encodeURIComponent(id)}/subscribe`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setMessage("subscribed:ok");
+      setSubscribeId("");
+      setSheet("none");
+      await refreshPublicAndSubs();
+      setActiveSubPlanId(id);
+      setTab("mine");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function advancePlanDay(planId: string, currentDay: number) {
@@ -309,10 +418,34 @@ export function PlansPage() {
   ];
 
   const loggedIn = Boolean(getToken());
+  const canCreateNext = createTitle.trim().length > 0;
+  const canCreateSubmit = draftDays.some((d) => d.ref.trim().length > 0);
 
   return (
     <section className="fade-up plans-page app-folio" data-testid="plans-page">
-      <h1 className="page-title">{t("nav.plans")}</h1>
+      <header className="plans-page-head">
+        <h1 className="page-title">{t("nav.plans")}</h1>
+        {loggedIn && (
+          <div className="plans-cta-bar" data-testid="plans-cta-bar">
+            <button
+              type="button"
+              className="btn"
+              data-testid="plans-new-open"
+              onClick={openCreateSheet}
+            >
+              {t("plans.newPlan")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="plans-add-open"
+              onClick={openAddSheet}
+            >
+              {t("plans.addPlan")}
+            </button>
+          </div>
+        )}
+      </header>
       {message && <p className="muted">{humanizeStatus(t, message)}</p>}
 
       {!loggedIn && (
@@ -446,13 +579,34 @@ export function PlansPage() {
               </div>
             </div>
           ) : (
-            <div className="panel" data-testid="plans-empty-mine">
-              <p className="muted" style={{ marginTop: 0 }}>
-                {t("plans.emptyMine")}
-              </p>
-              <button type="button" className="btn" onClick={() => setTab("discover")}>
-                {t("plans.openDiscover")}
-              </button>
+            <div className="panel plans-empty-mine" data-testid="plans-empty-mine">
+              <p className="plans-empty-lead">{t("plans.emptyMine")}</p>
+              <p className="muted">{t("plans.emptyMineHint")}</p>
+              <div className="plans-empty-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="plans-empty-new"
+                  onClick={openCreateSheet}
+                >
+                  {t("plans.newPlan")}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  data-testid="plans-empty-add"
+                  onClick={openAddSheet}
+                >
+                  {t("plans.addPlan")}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setTab("discover")}
+                >
+                  {t("plans.openDiscover")}
+                </button>
+              </div>
             </div>
           )}
 
@@ -484,67 +638,9 @@ export function PlansPage() {
             </div>
           )}
 
-          <details className="panel plans-advanced" data-testid="plans-add-by-id">
-            <summary>{t("plans.manageAdvanced")}</summary>
-            <h3>{t("plans.addById")}</h3>
-            <p className="muted">{t("plans.addByIdHint")}</p>
-            <div className="field">
-              <label htmlFor="plan-subscribe-id">{t("plans.subscribeId")}</label>
-              <input
-                id="plan-subscribe-id"
-                data-testid="plans-subscribe-id"
-                value={subscribeId}
-                onChange={(e) => setSubscribeId(e.target.value)}
-                placeholder={t("plans.subscribeId")}
-              />
-            </div>
-            <button type="button" className="btn" data-testid="plans-subscribe-submit" onClick={() => void subscribe()}>
-              {t("plans.subscribe")}
-            </button>
-
-            <h3>{t("plans.create")}</h3>
-            <div className="field">
-              <label htmlFor="plan-title">{t("plans.title")}</label>
-              <input
-                id="plan-title"
-                data-testid="plans-create-title"
-                value={createTitle}
-                onChange={(e) => setCreateTitle(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="plan-description">{t("plans.description")}</label>
-              <input
-                id="plan-description"
-                value={createDescription}
-                onChange={(e) => setCreateDescription(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="plan-visibility">{t("plans.visibility")}</label>
-              <select
-                id="plan-visibility"
-                value={createVisibility}
-                onChange={(e) => setCreateVisibility(e.target.value as PlanVisibility)}
-              >
-                <option value="private">{t("plans.visibilityPrivate")}</option>
-                <option value="church">{t("plans.visibilityChurch")}</option>
-                <option value="public">{t("plans.visibilityPublic")}</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="plan-days">{t("plans.daysHint")}</label>
-              <textarea
-                id="plan-days"
-                rows={4}
-                value={createDaysText}
-                onChange={(e) => setCreateDaysText(e.target.value)}
-              />
-            </div>
-            <button type="button" className="btn" data-testid="plans-create-submit" onClick={() => void createPlan()}>
-              {t("plans.create")}
-            </button>
-
+          <details className="panel plans-advanced" data-testid="plans-manage-owned">
+            <summary>{t("plans.manageOwned")}</summary>
+            <p className="muted">{t("plans.manageOwnedHint")}</p>
             <h3>{t("plans.owned")}</h3>
             <ul className="list">
               {plans.length === 0 && <li className="muted">{t("plans.emptyOwned")}</li>}
@@ -577,14 +673,6 @@ export function PlansPage() {
                 </button>
               </>
             )}
-
-            <h3>{t("plans.importCsv")}</h3>
-            <div className="field">
-              <textarea rows={4} value={csv} onChange={(e) => setCsv(e.target.value)} />
-            </div>
-            <button type="button" className="btn" onClick={() => void importCsv()}>
-              {t("plans.importCsv")}
-            </button>
           </details>
         </div>
       )}
@@ -611,7 +699,7 @@ export function PlansPage() {
                       data-testid={`plans-discover-join-${p.id}`}
                       onClick={() => void subscribe(p.id)}
                     >
-                      {t("plans.subscribe")}
+                      {t("plans.joinPlan")}
                     </button>
                   </li>
                 );
@@ -662,6 +750,252 @@ export function PlansPage() {
             </ul>
           </div>
         </div>
+      )}
+
+      {loggedIn && sheet === "none" && (
+        <button
+          type="button"
+          className="comms-fab"
+          data-testid="plans-fab"
+          aria-label={t("plans.newPlan")}
+          onClick={openCreateSheet}
+        >
+          +
+        </button>
+      )}
+
+      {sheet === "create" && (
+        <SheetPortal>
+          <div className="sheet-backdrop" role="presentation" onClick={closeSheet}>
+            <div
+              className="sheet-panel plans-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="plans-create-sheet-title"
+              data-testid="plans-create-sheet"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sheet-handle" aria-hidden />
+              <div className="chat-sheet-head">
+                <h3 id="plans-create-sheet-title" style={{ margin: 0 }}>
+                  {t("plans.newPlan")}
+                </h3>
+                <button type="button" className="btn ghost" onClick={closeSheet} aria-label="close">
+                  ✕
+                </button>
+              </div>
+              <p className="muted plans-sheet-lead">{t("plans.createHint")}</p>
+              <div className="plans-step-rail" aria-label={t("plans.create")}>
+                <span className={`plans-step-mark${createStep === 1 ? " is-on" : ""}`}>1</span>
+                <span className="plans-step-line" aria-hidden />
+                <span className={`plans-step-mark${createStep === 2 ? " is-on" : ""}`}>2</span>
+              </div>
+
+              {createStep === 1 && (
+                <div data-testid="plans-create-step-basics">
+                  <h4 className="plans-sheet-section">{t("plans.createBasics")}</h4>
+                  <div className="field">
+                    <label htmlFor="plan-title">{t("plans.title")}</label>
+                    <input
+                      id="plan-title"
+                      data-testid="plans-create-title"
+                      value={createTitle}
+                      onChange={(e) => setCreateTitle(e.target.value)}
+                      placeholder={t("plans.titlePlaceholder")}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="plan-visibility">{t("plans.visibility")}</label>
+                    <select
+                      id="plan-visibility"
+                      data-testid="plans-create-visibility"
+                      value={createVisibility}
+                      onChange={(e) => setCreateVisibility(e.target.value as PlanVisibility)}
+                    >
+                      <option value="private">{t("plans.visibilityPrivate")}</option>
+                      <option value="church">{t("plans.visibilityChurch")}</option>
+                      <option value="public">{t("plans.visibilityPublic")}</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="plan-description">{t("plans.description")}</label>
+                    <input
+                      id="plan-description"
+                      data-testid="plans-create-description"
+                      value={createDescription}
+                      onChange={(e) => setCreateDescription(e.target.value)}
+                      placeholder={t("plans.descriptionPlaceholder")}
+                    />
+                  </div>
+                  <div className="sheet-actions">
+                    <button
+                      type="button"
+                      className="btn"
+                      data-testid="plans-create-next"
+                      disabled={!canCreateNext}
+                      onClick={() => setCreateStep(2)}
+                    >
+                      {t("plans.next")}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 2 && (
+                <div data-testid="plans-create-step-days">
+                  <h4 className="plans-sheet-section">{t("plans.createSchedule")}</h4>
+                  <p className="muted">{t("plans.scheduleHint")}</p>
+                  <ul className="plans-day-list">
+                    {draftDays.map((row, index) => (
+                      <li key={`day-${index}`} className="plans-day-row">
+                        <div className="plans-day-index">{t("plans.dayOf", { day: index + 1 })}</div>
+                        <div className="field">
+                          <label htmlFor={`plan-day-ref-${index}`}>{t("plans.dayRef")}</label>
+                          <input
+                            id={`plan-day-ref-${index}`}
+                            data-testid={`plans-day-ref-${index}`}
+                            value={row.ref}
+                            onChange={(e) => updateDraftDay(index, { ref: e.target.value })}
+                            placeholder={t("plans.refPlaceholder")}
+                          />
+                        </div>
+                        <div className="field">
+                          <label htmlFor={`plan-day-title-${index}`}>{t("plans.dayTitle")}</label>
+                          <input
+                            id={`plan-day-title-${index}`}
+                            data-testid={`plans-day-title-${index}`}
+                            value={row.title}
+                            onChange={(e) => updateDraftDay(index, { title: e.target.value })}
+                            placeholder={t("plans.dayTitlePlaceholder")}
+                          />
+                        </div>
+                        {draftDays.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn ghost plans-day-remove"
+                            data-testid={`plans-day-remove-${index}`}
+                            onClick={() => removeDraftDay(index)}
+                          >
+                            {t("plans.removeDay")}
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    data-testid="plans-day-add"
+                    onClick={addDraftDay}
+                  >
+                    {t("plans.addDay")}
+                  </button>
+
+                  <details className="plans-advanced plans-sheet-advanced">
+                    <summary>{t("plans.importCsv")}</summary>
+                    <p className="muted">{t("plans.daysHint")}</p>
+                    <div className="field">
+                      <textarea
+                        rows={4}
+                        value={csv}
+                        onChange={(e) => setCsv(e.target.value)}
+                        data-testid="plans-csv-input"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={busy}
+                      data-testid="plans-csv-import"
+                      onClick={() => void importCsv()}
+                    >
+                      {t("plans.importCsv")}
+                    </button>
+                  </details>
+
+                  <div className="sheet-actions">
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      data-testid="plans-create-back"
+                      onClick={() => setCreateStep(1)}
+                    >
+                      {t("plans.back")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      data-testid="plans-create-submit"
+                      disabled={busy || !canCreateSubmit}
+                      onClick={() => void createPlan()}
+                    >
+                      {t("plans.create")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetPortal>
+      )}
+
+      {sheet === "add" && (
+        <SheetPortal>
+          <div className="sheet-backdrop" role="presentation" onClick={closeSheet}>
+            <div
+              className="sheet-panel plans-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="plans-add-sheet-title"
+              data-testid="plans-add-sheet"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sheet-handle" aria-hidden />
+              <div className="chat-sheet-head">
+                <h3 id="plans-add-sheet-title" style={{ margin: 0 }}>
+                  {t("plans.addPlan")}
+                </h3>
+                <button type="button" className="btn ghost" onClick={closeSheet} aria-label="close">
+                  ✕
+                </button>
+              </div>
+              <p className="muted plans-sheet-lead">{t("plans.addPlanHint")}</p>
+              <div className="field">
+                <label htmlFor="plan-subscribe-id">{t("plans.subscribeId")}</label>
+                <input
+                  id="plan-subscribe-id"
+                  data-testid="plans-subscribe-id"
+                  value={subscribeId}
+                  onChange={(e) => setSubscribeId(e.target.value)}
+                  placeholder={t("plans.subscribeIdPlaceholder")}
+                  autoFocus
+                />
+              </div>
+              <div className="sheet-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="plans-subscribe-submit"
+                  disabled={busy || !subscribeId.trim()}
+                  onClick={() => void subscribe()}
+                >
+                  {t("plans.joinPlan")}
+                </button>
+              </div>
+              <button
+                type="button"
+                className="btn ghost plans-sheet-secondary"
+                onClick={() => {
+                  closeSheet();
+                  setTab("discover");
+                }}
+              >
+                {t("plans.openDiscover")}
+              </button>
+            </div>
+          </div>
+        </SheetPortal>
       )}
     </section>
   );
