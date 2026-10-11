@@ -670,8 +670,111 @@ select {
   color: var(--lh-ink);
 }
 
-.plans-empty-mine .btn {
-  margin-top: 0.85rem;
+.plans-today-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.plans-today-head h2 {
+  margin: 0;
+}
+
+.plans-today-plan-select {
+  max-width: 11rem;
+}
+
+.plans-today-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--lh-font-reader, var(--br-font-reader));
+  font-size: 1.2rem;
+}
+
+.plans-today-ref-line {
+  margin: 0 0 0.75rem;
+}
+
+.plans-read-cta {
+  width: 100%;
+  min-height: 2.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.plans-step-track-compact {
+  margin: 0.35rem 0 0.55rem;
+}
+
+.plans-today-toolbar {
+  margin-top: 0.35rem;
+}
+
+.plans-today-more {
+  margin-top: 0.75rem;
+}
+
+.plans-sub-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.plans-sub-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.15rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-border, var(--br-line)) 80%, transparent);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.plans-sub-row.is-on .plans-sub-row-cta {
+  color: var(--lh-accent, var(--br-accent));
+}
+
+.plans-sub-row-main {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.plans-sub-row-cta {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  color: var(--lh-ink-muted);
+}
+
+.reader-plans-return {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.55rem 0.85rem;
+  margin: 0 0 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-border, var(--br-line)) 75%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 88%, var(--lh-accent-soft, #dceae6));
+}
+
+.reader-plans-return .btn {
+  min-height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reader-plans-return-back {
+  width: auto;
+  padding-inline: 0.85rem;
+}
+
+.reader-plans-return-done {
+  width: 100%;
 }
 
 .plans-actions-list {
