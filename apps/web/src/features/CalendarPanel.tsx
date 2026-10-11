@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
+import { SheetPortal } from "../components/SheetPortal";
 
 type CalEvent = {
   id: string;
@@ -163,18 +164,6 @@ export function CalendarPanel() {
 
   return (
     <div className="calendar-panel" data-testid="comms-calendar">
-      <div className="chat-home-header">
-        <div>
-          <h2 style={{ marginBottom: "0.2rem" }}>{t("comms.calendar")}</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("comms.calendarHint")}
-          </p>
-        </div>
-        <button type="button" className="btn" onClick={() => setComposeOpen(true)}>
-          + {t("comms.newEvent")}
-        </button>
-      </div>
-
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
       <div className="manage-subtabs" role="tablist">
@@ -341,15 +330,26 @@ export function CalendarPanel() {
         </ul>
       )}
 
+      <button
+        type="button"
+        className="comms-fab"
+        aria-label={t("comms.newEvent")}
+        onClick={() => setComposeOpen(true)}
+      >
+        +
+      </button>
+
       {composeOpen && (
-        <div className="chat-sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
+        <SheetPortal>
+        <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
           <div
-            className="chat-sheet"
+            className="sheet-panel"
             role="dialog"
             aria-modal="true"
             data-testid="calendar-compose"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="sheet-handle" aria-hidden />
             <div className="chat-sheet-head">
               <h3 style={{ margin: 0 }}>{t("comms.newEvent")}</h3>
               <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
@@ -386,6 +386,7 @@ export function CalendarPanel() {
             </button>
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   );

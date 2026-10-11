@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
+import { SheetPortal } from "../components/SheetPortal";
 
 type Contact = {
   userId: string;
@@ -97,23 +98,6 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
 
   return (
     <div className="contacts-panel" data-testid="comms-contacts">
-      <div className="chat-home-header">
-        <div>
-          <h2 style={{ marginBottom: "0.2rem" }}>{t("comms.contacts")}</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("comms.contactsHint")}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn"
-          data-testid="contacts-add-open"
-          onClick={() => setSheetOpen(true)}
-        >
-          + {t("comms.addFriend")}
-        </button>
-      </div>
-
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
 
       {incoming.length > 0 && (
@@ -215,15 +199,27 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
         </p>
       )}
 
+      <button
+        type="button"
+        className="comms-fab"
+        data-testid="contacts-add-open"
+        aria-label={t("comms.addFriend")}
+        onClick={() => setSheetOpen(true)}
+      >
+        +
+      </button>
+
       {sheetOpen && (
-        <div className="chat-sheet-backdrop" role="presentation" onClick={() => setSheetOpen(false)}>
+        <SheetPortal>
+        <div className="sheet-backdrop" role="presentation" onClick={() => setSheetOpen(false)}>
           <div
-            className="chat-sheet"
+            className="sheet-panel"
             role="dialog"
             aria-modal="true"
             data-testid="contacts-add-sheet"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="sheet-handle" aria-hidden />
             <div className="chat-sheet-head">
               <h3 style={{ margin: 0 }}>{t("comms.addFriend")}</h3>
               <button type="button" className="btn ghost" onClick={() => setSheetOpen(false)}>
@@ -251,6 +247,7 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
             </button>
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   );

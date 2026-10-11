@@ -4,6 +4,7 @@ import type { ForumPostKind } from "@logoshome/shared";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { ExternalMedia } from "./media";
+import { SheetPortal } from "../components/SheetPortal";
 
 type Board = "notice" | "general" | "group";
 type BoardInfo = { id: Board; postCount: number; latestAt: number | null };
@@ -637,20 +638,27 @@ export function DadaoPanel({
         </button>
       )}
 
-      {/* Compose sheet */}
+      {/* Compose sheet — viewport bottom sheet via portal */}
       {composeOpen && board && (
-        <div className="dadao-sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
+        <SheetPortal>
+        <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
           <div
-            className="dadao-sheet"
+            className="sheet-panel dadao-compose-sheet"
             role="dialog"
             aria-modal="true"
             aria-label={t("home.compose")}
             data-testid="dadao-compose"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>{t("home.compose")}</h3>
+            <div className="sheet-handle" aria-hidden />
+            <div className="chat-sheet-head">
+              <h3 style={{ margin: 0 }}>{t("home.compose")}</h3>
+              <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
+                ✕
+              </button>
+            </div>
             <p className="muted" style={{ marginTop: 0 }}>
-              {t(`home.board.${board}`)} · {t("home.composeHint")}
+              {t(`home.board.${board}`)}
             </p>
             <div className="field">
               <label>{t("home.postKind")}</label>
@@ -754,7 +762,7 @@ export function DadaoPanel({
                 {mediaKey ? <p className="muted">{mediaKey}</p> : null}
               </div>
             </details>
-            <div className="toolbar" style={{ marginTop: "0.85rem" }}>
+            <div className="sheet-actions">
               <button
                 type="button"
                 className="btn"
@@ -764,12 +772,10 @@ export function DadaoPanel({
               >
                 {t("home.post")}
               </button>
-              <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
-                {t("admin.cancel")}
-              </button>
             </div>
           </div>
         </div>
+        </SheetPortal>
       )}
 
     </div>
