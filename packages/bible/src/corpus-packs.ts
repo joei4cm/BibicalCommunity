@@ -98,7 +98,7 @@ function sampleKeysFor(translationId: string, refs: string[]): string[] {
 
 /**
  * Downloadable / boot packs derived from the download catalog.
- * Boot = 和合本+NASB whole-Bible; others are whole-Bible download packs.
+ * Boot = 和合本 whole-Bible; others are PD whole-Bible download packs.
  * `provider` is always `r2` — content lives in MEDIA, not TypeScript.
  * Callers should prefer corpus-catalog for install UX.
  */
@@ -220,11 +220,10 @@ export function probeCorpusPackPipeline(): CorpusPackPipelineProbe {
   const ok =
     boot.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
     boot.every((p) => bootIds.has(p.translationId as (typeof BOOT_DEFAULT_TRANSLATION_IDS)[number])) &&
-    downloadable.length >= 8 &&
+    downloadable.length >= 3 &&
     downloadable.some((p) => downloadIds.has(p.translationId as (typeof DOWNLOADABLE_TRANSLATION_IDS)[number])) &&
     languages.en >= 1 &&
     languages.zh >= 1 &&
-    languages.ja >= 1 &&
     chapterTotal >= 20 &&
     buildLocalCorpusPacks().length === 0;
 

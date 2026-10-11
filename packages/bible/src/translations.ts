@@ -19,8 +19,12 @@ export interface TranslationMeta {
 }
 
 /**
- * Mainstream zh/en/ja translations. Licensed texts are registered but served
- * only when entitlement + R2 pack exists; otherwise UI offers external partners.
+ * Translation registry.
+ *
+ * `available: true` ONLY for ids that can serve a complete Protestant corpus
+ * (~1189 chapters) via R2 / PD seed today: cuvs, web, kjv, asv.
+ * Licensed stubs, sample-only packs, and external deep-links stay registered
+ * but hidden from pickers until a full pack exists.
  */
 export const TRANSLATION_REGISTRY: TranslationMeta[] = [
   {
@@ -59,7 +63,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NIV",
-    available: true,
+    available: false,
   },
   {
     id: "esv",
@@ -69,7 +73,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=ESV",
-    available: true,
+    available: false,
   },
   {
     id: "nlt",
@@ -79,17 +83,17 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NLT",
-    available: true,
+    available: false,
   },
   {
     id: "nasb",
     abbreviation: "NASB",
     name: { "zh-CN": "新美国标准译本", en: "New American Standard Bible", ja: "NASB" },
     language: "en",
-    /** Lockman-licensed — full text only via authorized R2 upload (never getbible). */
+    /** Lockman-licensed — hidden until authorized full R2 pack is uploaded. */
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "csb",
@@ -99,7 +103,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=CSB",
-    available: true,
+    available: false,
   },
   {
     id: "nrsv",
@@ -109,7 +113,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=NRSV",
-    available: true,
+    available: false,
   },
   {
     id: "cuvs",
@@ -119,7 +123,6 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     /** 1919 和合本简体 is treated as public-domain (getbible `cus` source). */
     license: "public-domain",
     provider: "r2",
-    /** Served via R2 path when chapter JSON is present (UI may attempt load). */
     available: true,
   },
   {
@@ -129,7 +132,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "rcuv",
@@ -138,7 +141,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "ccb",
@@ -147,7 +150,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "lzz",
@@ -156,7 +159,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "zh",
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "endao",
@@ -167,7 +170,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     provider: "external",
     externalUrlTemplate: "https://www.edobible.com/?ref={ref}",
     ssoFlag: "endao",
-    available: true,
+    available: false,
   },
   {
     id: "weread",
@@ -178,7 +181,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     provider: "external",
     externalUrlTemplate: "https://bible.weixin.qq.com/?ref={ref}",
     ssoFlag: "weread",
-    available: true,
+    available: false,
   },
   {
     id: "sigao",
@@ -188,7 +191,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.biblegateway.com/passage/?search={ref}&version=CNV",
-    available: true,
+    available: false,
   },
   {
     id: "kougo",
@@ -197,7 +200,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "kougoyaku-pd",
@@ -206,7 +209,8 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "public-domain",
     provider: "r2",
-    available: true,
+    /** No PD seed / full R2 pack yet — keep hidden. */
+    available: false,
   },
   {
     id: "shinkaiyaku",
@@ -215,8 +219,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "licensed",
     provider: "r2",
-    /** Served via R2 path when chapter JSON is present (UI may attempt load). */
-    available: true,
+    available: false,
   },
   {
     id: "shinKyoudou",
@@ -225,7 +228,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     language: "ja",
     license: "licensed",
     provider: "r2",
-    available: true,
+    available: false,
   },
   {
     id: "living-ja",
@@ -239,7 +242,7 @@ export const TRANSLATION_REGISTRY: TranslationMeta[] = [
     license: "external",
     provider: "external",
     externalUrlTemplate: "https://www.bible.com/bible/1819/{ref}",
-    available: true,
+    available: false,
   },
 ];
 

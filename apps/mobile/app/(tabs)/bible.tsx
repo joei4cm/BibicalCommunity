@@ -88,9 +88,9 @@ export default function BibleScreen() {
     chapter?: string;
     verse?: string;
   }>();
-  const translations = listTranslations();
+  const translations = listTranslations({ offlineCapableOnly: true, availableOnly: true });
   const books = useMemo(() => listBooks(), []);
-  /** Boot defaults: 和合本 + NASB only (whole-Bible). */
+  /** Boot default: 和合本 whole-Bible (complete corpus only). */
   const [translationId, setTranslationId] = useState("cuvs");
   const [bookId, setBookId] = useState("John");
   const [chapterNum, setChapterNum] = useState(1);

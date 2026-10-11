@@ -622,7 +622,7 @@ adminRoutes.get("/corpus/pd-status/:tid", async (c) => {
 });
 
 /**
- * Seed boot corpora (cuvs+nasb demo packs) into D1 — for temporary Workers without R2.
+ * Seed boot corpora (cuvs + PD peers demo packs) into D1 — for temporary Workers without R2.
  * platform_admin only. Does not close CORPUS_LIVE_R2 (production still needs R2).
  */
 adminRoutes.post("/corpus/d1-seed-boot", async (c) => {
@@ -648,7 +648,7 @@ adminRoutes.get("/corpus/d1-status", async (c) => {
   const db = drizzle(c.env.DB, { schema });
   const access = await loadAdminAccess(db, c.get("userId"));
   if (!access.platformAdmin) return c.json({ error: "forbidden" }, 403);
-  const tids = ["cuvs", "nasb", "web", "kjv", "asv"];
+  const tids = ["cuvs", "web", "kjv", "asv"];
   const counts: Record<string, number> = {};
   for (const tid of tids) {
     counts[tid] = await countD1CorpusChapters(db, tid);

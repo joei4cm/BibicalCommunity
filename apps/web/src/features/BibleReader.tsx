@@ -452,7 +452,8 @@ export function BibleReader() {
   const [searchParams] = useSearchParams();
   const books = useMemo(() => listBooks(), []);
   const routeTid =
-    params.tid && listTranslations({ offlineCapableOnly: true }).some((tr) => tr.id === params.tid)
+    params.tid &&
+    listTranslations({ offlineCapableOnly: true, availableOnly: true }).some((tr) => tr.id === params.tid)
       ? params.tid
       : "cuvs";
   const routeBookId = bookIdFromSlug(params.bookSlug ?? "john") ?? "John";
@@ -703,7 +704,7 @@ export function BibleReader() {
     Record<string, InstalledTranslationSummary>
   >({});
   const [downloadingTid, setDownloadingTid] = useState<string | null>(null);
-  const translations = listTranslations({ offlineCapableOnly: true });
+  const translations = listTranslations({ offlineCapableOnly: true, availableOnly: true });
   const locale = (i18n.language || "zh-CN") as "zh-CN" | "en" | "ja";
   const bookNameLocale = bookLocaleKey(i18n.language || "zh-CN");
   const currentBook = getBook(bookId) ?? books[0];
@@ -837,18 +838,18 @@ export function BibleReader() {
 
   /**
    * After login: warm public-domain 和合本 into R2 (parallel books), then pull
-   * cuvs + nasb packs into IndexedDB so incomplete demo boot is replaced.
+   * cuvs (and optional PD peers) into IndexedDB so incomplete demo boot is replaced.
    */
   useEffect(() => {
     if (!getToken()) return;
-    const warmKey = "lh.bible.cuvsWarm.v2";
+    const warmKey = "lh.bible.cuvsWarm.v3";
     if (localStorage.getItem(warmKey) === "1") return;
     if ((window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm) return;
     (window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm = true;
     void (async () => {
       try {
         await warmPdBooksInParallel("cuvs", 6);
-        for (const tid of ["cuvs", "nasb"] as const) {
+        for (const tid of ["cuvs", "web", "kjv", "asv"] as const) {
           try {
             const pack = await fetchCorpusPackPaged(tid);
             if (pack?.chapters?.length && pack.source !== "demo") {

@@ -145,9 +145,9 @@ export async function seedD1DemoCorpus(
   return { inserted, translationId };
 }
 
-/** Seed boot tids (cuvs + nasb) into D1 for temporary Workers. */
+/** Seed boot tids (cuvs) into D1 for temporary Workers. */
 export async function seedD1BootCorpus(db: Db): Promise<{ tids: string[]; total: number }> {
-  const tids = ["cuvs", "nasb"];
+  const tids = ["cuvs"];
   let total = 0;
   for (const tid of tids) {
     const r = await seedD1DemoCorpus(db, tid);

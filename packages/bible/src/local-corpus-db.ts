@@ -189,11 +189,11 @@ export class LocalCorpusDb {
 }
 
 /**
- * Boot defaults — only these local translations at first launch:
- * 和合本 (cuvs) + NASB. Everything else is optional whole-Bible download.
+ * Boot defaults — only translations that can ship a complete corpus today.
+ * 和合本 (cuvs) boots first; WEB/KJV/ASV are optional whole-Bible downloads.
  * Never densify verse text into TypeScript; never chapter-by-chapter product UX.
  */
-export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs", "nasb"] as const;
+export const BOOT_DEFAULT_TRANSLATION_IDS = ["cuvs"] as const;
 
 /**
  * @deprecated Product boot is whole-Bible for BOOT_DEFAULT_TRANSLATION_IDS.
@@ -255,29 +255,16 @@ export function listProtestantChapterRefs(): string[] {
   return refs;
 }
 
-/** Extra licensed/PD ids users may download as whole-Bible packs (not bundled). */
-export const DOWNLOADABLE_TRANSLATION_IDS = [
-  "cuvt",
-  "rcuv",
-  "ccb",
-  "lzz",
-  "web",
-  "shinKyoudou",
-  "kougo",
-  "shinkaiyaku",
-  "kjv",
-  "asv",
-  "kougoyaku-pd",
-] as const;
+/**
+ * Optional whole-Bible downloads with a complete PD corpus path (getbible → R2).
+ * Incomplete licensed/sample tids are not listed.
+ */
+export const DOWNLOADABLE_TRANSLATION_IDS = ["web", "kjv", "asv"] as const;
 
 /** Tids that can advertise a full Protestant whole-Bible R2 pack. */
-const WHOLE_BIBLE_PACK_IDS = new Set([
+const WHOLE_BIBLE_PACK_IDS = new Set<string>([
   ...BOOT_DEFAULT_TRANSLATION_IDS,
-  "web",
-  "kjv",
-  "asv",
-  "cuvt",
-  "rcuv",
+  ...DOWNLOADABLE_TRANSLATION_IDS,
 ]);
 
 export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
@@ -286,24 +273,19 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
   const downloadable = new Set<string>(DOWNLOADABLE_TRANSLATION_IDS);
   const wholeRefs = listProtestantChapterRefs();
 
-  for (const t of listTranslations()) {
+  // Only list translations that are available AND have a full-pack path.
+  for (const t of listTranslations({ availableOnly: true })) {
     let installMode: DownloadableCorpusPack["installMode"];
     if (t.provider === "external") installMode = "external";
     else if (boot.has(t.id)) installMode = "boot";
-    else if (downloadable.has(t.id) || t.provider === "r2" || t.provider === "local") {
-      installMode = "download";
-    } else {
-      installMode = "external";
+    else if (downloadable.has(t.id)) installMode = "download";
+    else {
+      // Available but not in boot/download sets — skip (should not happen).
+      continue;
     }
 
     // Product unit is always the whole Bible for boot/download (never chapter packs).
-    const chapterRefs =
-      installMode === "external"
-        ? []
-        : WHOLE_BIBLE_PACK_IDS.has(t.id)
-          ? wholeRefs
-          : [...PD_DENSE_CHAPTER_REFS];
-
+    const chapterRefs = installMode === "external" ? [] : wholeRefs;
     const fullPackAvailable = installMode !== "external" && WHOLE_BIBLE_PACK_IDS.has(t.id);
     const fullPackChapterCount = fullPackAvailable ? wholeRefs.length : undefined;
 
@@ -572,8 +554,9 @@ export async function probeLocalCorpusPipeline(
   const ok =
     boot.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
     boot.every((b) => (BOOT_DEFAULT_TRANSLATION_IDS as readonly string[]).includes(b.translationId)) &&
-    downloadable.length >= 5 &&
-    external.some((e) => e.translationId === "esv") &&
+    downloadable.length >= 3 &&
+    downloadable.every((d) => ["web", "kjv", "asv"].includes(d.translationId)) &&
+    external.length === 0 &&
     installed.length === BOOT_DEFAULT_TRANSLATION_IDS.length &&
     (john1?.verses.length ?? 0) >= 2 &&
     Boolean(john1?.verses[0]?.text.includes("太初有道") || john1?.verses[0]?.text.includes("本地库"));
