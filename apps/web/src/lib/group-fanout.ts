@@ -37,7 +37,12 @@ export async function encryptGroupFanout(opts: {
   const degradedPeers: string[] = [];
 
   for (const peerId of peers) {
-    const enc = await encryptChatMessage(opts.conversationId, opts.plaintext, peerId);
+    const enc = await encryptChatMessage(
+      opts.conversationId,
+      opts.plaintext,
+      peerId,
+      opts.fromUserId,
+    );
     envelopes[peerId] = {
       ratchetHeader: enc.ratchetHeader,
       ciphertext: enc.ciphertext,
@@ -81,11 +86,12 @@ export async function decryptGroupFanout(opts: {
   if (!mine?.ratchetHeader || !mine.ciphertext) {
     throw new Error("group_fanout_no_envelope");
   }
-  // Pairwise session is keyed by the sender (from).
+  // Pairwise session is keyed by the sender (from) + self.
   return decryptChatMessage(
     opts.conversationId,
     mine.ratchetHeader,
     mine.ciphertext,
     blob.from || null,
+    opts.selfUserId,
   );
 }
