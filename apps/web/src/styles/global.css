@@ -1095,15 +1095,18 @@ body:has(.app-folio) .tab-bar a {
   border-bottom: 1px solid var(--lh-border);
 }
 
-.comms-tabs,
-.me-tabs {
+.comms-tabs {
   grid-template-columns: repeat(4, 1fr);
 }
 
+.me-tabs {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .me-tabs .plans-tab {
-  font-size: 0.8rem;
-  padding-left: 0.2rem;
-  padding-right: 0.2rem;
+  font-size: 0.9rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 .plans-tab {

@@ -265,6 +265,9 @@ export default function MeScreen() {
             discoverableByUid: privacy.discoverableByUid,
             showInChurchDirectory: privacy.showInChurchDirectory,
             allowMessageRequests: privacy.allowMessageRequests,
+            shareReadReceipts: privacy.shareReadReceipts,
+            shareTypingIndicators: privacy.shareTypingIndicators,
+            shareLastActive: privacy.shareLastActive,
           },
         }),
       });
@@ -452,78 +455,121 @@ export default function MeScreen() {
             </Pressable>
           </View>
         </>
-      ) : (
+      ) : null}
+      {statusText && <Text style={styles.muted}>{statusText}</Text>}
+
+      {signedIn && (
         <>
-          <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.tabAccount")}</Text>
+          <Text style={[styles.section, { marginTop: 28 }]}>
+            {t(locale, "me.tabPersonal")}
+          </Text>
+
+          <Text style={[styles.section, { marginTop: 16, fontSize: 16 }]}>{t(locale, "me.account")}</Text>
           <Text style={styles.body}>
             {t(locale, "me.signedIn")} · UID: <Text style={styles.strong}>{profile?.uid}</Text>
           </Text>
           <Pressable style={[styles.btn, styles.btnGhost, { marginTop: 12 }]} onPress={() => void signOut()}>
             <Text style={[styles.btnText, styles.btnGhostText]}>{t(locale, "me.signOut")}</Text>
           </Pressable>
+
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.profile")}</Text>
+          <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
+          <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
+          <Text style={styles.label}>{t(locale, "me.legalName")}</Text>
+          <TextInput style={styles.input} value={legalName} onChangeText={setLegalName} />
+          <Text style={styles.label}>{t(locale, "me.signature")}</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            value={signature}
+            onChangeText={setSignature}
+            multiline
+            textAlignVertical="top"
+          />
+          <Pressable
+            style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void saveProfile()}
+          >
+            <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
+          </Pressable>
+
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.privacy")}</Text>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByHandle")}</Text>
+            <Switch
+              value={privacy.discoverableByHandle}
+              onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByHandle: v }))}
+              trackColor={{ true: palette.accent }}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByUid")}</Text>
+            <Switch
+              value={privacy.discoverableByUid}
+              onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByUid: v }))}
+              trackColor={{ true: palette.accent }}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>{t(locale, "me.showInChurchDirectory")}</Text>
+            <Switch
+              value={privacy.showInChurchDirectory}
+              onValueChange={(v) => setPrivacy((p) => ({ ...p, showInChurchDirectory: v }))}
+              trackColor={{ true: palette.accent }}
+            />
+          </View>
+          <Pressable
+            style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void saveProfile()}
+          >
+            <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
+          </Pressable>
+
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.churches")}</Text>
+          {!profile?.churches?.length ? (
+            <Text style={styles.muted}>—</Text>
+          ) : (
+            profile.churches.map((c) => (
+              <View key={c.churchId} style={styles.listItem}>
+                <Text style={styles.strong}>{c.name ?? c.churchId}</Text>
+                <Text style={styles.muted}>
+                  {c.role}
+                  {c.slug ? ` · ${c.slug}` : ""}
+                  {c.verified
+                    ? ` · ${t(locale, "me.verified")}`
+                    : ` · ${t(locale, "me.pendingVerify")}`}
+                </Text>
+              </View>
+            ))
+          )}
+
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.search")}</Text>
+          <Text style={styles.label}>{t(locale, "me.searchUid")}</Text>
+          <TextInput
+            style={styles.input}
+            value={searchQ}
+            onChangeText={setSearchQ}
+            placeholder="UID"
+            autoCapitalize="none"
+          />
+          <Pressable style={[styles.btn, { marginTop: 12 }]} onPress={() => void searchUsers()}>
+            <Text style={styles.btnText}>{t(locale, "me.search")}</Text>
+          </Pressable>
+          {searchResults.map((r) => (
+            <View key={r.id} style={styles.listItem}>
+              <Text style={styles.strong}>{r.uid}</Text>
+              {r.nickname ? <Text style={styles.muted}>{r.nickname}</Text> : null}
+            </View>
+          ))}
         </>
       )}
-      {statusText && <Text style={styles.muted}>{statusText}</Text>}
 
-      {signedIn && (
-        <>
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.profile")}</Text>
-      <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
-      <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
-      <Text style={styles.label}>{t(locale, "me.legalName")}</Text>
-      <TextInput style={styles.input} value={legalName} onChangeText={setLegalName} />
-      <Text style={styles.label}>{t(locale, "me.signature")}</Text>
-      <TextInput
-        style={[styles.input, styles.textarea]}
-        value={signature}
-        onChangeText={setSignature}
-        multiline
-        textAlignVertical="top"
-      />
-      <Pressable
-        style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
-        disabled={busy}
-        onPress={() => void saveProfile()}
-      >
-        <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
-      </Pressable>
+      <Text style={[styles.section, { marginTop: 28 }]}>
+        {t(locale, "me.tabSystem")}
+      </Text>
 
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.privacy")}</Text>
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByHandle")}</Text>
-        <Switch
-          value={privacy.discoverableByHandle}
-          onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByHandle: v }))}
-          trackColor={{ true: palette.accent }}
-        />
-      </View>
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByUid")}</Text>
-        <Switch
-          value={privacy.discoverableByUid}
-          onValueChange={(v) => setPrivacy((p) => ({ ...p, discoverableByUid: v }))}
-          trackColor={{ true: palette.accent }}
-        />
-      </View>
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>{t(locale, "me.showInChurchDirectory")}</Text>
-        <Switch
-          value={privacy.showInChurchDirectory}
-          onValueChange={(v) => setPrivacy((p) => ({ ...p, showInChurchDirectory: v }))}
-          trackColor={{ true: palette.accent }}
-        />
-      </View>
-      <Pressable
-        style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
-        disabled={busy}
-        onPress={() => void saveProfile()}
-      >
-        <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
-      </Pressable>
-        </>
-      )}
-
-      <Text style={[styles.label, { marginTop: 28 }]}>{t(locale, "landing.theme")}</Text>
+      <Text style={[styles.label, { marginTop: 12 }]}>{t(locale, "me.theme")}</Text>
       <View style={styles.row}>
         {THEME_IDS.map((id) => {
           const active = id === theme;
@@ -539,7 +585,7 @@ export default function MeScreen() {
         })}
       </View>
 
-      <Text style={styles.label}>Language</Text>
+      <Text style={styles.label}>{t(locale, "me.language")}</Text>
       <View style={styles.row}>
         {LOCALES.map((item) => {
           const active = item.id === locale;
@@ -557,67 +603,71 @@ export default function MeScreen() {
 
       {signedIn && (
         <>
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "security.deviceKeys")}</Text>
-      <Text style={styles.muted}>{t(locale, "security.deviceKeysHint")}</Text>
-      <Text style={styles.muted}>
-        {hasDeviceKey ? t(locale, "security.deviceKeysPresent") : t(locale, "security.deviceKeysMissing")}
-      </Text>
-      <Pressable
-        style={[styles.btn, { marginTop: 12 }, keyBusy && styles.btnDisabled]}
-        disabled={keyBusy}
-        onPress={() => void uploadDeviceKeys()}
-      >
-        <Text style={styles.btnText}>
-          {hasDeviceKey ? t(locale, "security.reuploadKeys") : t(locale, "security.uploadKeys")}
-        </Text>
-      </Pressable>
-
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.churches")}</Text>
-      {!profile?.churches?.length ? (
-        <Text style={styles.muted}>—</Text>
-      ) : (
-        profile.churches.map((c) => (
-          <View key={c.churchId} style={styles.listItem}>
-            <Text style={styles.strong}>{c.name ?? c.churchId}</Text>
-            <Text style={styles.muted}>
-              {c.role}
-              {c.slug ? ` · ${c.slug}` : ""}
-              {c.verified
-                ? ` · ${t(locale, "me.verified")}`
-                : ` · ${t(locale, "me.pendingVerify")}`}
-            </Text>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>
+            {t(locale, "me.notifications")}
+          </Text>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>{t(locale, "me.shareReadReceipts")}</Text>
+            <Switch
+              value={privacy.shareReadReceipts}
+              onValueChange={(v) => setPrivacy((p) => ({ ...p, shareReadReceipts: v }))}
+              trackColor={{ true: palette.accent }}
+            />
           </View>
-        ))
-      )}
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>{t(locale, "me.shareTypingIndicators")}</Text>
+            <Switch
+              value={privacy.shareTypingIndicators}
+              onValueChange={(v) => setPrivacy((p) => ({ ...p, shareTypingIndicators: v }))}
+              trackColor={{ true: palette.accent }}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>{t(locale, "me.shareLastActive")}</Text>
+            <Switch
+              value={privacy.shareLastActive}
+              onValueChange={(v) => setPrivacy((p) => ({ ...p, shareLastActive: v }))}
+              trackColor={{ true: palette.accent }}
+            />
+          </View>
+          <Pressable
+            style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void saveProfile()}
+          >
+            <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
+          </Pressable>
 
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.search")}</Text>
-      <Text style={styles.label}>{t(locale, "me.searchUid")}</Text>
-      <TextInput
-        style={styles.input}
-        value={searchQ}
-        onChangeText={setSearchQ}
-        placeholder="UID"
-        autoCapitalize="none"
-      />
-      <Pressable style={[styles.btn, { marginTop: 12 }]} onPress={() => void searchUsers()}>
-        <Text style={styles.btnText}>{t(locale, "me.search")}</Text>
-      </Pressable>
-      {searchResults.map((r) => (
-        <View key={r.id} style={styles.listItem}>
-          <Text style={styles.strong}>{r.uid}</Text>
-          {r.nickname ? <Text style={styles.muted}>{r.nickname}</Text> : null}
-        </View>
-      ))}
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>
+            {t(locale, "security.deviceKeys")}
+          </Text>
+          <Text style={styles.muted}>{t(locale, "security.deviceKeysHint")}</Text>
+          <Text style={styles.muted}>
+            {hasDeviceKey
+              ? t(locale, "security.deviceKeysPresent")
+              : t(locale, "security.deviceKeysMissing")}
+          </Text>
+          <Pressable
+            style={[styles.btn, { marginTop: 12 }, keyBusy && styles.btnDisabled]}
+            disabled={keyBusy}
+            onPress={() => void uploadDeviceKeys()}
+          >
+            <Text style={styles.btnText}>
+              {hasDeviceKey ? t(locale, "security.reuploadKeys") : t(locale, "security.uploadKeys")}
+            </Text>
+          </Pressable>
 
-      <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "security.wipe")}</Text>
-      <Text style={styles.muted}>{t(locale, "security.wipeHint")}</Text>
-      <Pressable
-        style={[styles.btn, styles.btnDanger, { marginTop: 12 }, busy && styles.btnDisabled]}
-        disabled={busy}
-        onPress={confirmWipe}
-      >
-        <Text style={styles.btnText}>{t(locale, "security.wipe")}</Text>
-      </Pressable>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>
+            {t(locale, "security.wipe")}
+          </Text>
+          <Text style={styles.muted}>{t(locale, "security.wipeHint")}</Text>
+          <Pressable
+            style={[styles.btn, styles.btnDanger, { marginTop: 12 }, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={confirmWipe}
+          >
+            <Text style={styles.btnText}>{t(locale, "security.wipe")}</Text>
+          </Pressable>
         </>
       )}
     </ScrollView>
