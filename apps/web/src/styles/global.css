@@ -699,15 +699,139 @@ select {
 .plans-read-cta {
   width: 100%;
   min-height: 2.85rem;
-  margin-bottom: 0.85rem;
+  margin: 0.55rem 0 0;
 }
 
 .plans-step-track-compact {
   margin: 0.35rem 0 0.55rem;
 }
 
+.plans-timeline {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0;
+  margin: 0.15rem 0 0.85rem;
+  padding: 0.15rem 0.1rem 0;
+}
+
+.plans-timeline-item {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.plans-timeline-node {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.plans-timeline-dot {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--lh-ink-muted, #888) 55%, transparent);
+  background: var(--lh-bg-elevated, #fff);
+  z-index: 1;
+}
+
+.plans-timeline-item.is-done .plans-timeline-dot {
+  border-color: var(--lh-accent, #0f6b5c);
+  background: var(--lh-accent, #0f6b5c);
+}
+
+.plans-timeline-item.is-current .plans-timeline-dot {
+  border-color: var(--lh-accent, #0f6b5c);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--lh-accent, #0f6b5c) 18%, transparent);
+}
+
+.plans-timeline-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--lh-ink-muted, #666);
+  white-space: nowrap;
+}
+
+.plans-timeline-item.is-current .plans-timeline-label {
+  color: var(--lh-ink, #1a1a1a);
+  font-weight: 700;
+}
+
+.plans-timeline-rail {
+  position: absolute;
+  top: 0.48rem;
+  left: calc(50% + 0.45rem);
+  right: calc(-50% + 0.45rem);
+  height: 2px;
+  background: color-mix(in srgb, var(--lh-ink-muted, #888) 28%, transparent);
+  pointer-events: none;
+}
+
+.plans-timeline-item.is-done .plans-timeline-rail {
+  background: color-mix(in srgb, var(--lh-accent, #0f6b5c) 70%, transparent);
+}
+
+.plans-stage-card {
+  margin: 0 0 0.65rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--lh-border, var(--br-line)) 85%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 92%, var(--lh-accent, #0f6b5c) 4%);
+}
+
+.plans-stage-kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--lh-ink-muted, #666);
+}
+
+.plans-stage-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+
+.plans-stage-body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.plans-stage-body--scroll {
+  max-height: 11rem;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.plans-stage-attr {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 .plans-today-toolbar {
   margin-top: 0.35rem;
+}
+
+.plans-today-toolbar .btn {
+  width: 100%;
+  min-height: 2.7rem;
 }
 
 .plans-today-more {
@@ -2327,8 +2451,59 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .bible-reading-dock.is-collapsed {
+  left: auto;
+  right: 0;
+  bottom: calc(6.4rem + env(safe-area-inset-bottom));
   width: auto;
-  padding: 0.3rem 0.45rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px 0 0 12px;
+  border-right: 0;
+  box-shadow: -4px 6px 18px rgba(20, 28, 36, 0.14);
+  animation: bible-dock-edge-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bible-dock-edge-tab {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 1.65rem;
+  padding: 0.7rem 0.35rem 0.7rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--br-accent, var(--lh-accent));
+  font-family: var(--br-font-ui, inherit);
+  cursor: pointer;
+}
+
+.bible-dock-edge-tab-mark {
+  font-size: 1.05rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.bible-dock-edge-tab-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
+}
+
+@keyframes bible-dock-edge-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .bible-dock-highlight-tray {
@@ -3509,7 +3684,9 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   inset: 0;
   z-index: 55;
   min-height: 100dvh;
-  background: var(--lh-bg, var(--br-bg, #f6f4f1));
+  background:
+    radial-gradient(120% 80% at 10% -10%, color-mix(in srgb, var(--lh-accent, #0f6b5c) 10%, transparent), transparent 55%),
+    linear-gradient(180deg, var(--lh-bg, #f3efe6) 0%, color-mix(in srgb, var(--lh-bg, #f3efe6) 82%, #d9e3ea) 100%);
   display: flex;
   flex-direction: column;
 }
@@ -3525,15 +3702,29 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  padding: calc(0.55rem + env(safe-area-inset-top)) 0.65rem 0.55rem;
-  border-bottom: 1px solid var(--br-line, var(--lh-border));
-  background: var(--lh-bg-elevated, var(--lh-glass-strong, #fff));
+  padding: calc(0.55rem + env(safe-area-inset-top)) 0.75rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 70%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.im-back,
+.im-thread-bar .btn.ghost {
+  min-width: 2.45rem;
+  min-height: 2.45rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 85%, transparent);
+  background: var(--lh-bg-elevated, #fff);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .im-back {
-  font-size: 1.25rem;
-  min-width: 2.5rem;
-  padding-inline: 0.4rem;
+  font-size: 1.2rem;
+  padding-inline: 0;
 }
 
 .im-thread-title {
@@ -3601,21 +3792,24 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 .im-thread .im-messages.chat-thread {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.65rem;
   flex: 1;
   min-height: 0;
   max-height: none;
   margin: 0;
-  padding: 0.85rem 0.85rem 0.5rem;
+  padding: 0.95rem 0.9rem 0.55rem;
   border: 0;
+  background: transparent;
 }
 
 .im-thread .chat-bubble {
-  padding: 0.45rem 0.65rem;
+  padding: 0.55rem 0.8rem;
   border-bottom: 0;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 88%, var(--lh-ink) 4%);
-  max-width: min(92%, 28rem);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 55%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 94%, transparent);
+  box-shadow: 0 1px 2px rgba(20, 28, 36, 0.04);
+  max-width: min(88%, 26rem);
 }
 
 .im-thread .chat-bubble-text {
@@ -3635,10 +3829,10 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 .im-composer {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.45rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--br-line, var(--lh-border));
-  background: var(--lh-bg-elevated, #fff);
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
+  border-top: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 70%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 96%, var(--lh-bg, #f3efe6));
   flex-shrink: 0;
 }
 
@@ -3824,15 +4018,6 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   font-size: 0.86rem;
 }
 
-.im-thread .chat-bubble.is-mine {
-  margin-left: auto;
-  background: color-mix(in srgb, var(--lh-accent) 16%, #fff);
-}
-
-.im-thread .chat-bubble.is-peer {
-  margin-right: auto;
-}
-
 .call-overlay {
   position: fixed;
   inset: 0;
@@ -3959,16 +4144,38 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 
 .im-composer-input {
   flex: 1;
-  min-height: 2.4rem;
+  min-height: 2.55rem;
   max-height: 7rem;
   resize: none;
-  border-radius: 12px;
-  padding: 0.55rem 0.75rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 90%, transparent);
+  background: var(--lh-bg-elevated, #fff);
+  padding: 0.6rem 0.85rem;
   font: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.im-composer-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--lh-accent, #0f6b5c) 45%, var(--br-line, #ccc));
 }
 
 .im-send {
   flex-shrink: 0;
+  min-height: 2.55rem;
+  min-width: 4.4rem;
+  border-radius: 14px;
+  padding-inline: 1rem;
+}
+
+.im-thread .chat-bubble.is-mine {
+  margin-left: auto;
+  border-color: color-mix(in srgb, var(--lh-accent, #0f6b5c) 22%, transparent);
+  background: color-mix(in srgb, var(--lh-accent, #0f6b5c) 14%, #fff);
+}
+
+.im-thread .chat-bubble.is-peer {
+  margin-right: auto;
 }
 
 .chat-media {

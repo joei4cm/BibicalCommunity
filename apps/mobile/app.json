@@ -3,11 +3,16 @@
     "name": "LogosHome",
     "slug": "logoshome",
     "scheme": "logoshome",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android"],
-    "plugins": ["expo-router"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-router"
+    ],
     "ios": {
       "infoPlist": {
         "NSCameraUsageDescription": "LogosHome needs the camera for video calls.",
