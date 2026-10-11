@@ -1,4 +1,4 @@
-# LogosHome desktop shell
+# LogosHome desktop (Electron)
 
 Thin Electron wrapper around `apps/web/dist`.
 
@@ -6,9 +6,8 @@ Thin Electron wrapper around `apps/web/dist`.
 pnpm --filter @logoshome/web build
 cd apps/desktop && npm install
 npm run dist:linux   # AppImage + deb
-npm run dist:mac     # DMG (macOS host)
+npm run dist:mac     # DMG + zip (macOS host; unsigned OK in CI)
+npm run dist:win     # NSIS + portable exe (Windows host)
 ```
 
-CI (`.github/workflows/package.yml`) builds Linux packages on every `main` push and attaches DMG/AppImage/deb to GitHub Releases when a `v*` tag is pushed.
-
-Mobile APK/IPA builds run via Expo EAS when the `EXPO_TOKEN` repository secret is set.
+CI (`.github/workflows/package.yml`) builds Linux, Windows, and macOS artifacts on every `main` push and attaches them to GitHub Releases on `v*` tags.
