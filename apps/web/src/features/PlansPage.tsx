@@ -3,10 +3,14 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   bookSlug,
+  calendarMd,
+  getCalendarDevotion,
   listDevotionMaterials,
   listStudyMaterials,
+  loadOpenDevotionalsFromUrl,
   parsePlanCsv,
   parseRef,
+  type CalendarDevotion,
 } from "@logoshome/bible";
 import { api, apiOptional, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
@@ -103,6 +107,9 @@ export function PlansPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
   const [activeSubPlanId, setActiveSubPlanId] = useState<string | null>(null);
   const [materialId, setMaterialId] = useState("morning-examen");
+  const [calendarDevotion, setCalendarDevotion] = useState<CalendarDevotion>(() =>
+    getCalendarDevotion(calendarMd()),
+  );
   const progress = devotionProgress(step);
 
   const lang = i18n.language.startsWith("zh") ? "zh" : i18n.language.startsWith("ja") ? "ja" : "en";
@@ -161,6 +168,20 @@ export function PlansPage() {
   useEffect(() => {
     void refreshPublicAndSubs();
   }, [refreshPublicAndSubs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadOpenDevotionalsFromUrl()
+      .then(() => {
+        if (!cancelled) setCalendarDevotion(getCalendarDevotion(calendarMd()));
+      })
+      .catch(() => {
+        if (!cancelled) setCalendarDevotion(getCalendarDevotion(calendarMd()));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const sub =
@@ -532,68 +553,126 @@ export function PlansPage() {
                 {activeSub.title ?? t("plans.untitled")}
               </p>
               {todayDay ? (
-                <>
-                  <p className="muted plans-today-ref-line" data-testid="plans-today-reading">
-                    {t("plans.todayReading")}
-                    {todayDay.title ? ` · ${todayDay.title}` : ""} · <strong>{todayDay.ref}</strong>
-                  </p>
-                  <button
-                    type="button"
-                    className="btn plans-read-cta"
-                    data-testid="plans-start-reading"
-                    onClick={() => openReadingForSub(activeSub)}
-                  >
-                    {step === "read" || step === "pause"
-                      ? t("plans.startReading")
-                      : t("plans.continueReading")}
-                  </button>
-                </>
+                <p className="muted plans-today-ref-line" data-testid="plans-today-reading">
+                  {t("plans.todayReading")}
+                  {todayDay.title ? ` · ${todayDay.title}` : ""} · <strong>{todayDay.ref}</strong>
+                </p>
               ) : (
                 <p className="muted">{t("plans.noTodayReading")}</p>
               )}
 
-              <div className="step-track plans-step-track-compact" role="list">
+              <ol className="plans-timeline" data-testid="plans-timeline" aria-label={t("plans.devotion")}>
                 {stepGuide.map((s, i) => {
                   const state = i < progress.index ? "done" : i === progress.index ? "current" : "todo";
                   return (
-                    <button
-                      key={s}
-                      type="button"
-                      role="listitem"
-                      className={`step-chip step-${state}`}
-                      onClick={() => void persistDevotion(s)}
-                    >
-                      <span className="step-index">{i + 1}</span>
-                      {t(`devotion.${s}`)}
-                    </button>
+                    <li key={s} className={`plans-timeline-item is-${state}`}>
+                      <button
+                        type="button"
+                        className="plans-timeline-node"
+                        data-testid={`plans-timeline-${s}`}
+                        aria-current={state === "current" ? "step" : undefined}
+                        onClick={() => void persistDevotion(s)}
+                      >
+                        <span className="plans-timeline-dot" aria-hidden="true" />
+                        <span className="plans-timeline-label">{t(`devotion.${s}`)}</span>
+                      </button>
+                      {i < stepGuide.length - 1 && <span className="plans-timeline-rail" aria-hidden="true" />}
+                    </li>
                   );
                 })}
+              </ol>
+
+              <div className="plans-stage-card" data-testid="plans-stage-card">
+                <p className="plans-stage-kicker">
+                  {t("plans.stepProgress", {
+                    current: progress.index + 1,
+                    total: stepGuide.length,
+                  })}
+                  · {t(`devotion.${step}`)}
+                </p>
+                {step === "pause" && (
+                  <>
+                    <p className="plans-stage-body">{t("plans.stagePauseHint")}</p>
+                    {todayDay && (
+                      <button
+                        type="button"
+                        className="btn plans-read-cta"
+                        data-testid="plans-start-reading"
+                        onClick={() => openReadingForSub(activeSub)}
+                      >
+                        {t("plans.startReading")}
+                      </button>
+                    )}
+                  </>
+                )}
+                {step === "read" && (
+                  <>
+                    <p className="plans-stage-body">{t("plans.stageReadHint")}</p>
+                    {todayDay && (
+                      <button
+                        type="button"
+                        className="btn plans-read-cta"
+                        data-testid="plans-start-reading"
+                        onClick={() => openReadingForSub(activeSub)}
+                      >
+                        {t("plans.startReading")}
+                      </button>
+                    )}
+                  </>
+                )}
+                {step === "reflect" && (
+                  <>
+                    <h3 className="plans-stage-title">{calendarDevotion.reflectTitle}</h3>
+                    <p className="plans-stage-body plans-stage-body--scroll">
+                      {calendarDevotion.reflectBody}
+                    </p>
+                    <p className="muted plans-stage-attr">{calendarDevotion.attribution.reflect}</p>
+                  </>
+                )}
+                {step === "pray" && (
+                  <>
+                    <h3 className="plans-stage-title">{calendarDevotion.prayTitle}</h3>
+                    <p className="plans-stage-body plans-stage-body--scroll">
+                      {calendarDevotion.prayBody}
+                    </p>
+                    <p className="muted plans-stage-attr">{calendarDevotion.attribution.pray}</p>
+                  </>
+                )}
+                {step === "act" && (
+                  <p className="plans-stage-body">{t("plans.stageActHint")}</p>
+                )}
               </div>
+
               <div className="toolbar plans-today-toolbar">
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={advance}
-                  disabled={progress.done}
-                  data-testid="plans-next-step"
-                >
-                  {progress.done ? t("plans.stepDone") : t("plans.nextStep")}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={!activeSub}
-                  data-testid="plans-advance-day"
-                  onClick={() => {
-                    if (!activeSub) return;
-                    void advancePlanDay(activeSub.planId, activeSub.progressDay);
-                  }}
-                >
-                  {t("plans.advanceDay")}
-                </button>
+                {!progress.done ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={advance}
+                    data-testid="plans-next-step"
+                  >
+                    {step === "read" ? t("plans.continueReading") : t("plans.nextStep")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={!activeSub}
+                    data-testid="plans-advance-day"
+                    onClick={() => {
+                      if (!activeSub) return;
+                      void advancePlanDay(activeSub.planId, activeSub.progressDay);
+                    }}
+                  >
+                    {t("plans.nextDayContent")}
+                  </button>
+                )}
               </div>
               <details className="plans-advanced plans-today-more">
                 <summary>{t("plans.devotionMore")}</summary>
+                <p className="muted plans-stage-attr" data-testid="plans-devotion-source">
+                  {t("plans.openSourceNote")} · {calendarDevotion.attribution.dataset}
+                </p>
                 <div className="field">
                   <label>{t("plans.devotionMaterial")}</label>
                   <select
@@ -607,9 +686,6 @@ export function PlansPage() {
                     ))}
                   </select>
                 </div>
-                {activeMaterial && (
-                  <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
-                )}
                 <button type="button" className="btn ghost" onClick={resetSteps}>
                   {t("plans.resetSteps")}
                 </button>

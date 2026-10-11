@@ -1,3 +1,5 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # Electron packaging is installed on-demand in the Package workflow (not the monorepo graph).
+  - "!apps/desktop"

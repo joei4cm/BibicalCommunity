@@ -1,4 +1,6 @@
+import { execSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -11,7 +13,29 @@ const openE2eeRoot = path.dirname(
   require.resolve("@open-e2ee/signal-protocol-sdk/package.json"),
 );
 
+function resolveAppVersion(): string {
+  const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf8")) as {
+    version?: string;
+  };
+  const base = pkg.version ?? "0.1.1";
+  if (process.env.VITE_APP_VERSION) return process.env.VITE_APP_VERSION;
+  try {
+    const hash = execSync("git rev-parse --short=6 HEAD", {
+      cwd: path.resolve(__dirname, "../.."),
+      encoding: "utf8",
+    }).trim();
+    return hash ? `${base}+${hash}` : base;
+  } catch {
+    return `${base}+dev`;
+  }
+}
+
+const appVersion = resolveAppVersion();
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   resolve: {
     conditions: ["browser", "module", "import"],
     alias: {

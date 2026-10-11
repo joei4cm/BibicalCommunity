@@ -17,6 +17,7 @@ import {
 } from "../lib/product-signal-prefer";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { humanizeStatus } from "../lib/status";
+import { APP_VERSION } from "../lib/app-version";
 
 type MeSection = "account" | "profile" | "privacy" | "devices";
 
@@ -696,7 +697,7 @@ export function MePage() {
             </div>
             <div>
               <dt>{t("me.versionBuild")}</dt>
-              <dd data-testid="me-version-build">0.1.0</dd>
+              <dd data-testid="me-version-build">{APP_VERSION}</dd>
             </div>
           </dl>
         </div>

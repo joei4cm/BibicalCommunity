@@ -2027,12 +2027,16 @@ export function BibleReader() {
         {dockCollapsed ? (
           <button
             type="button"
-            className="bible-dock-btn bible-dock-btn--expand"
+            className="bible-dock-edge-tab"
             data-testid="reader-dock-expand"
             aria-label={t("reader.dockExpand")}
+            title={t("reader.dockExpand")}
             onClick={() => setDockCollapsed(false)}
           >
-            ▴
+            <span className="bible-dock-edge-tab-mark" aria-hidden="true">
+              ‹
+            </span>
+            <span className="bible-dock-edge-tab-label">{t("reader.dockMore")}</span>
           </button>
         ) : (
           <>

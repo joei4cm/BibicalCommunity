@@ -1,0 +1,153 @@
+name: Package
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-dist:
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - id: version
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          HASH=$(git rev-parse --short=6 HEAD)
+          echo "app_version=${BASE}+${HASH}" >> "$GITHUB_OUTPUT"
+          echo "VITE_APP_VERSION=${BASE}+${HASH}" >> "$GITHUB_ENV"
+      - run: pnpm install
+      - run: pnpm --filter @logoshome/shared --filter @logoshome/bible --filter @logoshome/crypto --filter @logoshome/ui build
+      - run: pnpm --filter @logoshome/web build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 14
+
+  desktop-linux:
+    needs: web-dist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install desktop tooling
+        working-directory: apps/desktop
+        run: npm install
+      - name: Build Linux packages
+        working-directory: apps/desktop
+        run: npx electron-builder --linux AppImage deb --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux-${{ needs.web-dist.outputs.app_version }}
+          path: apps/desktop/release/*.{AppImage,deb}
+          if-no-files-found: warn
+          retention-days: 14
+
+  desktop-mac:
+    needs: web-dist
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install desktop tooling
+        working-directory: apps/desktop
+        run: npm install
+      - name: Build macOS DMG
+        working-directory: apps/desktop
+        run: npx electron-builder --mac dmg --publish never
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-mac-${{ needs.web-dist.outputs.app_version }}
+          path: apps/desktop/release/*.dmg
+          if-no-files-found: warn
+          retention-days: 14
+
+  mobile-eas:
+    needs: web-dist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when EXPO_TOKEN missing
+        id: eas
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "EXPO_TOKEN not configured — skipping EAS APK/IPA (set repo secret to enable)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.eas.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.eas.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: steps.eas.outputs.skip != 'true'
+        run: pnpm install
+      - if: steps.eas.outputs.skip != 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: EAS Android APK (preview)
+        if: steps.eas.outputs.skip != 'true'
+        working-directory: apps/mobile
+        run: eas build --platform android --profile preview --non-interactive --no-wait
+        continue-on-error: true
+      - name: EAS iOS (preview / simulator when unsigned)
+        if: steps.eas.outputs.skip != 'true'
+        working-directory: apps/mobile
+        run: eas build --platform ios --profile preview --non-interactive --no-wait
+        continue-on-error: true
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [web-dist, desktop-linux, desktop-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.dmg
+            artifacts/web-dist/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
