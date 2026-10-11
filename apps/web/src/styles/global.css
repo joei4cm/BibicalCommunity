@@ -1685,6 +1685,35 @@ body:has(.bible-reader) .tab-bar a.active::after {
   margin: 0;
 }
 
+.person-card-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.person-card-actions .btn,
+.person-card-sheet .person-card-actions a.btn {
+  width: 100%;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.contacts-row-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.contacts-row-actions .btn {
+  width: 100%;
+  min-height: 2.5rem;
+}
+
 .cal-month {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
