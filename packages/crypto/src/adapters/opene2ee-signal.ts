@@ -19,6 +19,20 @@ import {
 } from "../session-aes.js";
 import type { DevicePublicKeys, EncryptedMessage, SecureSession, SignalClient } from "../signal-stub.js";
 
+/** Local copy — avoid circular import with libsignal.ts (which imports this client). */
+function isBrowserLikeRuntime(): boolean {
+  const g = globalThis as {
+    WebSocketPair?: unknown;
+    window?: unknown;
+    document?: unknown;
+    process?: { versions?: { node?: string } };
+  };
+  if (typeof g.WebSocketPair !== "undefined") return true;
+  if (typeof g.window !== "undefined" || typeof g.document !== "undefined") return true;
+  if (!g.process?.versions?.node) return true;
+  return false;
+}
+
 type KeyMod = typeof import("@open-e2ee/signal-protocol-sdk/keys");
 
 type OeIdentity = {
@@ -143,7 +157,22 @@ function secretBytes(secret: ArrayBuffer | Uint8Array | undefined): Uint8Array {
   return secret;
 }
 
+/**
+ * Load OpenE2EE package internals.
+ * Browser/Workers: never touch `node:` (Vite would try to fetch `node:module`).
+ * Node tests: createRequire into package dist/.
+ */
 async function loadOeModule(relPath: string): Promise<unknown> {
+  if (isBrowserLikeRuntime()) {
+    // Static targets so Vite can bundle; aliases set in apps/web/vite.config.ts.
+    if (relPath === "internal/crypto/ec/index.js") {
+      // Deep path is not in package exports — Vite resolves via alias.
+      // @ts-expect-error — package exports omit dist/internal/*
+      return import("@open-e2ee/signal-protocol-sdk/dist/internal/crypto/ec/index.js");
+    }
+    // PQXDH handshake pulls deeper graph; product browser path uses mutual ECDH instead.
+    throw new Error("opene2ee_internal_unavailable_in_browser");
+  }
   const nodeModule = ["node", "module"].join(":");
   const nodePath = ["node", "path"].join(":");
   const nodeUrl = ["node", "url"].join(":");
@@ -181,7 +210,7 @@ function concatBytes(...parts: Uint8Array[]): Uint8Array {
 }
 
 function pubKeysFromPrivate(priv: PrivateBundle): DevicePublicKeys {
-  return {
+  const base: DevicePublicKeys = {
     identityKeyPub: JSON.stringify({
       curve: "opene2ee",
       ecdh: priv.identity.dhKey.publicKey,
@@ -193,10 +222,16 @@ function pubKeysFromPrivate(priv: PrivateBundle): DevicePublicKeys {
     signedPrekeyId: priv.signedPrekey.keyId,
     oneTimePrekeyPub: priv.oneTimePrekey.publicKey,
     oneTimePrekeyId: priv.oneTimePrekey.keyId,
+    registrationId: priv.identity.registrationId,
+  };
+  // Browser/Workers product path uses mutual ECDH (no node: handshake). Omit Kyber
+  // so peers also skip PQXDH and both sides agree on the classical path.
+  if (isBrowserLikeRuntime()) return base;
+  return {
+    ...base,
     kyberPrekeyPub: priv.kyber.publicKey,
     kyberPrekeySig: priv.kyber.signature,
     kyberPrekeyId: priv.kyber.keyId,
-    registrationId: priv.identity.registrationId,
   };
 }
 
@@ -346,7 +381,11 @@ export class OpenE2eeSignalClient implements SignalClient {
     const localIk = priv.identity.dhKey.publicKey;
     const remoteIk = parseIdentityPub(remote.identityKeyPub).ecdh;
     const isInitiator = localIk < remoteIk;
-    const canPqxdh = remoteHasKyber(remote) && Boolean(priv.kyber?.publicKey);
+    // PQXDH needs Node createRequire into package internals — not available in browser.
+    const canPqxdh =
+      !isBrowserLikeRuntime() &&
+      remoteHasKyber(remote) &&
+      Boolean(priv.kyber?.publicKey);
 
     if (canPqxdh && isInitiator) {
       const { performKeyAgreement } = await loadHandshake();
