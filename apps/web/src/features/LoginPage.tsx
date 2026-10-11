@@ -1,11 +1,20 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { normalizeLocale } from "@logoshome/shared";
 import { api, getToken, setToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 
 type Mode = "login" | "register";
+
+const DEFAULT_APP_PATH = "/app/bible/cuvs/john/1";
+
+/** Return path after login — only allow in-app routes (keeps ?verse= deep links). */
+function safeReturnPath(from: unknown): string {
+  if (typeof from !== "string" || !from.startsWith("/app/")) return DEFAULT_APP_PATH;
+  if (from.startsWith("/app/login")) return DEFAULT_APP_PATH;
+  return from;
+}
 
 /**
  * Dedicated web auth screen. App shell routes redirect here when there is no session.
@@ -14,6 +23,8 @@ type Mode = "login" | "register";
 export function LoginPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = safeReturnPath((location.state as { from?: string } | null)?.from);
   const [mode, setMode] = useState<Mode>("login");
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +33,7 @@ export function LoginPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   if (getToken()) {
-    return <Navigate to="/app/bible/cuvs/john/1" replace />;
+    return <Navigate to={returnTo} replace />;
   }
 
   function readForm(): { handle: string; password: string; nickname: string } {
@@ -65,7 +76,7 @@ export function LoginPage() {
         }),
       });
       persistSession(res);
-      navigate("/app/bible/cuvs/john/1", { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     } finally {
@@ -98,7 +109,7 @@ export function LoginPage() {
         }),
       });
       persistSession(res);
-      navigate("/app/bible/cuvs/john/1", { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     } finally {
