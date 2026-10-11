@@ -15,10 +15,15 @@ import {
 const DB_NAME = "lh-bible";
 const STORE = "chapters";
 const DB_VERSION = 1;
-/** Bump when boot set changes (cuvs+nasb whole-Bible / denser demo chapters). */
-const BOOT_FLAG = "lh.bible.bootSeeded.v10";
+/** Bump when boot quality rules change (reject sticky demo / incomplete chapters). */
+const BOOT_FLAG = "lh.bible.bootSeeded.v11";
 /** Re-seed even if flag is set when installed chapters look truncated. */
 const BOOT_MIN_CHAPTERS = 1000;
+/** Only seal boot when every default tid came from R2/D1 (not demo placeholders). */
+const BOOT_QUALITY_KEY = "lh.bible.bootQuality.v11";
+/** Throttle network refill while quality is still demo (ms). */
+const BOOT_RETRY_AT_KEY = "lh.bible.bootRetryAt.v11";
+const BOOT_RETRY_MIN_MS = 15 * 60 * 1000;
 
 /** Preview/demo placeholder lines — treat as not installed for network refill. */
 export function isPlaceholderVerseText(text: string): boolean {
@@ -26,10 +31,34 @@ export function isPlaceholderVerseText(text: string): boolean {
   return (
     s.includes("全文尚未载入") ||
     s.includes("full text not loaded") ||
+    s.includes("本文は未収録") ||
     s.includes("Preview)") ||
     s.startsWith("（预览）") ||
+    s.startsWith("（プレビュー）") ||
     s.startsWith("(Preview)")
   );
+}
+
+/**
+ * Local chapter is incomplete when it still looks like a demo/scaffold:
+ * placeholders, sparse teaching samples with verse gaps, or tiny bracketed demos.
+ */
+export function isIncompleteLocalChapter(
+  row: Pick<LocalChapterRecord, "verses"> | { verses: { verse: number; text: string }[] },
+): boolean {
+  const verses = row.verses ?? [];
+  if (verses.length === 0) return true;
+  if (verses.some((v) => isPlaceholderVerseText(v.text ?? ""))) return true;
+  const nums = verses.map((v) => v.verse).filter((n) => Number.isFinite(n));
+  if (nums.length === 0) return true;
+  const maxV = Math.max(...nums);
+  // Demo teaching samples often keep only a few verses with gaps (e.g. 1 + 14).
+  if (verses.length <= 20 && maxV > verses.length + 2) return true;
+  // Bracketed demo lines like `[NASB] In the beginning...`
+  if (verses.length <= 3 && verses.some((v) => /^\[[^\]]+\]/.test((v.text ?? "").trim()))) {
+    return true;
+  }
+  return false;
 }
 
 /** Prefer denser demo prose when a downloaded teaching chapter is still a thin scaffold. */
@@ -216,9 +245,18 @@ export type BootSeedFetch = (translationId: string) => Promise<{
   source?: string;
 } | null>;
 
+function bootQualityOk(sources: Record<string, string>): boolean {
+  return BOOT_DEFAULT_TRANSLATION_IDS.every((tid) => {
+    const src = sources[tid];
+    return src === "r2" || src === "d1" || src === "download";
+  });
+}
+
 /**
  * First launch: seed only boot-default translations into IndexedDB.
  * Prefer `/v1/bible/corpus-download/:tid` (R2/fixture JSON) over inline demo packs.
+ * Demo packs are installed for offline navigation but do NOT seal the boot flag,
+ * so the next visit can still pull real R2/D1 corpora.
  */
 export async function ensureBootCorpusSeeded(
   fetchPack?: BootSeedFetch,
@@ -227,7 +265,11 @@ export async function ensureBootCorpusSeeded(
   if (typeof indexedDB === "undefined") {
     return { seeded: false, tids: [], sources };
   }
-  if (localStorage.getItem(BOOT_FLAG) === "1") {
+
+  const flagSet = localStorage.getItem(BOOT_FLAG) === "1";
+  const qualityOk = localStorage.getItem(BOOT_QUALITY_KEY) === "1";
+
+  if (flagSet && qualityOk) {
     try {
       const installed = await bibleLocalDb.listInstalled();
       const incomplete = BOOT_DEFAULT_TRANSLATION_IDS.some((tid) => {
@@ -241,31 +283,79 @@ export async function ensureBootCorpusSeeded(
       /* fall through and re-seed */
     }
   }
-  for (const tid of BOOT_DEFAULT_TRANSLATION_IDS) {
-    let chapters: R2ChapterJson[] | null = null;
-    let source = "demo";
-    if (fetchPack) {
-      try {
-        const pack = await fetchPack(tid);
-        if (pack?.chapters?.length) {
-          // R2/fixture scaffolds may still be thin for teaching chapters — densify from demo.
-          chapters = enrichSparseChaptersFromDemo(tid, pack.chapters);
-          source = pack.source ?? "download";
+
+  // Flag set but quality not sealed (demo leftover): try network refill only —
+  // never wipe a prior install with another demo pack on every reload.
+  if (flagSet && !qualityOk && fetchPack) {
+    const lastRetry = Number(localStorage.getItem(BOOT_RETRY_AT_KEY) || "0");
+    if (Number.isFinite(lastRetry) && Date.now() - lastRetry < BOOT_RETRY_MIN_MS) {
+      return { seeded: false, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
+    }
+    localStorage.setItem(BOOT_RETRY_AT_KEY, String(Date.now()));
+    await Promise.all(
+      BOOT_DEFAULT_TRANSLATION_IDS.map(async (tid) => {
+        try {
+          const pack = await fetchPack(tid);
+          if (!pack?.chapters?.length) return;
+          const source = pack.source ?? "download";
+          if (source === "demo") {
+            sources[tid] = "demo";
+            return;
+          }
+          const chapters = enrichSparseChaptersFromDemo(tid, pack.chapters);
+          await bibleLocalDb.installPack(tid, chapters);
+          sources[tid] = source;
+        } catch {
+          sources[tid] = "demo";
         }
-      } catch {
-        /* fall through to demo */
-      }
+      }),
+    );
+    if (bootQualityOk(sources)) {
+      localStorage.setItem(BOOT_QUALITY_KEY, "1");
+      localStorage.removeItem(BOOT_RETRY_AT_KEY);
     }
-    if (!chapters) {
-      chapters = buildDemoDownloadPack(tid).chapters;
-      source = "demo";
-    } else if (source !== "demo") {
-      chapters = enrichSparseChaptersFromDemo(tid, chapters);
-    }
-    await bibleLocalDb.installPack(tid, chapters);
-    sources[tid] = source;
+    return {
+      seeded: Object.values(sources).some((s) => s !== "demo"),
+      tids: [...BOOT_DEFAULT_TRANSLATION_IDS],
+      sources,
+    };
   }
+
+  // Parallel pack fetch for cuvs + nasb (paged fetch lives in the caller).
+  await Promise.all(
+    BOOT_DEFAULT_TRANSLATION_IDS.map(async (tid) => {
+      let chapters: R2ChapterJson[] | null = null;
+      let source = "demo";
+      if (fetchPack) {
+        try {
+          const pack = await fetchPack(tid);
+          if (pack?.chapters?.length) {
+            chapters = enrichSparseChaptersFromDemo(tid, pack.chapters);
+            source = pack.source ?? "download";
+          }
+        } catch {
+          /* fall through to demo */
+        }
+      }
+      if (!chapters) {
+        chapters = buildDemoDownloadPack(tid).chapters;
+        source = "demo";
+      } else if (source !== "demo") {
+        chapters = enrichSparseChaptersFromDemo(tid, chapters);
+      }
+      await bibleLocalDb.installPack(tid, chapters);
+      sources[tid] = source;
+    }),
+  );
+
+  // Mark seeded so we do not reinstall demo packs every reload,
+  // but only seal quality when real corpora landed.
   localStorage.setItem(BOOT_FLAG, "1");
+  if (bootQualityOk(sources)) {
+    localStorage.setItem(BOOT_QUALITY_KEY, "1");
+  } else {
+    localStorage.removeItem(BOOT_QUALITY_KEY);
+  }
   return { seeded: true, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
 }
 
@@ -276,6 +366,20 @@ export async function installDownloadedPack(
   return bibleLocalDb.installPack(translationId, chapters);
 }
 
+/** Cache a network chapter into IndexedDB when it looks like real corpus text. */
+export async function cacheNetworkChapter(
+  translationId: string,
+  book: string,
+  chapter: number,
+  verses: { verse: number; text: string }[],
+  source?: string,
+): Promise<void> {
+  if (!verses?.length) return;
+  if (source === "demo" || source === "local-demo") return;
+  if (isIncompleteLocalChapter({ verses })) return;
+  await bibleLocalDb.installChapter(translationId, { book, chapter, verses });
+}
+
 export async function readLocalChapter(
   translationId: string,
   book: string,
@@ -283,9 +387,15 @@ export async function readLocalChapter(
 ): Promise<LocalChapterRecord | null> {
   const row = await bibleLocalDb.getChapter(translationId, book, chapter);
   if (!row) return null;
-  const first = row.verses[0]?.text ?? "";
-  if (row.verses.length <= 2 && isPlaceholderVerseText(first)) {
-    return null;
-  }
+  if (isIncompleteLocalChapter(row)) return null;
   return row;
+}
+
+/** Peek raw local chapter (including incomplete demo) for instant paint while refetching. */
+export async function peekLocalChapter(
+  translationId: string,
+  book: string,
+  chapter: number,
+): Promise<LocalChapterRecord | null> {
+  return bibleLocalDb.getChapter(translationId, book, chapter);
 }
