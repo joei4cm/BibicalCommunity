@@ -18,12 +18,12 @@ test("no TypeScript-local corpus packs remain", () => {
   assert.equal(local.length, 0);
 });
 
-test("download/boot corpus packs cover zh/en/ja via R2", () => {
+test("download/boot corpus packs cover complete zh/en via R2", () => {
   const packs = listCorpusPacks({ provider: "r2", availableOnly: true });
-  assert.ok(packs.length >= 8);
+  assert.equal(packs.length, 4);
   assert.ok(packs.some((p) => p.translationId === "web" && p.chapterRefs.includes("John.1")));
   assert.ok(packs.some((p) => p.language === "zh"));
-  assert.ok(packs.some((p) => p.language === "ja"));
+  assert.ok(packs.some((p) => p.language === "en"));
   assert.ok(packs.every((p) => p.provider === "r2" && p.r2Prefix?.startsWith("bible/")));
   for (const id of BOOT_DEFAULT_TRANSLATION_IDS) {
     assert.ok(packs.some((p) => p.translationId === id && p.installMode === "boot"), id);
@@ -50,8 +50,8 @@ test("probeCorpusPackPipeline reports download path without TS packs", () => {
   const probe = probeCorpusPackPipeline();
   assert.equal(probe.ok, true);
   assert.equal(probe.localCount, 0);
-  assert.equal(probe.bootCount, 2);
-  assert.ok(probe.downloadableCount >= 8);
+  assert.equal(probe.bootCount, 1);
+  assert.ok(probe.downloadableCount >= 3);
   assert.ok(probe.localChapterTotal >= 20);
   assert.equal(probe.noTsPacks, true);
   assert.ok(probe.sampleIds.includes("web-r2") || probe.sampleIds.includes("cuvs-r2"));

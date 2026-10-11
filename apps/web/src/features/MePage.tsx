@@ -19,7 +19,7 @@ import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-
 import { humanizeStatus } from "../lib/status";
 import { APP_VERSION } from "../lib/app-version";
 
-type MeSection = "account" | "profile" | "privacy" | "devices";
+type MeSection = "personal" | "system";
 
 type MeChurch = {
   churchId: string;
@@ -65,7 +65,7 @@ export function MePage() {
   const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const keysPanelRef = useRef<HTMLDivElement | null>(null);
-  const [meSection, setMeSection] = useState<MeSection>("account");
+  const [meSection, setMeSection] = useState<MeSection>("personal");
   const [keysPanelOpen, setKeysPanelOpen] = useState(true);
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
@@ -335,6 +335,9 @@ export function MePage() {
           discoverableByUid: privacy.discoverableByUid,
           showInChurchDirectory: privacy.showInChurchDirectory,
           allowMessageRequests: privacy.allowMessageRequests,
+          shareReadReceipts: privacy.shareReadReceipts,
+          shareTypingIndicators: privacy.shareTypingIndicators,
+          shareLastActive: privacy.shareLastActive,
         },
       }),
     });
@@ -360,11 +363,15 @@ export function MePage() {
 
   useEffect(() => {
     const section = searchParams.get("section");
-    if (section === "account" || section === "profile" || section === "privacy" || section === "devices") {
+    if (section === "personal" || section === "system") {
       setMeSection(section);
+    } else if (section === "account" || section === "profile" || section === "privacy") {
+      setMeSection("personal");
+    } else if (section === "devices") {
+      setMeSection("system");
     }
     if (searchParams.get("keys") === "1") {
-      setMeSection("devices");
+      setMeSection("system");
       setKeysPanelOpen(true);
       window.setTimeout(() => {
         keysPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -446,8 +453,6 @@ export function MePage() {
     return mapped[id] ?? key;
   };
 
-  const signedIn = Boolean(getToken() && profile?.uid);
-
   function signOut() {
     setToken(null);
     localStorage.removeItem("lh.uid");
@@ -457,7 +462,7 @@ export function MePage() {
     setCurrentDeviceId(null);
     setPassword("");
     setMsg(null);
-    setMeSection("account");
+    setMeSection("personal");
     window.location.assign("/app/login");
   }
 
@@ -482,10 +487,8 @@ export function MePage() {
       <div className="plans-tabs me-tabs" role="tablist" data-testid="me-section-tabs">
         {(
           [
-            ["account", "me.tabAccount"],
-            ["profile", "me.tabProfile"],
-            ["privacy", "me.tabPrivacy"],
-            ["devices", "me.tabDevices"],
+            ["personal", "me.tabPersonal"],
+            ["system", "me.tabSystem"],
           ] as const
         ).map(([id, key]) => (
           <button
@@ -502,336 +505,366 @@ export function MePage() {
         ))}
       </div>
 
-      {meSection === "account" && (
-        <div className="panel" data-testid="me-account-panel">
-          <h2>{t("me.account")}</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            {t("me.signedInAs", { uid: profile?.uid ?? "" })}
-          </p>
-
-          <div className="me-keys-card" data-testid="me-keys-card">
-            <h3 style={{ margin: "0 0 0.35rem" }}>{t("security.deviceKeys")}</h3>
+      {meSection === "personal" && (
+        <div className="plans-tab-panel" data-testid="me-personal-panel">
+          <div className="panel" data-testid="me-account-panel">
+            <h2>{t("me.account")}</h2>
             <p className="muted" style={{ marginTop: 0 }}>
-              {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+              {t("me.signedInAs", { uid: profile?.uid ?? "" })}
             </p>
-            <p className="muted" style={{ marginTop: 0 }}>
-              {t("security.deviceKeysHintShort")}
-            </p>
-            <div className="toolbar">
-              <button
-                type="button"
-                className="btn"
-                disabled={keyBusy}
-                data-testid="me-upload-keys-account"
-                onClick={() => void registerDeviceKeys()}
-              >
-                {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                data-testid="me-open-keys-panel"
-                onClick={() => {
-                  setMeSection("devices");
-                  setKeysPanelOpen(true);
-                  setSearchParams({ section: "devices", keys: "1" }, { replace: true });
-                }}
-              >
-                {t("security.openKeysPanel")}
-              </button>
-            </div>
-          </div>
 
-          <div className="toolbar">
-            <button type="button" className="btn ghost" data-testid="me-sign-out" onClick={signOut}>
-              {t("me.signOut")}
-            </button>
-          </div>
-          {(profile?.canAccessAdminConsole || isChurchAdmin) && (
-            <div className="me-admin-entry" data-testid="me-admin-console-link">
-              <h3 style={{ marginBottom: "0.35rem" }}>{t("admin.title")}</h3>
+            <div className="me-keys-card" data-testid="me-keys-card">
+              <h3 style={{ margin: "0 0 0.35rem" }}>{t("security.deviceKeys")}</h3>
               <p className="muted" style={{ marginTop: 0 }}>
-                {t("admin.openHint")}
+                {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
               </p>
-              <Link className="btn" to="/app/admin" data-testid="me-open-admin">
-                {t("admin.open")}
-              </Link>
-              <p className="muted" style={{ marginTop: "0.65rem", fontSize: "0.85rem" }}>
-                {t("admin.desktopHint")}
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("security.deviceKeysHintShort")}
               </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {meSection === "profile" && (
-      <div className="panel" data-testid="me-profile-panel">
-        <h2>{t("me.profile")}</h2>
-        <div className="field">
-          <label>{t("me.nickname")}</label>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>{t("me.legalName")}</label>
-          <input value={legalName} onChange={(e) => setLegalName(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>{t("me.signature")}</label>
-          <textarea rows={3} value={signature} onChange={(e) => setSignature(e.target.value)} />
-        </div>
-        <button type="button" className="btn" onClick={() => void saveProfile()}>
-          {t("me.save")}
-        </button>
-      </div>
-      )}
-
-      {meSection === "privacy" && (
-      <div className="panel" data-testid="me-settings-panel">
-        <h2>{t("me.settings")}</h2>
-        <h3>{t("me.privacy")}</h3>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={privacy.discoverableByHandle}
-            onChange={(e) => setPrivacy((p) => ({ ...p, discoverableByHandle: e.target.checked }))}
-          />
-          {t("me.discoverableByHandle")}
-        </label>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={privacy.discoverableByUid}
-            onChange={(e) => setPrivacy((p) => ({ ...p, discoverableByUid: e.target.checked }))}
-          />
-          {t("me.discoverableByUid")}
-        </label>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={privacy.showInChurchDirectory}
-            onChange={(e) => setPrivacy((p) => ({ ...p, showInChurchDirectory: e.target.checked }))}
-          />
-          {t("me.showInChurchDirectory")}
-        </label>
-        <div className="field">
-          <label>{t("me.allowMessageRequests")}</label>
-          <div className="bible-more-actions" role="group">
-            {(
-              [
-                ["everyone", "me.privacyEveryone"],
-                ["church-only", "me.privacyChurchOnly"],
-                ["admin-approved", "me.privacyAdminApproved"],
-                ["off", "me.privacyOff"],
-              ] as const
-            ).map(([value, key]) => (
-              <button
-                key={value}
-                type="button"
-                className={`bible-text-btn${privacy.allowMessageRequests === value ? " is-on" : ""}`}
-                onClick={() =>
-                  setPrivacy((p) => ({
-                    ...p,
-                    allowMessageRequests: value,
-                  }))
-                }
-              >
-                {t(key)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button type="button" className="btn" onClick={() => void saveProfile()}>
-          {t("me.save")}
-        </button>
-
-        <div className="field" style={{ marginTop: "1rem" }}>
-          <label>{t("me.language")}</label>
-          <div className="bible-more-actions" role="group">
-            {(
-              [
-                ["zh-CN", "中文"],
-                ["en", "English"],
-                ["ja", "日本語"],
-              ] as const
-            ).map(([lng, label]) => (
-              <button
-                key={lng}
-                type="button"
-                className={`bible-text-btn${i18n.language === lng ? " is-on" : ""}`}
-                onClick={() => setLocale(lng)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="field">
-          <label>{t("me.theme")}</label>
-          <div className="bible-more-actions" role="group">
-            {THEME_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className={`bible-text-btn${themeId === id ? " is-on" : ""}`}
-                onClick={() => setTheme(id)}
-              >
-                {themeLabel(id)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="me-version-block" data-testid="me-version-info">
-          <h3>{t("me.versionInfo")}</h3>
-          <dl className="me-version-dl">
-            <div>
-              <dt>{t("me.versionName")}</dt>
-              <dd>
-                <span className="me-version-brand-zh">{t("app.name")}</span>
-                <span className="me-version-brand-en">LogosHome</span>
-              </dd>
-            </div>
-            <div>
-              <dt>{t("me.versionApp")}</dt>
-              <dd>@logoshome/web</dd>
-            </div>
-            <div>
-              <dt>{t("me.versionBuild")}</dt>
-              <dd data-testid="me-version-build">{APP_VERSION}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-      )}
-
-      {meSection === "profile" && (
-      <div className="panel" data-testid="me-churches-panel">
-        <h2>{t("me.churches")}</h2>
-        <ul className="list">
-          {!profile?.churches?.length && <li className="muted">—</li>}
-          {(profile?.churches ?? []).map((c) => (
-            <li key={c.churchId}>
-              <strong>{c.name ?? c.churchId}</strong>
-              <div className="muted">
-                {c.role}
-                {c.slug ? ` · ${c.slug}` : ""}
-                {c.verified ? (
-                  <span className="badge-verified"> · {t("me.verified")}</span>
-                ) : (
-                  <span> · {t("me.pendingVerify")}</span>
-                )}
+              <div className="toolbar">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={keyBusy}
+                  data-testid="me-upload-keys-account"
+                  onClick={() => void registerDeviceKeys()}
+                >
+                  {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  data-testid="me-open-keys-panel"
+                  onClick={() => {
+                    setMeSection("system");
+                    setKeysPanelOpen(true);
+                    setSearchParams({ section: "system", keys: "1" }, { replace: true });
+                  }}
+                >
+                  {t("security.openKeysPanel")}
+                </button>
               </div>
-            </li>
-          ))}
-        </ul>
-        <h3>{t("me.search")}</h3>
-        <div className="field">
-          <label>{t("me.searchUid")}</label>
-          <input
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-            placeholder="UID"
-          />
+            </div>
+
+            <div className="toolbar">
+              <button type="button" className="btn ghost" data-testid="me-sign-out" onClick={signOut}>
+                {t("me.signOut")}
+              </button>
+            </div>
+            {(profile?.canAccessAdminConsole || isChurchAdmin) && (
+              <div className="me-admin-entry" data-testid="me-admin-console-link">
+                <h3 style={{ marginBottom: "0.35rem" }}>{t("admin.title")}</h3>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  {t("admin.openHint")}
+                </p>
+                <Link className="btn" to="/app/admin" data-testid="me-open-admin">
+                  {t("admin.open")}
+                </Link>
+                <p className="muted" style={{ marginTop: "0.65rem", fontSize: "0.85rem" }}>
+                  {t("admin.desktopHint")}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="panel" data-testid="me-profile-panel">
+            <h2>{t("me.profile")}</h2>
+            <div className="field">
+              <label>{t("me.nickname")}</label>
+              <input value={nickname} onChange={(e) => setNickname(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>{t("me.legalName")}</label>
+              <input value={legalName} onChange={(e) => setLegalName(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>{t("me.signature")}</label>
+              <textarea rows={3} value={signature} onChange={(e) => setSignature(e.target.value)} />
+            </div>
+            <button type="button" className="btn" onClick={() => void saveProfile()}>
+              {t("me.save")}
+            </button>
+          </div>
+
+          <div className="panel" data-testid="me-settings-panel">
+            <h2>{t("me.privacy")}</h2>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.discoverableByHandle}
+                onChange={(e) => setPrivacy((p) => ({ ...p, discoverableByHandle: e.target.checked }))}
+              />
+              {t("me.discoverableByHandle")}
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.discoverableByUid}
+                onChange={(e) => setPrivacy((p) => ({ ...p, discoverableByUid: e.target.checked }))}
+              />
+              {t("me.discoverableByUid")}
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.showInChurchDirectory}
+                onChange={(e) => setPrivacy((p) => ({ ...p, showInChurchDirectory: e.target.checked }))}
+              />
+              {t("me.showInChurchDirectory")}
+            </label>
+            <div className="field">
+              <label>{t("me.allowMessageRequests")}</label>
+              <div className="bible-more-actions" role="group">
+                {(
+                  [
+                    ["everyone", "me.privacyEveryone"],
+                    ["church-only", "me.privacyChurchOnly"],
+                    ["admin-approved", "me.privacyAdminApproved"],
+                    ["off", "me.privacyOff"],
+                  ] as const
+                ).map(([value, key]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`bible-text-btn${privacy.allowMessageRequests === value ? " is-on" : ""}`}
+                    onClick={() =>
+                      setPrivacy((p) => ({
+                        ...p,
+                        allowMessageRequests: value,
+                      }))
+                    }
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button type="button" className="btn" onClick={() => void saveProfile()}>
+              {t("me.save")}
+            </button>
+          </div>
+
+          <div className="panel" data-testid="me-churches-panel">
+            <h2>{t("me.churches")}</h2>
+            <ul className="list">
+              {!profile?.churches?.length && <li className="muted">—</li>}
+              {(profile?.churches ?? []).map((c) => (
+                <li key={c.churchId}>
+                  <strong>{c.name ?? c.churchId}</strong>
+                  <div className="muted">
+                    {c.role}
+                    {c.slug ? ` · ${c.slug}` : ""}
+                    {c.verified ? (
+                      <span className="badge-verified"> · {t("me.verified")}</span>
+                    ) : (
+                      <span> · {t("me.pendingVerify")}</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <h3>{t("me.search")}</h3>
+            <div className="field">
+              <label>{t("me.searchUid")}</label>
+              <input
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="UID"
+              />
+            </div>
+            <button type="button" className="btn" onClick={() => void searchUsers()}>
+              {t("me.search")}
+            </button>
+            <ul className="list" style={{ marginTop: "0.75rem" }}>
+              {searchResults.map((r) => (
+                <li key={r.id}>
+                  <strong>{r.uid}</strong>
+                  {r.nickname ? <div className="muted">{r.nickname}</div> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <button type="button" className="btn" onClick={() => void searchUsers()}>
-          {t("me.search")}
-        </button>
-        <ul className="list" style={{ marginTop: "0.75rem" }}>
-          {searchResults.map((r) => (
-            <li key={r.id}>
-              <strong>{r.uid}</strong>
-              {r.nickname ? <div className="muted">{r.nickname}</div> : null}
-            </li>
-          ))}
-        </ul>
-      </div>
       )}
 
-      {meSection === "devices" && (
-      <div className="panel" data-testid="me-devices-panel">
-        <details className="plans-advanced" open>
-          <summary>{t("me.devices")}</summary>
-          <p className="muted">{t("me.devicesHint")}</p>
-          <ul className="list">
-            {devices.length === 0 && <li className="muted">—</li>}
-            {devices.map((d) => (
-              <li key={d.id}>
-                <strong>{d.name || d.platform}</strong>
-                <div className="muted">
-                  {d.id}
-                  {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
-                  {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
-                  {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
-                </div>
-                {!d.revoked && !d.isCurrent && (
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    disabled={authBusy}
-                    onClick={() => void revokeDevice(d.id)}
-                  >
-                    {t("me.deviceRevoke")}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-
-        <div
-          className="me-keys-card"
-          ref={keysPanelRef}
-          data-testid="me-keys-panel"
-          style={{ marginTop: "0.85rem" }}
-        >
-          <details
-            className="plans-advanced"
-            open={keysPanelOpen}
-            onToggle={(e) => setKeysPanelOpen((e.target as HTMLDetailsElement).open)}
-          >
-            <summary>{t("security.deviceKeys")}</summary>
-            <p className="muted">{t("security.deviceKeysHint")}</p>
-            <p className="muted">
-              {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
-            </p>
+      {meSection === "system" && (
+        <div className="plans-tab-panel" data-testid="me-system-panel">
+          <div className="panel" data-testid="me-system-settings-panel">
+            <h2>{t("me.settings")}</h2>
             <div className="field">
-              <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
-              <select
-                id="signal-backend"
-                data-testid="me-signal-backend"
-                value={signalPrefer}
-                onChange={(e) => {
-                  const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
-                  setSignalPrefer(next);
-                  saveProductSignalPrefer(next);
-                }}
-              >
-                <option value="x25519">{t("security.signalBackend.x25519")}</option>
-                <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
-              </select>
-              <p className="muted">{t("security.signalBackendHint")}</p>
+              <label>{t("me.language")}</label>
+              <div className="bible-more-actions" role="group">
+                {(
+                  [
+                    ["zh-CN", "中文"],
+                    ["en", "English"],
+                    ["ja", "日本語"],
+                  ] as const
+                ).map(([lng, label]) => (
+                  <button
+                    key={lng}
+                    type="button"
+                    className={`bible-text-btn${i18n.language === lng ? " is-on" : ""}`}
+                    onClick={() => setLocale(lng)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button
-              type="button"
-              className="btn"
-              disabled={keyBusy}
-              data-testid="me-upload-keys"
-              onClick={() => void registerDeviceKeys()}
-            >
-              {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
+            <div className="field">
+              <label>{t("me.theme")}</label>
+              <div className="bible-more-actions" role="group">
+                {THEME_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`bible-text-btn${themeId === id ? " is-on" : ""}`}
+                    onClick={() => setTheme(id)}
+                  >
+                    {themeLabel(id)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <h3 style={{ marginTop: "1.1rem" }}>{t("me.notifications")}</h3>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.shareReadReceipts}
+                onChange={(e) => setPrivacy((p) => ({ ...p, shareReadReceipts: e.target.checked }))}
+              />
+              {t("me.shareReadReceipts")}
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.shareTypingIndicators}
+                onChange={(e) =>
+                  setPrivacy((p) => ({ ...p, shareTypingIndicators: e.target.checked }))
+                }
+              />
+              {t("me.shareTypingIndicators")}
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.shareLastActive}
+                onChange={(e) => setPrivacy((p) => ({ ...p, shareLastActive: e.target.checked }))}
+              />
+              {t("me.shareLastActive")}
+            </label>
+            <button type="button" className="btn" onClick={() => void saveProfile()}>
+              {t("me.save")}
             </button>
-          </details>
+
+            <div className="me-version-block" data-testid="me-version-info">
+              <h3>{t("me.versionInfo")}</h3>
+              <dl className="me-version-dl">
+                <div>
+                  <dt>{t("me.versionName")}</dt>
+                  <dd>
+                    <span className="me-version-brand-zh">{t("app.name")}</span>
+                    <span className="me-version-brand-en">LogosHome</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t("me.versionApp")}</dt>
+                  <dd>@logoshome/web</dd>
+                </div>
+                <div>
+                  <dt>{t("me.versionBuild")}</dt>
+                  <dd data-testid="me-version-build">{APP_VERSION}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          <div className="panel" data-testid="me-devices-panel">
+            <details className="plans-advanced" open>
+              <summary>{t("me.devices")}</summary>
+              <p className="muted">{t("me.devicesHint")}</p>
+              <ul className="list">
+                {devices.length === 0 && <li className="muted">—</li>}
+                {devices.map((d) => (
+                  <li key={d.id}>
+                    <strong>{d.name || d.platform}</strong>
+                    <div className="muted">
+                      {d.id}
+                      {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
+                      {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
+                      {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
+                    </div>
+                    {!d.revoked && !d.isCurrent && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={authBusy}
+                        onClick={() => void revokeDevice(d.id)}
+                      >
+                        {t("me.deviceRevoke")}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+
+            <div
+              className="me-keys-card"
+              ref={keysPanelRef}
+              data-testid="me-keys-panel"
+              style={{ marginTop: "0.85rem" }}
+            >
+              <details
+                className="plans-advanced"
+                open={keysPanelOpen}
+                onToggle={(e) => setKeysPanelOpen((e.target as HTMLDetailsElement).open)}
+              >
+                <summary>{t("security.deviceKeys")}</summary>
+                <p className="muted">{t("security.deviceKeysHint")}</p>
+                <p className="muted">
+                  {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+                </p>
+                <div className="field">
+                  <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
+                  <select
+                    id="signal-backend"
+                    data-testid="me-signal-backend"
+                    value={signalPrefer}
+                    onChange={(e) => {
+                      const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
+                      setSignalPrefer(next);
+                      saveProductSignalPrefer(next);
+                    }}
+                  >
+                    <option value="x25519">{t("security.signalBackend.x25519")}</option>
+                    <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
+                  </select>
+                  <p className="muted">{t("security.signalBackendHint")}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={keyBusy}
+                  data-testid="me-upload-keys"
+                  onClick={() => void registerDeviceKeys()}
+                >
+                  {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
+                </button>
+              </details>
+            </div>
+
+            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+              <summary>{t("security.wipe")}</summary>
+              <p className="muted">{t("security.wipeHint")}</p>
+              <button type="button" className="btn danger" onClick={() => void selfWipe()}>
+                {t("security.wipe")}
+              </button>
+            </details>
+          </div>
         </div>
-
-        <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
-          <summary>{t("security.wipe")}</summary>
-          <p className="muted">{t("security.wipeHint")}</p>
-          <button type="button" className="btn danger" onClick={() => void selfWipe()}>
-            {t("security.wipe")}
-          </button>
-        </details>
-
-      </div>
       )}
     </section>
   );

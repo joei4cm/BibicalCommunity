@@ -321,7 +321,7 @@ export async function ensureBootCorpusSeeded(
     };
   }
 
-  // Parallel pack fetch for cuvs + nasb (paged fetch lives in the caller).
+  // Parallel pack fetch for boot defaults (paged fetch lives in the caller).
   await Promise.all(
     BOOT_DEFAULT_TRANSLATION_IDS.map(async (tid) => {
       let chapters: R2ChapterJson[] | null = null;
