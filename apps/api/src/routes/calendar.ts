@@ -10,12 +10,15 @@ import { requireAuth, type AuthVars } from "../middleware/auth";
 export const calendarRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 calendarRoutes.use("*", requireAuth);
 
+const eventKindSchema = z.enum(["event", "seminar"]);
+
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   notes: z.string().max(2000).optional(),
   startAt: z.number().int(),
   endAt: z.number().int().optional(),
   allDay: z.boolean().optional(),
+  kind: eventKindSchema.optional(),
   inviteeIds: z.array(z.string()).max(50).optional(),
 });
 
@@ -25,6 +28,7 @@ const patchSchema = z.object({
   startAt: z.number().int().optional(),
   endAt: z.number().int().nullable().optional(),
   allDay: z.boolean().optional(),
+  kind: eventKindSchema.optional(),
 });
 
 calendarRoutes.get("/events", async (c) => {
@@ -77,6 +81,7 @@ calendarRoutes.get("/events", async (c) => {
       startAt: ev.startAt,
       endAt: ev.endAt,
       allDay: ev.allDay,
+      kind: (ev.kind === "seminar" ? "seminar" : "event") as "event" | "seminar",
       source: "invited" as const,
       inviteStatus: inv.status,
       inviteId: inv.id,
@@ -93,6 +98,7 @@ calendarRoutes.get("/events", async (c) => {
       startAt: ev.startAt,
       endAt: ev.endAt,
       allDay: ev.allDay,
+      kind: (ev.kind === "seminar" ? "seminar" : "event") as "event" | "seminar",
       source: (ev.source === "invited" ? "local" : ev.source) as "local" | "invited",
       inviteStatus: null as string | null,
       inviteId: null as string | null,
@@ -119,6 +125,7 @@ calendarRoutes.post("/events", async (c) => {
     startAt: body.startAt,
     endAt: body.endAt,
     allDay: body.allDay ?? false,
+    kind: body.kind ?? "event",
     source: "local",
     createdAt: now,
     updatedAt: now,
@@ -170,6 +177,7 @@ calendarRoutes.patch("/events/:id", async (c) => {
   if (body.startAt !== undefined) patch.startAt = body.startAt;
   if (body.endAt !== undefined) patch.endAt = body.endAt;
   if (body.allDay !== undefined) patch.allDay = body.allDay;
+  if (body.kind !== undefined) patch.kind = body.kind;
 
   await db.update(schema.calendarEvents).set(patch).where(eq(schema.calendarEvents.id, eventId));
   return c.json({ ok: true });

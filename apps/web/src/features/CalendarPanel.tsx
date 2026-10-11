@@ -11,11 +11,14 @@ type CalEvent = {
   startAt: number;
   endAt: number | null;
   allDay: boolean;
+  kind?: "event" | "seminar";
   source: "local" | "invited";
   inviteStatus: string | null;
   inviteId: string | null;
   mine: boolean;
 };
+
+type EventKind = "event" | "seminar";
 
 type ViewMode = "month" | "week" | "day";
 type WeekMode = "work" | "natural";
@@ -36,7 +39,7 @@ function sameDay(a: Date, b: Date) {
 
 export function CalendarPanel() {
   const { t } = useTranslation();
-  const [view, setView] = useState<ViewMode>("month");
+  const [view, setView] = useState<ViewMode>("day");
   const [weekMode, setWeekMode] = useState<WeekMode>("natural");
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -46,6 +49,7 @@ export function CalendarPanel() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [allDay, setAllDay] = useState(true);
+  const [eventKind, setEventKind] = useState<EventKind>("event");
   const [startLocal, setStartLocal] = useState("");
 
   const range = useMemo(() => {
@@ -124,11 +128,13 @@ export function CalendarPanel() {
           notes: notes.trim() || undefined,
           startAt,
           allDay,
+          kind: eventKind,
         }),
       });
       setComposeOpen(false);
       setTitle("");
       setNotes("");
+      setEventKind("event");
       await refresh();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -291,7 +297,10 @@ export function CalendarPanel() {
           {dayEvents.map((e) => (
             <li key={e.id}>
               <div className="convo-row" style={{ cursor: "default" }}>
-                <strong>{e.title}</strong>
+                <strong>
+                  {e.kind === "seminar" ? `${t("comms.seminar")} · ` : ""}
+                  {e.title}
+                </strong>
                 <div className="muted">
                   {e.allDay
                     ? t("comms.allDay")
@@ -300,7 +309,7 @@ export function CalendarPanel() {
                         minute: "2-digit",
                       })}
                   {" · "}
-                  {e.source === "invited" ? t("comms.invitedEvent") : t("comms.localEvent")}
+                  {e.kind === "seminar" ? t("comms.seminar") : e.source === "invited" ? t("comms.invitedEvent") : t("comms.localEvent")}
                   {e.inviteStatus ? ` · ${e.inviteStatus}` : ""}
                 </div>
                 {e.notes ? <div className="muted">{e.notes}</div> : null}
@@ -355,6 +364,25 @@ export function CalendarPanel() {
               <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
                 ✕
               </button>
+            </div>
+            <div className="field">
+              <label>{t("comms.eventKind")}</label>
+              <div className="bible-more-actions" role="group">
+                <button
+                  type="button"
+                  className={`bible-text-btn${eventKind === "event" ? " is-on" : ""}`}
+                  onClick={() => setEventKind("event")}
+                >
+                  {t("comms.eventKind.event")}
+                </button>
+                <button
+                  type="button"
+                  className={`bible-text-btn${eventKind === "seminar" ? " is-on" : ""}`}
+                  onClick={() => setEventKind("seminar")}
+                >
+                  {t("comms.seminar")}
+                </button>
+              </div>
             </div>
             <div className="field">
               <label>{t("comms.eventTitle")}</label>

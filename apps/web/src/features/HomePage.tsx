@@ -422,17 +422,27 @@ export function HomePage() {
     });
   }, [refreshFriendState]);
 
+  // Defer heavy org-tree decrypt until manage tab (or shortly after home paint).
   useEffect(() => {
-    void loadOrg().catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [loadOrg]);
+    if (homeSection === "manage") {
+      void loadOrg().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+      void loadMembers().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void loadOrg().catch(() => undefined);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [homeSection, loadOrg, loadMembers]);
 
   useEffect(() => {
-    void loadAssembly().catch(() => setAssembly(null));
-  }, [loadAssembly]);
-
-  useEffect(() => {
-    void loadMembers().catch((e) => setNote(e instanceof Error ? e.message : "error"));
-  }, [loadMembers]);
+    // Assembly is a group chat — only need viewer.canOpenChat, load lazily.
+    if (!selectedChurchId) return;
+    const t = window.setTimeout(() => {
+      void loadAssembly().catch(() => setAssembly(null));
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [loadAssembly, selectedChurchId]);
 
   useEffect(() => {
     if (homeSection !== "manage") return;
@@ -904,117 +914,25 @@ export function HomePage() {
             </div>
           )}
 
-          {selectedChurch && assembly && (
+          {selectedChurch && assembly?.viewer.canOpenChat && (
             <div className="panel assembly-panel" data-testid="home-assembly">
               <div className="assembly-heading">
                 <h2 style={{ margin: 0 }}>{t("home.assembly.title")}</h2>
-                <span className="assembly-badge">{t("home.assembly.badge")}</span>
               </div>
               <p className="muted" style={{ marginTop: "0.45rem" }}>
-                {t("home.assembly.hint")}
-                {assembly.viewer.isMember ? ` · ${t("home.assembly.youAreMember")}` : ""}
+                {t("home.assembly.openChatOnly")}
               </p>
-              {(assembly.viewer.canNotify || caps.conveneAssembly) && (
-                <label className="role-check assembly-include-coworkers">
-                  <input
-                    type="checkbox"
-                    checked={includeChurchCoworkers}
-                    onChange={(e) => setIncludeChurchCoworkers(e.target.checked)}
-                    data-testid="assembly-include-coworkers"
-                  />
-                  {t("home.assembly.includeCoworkers")}
-                </label>
-              )}
-              <details className="plans-advanced" data-testid="home-assembly-members-wrap">
-                <summary>
-                  {t("home.assembly.memberCount", { count: assembly.members.length })}
-                </summary>
-                {assembly.members.length === 0 ? (
-                  <p className="muted">{t("home.assembly.empty")}</p>
-                ) : (
-                  <ul className="org-tree-people" data-testid="home-assembly-members">
-                    {assembly.members.map((p) => (
-                      <li key={`assembly-${p.userId}`}>
-                        <button
-                          type="button"
-                          className="org-person-btn"
-                          onClick={() => setActivePerson(p)}
-                        >
-                          <span className="org-person-name">{personLabel(p)}</span>
-                          <span className="muted org-person-roles">
-                            {p.assemblyReasons
-                              .map((reason) => t(`home.assembly.reason.${reason}`))
-                              .join(" · ")}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </details>
               <div className="toolbar">
-                {assembly.viewer.canNotify && (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={busy}
-                    data-testid="home-assembly-notify-btn"
-                    onClick={() => {
-                      setAssemblyNotifyTitle(t("home.assembly.notifyTitle"));
-                      setAssemblyNotifyOpen(true);
-                    }}
-                  >
-                    {t("home.assembly.notify")}
-                  </button>
-                )}
-                {assembly.viewer.canOpenChat && (
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    disabled={busy}
-                    data-testid="home-assembly-chat-btn"
-                    onClick={() => void openAssemblyChat()}
-                  >
-                    {t("home.assembly.openChat")}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy}
+                  data-testid="home-assembly-chat-btn"
+                  onClick={() => void openAssemblyChat()}
+                >
+                  {t("home.assembly.openChat")}
+                </button>
               </div>
-              {assemblyNotifyOpen && (
-                <div className="manage-block" data-testid="home-assembly-notify">
-                  <div className="field">
-                    <label>{t("home.assembly.notifyTitle")}</label>
-                    <input
-                      value={assemblyNotifyTitle}
-                      onChange={(e) => setAssemblyNotifyTitle(e.target.value)}
-                    />
-                  </div>
-                  <div className="field">
-                    <label>{t("home.assembly.notifyBody")}</label>
-                    <textarea
-                      rows={3}
-                      value={assemblyNotifyBody}
-                      onChange={(e) => setAssemblyNotifyBody(e.target.value)}
-                    />
-                  </div>
-                  <div className="toolbar">
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy || !assemblyNotifyTitle.trim()}
-                      onClick={() => void sendAssemblyNotify()}
-                    >
-                      {t("home.assembly.notifySend")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      onClick={() => setAssemblyNotifyOpen(false)}
-                    >
-                      {t("admin.cancel")}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

@@ -81,6 +81,8 @@ export function mergeHostilePrivacy(
 }
 
 export const registerSchema = z.object({
+  deviceName: z.string().max(64).optional(),
+  platform: z.enum(["web", "ios", "android"]).default("web"),
   email: z.string().email().optional(),
   password: z.string().min(10).max(128),
   nickname: z.string().min(1).max(64),

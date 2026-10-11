@@ -90,7 +90,7 @@ export function ChatPanel({
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
-  const [listTab, setListTab] = useState<"dm" | "group" | "seminar" | "archived">("dm");
+  const [listTab, setListTab] = useState<"dm" | "group" | "archived">("dm");
   const [sheet, setSheet] = useState<"none" | "discover" | "compose">("none");
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverHits, setDiscoverHits] = useState<
@@ -227,6 +227,10 @@ export function ChatPanel({
   );
   const filteredActive = useMemo(() => {
     if (listTab === "archived") return [];
+    if (listTab === "group") {
+      // Seminars are calendar items now; legacy seminar chats still appear under groups.
+      return activeConversations.filter((c) => c.kind === "group" || c.kind === "seminar");
+    }
     return activeConversations.filter((c) => c.kind === listTab);
   }, [activeConversations, listTab]);
 
@@ -247,36 +251,55 @@ export function ChatPanel({
       .catch(() => setSelfUserId(null));
   }, []);
 
+  // Lightweight friends-only labels on chat mount — full directory is expensive
+  // (org-tree decrypt) and only needed for compose/discover.
   useEffect(() => {
     if (!getToken()) return;
-    void Promise.all([
-      api<{
+    void api<{
+      friends: { user: { id: string; uid?: string | null; nickname?: string | null } }[];
+    }>("/v1/friends")
+      .then((fr) => {
+        const map: Record<string, string> = {};
+        const ids = new Set<string>();
+        for (const f of fr.friends) {
+          ids.add(f.user.id);
+          map[f.user.id] = f.user.nickname || f.user.uid || f.user.id.slice(0, 10);
+        }
+        setPeerLabels((prev) => ({ ...map, ...prev }));
+        setFriendIds(ids);
+      })
+      .catch(() => {
+        /* optional */
+      });
+  }, []);
+
+  const loadDirectory = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      const dir = await api<{
         contacts: {
           userId: string;
           uid: string | null;
           nickname: string | null;
           source: "directory" | "friend";
         }[];
-      }>("/v1/friends/directory"),
-      api<{ friends: { user: { id: string } }[] }>("/v1/friends").catch(() => ({ friends: [] })),
-    ])
-      .then(([dir, fr]) => {
-        const map: Record<string, string> = {};
+      }>("/v1/friends/directory");
+      const map: Record<string, string> = {};
+      for (const c of dir.contacts) {
+        map[c.userId] = c.nickname || c.uid || c.userId.slice(0, 10);
+      }
+      setPeerLabels((prev) => ({ ...prev, ...map }));
+      setDirectory(dir.contacts);
+      setFriendIds((prev) => {
+        const next = new Set(prev);
         for (const c of dir.contacts) {
-          map[c.userId] = c.nickname || c.uid || c.userId.slice(0, 10);
+          if (c.source === "friend") next.add(c.userId);
         }
-        setPeerLabels(map);
-        setDirectory(dir.contacts);
-        setFriendIds(
-          new Set([
-            ...dir.contacts.filter((c) => c.source === "friend").map((c) => c.userId),
-            ...fr.friends.map((f) => f.user.id),
-          ]),
-        );
-      })
-      .catch(() => {
-        /* directory is optional for labels */
+        return next;
       });
+    } catch {
+      /* optional */
+    }
   }, []);
 
   const peerFromQuery = searchParams.get("peer");
@@ -350,9 +373,7 @@ export function ChatPanel({
         if (found) {
           setSelectedId(conversationFromQuery);
           setListTab(
-            found.kind === "group" || found.kind === "seminar" || found.kind === "dm"
-              ? found.kind
-              : "dm",
+            found.kind === "dm" ? "dm" : found.kind === "group" || found.kind === "seminar" ? "group" : "dm",
           );
         }
         setSearchParams(
@@ -536,7 +557,7 @@ export function ChatPanel({
       setSheet("none");
       await refreshConversations();
       setSelectedId(res.id);
-      setListTab(useKind);
+      setListTab(useKind === "seminar" ? "group" : useKind === "group" ? "group" : "dm");
       setNote(null);
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -1216,7 +1237,6 @@ export function ChatPanel({
               [
                 ["dm", "chat.dm"],
                 ["group", "chat.group"],
-                ["seminar", "comms.seminar"],
                 ["archived", "chat.tabArchived"],
               ] as const
             ).map(([id, key]) => (
@@ -1281,8 +1301,9 @@ export function ChatPanel({
             data-testid="chat-compose-open"
             aria-label={t("comms.newChat")}
             onClick={() => {
-              setKind(listTab === "archived" ? "dm" : listTab);
+              setKind(listTab === "group" ? "group" : "dm");
               setSheet("compose");
+              void loadDirectory();
             }}
           >
             +
@@ -1359,7 +1380,6 @@ export function ChatPanel({
                   >
                     <option value="dm">{t("chat.dm")}</option>
                     <option value="group">{t("chat.group")}</option>
-                    <option value="seminar">{t("comms.seminar")}</option>
                   </select>
                 </div>
                 {kind === "dm" ? (
