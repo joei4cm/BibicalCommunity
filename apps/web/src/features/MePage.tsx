@@ -518,7 +518,7 @@ export function MePage() {
         </p>
       </div>
 
-      <div className="plans-tabs" role="tablist" data-testid="me-section-tabs">
+      <div className="plans-tabs me-tabs" role="tablist" data-testid="me-section-tabs">
         {(
           [
             ["account", "me.tabAccount"],
