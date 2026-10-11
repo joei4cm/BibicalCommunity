@@ -42,7 +42,7 @@ type Subscription = {
 
 type PlanVisibility = "private" | "church" | "public";
 type PlansTab = "mine" | "discover" | "done";
-type PlansSheet = "none" | "create" | "add";
+type PlansSheet = "none" | "actions" | "create" | "add";
 type CreateStep = 1 | 2;
 
 type DraftDay = { ref: string; title: string };
@@ -199,6 +199,14 @@ export function PlansPage() {
     setSelectedId(id);
     const plan = plans.find((p) => p.id === id);
     if (plan) setDaysJson(JSON.stringify(plan.days, null, 2));
+  }
+
+  function openActionsSheet() {
+    if (!getToken()) {
+      setMessage("login_required");
+      return;
+    }
+    setSheet("actions");
   }
 
   function openCreateSheet() {
@@ -423,29 +431,7 @@ export function PlansPage() {
 
   return (
     <section className="fade-up plans-page app-folio" data-testid="plans-page">
-      <header className="plans-page-head">
-        <h1 className="page-title">{t("nav.plans")}</h1>
-        {loggedIn && (
-          <div className="plans-cta-bar" data-testid="plans-cta-bar">
-            <button
-              type="button"
-              className="btn"
-              data-testid="plans-new-open"
-              onClick={openCreateSheet}
-            >
-              {t("plans.newPlan")}
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              data-testid="plans-add-open"
-              onClick={openAddSheet}
-            >
-              {t("plans.addPlan")}
-            </button>
-          </div>
-        )}
-      </header>
+      <h1 className="page-title">{t("nav.plans")}</h1>
       {message && <p className="muted">{humanizeStatus(t, message)}</p>}
 
       {!loggedIn && (
@@ -582,31 +568,14 @@ export function PlansPage() {
             <div className="panel plans-empty-mine" data-testid="plans-empty-mine">
               <p className="plans-empty-lead">{t("plans.emptyMine")}</p>
               <p className="muted">{t("plans.emptyMineHint")}</p>
-              <div className="plans-empty-actions">
-                <button
-                  type="button"
-                  className="btn"
-                  data-testid="plans-empty-new"
-                  onClick={openCreateSheet}
-                >
-                  {t("plans.newPlan")}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  data-testid="plans-empty-add"
-                  onClick={openAddSheet}
-                >
-                  {t("plans.addPlan")}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => setTab("discover")}
-                >
-                  {t("plans.openDiscover")}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn ghost"
+                data-testid="plans-empty-discover"
+                onClick={() => setTab("discover")}
+              >
+                {t("plans.openDiscover")}
+              </button>
             </div>
           )}
 
@@ -757,11 +726,55 @@ export function PlansPage() {
           type="button"
           className="comms-fab"
           data-testid="plans-fab"
-          aria-label={t("plans.newPlan")}
-          onClick={openCreateSheet}
+          aria-label={t("plans.fabLabel")}
+          onClick={openActionsSheet}
         >
           +
         </button>
+      )}
+
+      {sheet === "actions" && (
+        <SheetPortal>
+          <div className="sheet-backdrop" role="presentation" onClick={closeSheet}>
+            <div
+              className="sheet-panel plans-sheet plans-actions-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="plans-actions-sheet-title"
+              data-testid="plans-actions-sheet"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sheet-handle" aria-hidden />
+              <div className="chat-sheet-head">
+                <h3 id="plans-actions-sheet-title" style={{ margin: 0 }}>
+                  {t("plans.fabLabel")}
+                </h3>
+                <button type="button" className="btn ghost" onClick={closeSheet} aria-label="close">
+                  ✕
+                </button>
+              </div>
+              <p className="muted plans-sheet-lead">{t("plans.actionsHint")}</p>
+              <div className="plans-actions-list">
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="plans-new-open"
+                  onClick={openCreateSheet}
+                >
+                  {t("plans.newPlan")}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  data-testid="plans-add-open"
+                  onClick={openAddSheet}
+                >
+                  {t("plans.addPlan")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetPortal>
       )}
 
       {sheet === "create" && (

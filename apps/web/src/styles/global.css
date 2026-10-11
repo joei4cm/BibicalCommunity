@@ -663,23 +663,6 @@ select {
   display: none;
 }
 
-.plans-page-head {
-  display: grid;
-  gap: 0.85rem;
-  margin-bottom: 0.35rem;
-}
-
-.plans-cta-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
-.plans-cta-bar .btn {
-  flex: 1 1 8rem;
-  min-width: 0;
-}
-
 .plans-empty-mine .plans-empty-lead {
   margin: 0 0 0.35rem;
   font-family: var(--lh-font-reader, var(--br-font-reader));
@@ -687,10 +670,17 @@ select {
   color: var(--lh-ink);
 }
 
-.plans-empty-actions {
+.plans-empty-mine .btn {
+  margin-top: 0.85rem;
+}
+
+.plans-actions-list {
   display: grid;
   gap: 0.55rem;
-  margin-top: 1rem;
+}
+
+.plans-actions-sheet {
+  max-height: min(50dvh, 22rem);
 }
 
 .plans-sheet-lead {
