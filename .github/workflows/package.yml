@@ -146,8 +146,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Use runner Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}" | head
       - name: Install Capacitor shell
         working-directory: apps/native
         run: npm install
@@ -188,14 +191,18 @@ jobs:
           npm run sync:web
           npx cap add ios
           npx cap sync ios
+      - name: Install CocoaPods
+        working-directory: apps/native/ios/App
+        run: pod install --repo-update
       - name: Build iOS simulator app
         working-directory: apps/native/ios/App
         run: |
           xcodebuild \
-            -project App.xcodeproj \
+            -workspace App.xcworkspace \
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
