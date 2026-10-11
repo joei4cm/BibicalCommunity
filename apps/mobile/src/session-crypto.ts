@@ -16,16 +16,25 @@ ensureBase64Globals();
  * so two handsets can still decrypt each other — same model as web bootstrapDegraded.
  * Prefer the product x25519 path whenever both peers uploaded keys.
  */
-function degradedMaterial(conversationId: string, peerUserId?: string | null): string {
+function degradedMaterial(
+  conversationId: string,
+  peerUserId?: string | null,
+  selfUserId?: string | null,
+): string {
+  if (peerUserId && selfUserId) {
+    const pair = [selfUserId, peerUserId].sort().join(":");
+    return `logoshome-bootstrap-v2:${conversationId}:${pair}`;
+  }
   return peerUserId
-    ? `logoshome-bootstrap:${conversationId}:${peerUserId}`
-    : `logoshome-bootstrap:${conversationId}`;
+    ? `logoshome-bootstrap-v2:${conversationId}:${peerUserId}`
+    : `logoshome-bootstrap-v2:${conversationId}`;
 }
 
 export async function encryptMobileMessage(
   conversationId: string,
   plaintext: string,
   peerUserId?: string | null,
+  selfUserId?: string | null,
 ): Promise<{ ratchetHeader: string; ciphertext: string; mode: "product" | "degraded" }> {
   if (!hasWebCrypto()) {
     throw new Error("webcrypto_unavailable");
@@ -33,7 +42,7 @@ export async function encryptMobileMessage(
   const product = await tryEncryptProductMobileMessage(conversationId, plaintext, peerUserId);
   if (product) return product;
 
-  const material = degradedMaterial(conversationId, peerUserId);
+  const material = degradedMaterial(conversationId, peerUserId, selfUserId);
   const key = await deriveSessionKey(material);
   const enc = await encryptSessionPayload(key, plaintext, `conv:${conversationId}`);
   return { ...enc, mode: "degraded" };
@@ -44,6 +53,7 @@ export async function decryptMobileMessage(
   ratchetHeader: string,
   ciphertext: string,
   peerUserId?: string | null,
+  selfUserId?: string | null,
 ): Promise<string | null> {
   if (!hasWebCrypto()) return null;
   const productPlain = await tryDecryptProductMobileMessage(
@@ -55,7 +65,7 @@ export async function decryptMobileMessage(
   if (productPlain != null) return productPlain;
 
   try {
-    const material = degradedMaterial(conversationId, peerUserId);
+    const material = degradedMaterial(conversationId, peerUserId, selfUserId);
     const key = await deriveSessionKey(material);
     return await decryptSessionPayload(key, ratchetHeader, ciphertext, `conv:${conversationId}`);
   } catch {

@@ -4,6 +4,22 @@ export function getToken(): string | null {
   return localStorage.getItem("lh.token");
 }
 
+/** WebSocket URL against the API host (Pages origin has no Worker upgrade). */
+export function apiWsUrl(pathWithQuery: string): string {
+  const path = pathWithQuery.startsWith("/") ? pathWithQuery : `/${pathWithQuery}`;
+  if (API_BASE) {
+    try {
+      const base = new URL(API_BASE, window.location.origin);
+      const proto = base.protocol === "https:" ? "wss:" : "ws:";
+      return `${proto}//${base.host}${path}`;
+    } catch {
+      /* fall through */
+    }
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}${path}`;
+}
+
 export function setToken(token: string | null) {
   if (token) localStorage.setItem("lh.token", token);
   else localStorage.removeItem("lh.token");

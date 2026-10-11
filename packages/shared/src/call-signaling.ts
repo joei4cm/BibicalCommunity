@@ -4,6 +4,7 @@ export const CALL_SIGNAL_TYPES = [
   "answer",
   "ice",
   "hangup",
+  "ring",
   "screen",
   "screen-offer",
   "screen-answer",

@@ -60,11 +60,15 @@ function parseSignal(data: unknown): {
 export async function startCallSession(opts: {
   wsUrl: string | null;
   iceServers: RTCIceServer[];
+  /** caller sends offer; callee waits for remote offer then answers. */
+  role?: "caller" | "callee";
+  video?: boolean;
   onRemoteStream?: (stream: MediaStream) => void;
   onNote?: (msg: string) => void;
 }): Promise<CallSession> {
   const channel = openSignalingChannel(opts.wsUrl);
   const sendSignal = (msg: SignalingMessage | object) => sendOnChannel(channel, msg);
+  const role = opts.role ?? "caller";
 
   /** When answering a screen-offer, reply with screen-answer (not plain answer). */
   let answerAsScreen = false;
@@ -91,7 +95,10 @@ export async function startCallSession(opts: {
   };
 
   const pc = createPeerConnection(callbacks, { iceServers: opts.iceServers });
-  const localStream = await attachLocalMedia(pc, { audio: true, video: true });
+  const localStream = await attachLocalMedia(pc, {
+    audio: true,
+    video: opts.video ?? false,
+  });
 
   const onMessage = async (ev: MessageEvent | CustomEvent) => {
     const raw = "data" in ev ? ev.data : (ev as CustomEvent).detail;
@@ -114,6 +121,8 @@ export async function startCallSession(opts: {
       opts.onNote?.("peer-screen");
     } else if (msg.type === "hangup") {
       opts.onNote?.("peer-hangup");
+    } else if (msg.type === "ring") {
+      opts.onNote?.("peer-ring");
     }
   };
 
@@ -123,7 +132,10 @@ export async function startCallSession(opts: {
     channel.addEventListener("message", (ev) => void onMessage(ev as CustomEvent));
   }
 
-  await createOffer(pc, callbacks);
+  if (role === "caller") {
+    sendSignal({ type: "ring" });
+    await createOffer(pc, callbacks);
+  }
 
   return {
     pc,

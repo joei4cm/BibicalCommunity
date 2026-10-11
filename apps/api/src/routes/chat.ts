@@ -9,6 +9,27 @@ import { requireAuth, type AuthVars } from "../middleware/auth";
 export const chatRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 chatRoutes.use("*", requireAuth);
 
+function orderedPair(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
+}
+
+async function areFriends(
+  db: ReturnType<typeof drizzle>,
+  a: string,
+  b: string,
+): Promise<boolean> {
+  if (a === b) return true;
+  const [userAId, userBId] = orderedPair(a, b);
+  const row = (
+    await db
+      .select()
+      .from(schema.friendships)
+      .where(and(eq(schema.friendships.userAId, userAId), eq(schema.friendships.userBId, userBId)))
+      .limit(1)
+  )[0];
+  return Boolean(row);
+}
+
 const createConvoSchema = z.object({
   kind: z.enum(["dm", "group", "seminar"]),
   title: z.string().optional(),
@@ -26,6 +47,15 @@ const sendMessageSchema = z.object({
 chatRoutes.post("/conversations", async (c) => {
   const body = createConvoSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
+  const selfId = c.get("userId");
+  const members = Array.from(new Set([selfId, ...body.memberIds]));
+  if (body.kind === "dm") {
+    const peers = members.filter((id) => id !== selfId);
+    if (peers.length !== 1) return c.json({ error: "dm_requires_one_peer" }, 400);
+    if (!(await areFriends(db, selfId, peers[0]!))) {
+      return c.json({ error: "friends_required" }, 403);
+    }
+  }
   const id = createId("convo");
   const now = Date.now();
   await db.insert(schema.conversations).values({
@@ -33,16 +63,15 @@ chatRoutes.post("/conversations", async (c) => {
     kind: body.kind,
     title: body.title,
     disappearingTtlSec: body.disappearingTtlSec,
-    createdBy: c.get("userId"),
+    createdBy: selfId,
     createdAt: now,
   });
-  const members = Array.from(new Set([c.get("userId"), ...body.memberIds]));
   for (const userId of members) {
     await db.insert(schema.conversationMembers).values({
       id: createId("cm"),
       conversationId: id,
       userId,
-      role: userId === c.get("userId") ? "owner" : "member",
+      role: userId === selfId ? "owner" : "member",
     });
   }
   return c.json({ id }, 201);
@@ -172,6 +201,17 @@ chatRoutes.post("/conversations/:id/messages", async (c) => {
   const convo = (
     await db.select().from(schema.conversations).where(eq(schema.conversations.id, conversationId)).limit(1)
   )[0];
+  if (convo?.kind === "dm") {
+    const selfId = c.get("userId");
+    const members = await db
+      .select()
+      .from(schema.conversationMembers)
+      .where(eq(schema.conversationMembers.conversationId, conversationId));
+    const peer = members.map((m) => m.userId).find((id) => id !== selfId);
+    if (peer && !(await areFriends(db, selfId, peer))) {
+      return c.json({ error: "friends_required" }, 403);
+    }
+  }
   const expiresAt =
     body.expiresAt ??
     (convo?.disappearingTtlSec ? Date.now() + convo.disappearingTtlSec * 1000 : undefined);
@@ -279,7 +319,8 @@ chatRoutes.post("/calls", async (c) => {
   const body = z
     .object({ conversationId: z.string(), callId: z.string().optional() })
     .parse(await c.req.json());
-  const callId = body.callId ?? createId("call");
+  // Deterministic room so both peers join the same signaling DO.
+  const callId = body.callId ?? `call_${body.conversationId}`;
   const id = c.env.CALL_ROOM.idFromName(callId);
   const stub = c.env.CALL_ROOM.get(id);
   const url = new URL(c.req.url);

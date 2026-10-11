@@ -7,7 +7,7 @@ import {
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle } from "@logoshome/shared";
-import { api, getToken } from "../lib/api";
+import { api, apiWsUrl, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
   decryptGroupFanout,
@@ -20,6 +20,8 @@ import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
 import { SheetPortal } from "../components/SheetPortal";
+import { EmojiPicker } from "../components/EmojiPicker";
+import { CallOverlay, type CallPhase } from "../components/CallOverlay";
 import {
   encodeChatPayload,
   parseChatPayload,
@@ -28,33 +30,6 @@ import {
 } from "../lib/chat-payload";
 
 type ConversationKind = "dm" | "group" | "seminar";
-
-const EMOJI_PICKER = [
-  "😀",
-  "😁",
-  "😂",
-  "😊",
-  "😍",
-  "🙏",
-  "👍",
-  "👏",
-  "❤️",
-  "🔥",
-  "✨",
-  "🎉",
-  "😇",
-  "🤝",
-  "💪",
-  "🕊️",
-  "✝️",
-  "📖",
-  "🏠",
-  "🌸",
-  "☀️",
-  "🌙",
-  "⭐",
-  "✅",
-];
 
 type Conversation = {
   id: string;
@@ -125,11 +100,18 @@ export function ChatPanel({
   >([]);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
+  const [listQuery, setListQuery] = useState("");
+  const [callOpen, setCallOpen] = useState(false);
+  const [callPhase, setCallPhase] = useState<CallPhase>("idle");
+  const [callVideo, setCallVideo] = useState(false);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const callRef = useRef<CallSession | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const mediaLoadedRef = useRef<Set<string>>(new Set());
+  const selfDeviceId = useMemo(() => localStorage.getItem("lh.deviceId"), []);
 
   const selected = useMemo(
     () => conversations.find((c) => c.id === selectedId) ?? null,
@@ -173,16 +155,30 @@ export function ChatPanel({
 
   useEffect(() => {
     if (!getToken()) return;
-    void api<{
-      contacts: { userId: string; uid: string | null; nickname: string | null }[];
-    }>("/v1/friends/directory")
-      .then((res) => {
+    void Promise.all([
+      api<{
+        contacts: {
+          userId: string;
+          uid: string | null;
+          nickname: string | null;
+          source: "directory" | "friend";
+        }[];
+      }>("/v1/friends/directory"),
+      api<{ friends: { user: { id: string } }[] }>("/v1/friends").catch(() => ({ friends: [] })),
+    ])
+      .then(([dir, fr]) => {
         const map: Record<string, string> = {};
-        for (const c of res.contacts) {
+        for (const c of dir.contacts) {
           map[c.userId] = c.nickname || c.uid || c.userId.slice(0, 10);
         }
         setPeerLabels(map);
-        setDirectory(res.contacts);
+        setDirectory(dir.contacts);
+        setFriendIds(
+          new Set([
+            ...dir.contacts.filter((c) => c.source === "friend").map((c) => c.userId),
+            ...fr.friends.map((f) => f.user.id),
+          ]),
+        );
       })
       .catch(() => {
         /* directory is optional for labels */
@@ -322,6 +318,7 @@ export function ChatPanel({
               m.ratchetHeader,
               m.ciphertext,
               peer,
+              selfUserId,
             );
           }
         } catch {
@@ -424,6 +421,10 @@ export function ChatPanel({
   }
 
   async function openOrStartDm(userId: string) {
+    if (!friendIds.has(userId)) {
+      setNote("friends_required");
+      return;
+    }
     const existing = conversations.find(
       (c) => c.kind === "dm" && (c.peerUserIds ?? []).includes(userId),
     );
@@ -460,11 +461,16 @@ export function ChatPanel({
       ciphertext = fanout.ciphertext;
       mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
     } else {
-      const enc = await encryptChatMessage(selectedId, plaintext, peers[0] ?? null);
-      ratchetHeader = enc.ratchetHeader;
-      ciphertext = enc.ciphertext;
-      mode = enc.mode;
-    }
+        const enc = await encryptChatMessage(
+          selectedId,
+          plaintext,
+          peers[0] ?? null,
+          selfUserId,
+        );
+        ratchetHeader = enc.ratchetHeader;
+        ciphertext = enc.ciphertext;
+        mode = enc.mode;
+      }
 
     const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
       method: "POST",
@@ -476,8 +482,9 @@ export function ChatPanel({
       }),
     });
     localStorage.setItem(`lh.msg.${res.id}`, plaintext);
+    // Degraded still decrypts peer-to-peer after v2 seed fix; keep a soft hint only.
     if (mode === "degraded") {
-      setNote("chat_degraded_no_peer_keys");
+      setNote("chat_degraded_soft");
     } else {
       setNote(null);
     }
@@ -486,6 +493,14 @@ export function ChatPanel({
 
   async function sendMessage() {
     if (!selectedId || !draft.trim()) return;
+    if (
+      selected?.kind === "dm" &&
+      selected.peerUserIds?.[0] &&
+      !friendIds.has(selected.peerUserIds[0])
+    ) {
+      setNote("friends_required");
+      return;
+    }
     setBusy(true);
     try {
       const text = draft.trim();
@@ -624,10 +639,36 @@ export function ChatPanel({
     await refreshConversations();
   }
 
-  async function startCall() {
+  async function prepareIce(): Promise<RTCIceServer[]> {
+    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+    try {
+      const turn = await api<{
+        username?: string;
+        credential?: string;
+        uris: string[];
+        ttl: number;
+        iceServers?: RTCIceServer[];
+        hasRelay?: boolean;
+        note?: string;
+      }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
+      iceServers = buildIceServersFromTurnResponse(turn, iceServers);
+      setCallNote(
+        turn.hasRelay
+          ? t("chat.callRelayOn")
+          : `${t("chat.turnRelayMissing")}`,
+      );
+    } catch {
+      /* STUN-only fallback */
+    }
+    return iceServers;
+  }
+
+  async function startCall(asAnswerer = false) {
     if (!selectedId) return;
     setBusy(true);
     setCallNote(null);
+    setCallOpen(true);
+    setCallPhase(asAnswerer ? "incoming" : "outgoing");
     try {
       callRef.current?.close();
       const res = await api<{
@@ -638,54 +679,85 @@ export function ChatPanel({
         method: "POST",
         body: JSON.stringify({ conversationId: selectedId }),
       });
-      let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-      try {
-        const turn = await api<{
-          username?: string;
-          credential?: string;
-          uris: string[];
-          ttl: number;
-          iceServers?: RTCIceServer[];
-          hasRelay?: boolean;
-          note?: string;
-        }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-        iceServers = buildIceServersFromTurnResponse(turn, iceServers);
-        setCallNote(
-          turn.hasRelay
-            ? `TURN relay · ttl=${turn.ttl}s · ${turn.uris.join(",")}`
-            : `STUN-only · ttl=${turn.ttl}s · ${t("chat.turnRelayMissing")}`,
-        );
-      } catch {
-        /* STUN-only fallback */
-      }
+      const iceServers = await prepareIce();
       const token = getToken();
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
       const wsUrl = token
-        ? `${proto}://${window.location.host}${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(selectedId)}`
+        ? apiWsUrl(
+            `${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(selectedId)}`,
+          )
         : null;
       const session = await startCallSession({
         wsUrl,
         iceServers,
+        role: asAnswerer ? "callee" : "caller",
+        video: callVideo,
         onRemoteStream: (stream) => {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = stream;
-          }
+          setRemoteStream(stream);
+          setCallPhase("connected");
         },
-        onNote: (m) => setCallNote((prev) => `${prev ?? ""} · ${m}`),
+        onNote: (m) => {
+          if (m === "answered-remote-offer" || m === "got-remote-answer") setCallPhase("connected");
+          if (m === "peer-ring" && !asAnswerer) return;
+          if (m === "peer-ring") {
+            setCallOpen(true);
+            setCallPhase("incoming");
+            return;
+          }
+          if (m === "peer-hangup") {
+            hangup();
+            return;
+          }
+          setCallNote((prev) => `${prev ?? ""} · ${m}`);
+        },
       });
       callRef.current = session;
-      setCallNote(
-        (prev) =>
-          `${prev ? `${prev} · ` : ""}${t("chat.callStarted")}: ${res.callId} · ${res.signalingPath}` +
-          (res.note ? ` · ${res.note}` : "") +
-          ` · signaling=${session.channel instanceof WebSocket ? "ws" : "mock"}`,
-      );
+      setLocalStream(session.localStream);
+      if (!asAnswerer) setCallPhase("outgoing");
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "error");
+      setCallPhase("idle");
+      setCallOpen(false);
     } finally {
       setBusy(false);
     }
   }
+
+  // Keep a light listen socket on the deterministic call room while a thread is open.
+  useEffect(() => {
+    if (!selectedId || !getToken() || callOpen) return;
+    let closed = false;
+    let sock: WebSocket | null = null;
+    void (async () => {
+      try {
+        const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
+          method: "POST",
+          body: JSON.stringify({ conversationId: selectedId }),
+        });
+        if (closed) return;
+        const url = apiWsUrl(
+          `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(selectedId)}`,
+        );
+        sock = new WebSocket(url);
+        sock.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(String(ev.data)) as { type?: string };
+            if (msg.type === "ring" || msg.type === "offer") {
+              setCallOpen(true);
+              setCallPhase("incoming");
+            }
+          } catch {
+            /* ignore */
+          }
+        };
+      } catch {
+        /* listen optional */
+      }
+    })();
+    return () => {
+      closed = true;
+      sock?.close();
+    };
+  }, [selectedId, callOpen]);
 
   async function shareScreen() {
     const gate = probeDisplayMedia();
@@ -719,8 +791,11 @@ export function ChatPanel({
   function hangup() {
     callRef.current?.close();
     callRef.current = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    setCallNote((prev) => `${prev ?? ""} · hung-up`);
+    setRemoteStream(null);
+    setLocalStream(null);
+    setCallOpen(false);
+    setCallPhase("idle");
+    setCallNote(null);
   }
 
   function kindLabel(k: ConversationKind) {
@@ -740,8 +815,40 @@ export function ChatPanel({
     return kindLabel(c.kind);
   }
 
+  function avatarLetter(label: string) {
+    const s = label.trim();
+    return s ? s.slice(0, 1).toUpperCase() : "?";
+  }
+
+  const visibleConversations = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    const rows = listTab === "archived" ? archivedConversations : filteredActive;
+    if (!q) return rows;
+    return rows.filter((c) => {
+      const label = convoLabel(c).toLowerCase();
+      return label.includes(q);
+    });
+  }, [archivedConversations, filteredActive, listQuery, listTab, peerLabels, t]);
+
+  const dmPeerBlocked =
+    selected?.kind === "dm" &&
+    Boolean(selected.peerUserIds?.[0]) &&
+    !friendIds.has(selected.peerUserIds![0]!);
+
   return (
     <div className={`chat-home im-shell${selected ? " is-thread" : ""}`} data-testid="home-chat-panel">
+      <CallOverlay
+        open={callOpen}
+        phase={callPhase}
+        peerLabel={selected ? convoLabel(selected) : "…"}
+        note={callNote}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        video={callVideo}
+        onAccept={() => void startCall(true)}
+        onHangup={hangup}
+        onToggleVideo={() => setCallVideo((v) => !v)}
+      />
       {note && !selected && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
 
       {selected ? (
@@ -755,12 +862,27 @@ export function ChatPanel({
             >
               ←
             </button>
-            <div className="im-thread-title">
-              <strong>{convoLabel(selected)}</strong>
-              {selected.kind !== "dm" && (
-                <span className="muted">{kindLabel(selected.kind)}</span>
-              )}
+            <div className="im-thread-peer">
+              <span className="im-avatar" aria-hidden>
+                {avatarLetter(convoLabel(selected))}
+              </span>
+              <div className="im-thread-title">
+                <strong>{convoLabel(selected)}</strong>
+                {selected.kind !== "dm" && (
+                  <span className="muted">{kindLabel(selected.kind)}</span>
+                )}
+              </div>
             </div>
+            <button
+              type="button"
+              className="btn ghost im-call-btn"
+              data-testid="chat-call"
+              disabled={busy || dmPeerBlocked}
+              aria-label={t("chat.call")}
+              onClick={() => void startCall(false)}
+            >
+              📞
+            </button>
             <details className="im-more">
               <summary className="btn ghost">···</summary>
               <div className="im-more-menu">
@@ -781,9 +903,6 @@ export function ChatPanel({
                     ))}
                   </select>
                 </div>
-                <button type="button" className="btn ghost" disabled={busy} onClick={() => void startCall()}>
-                  {t("chat.call")}
-                </button>
                 <button
                   type="button"
                   className="btn ghost"
@@ -795,9 +914,6 @@ export function ChatPanel({
                 <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
                   {t("chat.stopShare")}
                 </button>
-                <button type="button" className="btn ghost" onClick={hangup}>
-                  {t("chat.hangup")}
-                </button>
                 <button
                   type="button"
                   className="btn ghost"
@@ -805,25 +921,24 @@ export function ChatPanel({
                 >
                   {selected.membership.archived ? t("chat.unarchive") : t("chat.archive")}
                 </button>
-                {callNote && <p className="muted">{callNote}</p>}
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  muted={false}
-                  className="im-call-video"
-                />
               </div>
             </details>
           </header>
+
+          {dmPeerBlocked && (
+            <p className="im-banner" data-testid="chat-friends-required">
+              {t("chat.friendsRequired")}
+            </p>
+          )}
 
           <div className="im-messages chat-thread">
             {messages.length === 0 && <p className="muted im-empty">{t("chat.noMessages")}</p>}
             {messages.map((m) => {
               const payload = parseChatPayload(plaintexts[m.id]);
               const loading = plaintexts[m.id] == null;
+              const mine = Boolean(selfDeviceId && m.senderDeviceId === selfDeviceId);
               return (
-                <div key={m.id} className="chat-bubble">
+                <div key={m.id} className={`chat-bubble${mine ? " is-mine" : " is-peer"}`}>
                   {loading && <p className="chat-bubble-text">{t("common.loading")}</p>}
                   {!loading && payload?.kind === "media" && (
                     <div className="chat-media">
@@ -855,6 +970,9 @@ export function ChatPanel({
                   {!loading && payload?.kind === "text" && (
                     <p className="chat-bubble-text">{payload.text}</p>
                   )}
+                  {!loading && !payload && (
+                    <p className="chat-bubble-text muted">{plaintexts[m.id]}</p>
+                  )}
                   <div className="muted im-bubble-meta">
                     {new Date(m.createdAt).toLocaleString()}
                     {m.expiresAt
@@ -874,10 +992,10 @@ export function ChatPanel({
                 className="btn ghost im-tool"
                 data-testid="chat-attach-open"
                 aria-label={t("chat.attach")}
-                disabled={busy}
+                disabled={busy || dmPeerBlocked}
                 onClick={() => fileInputRef.current?.click()}
               >
-                📎
+                ＋
               </button>
               <button
                 type="button"
@@ -885,6 +1003,7 @@ export function ChatPanel({
                 data-testid="chat-emoji-open"
                 aria-label={t("chat.emoji")}
                 aria-expanded={emojiOpen}
+                disabled={dmPeerBlocked}
                 onClick={() => setEmojiOpen((v) => !v)}
               >
                 😊
@@ -901,20 +1020,7 @@ export function ChatPanel({
                 }}
               />
             </div>
-            {emojiOpen && (
-              <div className="im-emoji-panel" data-testid="chat-emoji-panel" role="listbox">
-                {EMOJI_PICKER.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    className="im-emoji-btn"
-                    onClick={() => insertEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
+            {emojiOpen && <EmojiPicker onPick={insertEmoji} />}
             <div className="im-composer-row">
               <textarea
                 ref={composerRef}
@@ -922,6 +1028,7 @@ export function ChatPanel({
                 className="im-composer-input"
                 value={draft}
                 placeholder={t("chat.message")}
+                disabled={dmPeerBlocked}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -933,7 +1040,7 @@ export function ChatPanel({
               <button
                 type="button"
                 className="btn im-send"
-                disabled={busy || !draft.trim()}
+                disabled={busy || dmPeerBlocked || !draft.trim()}
                 onClick={() => void sendMessage()}
               >
                 {t("chat.send")}
@@ -943,6 +1050,18 @@ export function ChatPanel({
         </div>
       ) : (
         <>
+          <div className="im-list-head">
+            <h2 className="im-list-title">{t("chat.tabChats")}</h2>
+          </div>
+          <label className="im-search">
+            <span aria-hidden>⌕</span>
+            <input
+              value={listQuery}
+              onChange={(e) => setListQuery(e.target.value)}
+              placeholder={t("chat.search")}
+              data-testid="chat-search"
+            />
+          </label>
           <div className="im-kind-tabs manage-subtabs" role="tablist" data-testid="chat-list-tabs">
             {(
               [
@@ -966,47 +1085,46 @@ export function ChatPanel({
             ))}
           </div>
 
-          {listTab !== "archived" && (
-            <ul className="list im-convo-list" data-testid="chat-active-list">
-              {filteredActive.length === 0 && <li className="muted">{t("chat.empty")}</li>}
-              {filteredActive.map((c) => (
+          <ul
+            className="list im-convo-list"
+            data-testid={listTab === "archived" ? "chat-archived-list" : "chat-active-list"}
+          >
+            {visibleConversations.length === 0 && (
+              <li className="muted">
+                {listTab === "archived" ? t("chat.archivedEmpty") : t("chat.empty")}
+              </li>
+            )}
+            {visibleConversations.map((c) => {
+              const label = convoLabel(c);
+              return (
                 <li key={c.id}>
-                  <button type="button" className="convo-row" onClick={() => setSelectedId(c.id)}>
-                    <strong>{convoLabel(c)}</strong>
-                    {(c.kind !== "dm" || c.disappearingTtlSec) && (
-                      <div className="muted">
-                        {c.kind !== "dm" ? kindLabel(c.kind) : ""}
-                        {c.disappearingTtlSec
-                          ? `${c.kind !== "dm" ? " · " : ""}${t("chat.disappearing")} ${Math.round(c.disappearingTtlSec / 3600)}h`
-                          : ""}
-                      </div>
-                    )}
+                  <button type="button" className="convo-row convo-row-rich" onClick={() => setSelectedId(c.id)}>
+                    <span className="im-avatar" aria-hidden>
+                      {avatarLetter(label)}
+                    </span>
+                    <span className="convo-row-main">
+                      <strong>{label}</strong>
+                      <span className="muted convo-row-preview">
+                        {listTab === "archived"
+                          ? t("chat.archived")
+                          : c.kind !== "dm"
+                            ? kindLabel(c.kind)
+                            : t("chat.tapToOpen")}
+                      </span>
+                    </span>
+                    <span className="muted convo-row-time">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </span>
                   </button>
                 </li>
-              ))}
-            </ul>
-          )}
-
-          {listTab === "archived" && (
-            <ul className="list im-convo-list" data-testid="chat-archived-list">
-              {archivedConversations.length === 0 && (
-                <li className="muted">{t("chat.archivedEmpty")}</li>
-              )}
-              {archivedConversations.map((c) => (
-                <li key={c.id}>
-                  <button type="button" className="convo-row" onClick={() => setSelectedId(c.id)}>
-                    <strong>{convoLabel(c)}</strong>
-                    <div className="muted">{t("chat.archived")}</div>
-                  </button>
-                </li>
-              ))}
-              {favorites.length > 0 && (
-                <li className="muted">
-                  {t("chat.favorites")}: {favorites.length}
-                </li>
-              )}
-            </ul>
-          )}
+              );
+            })}
+            {listTab === "archived" && favorites.length > 0 && (
+              <li className="muted">
+                {t("chat.favorites")}: {favorites.length}
+              </li>
+            )}
+          </ul>
 
           <button
             type="button"

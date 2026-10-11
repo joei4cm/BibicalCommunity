@@ -15,6 +15,7 @@ export type SignalingMessage =
   | { type: "answer"; sdp: string }
   | { type: "ice"; candidate: RTCIceCandidateInit | null }
   | { type: "hangup" }
+  | { type: "ring" }
   | { type: "screen" }
   | { type: "screen-offer"; sdp: string }
   | { type: "screen-answer"; sdp: string };
