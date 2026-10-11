@@ -14,7 +14,7 @@ import {
 } from "@logoshome/bible";
 
 const INDEX_KEY = "lh.bible.index.v1";
-/** Bump when boot set changes (cuvs+nasb whole-Bible / denser demo chapters). */
+/** Bump when boot set changes (cuvs whole-Bible / denser demo chapters). */
 const BOOT_FLAG = "lh.bible.bootSeeded.v4";
 const CHAPTER_PREFIX = "lh.bible.ch:";
 

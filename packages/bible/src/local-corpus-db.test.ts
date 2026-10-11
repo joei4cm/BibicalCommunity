@@ -13,13 +13,13 @@ import {
 } from "./local-corpus-db.js";
 import { adjacentChapter, bookIdFromSlug, bookSlug } from "./books.js";
 
-test("boot catalog is 和合本 + NASB whole-Bible; ESV stays external", () => {
+test("boot catalog is 和合本 whole-Bible; downloads are complete PD only", () => {
   const catalog = listDownloadableCorpusCatalog();
   const boot = catalog.filter((p) => p.installMode === "boot");
-  assert.equal(boot.length, 2);
+  assert.equal(boot.length, 1);
   assert.deepEqual(
-    boot.map((b) => b.translationId).sort(),
-    ["cuvs", "nasb"].sort(),
+    boot.map((b) => b.translationId),
+    ["cuvs"],
   );
   const whole = listProtestantChapterRefs();
   for (const b of boot) {
@@ -28,15 +28,13 @@ test("boot catalog is 和合本 + NASB whole-Bible; ESV stays external", () => {
     assert.equal(b.fullPackChapterCount, whole.length, b.translationId);
     assert.equal(b.chapterRefs.length, whole.length, b.translationId);
   }
-  const esv = catalog.find((p) => p.translationId === "esv");
-  assert.ok(esv);
-  assert.equal(esv.installMode, "external");
-  const nasbMeta = catalog.find((p) => p.translationId === "nasb");
-  assert.ok(nasbMeta);
-  assert.notEqual(nasbMeta.installMode, "external");
+  assert.ok(!catalog.some((p) => p.translationId === "esv" || p.translationId === "nasb"));
   const downloadable = catalog.filter((p) => p.installMode === "download");
-  assert.ok(downloadable.length >= 5);
-  assert.ok(downloadable.every((p) => p.packKind === "whole-bible" || p.chapterRefs.length > 0));
+  assert.deepEqual(
+    downloadable.map((p) => p.translationId).sort(),
+    ["asv", "kjv", "web"],
+  );
+  assert.ok(downloadable.every((p) => p.packKind === "whole-bible" && p.fullPackAvailable));
 });
 
 test("WeDevote-style book slug + adjacent chapter", () => {
@@ -76,12 +74,11 @@ test("install download pack into local DB then read chapter", async () => {
   assert.equal(await db.getChapter("rcuv", "John", 1), null);
 });
 
-test("probeLocalCorpusPipeline boots cuvs+nasb without full TS corpora", async () => {
+test("probeLocalCorpusPipeline boots cuvs without full TS corpora", async () => {
   const probe = await probeLocalCorpusPipeline();
   assert.equal(probe.ok, true);
-  assert.deepEqual(probe.bootDefaults, ["cuvs", "nasb"]);
-  assert.ok(probe.downloadableCount >= 5);
-  assert.ok(probe.externalCount >= 2);
-  assert.ok(probe.installedAfterBoot >= 6);
+  assert.deepEqual(probe.bootDefaults, ["cuvs"]);
+  assert.ok(probe.downloadableCount >= 3);
+  assert.ok(probe.installedAfterBoot >= 1);
   assert.match(probe.sampleR2Key, /^bible\/cuvs\/John\.1\.json$/);
 });

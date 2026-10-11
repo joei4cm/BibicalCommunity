@@ -7,8 +7,8 @@ import {
   listDownloadableCorpusCatalog,
 } from "./local-corpus-db.js";
 
-test("loadChapter returns empty R2 stub for boot/download translations (no TS verses)", async () => {
-  for (const id of ["web", "cuvs", "nasb", "shinKyoudou", "kjv", "asv", "cuvt", "kougo"]) {
+test("loadChapter returns empty R2 stub for r2 translations (no TS verses)", async () => {
+  for (const id of ["web", "cuvs", "kjv", "asv", "nasb", "cuvt"]) {
     const result = await loadChapter(id, { book: "John", chapter: 1 });
     assert.ok(!("external" in result), id);
     assert.equal(result.source, "r2", id);
@@ -52,51 +52,63 @@ test("partner external chapter marks sso when flags on", async () => {
   assert.ok(on.url.includes("sso=1"));
 });
 
-test("PD + licensed downloadable translations use provider r2 (not local TS)", () => {
-  for (const id of ["web", "kjv", "asv", "kougoyaku-pd", "cuvs", "nasb", "kougo", "shinKyoudou"]) {
+test("complete-corpus PD translations use provider r2 and are available", () => {
+  for (const id of ["web", "kjv", "asv", "cuvs"]) {
     const meta = getTranslation(id);
     assert.ok(meta, `missing translation ${id}`);
     assert.equal(meta.available, true);
     assert.equal(meta.provider, "r2");
+    assert.equal(meta.license, "public-domain");
   }
 });
 
-test("offlineCapableOnly hides external deep-link translations", () => {
-  const offline = listTranslations({ offlineCapableOnly: true });
-  assert.ok(offline.some((t) => t.id === "cuvs"));
-  assert.ok(offline.every((t) => t.provider !== "external" && t.license !== "external"));
-  assert.ok(!offline.some((t) => t.id === "endao" || t.id === "weread" || t.id === "niv"));
+test("incomplete licensed/external translations stay unavailable", () => {
+  for (const id of ["nasb", "cuvt", "rcuv", "ccb", "lzz", "kougo", "shinkaiyaku", "niv", "endao"]) {
+    const meta = getTranslation(id);
+    assert.ok(meta, `missing translation ${id}`);
+    assert.equal(meta.available, false, id);
+  }
 });
 
-test("boot catalog is 和合本 + NASB whole-Bible; ESV is external", () => {
+test("offlineCapableOnly + availableOnly lists only complete corpora", () => {
+  const offline = listTranslations({ offlineCapableOnly: true, availableOnly: true });
+  assert.deepEqual(
+    offline.map((t) => t.id).sort(),
+    ["asv", "cuvs", "kjv", "web"],
+  );
+  assert.ok(offline.every((t) => t.provider !== "external" && t.license !== "external"));
+});
+
+test("boot catalog is 和合本 whole-Bible; downloads are WEB/KJV/ASV", () => {
   const catalog = listDownloadableCorpusCatalog();
   const boot = catalog.filter((p) => p.installMode === "boot");
-  assert.equal(boot.length, 2);
+  assert.equal(boot.length, 1);
   assert.deepEqual(
-    boot.map((b) => b.translationId).sort(),
-    [...BOOT_DEFAULT_TRANSLATION_IDS].sort(),
+    boot.map((b) => b.translationId),
+    [...BOOT_DEFAULT_TRANSLATION_IDS],
   );
-  assert.deepEqual([...BOOT_DEFAULT_TRANSLATION_IDS].sort(), ["cuvs", "nasb"]);
+  assert.deepEqual([...BOOT_DEFAULT_TRANSLATION_IDS], ["cuvs"]);
   for (const b of boot) {
     assert.equal(b.packKind, "whole-bible");
+    assert.equal(b.fullPackAvailable, true);
   }
-  const esv = catalog.find((p) => p.translationId === "esv");
-  assert.ok(esv);
-  assert.equal(esv.installMode, "external");
+  const downloads = catalog.filter((p) => p.installMode === "download").map((p) => p.translationId).sort();
+  assert.deepEqual(downloads, ["asv", "kjv", "web"]);
+  assert.ok(!catalog.some((p) => p.translationId === "nasb" || p.translationId === "esv"));
 });
 
 test("listLocalScaffoldInventory is empty (no TS densify packs)", () => {
   assert.deepEqual(listLocalScaffoldInventory(), []);
 });
 
-test("registry covers zh/en/ja mainstream sets", () => {
+test("available registry covers complete zh + en corpora only", () => {
   const byLang = { zh: 0, en: 0, ja: 0 };
   for (const t of listTranslations({ availableOnly: true })) {
     byLang[t.language] += 1;
   }
-  assert.ok(byLang.zh >= 7, `zh count ${byLang.zh}`);
-  assert.ok(byLang.en >= 7, `en count ${byLang.en}`);
-  assert.ok(byLang.ja >= 4, `ja count ${byLang.ja}`);
+  assert.equal(byLang.zh, 1, `zh count ${byLang.zh}`);
+  assert.equal(byLang.en, 3, `en count ${byLang.en}`);
+  assert.equal(byLang.ja, 0, `ja count ${byLang.ja}`);
 });
 
 test("normalizeBookKey + canonicalBookId cover common aliases", () => {

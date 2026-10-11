@@ -43,7 +43,9 @@ export const bibleRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
 bibleRoutes.get("/translations", (c) => {
   const language = c.req.query("language") as "zh" | "en" | "ja" | undefined;
-  const availableOnly = c.req.query("availableOnly") === "1";
+  // Default to available-only so clients never list incomplete corpora.
+  // Pass availableOnly=0 to include hidden stubs (admin / diagnostics).
+  const availableOnly = c.req.query("availableOnly") !== "0";
   const offlineCapableOnly = c.req.query("offlineCapableOnly") === "1";
   return c.json({
     translations: listTranslations({ language, availableOnly, offlineCapableOnly }),
