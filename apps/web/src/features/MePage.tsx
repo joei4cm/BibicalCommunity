@@ -18,6 +18,21 @@ import {
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { humanizeStatus } from "../lib/status";
 import { APP_VERSION } from "../lib/app-version";
+import { buildDeviceName, detectDevicePlatform, platformLabel } from "../lib/device-label";
+
+function authDevicePayload() {
+  const detected = detectDevicePlatform();
+  const platform = detected === "ios" || detected === "android" ? detected : "web";
+  return { platform, deviceName: buildDeviceName(detected) };
+}
+
+function friendlyDeviceTitle(d: { name: string | null; platform: string }): string {
+  const raw = (d.name || "").trim();
+  if (!raw || /^primary$/i.test(raw) || raw === d.platform) {
+    return platformLabel(d.platform);
+  }
+  return raw;
+}
 
 type MeSection = "personal" | "system";
 
@@ -41,8 +56,6 @@ type MeProfile = {
   canAccessAdminConsole?: boolean;
   platformAdmin?: boolean;
 };
-
-type SearchHit = { id: string; uid: string; nickname: string | null };
 
 type PendingWipe = {
   id: string;
@@ -74,8 +87,6 @@ export function MePage() {
   const [legalName, setLegalName] = useState("");
   const [privacy, setPrivacy] = useState<PrivacySettings>(DEFAULT_PRIVACY);
   const [profile, setProfile] = useState<MeProfile | null>(null);
-  const [searchQ, setSearchQ] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [pendingWipes, setPendingWipes] = useState<PendingWipe[]>([]);
   const [keyBusy, setKeyBusy] = useState(false);
@@ -240,6 +251,7 @@ export function MePage() {
             password: fields.password,
             nickname: nick,
             locale: apiLocale(),
+            ...authDevicePayload(),
           }),
         },
       );
@@ -288,7 +300,7 @@ export function MePage() {
         body: JSON.stringify({
           handleOrEmail: fields.handle,
           password: fields.password,
-          platform: "web",
+          ...authDevicePayload(),
         }),
       });
       setToken(res.token);
@@ -343,22 +355,6 @@ export function MePage() {
     });
     setMsg("saved");
     await refresh();
-  }
-
-  async function searchUsers() {
-    if (!getToken()) {
-      setMsg("login_required");
-      return;
-    }
-    const q = searchQ.trim();
-    if (!q) {
-      setSearchResults([]);
-      return;
-    }
-    const res = await api<{ results: SearchHit[] }>(
-      `/v1/me/search?q=${encodeURIComponent(q)}`,
-    );
-    setSearchResults(res.results);
   }
 
   useEffect(() => {
@@ -644,46 +640,6 @@ export function MePage() {
             </button>
           </div>
 
-          <div className="panel" data-testid="me-churches-panel">
-            <h2>{t("me.churches")}</h2>
-            <ul className="list">
-              {!profile?.churches?.length && <li className="muted">—</li>}
-              {(profile?.churches ?? []).map((c) => (
-                <li key={c.churchId}>
-                  <strong>{c.name ?? c.churchId}</strong>
-                  <div className="muted">
-                    {c.role}
-                    {c.slug ? ` · ${c.slug}` : ""}
-                    {c.verified ? (
-                      <span className="badge-verified"> · {t("me.verified")}</span>
-                    ) : (
-                      <span> · {t("me.pendingVerify")}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <h3>{t("me.search")}</h3>
-            <div className="field">
-              <label>{t("me.searchUid")}</label>
-              <input
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                placeholder="UID"
-              />
-            </div>
-            <button type="button" className="btn" onClick={() => void searchUsers()}>
-              {t("me.search")}
-            </button>
-            <ul className="list" style={{ marginTop: "0.75rem" }}>
-              {searchResults.map((r) => (
-                <li key={r.id}>
-                  <strong>{r.uid}</strong>
-                  {r.nickname ? <div className="muted">{r.nickname}</div> : null}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       )}
 
@@ -782,21 +738,32 @@ export function MePage() {
           </div>
 
           <div className="panel" data-testid="me-devices-panel">
-            <details className="plans-advanced" open>
-              <summary>{t("me.devices")}</summary>
-              <p className="muted">{t("me.devicesHint")}</p>
-              <ul className="list">
-                {devices.length === 0 && <li className="muted">—</li>}
-                {devices.map((d) => (
-                  <li key={d.id}>
-                    <strong>{d.name || d.platform}</strong>
-                    <div className="muted">
-                      {d.id}
-                      {d.isCurrent || d.id === currentDeviceId ? ` · ${t("me.deviceCurrent")}` : ""}
-                      {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
-                      {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
+            <h2>{t("me.devices")}</h2>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t("me.devicesHint")}
+            </p>
+            <ul className="list me-device-list">
+              {devices.length === 0 && <li className="muted">—</li>}
+              {devices.map((d) => {
+                const isThis = d.isCurrent || d.id === currentDeviceId;
+                const title = friendlyDeviceTitle(d);
+                return (
+                  <li key={d.id} className={`me-device-row${isThis ? " is-current" : ""}`}>
+                    <div className="me-device-main">
+                      <strong>{title}</strong>
+                      <div className="muted">
+                        {platformLabel(d.platform)}
+                        {isThis ? ` · ${t("me.deviceThisDevice")}` : ""}
+                        {d.revoked ? ` · ${t("me.deviceRevoked")}` : ""}
+                        {d.hasIdentityKey ? ` · ${t("me.deviceKeysFlag")}` : ""}
+                      </div>
+                      <div className="muted me-device-meta">
+                        {t("me.deviceSignedIn", {
+                          time: new Date(d.createdAt).toLocaleString(),
+                        })}
+                      </div>
                     </div>
-                    {!d.revoked && !d.isCurrent && (
+                    {!d.revoked && !isThis && (
                       <button
                         type="button"
                         className="btn ghost"
@@ -807,9 +774,9 @@ export function MePage() {
                       </button>
                     )}
                   </li>
-                ))}
-              </ul>
-            </details>
+                );
+              })}
+            </ul>
 
             <div
               className="me-keys-card"

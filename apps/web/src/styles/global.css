@@ -578,6 +578,32 @@ select {
   gap: 0.5rem;
 }
 
+.me-device-list {
+  gap: 0.55rem;
+}
+
+.me-device-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem 0.75rem;
+}
+
+.me-device-row.is-current {
+  border-color: color-mix(in srgb, var(--lh-accent) 35%, var(--lh-border));
+}
+
+.me-device-main {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.me-device-meta {
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
 .im-note-action {
   display: inline;
   margin-left: 0.35rem;
@@ -2445,7 +2471,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .bible-prose-body {
   font-size: var(--reader-size, 1.36rem);
-  line-height: var(--reader-lh, 2.22);
+  line-height: var(--reader-lh, 1.85);
   text-align: start;
   letter-spacing: 0.035em;
   word-break: break-word;

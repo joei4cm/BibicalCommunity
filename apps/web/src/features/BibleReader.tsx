@@ -13,6 +13,7 @@ import {
   listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
+  getTranslation,
   PANSHI_WEB_PLAYER,
   sectionHeadingsFor,
   STUDY_COMMENTARIES,
@@ -49,14 +50,20 @@ import {
   type ReaderSkinId,
 } from "../lib/reader-skins";
 import {
+  DEFAULT_LINE_HEIGHT,
+  fontGroupForLanguage,
   fontSizePtToRem,
   fontStackFor,
   fontsByGroup,
-  loadReaderFontId,
+  loadFontByLang,
   loadReaderFontSizePt,
+  loadReaderLineHeight,
   READER_FONT_SIZES_PT,
-  saveReaderFontId,
+  saveReaderFontForLang,
   saveReaderFontSizePt,
+  saveReaderLineHeight,
+  type FontByLang,
+  type ReaderFontGroup,
   type ReaderFontId,
   type ReaderFontSizePt,
 } from "../lib/reader-fonts";
@@ -478,8 +485,8 @@ export function BibleReader() {
   const [bookId, setBookId] = useState(routeBookId);
   const [chapterNum, setChapterNum] = useState(routeChapter);
   const [fontSizePt, setFontSizePt] = useState<ReaderFontSizePt>(() => loadReaderFontSizePt());
-  const [lineHeight, setLineHeight] = useState(2.18);
-  const [fontId, setFontId] = useState<ReaderFontId>(() => loadReaderFontId());
+  const [lineHeight, setLineHeight] = useState(() => loadReaderLineHeight());
+  const [fontByLang, setFontByLang] = useState<FontByLang>(() => loadFontByLang());
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
   const [appTheme, setAppTheme] = useState(() =>
@@ -578,9 +585,21 @@ export function BibleReader() {
   );
 
   const TYPO_PRESETS = {
-    compact: { fontSizePt: 12 as ReaderFontSizePt, lineHeight: 1.7, fontId: "heiti" as ReaderFontId },
-    comfortable: { fontSizePt: 16 as ReaderFontSizePt, lineHeight: 2.18, fontId: "songti" as ReaderFontId },
-    spacious: { fontSizePt: 18 as ReaderFontSizePt, lineHeight: 2.35, fontId: "songti" as ReaderFontId },
+    compact: {
+      fontSizePt: 12 as ReaderFontSizePt,
+      lineHeight: 1.65,
+      fonts: { zh: "heiti", en: "sourceSerif", ja: "notoSansJp" } as FontByLang,
+    },
+    comfortable: {
+      fontSizePt: 16 as ReaderFontSizePt,
+      lineHeight: DEFAULT_LINE_HEIGHT,
+      fonts: { zh: "songti", en: "literata", ja: "notoSerifJp" } as FontByLang,
+    },
+    spacious: {
+      fontSizePt: 18 as ReaderFontSizePt,
+      lineHeight: 2.15,
+      fonts: { zh: "songti", en: "garamond", ja: "shippori" } as FontByLang,
+    },
   } as const;
 
   function applyPreset(id: keyof typeof TYPO_PRESETS) {
@@ -589,18 +608,26 @@ export function BibleReader() {
     setFontSizePt(p.fontSizePt);
     saveReaderFontSizePt(p.fontSizePt);
     setLineHeight(p.lineHeight);
-    setFontId(p.fontId);
-    saveReaderFontId(p.fontId);
+    saveReaderLineHeight(p.lineHeight);
+    setFontByLang(p.fonts);
+    for (const group of ["zh", "en", "ja"] as const) {
+      saveReaderFontForLang(group, p.fonts[group]);
+    }
   }
 
-  function pickFont(id: ReaderFontId) {
-    setFontId(id);
-    saveReaderFontId(id);
+  function pickFont(group: ReaderFontGroup, id: ReaderFontId) {
+    setFontByLang((prev) => ({ ...prev, [group]: id }));
+    saveReaderFontForLang(group, id);
   }
 
   function pickFontSize(pt: ReaderFontSizePt) {
     setFontSizePt(pt);
     saveReaderFontSizePt(pt);
+  }
+
+  function pickLineHeight(lh: number) {
+    setLineHeight(lh);
+    saveReaderLineHeight(lh);
   }
 
   function toggleDock(panel: Exclude<DockPanel, null>) {
@@ -715,7 +742,8 @@ export function BibleReader() {
   );
   const corpusCatalog = useMemo(() => listDownloadableCorpusCatalog(), []);
   const fontSize = fontSizePtToRem(fontSizePt);
-  const readerFont = fontStackFor(fontId);
+  const activeFontGroup = fontGroupForLanguage(getTranslation(translationId)?.language);
+  const readerFont = fontStackFor(fontByLang[activeFontGroup]);
   const studyLang = bookNameLocale;
   const studyLinks = useMemo(() => listStudyMaterials({ language: studyLang }), [studyLang]);
   useEffect(() => {
@@ -1882,10 +1910,10 @@ export function BibleReader() {
                     <button
                       key={f.id}
                       type="button"
-                      className={`bible-text-btn bible-font-chip${fontId === f.id ? " is-on" : ""}`}
+                      className={`bible-text-btn bible-font-chip${fontByLang[group] === f.id ? " is-on" : ""}`}
                       style={{ fontFamily: f.stack }}
                       data-testid={`reader-font-${f.id}`}
-                      onClick={() => pickFont(f.id)}
+                      onClick={() => pickFont(group, f.id)}
                     >
                       {t(f.labelKey)}
                     </button>
@@ -1914,11 +1942,11 @@ export function BibleReader() {
             <span>{t("reader.lineHeight")}</span>
             <input
               type="range"
-              min={1.5}
-              max={2.6}
+              min={1.45}
+              max={2.4}
               step={0.05}
               value={lineHeight}
-              onChange={(e) => setLineHeight(Number(e.target.value))}
+              onChange={(e) => pickLineHeight(Number(e.target.value))}
               aria-label={t("reader.lineHeight")}
             />
           </div>

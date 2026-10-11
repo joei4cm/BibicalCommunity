@@ -344,6 +344,8 @@ export const calendarEvents = sqliteTable(
     startAt: integer("start_at", { mode: "number" }).notNull(),
     endAt: integer("end_at", { mode: "number" }),
     allDay: integer("all_day", { mode: "boolean" }).notNull().default(false),
+    /** event | seminar — seminars live on the calendar, not as a chat kind. */
+    kind: text("kind").notNull().default("event"),
     source: text("source").notNull().default("local"),
     createdAt: integer("created_at", { mode: "number" }).notNull(),
     updatedAt: integer("updated_at", { mode: "number" }).notNull(),

@@ -23,14 +23,23 @@ export function InboxPanel({
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Request ids already accepted this session (or confirmed not pending). */
+  const [resolvedRequests, setResolvedRequests] = useState<Set<string>>(() => new Set());
+  const [pendingIncomingIds, setPendingIncomingIds] = useState<Set<string> | null>(null);
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
       setNote("login_required");
       return;
     }
-    const res = await api<{ messages: InboxMessage[] }>("/v1/inbox");
-    setMessages(res.messages);
+    const [inbox, requests] = await Promise.all([
+      api<{ messages: InboxMessage[] }>("/v1/inbox"),
+      api<{ incoming: { id: string }[] }>("/v1/friends/requests").catch(() => ({
+        incoming: [] as { id: string }[],
+      })),
+    ]);
+    setMessages(inbox.messages);
+    setPendingIncomingIds(new Set(requests.incoming.map((r) => r.id)));
     setNote(null);
   }, []);
 
@@ -66,10 +75,26 @@ export function InboxPanel({
       else {
         await api(`/v1/friends/requests/${requestId}/accept`, { method: "POST", body: "{}" });
       }
+      setResolvedRequests((prev) => new Set(prev).add(requestId));
+      setPendingIncomingIds((prev) => {
+        if (!prev) return prev;
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
       await markRead(m.id);
       await refresh();
     } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
+      const msg = e instanceof Error ? e.message : "error";
+      // Already accepted / not pending — treat as done, don't ask again.
+      if (msg.includes("not_pending") || msg.includes("409")) {
+        setResolvedRequests((prev) => new Set(prev).add(requestId));
+        await markRead(m.id).catch(() => undefined);
+        setNote("comms.friendAccepted");
+        await refresh().catch(() => undefined);
+      } else {
+        setNote(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -79,6 +104,15 @@ export function InboxPanel({
     const key = `comms.inboxKind.${kind}`;
     const translated = t(key);
     return translated === key ? kind : translated;
+  }
+
+  function canAcceptFriend(m: InboxMessage): boolean {
+    if (m.kind !== "friend_request") return false;
+    const requestId = typeof m.payload.requestId === "string" ? m.payload.requestId : null;
+    if (!requestId) return false;
+    if (resolvedRequests.has(requestId)) return false;
+    if (pendingIncomingIds && !pendingIncomingIds.has(requestId)) return false;
+    return true;
   }
 
   return (
@@ -118,7 +152,7 @@ export function InboxPanel({
                     {t("comms.markRead")}
                   </button>
                 )}
-                {m.kind === "friend_request" && typeof m.payload.requestId === "string" && (
+                {canAcceptFriend(m) ? (
                   <button
                     type="button"
                     className="btn"
@@ -127,7 +161,13 @@ export function InboxPanel({
                   >
                     {t("comms.accept")}
                   </button>
-                )}
+                ) : m.kind === "friend_request" &&
+                  typeof m.payload.requestId === "string" &&
+                  (resolvedRequests.has(m.payload.requestId) ||
+                    (pendingIncomingIds != null &&
+                      !pendingIncomingIds.has(m.payload.requestId))) ? (
+                  <span className="muted">{t("comms.friendAccepted")}</span>
+                ) : null}
               </div>
             </div>
           </li>

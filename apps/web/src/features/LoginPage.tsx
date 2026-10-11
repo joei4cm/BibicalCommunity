@@ -3,7 +3,14 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { normalizeLocale } from "@logoshome/shared";
 import { api, getToken, setToken } from "../lib/api";
+import { buildDeviceName, detectDevicePlatform } from "../lib/device-label";
 import { humanizeStatus } from "../lib/status";
+
+function authDevicePayload() {
+  const detected = detectDevicePlatform();
+  const platform = detected === "ios" || detected === "android" ? detected : "web";
+  return { platform, deviceName: buildDeviceName(detected) };
+}
 
 type Mode = "login" | "register";
 
@@ -72,7 +79,7 @@ export function LoginPage() {
         body: JSON.stringify({
           handleOrEmail: fields.handle,
           password: fields.password,
-          platform: "web",
+          ...authDevicePayload(),
         }),
       });
       persistSession(res);
@@ -106,6 +113,7 @@ export function LoginPage() {
           password: fields.password,
           nickname: nick,
           locale: normalizeLocale(i18n.language || "zh-CN"),
+          ...authDevicePayload(),
         }),
       });
       persistSession(res);

@@ -51,8 +51,8 @@ authRoutes.post("/register", async (c) => {
   await db.insert(schema.devices).values({
     id: deviceId,
     userId,
-    platform: "web",
-    name: "Primary",
+    platform: body.platform,
+    name: body.deviceName?.trim() || body.platform,
     createdAt: now,
   });
 
