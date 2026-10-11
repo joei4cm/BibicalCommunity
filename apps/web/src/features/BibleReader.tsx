@@ -1639,14 +1639,14 @@ export function BibleReader() {
         <div className="reader-plans-return" data-testid="reader-plans-return">
           <Link
             className="btn ghost reader-plans-return-back"
-            to={plansReturnHref}
+            to={plansBackHref}
             data-testid="reader-back-to-plans"
           >
             {t("reader.backToPlans")}
           </Link>
           <Link
             className="btn reader-plans-return-done"
-            to={plansReturnHref}
+            to={plansDoneHref}
             data-testid="reader-done-return-plans"
           >
             {t("reader.doneReadingReturn")}
