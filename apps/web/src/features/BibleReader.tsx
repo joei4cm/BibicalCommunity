@@ -465,7 +465,8 @@ export function BibleReader() {
   })();
   const fromPlans = searchParams.get("from") === "plans";
   const returnPlanId = searchParams.get("planId");
-  const plansReturnHref = returnPlanId
+  const plansBackHref = "/app/plans";
+  const plansDoneHref = returnPlanId
     ? `/app/plans?resume=1&planId=${encodeURIComponent(returnPlanId)}`
     : "/app/plans?resume=1";
 
