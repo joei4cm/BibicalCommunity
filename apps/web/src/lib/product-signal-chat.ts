@@ -57,20 +57,30 @@ export async function hasProductIdentity(): Promise<boolean> {
   return Boolean(await secureGet(PRODUCT_PRIV_KEY));
 }
 
+function isProductIdentityPub(identityKeyPub: string): boolean {
+  return (
+    isProductOpenE2eeIdentityPub(identityKeyPub) || isProductX25519IdentityPub(identityKeyPub)
+  );
+}
+
 async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicKeys | null> {
   const prefer = loadProductSignalPrefer();
   try {
     const res = await api<{ devices: PeerDeviceBundle[] }>(
       `/v1/keys/${encodeURIComponent(peerUserId)}`,
     );
-    const device = res.devices.find(
+    // Prefer a device that matches local backend; otherwise accept any product bundle
+    // (establish uses the peer's backend via productBackendFromIdentityPub).
+    const candidates = res.devices.filter(
       (d) =>
         d.identityKeyPub &&
         d.signedPrekeyPub &&
         d.signedPrekeySig &&
         d.signedPrekeyId != null &&
-        peerMatchesPrefer(d.identityKeyPub, prefer),
+        isProductIdentityPub(d.identityKeyPub),
     );
+    const device =
+      candidates.find((d) => peerMatchesPrefer(d.identityKeyPub!, prefer)) ?? candidates[0] ?? null;
     if (!device?.identityKeyPub || !device.signedPrekeyPub || !device.signedPrekeySig) {
       return null;
     }
@@ -86,6 +96,11 @@ async function fetchPeerProductBundle(peerUserId: string): Promise<DevicePublicK
   } catch {
     return null;
   }
+}
+
+/** True when the peer has uploaded a product crypto identity we can establish with. */
+export async function peerHasProductKeys(peerUserId: string): Promise<boolean> {
+  return Boolean(await fetchPeerProductBundle(peerUserId));
 }
 
 /** Peer-scoped so group fan-out can keep one session per member. */

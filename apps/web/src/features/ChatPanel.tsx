@@ -15,6 +15,7 @@ import {
   isGroupFanoutHeader,
 } from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
+import { peerHasProductKeys } from "../lib/product-signal-chat";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
@@ -120,15 +121,41 @@ export function ChatPanel({
   );
 
   const [keyBusy, setKeyBusy] = useState(false);
+  const [localKeysReady, setLocalKeysReady] = useState(false);
   const keysPromptedRef = useRef(false);
+
+  async function refreshLocalKeysReady() {
+    const has = await hasLocalDeviceKeys();
+    setLocalKeysReady(has);
+    return has;
+  }
+
+  async function noteAfterDegraded(_peerUserId?: string | null) {
+    const hasLocal = await refreshLocalKeysReady();
+    // Local missing → prompt upload. Local ready but still degraded → waiting on peer
+    // (or incompatible backends); never re-prompt self to upload.
+    setNote(hasLocal ? "chat_degraded_awaiting_peer" : "chat_degraded_soft");
+  }
 
   async function confirmAndUploadKeys() {
     if (!getToken() || keyBusy) return;
+    if (localKeysReady) {
+      // Already uploaded — never nag again; explain waiting on peer if needed.
+      const peer = selected?.peerUserIds?.[0] ?? null;
+      await noteAfterDegraded(peer);
+      return;
+    }
     if (!window.confirm(t("security.uploadKeysConfirm"))) return;
     setKeyBusy(true);
     try {
       await uploadDeviceKeyBundle();
-      setNote("keys_uploaded");
+      setLocalKeysReady(true);
+      const peer = selected?.peerUserIds?.[0] ?? null;
+      if (peer && (await peerHasProductKeys(peer).catch(() => false))) {
+        setNote("keys_uploaded");
+      } else {
+        setNote("chat_degraded_awaiting_peer");
+      }
     } catch (e) {
       setNote(e instanceof Error ? e.message : "keys_failed");
     } finally {
@@ -138,10 +165,14 @@ export function ChatPanel({
 
   function renderNote(code: string) {
     const text = humanizeStatus(t, code);
-    const keysTip =
-      code === "chat_degraded_soft" || code === "chat_degraded_no_peer_keys";
-    if (!keysTip) {
-      return <p className="muted im-note">{text}</p>;
+    const showUpload =
+      code === "chat_degraded_soft" && !localKeysReady && !keyBusy;
+    if (!showUpload) {
+      return (
+        <p className="muted im-note" data-testid={code.startsWith("chat_degraded") ? "chat-keys-tip" : undefined}>
+          {text}
+        </p>
+      );
     }
     return (
       <p className="muted im-note" data-testid="chat-keys-tip">
@@ -159,13 +190,19 @@ export function ChatPanel({
     );
   }
 
+  useEffect(() => {
+    void refreshLocalKeysReady();
+  }, [selectedId]);
+
   // Opening a thread without local keys: one confirm dialog — no Me-page navigation.
   useEffect(() => {
     if (!selectedId || !getToken() || keysPromptedRef.current || keyBusy) return;
     let cancelled = false;
     void (async () => {
       const has = await hasLocalDeviceKeys();
-      if (cancelled || has || keysPromptedRef.current) return;
+      if (cancelled) return;
+      setLocalKeysReady(has);
+      if (has || keysPromptedRef.current) return;
       keysPromptedRef.current = true;
       await confirmAndUploadKeys();
     })();
@@ -539,9 +576,9 @@ export function ChatPanel({
       }),
     });
     localStorage.setItem(`lh.msg.${res.id}`, plaintext);
-    // Degraded still decrypts peer-to-peer after v2 seed fix; keep a soft hint only.
+    // Degraded still decrypts peer-to-peer after v2 seed fix; tip depends on who still needs keys.
     if (mode === "degraded") {
-      setNote("chat_degraded_soft");
+      await noteAfterDegraded(peers[0] ?? null);
     } else {
       setNote(null);
     }

@@ -20,6 +20,7 @@ export function humanizeStatus(
     handle_taken: "auth.handleTaken",
     invalid_credentials: "auth.badLogin",
     chat_degraded_no_peer_keys: "chat.degradedNoPeerKeys",
+    chat_degraded_awaiting_peer: "chat.degradedAwaitingPeer",
     chat_degraded_soft: "chat.degradedSoft",
     friends_required: "chat.friendsRequired",
     admin_wipe_issued: "security.adminWipe",
