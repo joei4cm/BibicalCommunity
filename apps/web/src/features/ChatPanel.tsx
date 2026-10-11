@@ -386,6 +386,11 @@ export function ChatPanel({
     [peersFor],
   );
 
+  const plaintextsRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    plaintextsRef.current = plaintexts;
+  }, [plaintexts]);
+
   const loadMessages = useCallback(
     async (conversationId: string) => {
       const res = await api<{ messages: ChatMessage[] }>(
@@ -393,11 +398,25 @@ export function ChatPanel({
       );
       const now = Date.now();
       const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
-      setMessages(live);
+      setMessages((prev) => {
+        if (
+          prev.length === live.length &&
+          prev.every((m, i) => m.id === live[i]?.id && m.ciphertext === live[i]?.ciphertext)
+        ) {
+          return prev;
+        }
+        return live;
+      });
       const key = await sessionKeyFor(conversationId);
       const peer = peerFor(conversationId);
+      const prevPt = plaintextsRef.current;
       const decoded: Record<string, string> = {};
       for (const m of live) {
+        const cached = prevPt[m.id];
+        if (cached && cached !== "[ciphertext]") {
+          decoded[m.id] = cached;
+          continue;
+        }
         try {
           if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
             decoded[m.id] = await decryptGroupFanout({
@@ -444,11 +463,47 @@ export function ChatPanel({
   }, [refreshConversations, loadFavorites]);
 
   useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      void refreshConversations().catch(() => {});
+      void loadFavorites();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+  }, [refreshConversations, loadFavorites]);
+
+  useEffect(() => {
     if (!selectedId) {
       setMessages([]);
       return;
     }
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [selectedId, loadMessages]);
+
+  /** Soft realtime: poll open thread + refresh on tab focus (no message WS yet). */
+  useEffect(() => {
+    if (!selectedId) return;
+    const POLL_MS = 2500;
+    const tick = () => {
+      void loadMessages(selectedId).catch(() => {
+        /* keep last good snapshot while offline */
+      });
+    };
+    const timer = window.setInterval(tick, POLL_MS);
+    const onVis = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [selectedId, loadMessages]);
 
   async function createConversation(explicitIds?: string[], explicitKind?: ConversationKind) {

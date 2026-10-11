@@ -62,11 +62,64 @@ import {
 } from "../lib/reader-fonts";
 import {
   bibleLocalDb,
+  cacheNetworkChapter,
   densifyChapterVerses,
   ensureBootCorpusSeeded,
   installDownloadedPack,
+  peekLocalChapter,
   readLocalChapter,
 } from "../lib/bible-local-db";
+
+type CorpusDownloadPage = {
+  chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
+  source?: string;
+  done?: boolean;
+  nextAfter?: string | null;
+  totalChapterKeys?: number;
+};
+
+/** Paged whole-Bible download — avoids one giant payload that stalls first paint. */
+async function fetchCorpusPackPaged(tid: string): Promise<CorpusDownloadPage | null> {
+  let after: string | null = null;
+  const chapters: CorpusDownloadPage["chapters"] = [];
+  let source: string | undefined;
+  for (let page = 0; page < 32; page += 1) {
+    const qs = new URLSearchParams({ scope: "full", limit: "100" });
+    if (after) qs.set("after", after);
+    const pack = await api<CorpusDownloadPage>(
+      `/v1/bible/corpus-download/${encodeURIComponent(tid)}?${qs.toString()}`,
+    );
+    if (pack.source) source = pack.source;
+    if (pack.chapters?.length) chapters.push(...pack.chapters);
+    if (pack.done !== false || !pack.nextAfter) {
+      return chapters.length ? { chapters, source } : null;
+    }
+    after = pack.nextAfter;
+  }
+  return chapters.length ? { chapters, source } : null;
+}
+
+async function warmPdBooksInParallel(
+  translationId: string,
+  concurrency = 6,
+): Promise<void> {
+  const bookNrs = Array.from({ length: 66 }, (_, i) => i + 1);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < bookNrs.length) {
+      const bookNr = bookNrs[cursor];
+      cursor += 1;
+      try {
+        await api(`/v1/bible/corpus-warm/${encodeURIComponent(translationId)}?bookNr=${bookNr}`, {
+          method: "POST",
+        });
+      } catch {
+        /* continue other books */
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+}
 
 type DockPanel = "note" | "study" | "search" | "speak" | "settings" | null;
 type StudyTab = "commentary" | "dict" | "crossrefs";
@@ -769,47 +822,46 @@ export function BibleReader() {
   useEffect(() => {
     void ensureBootCorpusSeeded(async (tid) => {
       try {
-        // Boot = whole-Bible pack for 和合本 / NASB (not chapter subsets).
-        const pack = await api<{
-          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
-          source?: string;
-        }>(`/v1/bible/corpus-download/${encodeURIComponent(tid)}?scope=full`);
-        return { chapters: pack.chapters, source: pack.source };
+        return await fetchCorpusPackPaged(tid);
       } catch {
         return null;
       }
     }).then(() => setBootTick((n) => n + 1));
   }, []);
 
-  /** After login, warm public-domain 和合本 into R2 book-by-book (survives navigation). */
+  /**
+   * After login: warm public-domain 和合本 into R2 (parallel books), then pull
+   * cuvs + nasb packs into IndexedDB so incomplete demo boot is replaced.
+   */
   useEffect(() => {
     if (!getToken()) return;
-    const warmKey = "lh.bible.cuvsWarm.v1";
+    const warmKey = "lh.bible.cuvsWarm.v2";
     if (localStorage.getItem(warmKey) === "1") return;
     if ((window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm) return;
     (window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm = true;
     void (async () => {
       try {
-        for (let bookNr = 1; bookNr <= 66; bookNr += 1) {
-          await api(`/v1/bible/corpus-warm/cuvs?bookNr=${bookNr}`, { method: "POST" });
+        await warmPdBooksInParallel("cuvs", 6);
+        for (const tid of ["cuvs", "nasb"] as const) {
+          try {
+            const pack = await fetchCorpusPackPaged(tid);
+            if (pack?.chapters?.length && pack.source !== "demo") {
+              await installDownloadedPack(tid, pack.chapters);
+              try {
+                await api("/v1/bible/entitlements", {
+                  method: "POST",
+                  body: JSON.stringify({ translationId: tid }),
+                });
+              } catch {
+                /* PD / already granted */
+              }
+            }
+          } catch {
+            /* keep reading via per-chapter API */
+          }
         }
         localStorage.setItem(warmKey, "1");
-        const pack = await api<{
-          chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
-          source?: string;
-        }>(`/v1/bible/corpus-download/cuvs?scope=full`);
-        if (pack.chapters?.length && pack.source !== "demo") {
-          await installDownloadedPack("cuvs", pack.chapters);
-          try {
-            await api("/v1/bible/entitlements", {
-              method: "POST",
-              body: JSON.stringify({ translationId: "cuvs" }),
-            });
-          } catch {
-            /* PD cuvs does not require entitlement */
-          }
-          setBootTick((n) => n + 1);
-        }
+        setBootTick((n) => n + 1);
       } catch {
         /* chapter route still lazy-fills per book */
       } finally {
@@ -823,7 +875,7 @@ export function BibleReader() {
     (async () => {
       try {
         setError(null);
-        // Prefer client local DB (download/boot install) over network/TS scaffolds.
+        // Prefer complete local chapters; paint incomplete/demo briefly while refetching.
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local && !cancelled) {
           const verses = densifyChapterVerses(
@@ -841,21 +893,43 @@ export function BibleReader() {
           });
           return;
         }
+        const stale = await peekLocalChapter(translationId, bookId, chapterNum);
+        if (stale && !cancelled) {
+          setChapter({
+            translationId,
+            book: stale.book,
+            chapter: stale.chapter,
+            verses: densifyChapterVerses(translationId, stale.book, stale.chapter, stale.verses),
+            source: "local-db",
+          });
+        }
         try {
           const data = await api<ChapterPayload>(
             `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
           );
           if (cancelled) return;
           if (data && "verses" in data && Array.isArray(data.verses)) {
+            const verses = densifyChapterVerses(translationId, bookId, chapterNum, data.verses);
             setChapter({
               ...data,
-              verses: densifyChapterVerses(translationId, bookId, chapterNum, data.verses),
+              verses,
             });
+            void cacheNetworkChapter(
+              translationId,
+              bookId,
+              chapterNum,
+              data.verses,
+              typeof data.source === "string" ? data.source : undefined,
+            );
           } else {
             setChapter(data);
           }
         } catch (netErr) {
           // Licensed R2 / missing corpus must not block book/chapter navigation.
+          if (stale) {
+            if (!cancelled) setError(null);
+            return;
+          }
           const demo = densifyChapterVerses(translationId, bookId, chapterNum, []);
           if (demo.length > 0) {
             if (!cancelled) {
@@ -936,6 +1010,16 @@ export function BibleReader() {
           }
           return;
         }
+        const stale = await peekLocalChapter(secondTranslationId, bookId, chapterNum);
+        if (stale && !cancelled) {
+          setSecondChapter({
+            translationId: secondTranslationId,
+            book: bookId,
+            chapter: chapterNum,
+            verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, stale.verses),
+            source: "local",
+          });
+        }
         const data = await api<ChapterPayload>(
           `/v1/bible/chapter?translation=${encodeURIComponent(secondTranslationId)}&ref=${encodeURIComponent(ref)}`,
         );
@@ -948,6 +1032,15 @@ export function BibleReader() {
           ...data,
           verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, data.verses),
         });
+        if ("verses" in data && Array.isArray(data.verses)) {
+          void cacheNetworkChapter(
+            secondTranslationId,
+            bookId,
+            chapterNum,
+            data.verses,
+            typeof data.source === "string" ? data.source : undefined,
+          );
+        }
       } catch {
         if (!cancelled) setSecondChapter(null);
       }
