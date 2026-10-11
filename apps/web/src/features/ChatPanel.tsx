@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   deriveSessionKey,
@@ -117,6 +117,25 @@ export function ChatPanel({
     () => conversations.find((c) => c.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+
+  const keysDeepLink = "/app/me?section=devices&keys=1";
+
+  function renderNote(code: string) {
+    const text = humanizeStatus(t, code);
+    const keysTip =
+      code === "chat_degraded_soft" || code === "chat_degraded_no_peer_keys";
+    if (!keysTip) {
+      return <p className="muted im-note">{text}</p>;
+    }
+    return (
+      <p className="muted im-note" data-testid="chat-keys-tip">
+        {text}{" "}
+        <Link className="im-note-action" to={keysDeepLink} data-testid="chat-upload-keys-link">
+          {t("security.uploadKeys")}
+        </Link>
+      </p>
+    );
+  }
 
   useEffect(() => {
     onThreadOpenChange?.(Boolean(selectedId));
@@ -849,7 +868,7 @@ export function ChatPanel({
         onHangup={hangup}
         onToggleVideo={() => setCallVideo((v) => !v)}
       />
-      {note && !selected && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
+      {note && !selected && renderNote(note)}
 
       {selected ? (
         <div className="im-thread" data-testid="im-thread">
@@ -985,7 +1004,7 @@ export function ChatPanel({
           </div>
 
           <footer className="im-composer">
-            {note && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
+            {note && renderNote(note)}
             <div className="im-composer-tools">
               <button
                 type="button"
