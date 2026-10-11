@@ -145,7 +145,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
       - name: Use runner Android SDK
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
@@ -162,6 +162,8 @@ jobs:
           npx cap sync android
       - name: Assemble Android debug APK
         working-directory: apps/native/android
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
