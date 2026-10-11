@@ -572,14 +572,24 @@ select {
 .im-note-action {
   display: inline;
   margin-left: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--br-accent, #8a6a2f);
+  font: inherit;
   font-weight: 650;
   text-decoration: underline;
   text-underline-offset: 0.15em;
+  cursor: pointer;
 }
 
-.im-note-action:hover {
+.im-note-action:hover:not(:disabled) {
   opacity: 0.88;
+}
+
+.im-note-action:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .app-folio .board-tabs {

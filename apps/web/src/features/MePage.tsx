@@ -11,16 +11,11 @@ import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
 import {
-  hasProductIdentity,
-  mintProductIdentityForUpload,
-  PRODUCT_PRIV_KEY,
-} from "../lib/product-signal-chat";
-import {
   loadProductSignalPrefer,
   saveProductSignalPrefer,
   type ProductSignalPrefer,
 } from "../lib/product-signal-prefer";
-import { secureGet, secureSet } from "../lib/secure-kv";
+import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { humanizeStatus } from "../lib/status";
 
 type MeSection = "account" | "profile" | "privacy" | "devices";
@@ -54,9 +49,6 @@ type PendingWipe = {
   reasonCode: string;
   expiresAt: number;
 };
-
-/** Legacy P-256 X3DH private blob (kept for wipe/detect of older installs). */
-const DEVICE_PRIV_KEY = "lh.device.priv";
 
 const DEFAULT_PRIVACY: PrivacySettings = {
   discoverableByHandle: true,
@@ -108,9 +100,7 @@ export function MePage() {
   );
 
   useEffect(() => {
-    void Promise.all([secureGet(DEVICE_PRIV_KEY), hasProductIdentity()]).then(
-      ([legacy, product]) => setHasDeviceKey(Boolean(legacy) || product),
-    );
+    void hasLocalDeviceKeys().then(setHasDeviceKey);
   }, []);
 
   async function refreshDevices() {
@@ -386,41 +376,11 @@ export function MePage() {
       setMsg("login_required");
       return;
     }
+    if (!window.confirm(t("security.uploadKeysConfirm"))) return;
     setKeyBusy(true);
     try {
-      // Product path: createProductSignalClient (default x25519; opt-in OpenE2EE).
       saveProductSignalPrefer(signalPrefer);
-      const bundle = await mintProductIdentityForUpload();
-
-      await api("/v1/keys/bundle", {
-        method: "PUT",
-        body: JSON.stringify({
-          identityKeyPub: bundle.identityKeyPub,
-          signedPrekeyPub: bundle.signedPrekeyPub,
-          signedPrekeySig: bundle.signedPrekeySig,
-          signedPrekeyId: bundle.signedPrekeyId,
-          registrationId: bundle.registrationId,
-        }),
-      });
-
-      const prekeys: { id: number; pub: string }[] = [];
-      if (bundle.oneTimePrekeyPub != null && bundle.oneTimePrekeyId != null) {
-        prekeys.push({ id: bundle.oneTimePrekeyId, pub: bundle.oneTimePrekeyPub });
-      }
-      // Courier-store Kyber last-resort pub as an OPK slot when OpenE2EE is selected.
-      if (bundle.kyberPrekeyPub != null && bundle.kyberPrekeyId != null) {
-        prekeys.push({ id: bundle.kyberPrekeyId, pub: bundle.kyberPrekeyPub });
-      }
-      if (prekeys.length) {
-        await api("/v1/keys/prekeys", {
-          method: "PUT",
-          body: JSON.stringify({ prekeys }),
-        });
-      }
-
-      // Mark legacy slot so older wipe/detect paths still see a device key present.
-      await secureSet(DEVICE_PRIV_KEY, `product:${PRODUCT_PRIV_KEY}`);
-
+      await uploadDeviceKeyBundle();
       setHasDeviceKey(true);
       setMsg("keys_uploaded");
       if (searchParams.get("keys") === "1") {
