@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   THEME_IDS,
@@ -11,16 +11,11 @@ import { applyTheme } from "@logoshome/ui";
 import { api, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
 import {
-  hasProductIdentity,
-  mintProductIdentityForUpload,
-  PRODUCT_PRIV_KEY,
-} from "../lib/product-signal-chat";
-import {
   loadProductSignalPrefer,
   saveProductSignalPrefer,
   type ProductSignalPrefer,
 } from "../lib/product-signal-prefer";
-import { secureGet, secureSet } from "../lib/secure-kv";
+import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { humanizeStatus } from "../lib/status";
 
 type MeSection = "account" | "profile" | "privacy" | "devices";
@@ -55,9 +50,6 @@ type PendingWipe = {
   expiresAt: number;
 };
 
-/** Legacy P-256 X3DH private blob (kept for wipe/detect of older installs). */
-const DEVICE_PRIV_KEY = "lh.device.priv";
-
 const DEFAULT_PRIVACY: PrivacySettings = {
   discoverableByHandle: true,
   discoverableByUid: true,
@@ -70,7 +62,10 @@ const DEFAULT_PRIVACY: PrivacySettings = {
 
 export function MePage() {
   const { t, i18n } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const keysPanelRef = useRef<HTMLDivElement | null>(null);
   const [meSection, setMeSection] = useState<MeSection>("account");
+  const [keysPanelOpen, setKeysPanelOpen] = useState(true);
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
@@ -105,9 +100,7 @@ export function MePage() {
   );
 
   useEffect(() => {
-    void Promise.all([secureGet(DEVICE_PRIV_KEY), hasProductIdentity()]).then(
-      ([legacy, product]) => setHasDeviceKey(Boolean(legacy) || product),
-    );
+    void hasLocalDeviceKeys().then(setHasDeviceKey);
   }, []);
 
   async function refreshDevices() {
@@ -364,48 +357,37 @@ export function MePage() {
     setSearchResults(res.results);
   }
 
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (section === "account" || section === "profile" || section === "privacy" || section === "devices") {
+      setMeSection(section);
+    }
+    if (searchParams.get("keys") === "1") {
+      setMeSection("devices");
+      setKeysPanelOpen(true);
+      window.setTimeout(() => {
+        keysPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, [searchParams]);
+
   async function registerDeviceKeys() {
     if (!getToken()) {
       setMsg("login_required");
       return;
     }
+    if (!window.confirm(t("security.uploadKeysConfirm"))) return;
     setKeyBusy(true);
     try {
-      // Product path: createProductSignalClient (default x25519; opt-in OpenE2EE).
       saveProductSignalPrefer(signalPrefer);
-      const bundle = await mintProductIdentityForUpload();
-
-      await api("/v1/keys/bundle", {
-        method: "PUT",
-        body: JSON.stringify({
-          identityKeyPub: bundle.identityKeyPub,
-          signedPrekeyPub: bundle.signedPrekeyPub,
-          signedPrekeySig: bundle.signedPrekeySig,
-          signedPrekeyId: bundle.signedPrekeyId,
-          registrationId: bundle.registrationId,
-        }),
-      });
-
-      const prekeys: { id: number; pub: string }[] = [];
-      if (bundle.oneTimePrekeyPub != null && bundle.oneTimePrekeyId != null) {
-        prekeys.push({ id: bundle.oneTimePrekeyId, pub: bundle.oneTimePrekeyPub });
-      }
-      // Courier-store Kyber last-resort pub as an OPK slot when OpenE2EE is selected.
-      if (bundle.kyberPrekeyPub != null && bundle.kyberPrekeyId != null) {
-        prekeys.push({ id: bundle.kyberPrekeyId, pub: bundle.kyberPrekeyPub });
-      }
-      if (prekeys.length) {
-        await api("/v1/keys/prekeys", {
-          method: "PUT",
-          body: JSON.stringify({ prekeys }),
-        });
-      }
-
-      // Mark legacy slot so older wipe/detect paths still see a device key present.
-      await secureSet(DEVICE_PRIV_KEY, `product:${PRODUCT_PRIV_KEY}`);
-
+      await uploadDeviceKeyBundle();
       setHasDeviceKey(true);
       setMsg("keys_uploaded");
+      if (searchParams.get("keys") === "1") {
+        const next = new URLSearchParams(searchParams);
+        next.delete("keys");
+        setSearchParams(next, { replace: true });
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "keys_failed");
     } finally {
@@ -496,7 +478,7 @@ export function MePage() {
         </p>
       </div>
 
-      <div className="plans-tabs" role="tablist" data-testid="me-section-tabs">
+      <div className="plans-tabs me-tabs" role="tablist" data-testid="me-section-tabs">
         {(
           [
             ["account", "me.tabAccount"],
@@ -525,6 +507,40 @@ export function MePage() {
           <p className="muted" style={{ marginTop: 0 }}>
             {t("me.signedInAs", { uid: profile?.uid ?? "" })}
           </p>
+
+          <div className="me-keys-card" data-testid="me-keys-card">
+            <h3 style={{ margin: "0 0 0.35rem" }}>{t("security.deviceKeys")}</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+            </p>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t("security.deviceKeysHintShort")}
+            </p>
+            <div className="toolbar">
+              <button
+                type="button"
+                className="btn"
+                disabled={keyBusy}
+                data-testid="me-upload-keys-account"
+                onClick={() => void registerDeviceKeys()}
+              >
+                {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                data-testid="me-open-keys-panel"
+                onClick={() => {
+                  setMeSection("devices");
+                  setKeysPanelOpen(true);
+                  setSearchParams({ section: "devices", keys: "1" }, { replace: true });
+                }}
+              >
+                {t("security.openKeysPanel")}
+              </button>
+            </div>
+          </div>
+
           <div className="toolbar">
             <button type="button" className="btn ghost" data-testid="me-sign-out" onClick={signOut}>
               {t("me.signOut")}
@@ -761,39 +777,50 @@ export function MePage() {
           </ul>
         </details>
 
-        <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
-          <summary>{t("security.deviceKeys")}</summary>
-          <p className="muted">{t("security.deviceKeysHint")}</p>
-          <p className="muted">
-            {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
-          </p>
-          <div className="field">
-            <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
-            <select
-              id="signal-backend"
-              data-testid="me-signal-backend"
-              value={signalPrefer}
-              onChange={(e) => {
-                const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
-                setSignalPrefer(next);
-                saveProductSignalPrefer(next);
-              }}
-            >
-              <option value="x25519">{t("security.signalBackend.x25519")}</option>
-              <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
-            </select>
-            <p className="muted">{t("security.signalBackendHint")}</p>
-          </div>
-          <button
-            type="button"
-            className="btn"
-            disabled={keyBusy}
-            data-testid="me-upload-keys"
-            onClick={() => void registerDeviceKeys()}
+        <div
+          className="me-keys-card"
+          ref={keysPanelRef}
+          data-testid="me-keys-panel"
+          style={{ marginTop: "0.85rem" }}
+        >
+          <details
+            className="plans-advanced"
+            open={keysPanelOpen}
+            onToggle={(e) => setKeysPanelOpen((e.target as HTMLDetailsElement).open)}
           >
-            {t("security.uploadKeys")}
-          </button>
-        </details>
+            <summary>{t("security.deviceKeys")}</summary>
+            <p className="muted">{t("security.deviceKeysHint")}</p>
+            <p className="muted">
+              {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+            </p>
+            <div className="field">
+              <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
+              <select
+                id="signal-backend"
+                data-testid="me-signal-backend"
+                value={signalPrefer}
+                onChange={(e) => {
+                  const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
+                  setSignalPrefer(next);
+                  saveProductSignalPrefer(next);
+                }}
+              >
+                <option value="x25519">{t("security.signalBackend.x25519")}</option>
+                <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
+              </select>
+              <p className="muted">{t("security.signalBackendHint")}</p>
+            </div>
+            <button
+              type="button"
+              className="btn"
+              disabled={keyBusy}
+              data-testid="me-upload-keys"
+              onClick={() => void registerDeviceKeys()}
+            >
+              {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
+            </button>
+          </details>
+        </div>
 
         <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
           <summary>{t("security.wipe")}</summary>

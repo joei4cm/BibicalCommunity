@@ -556,6 +556,42 @@ select {
   border-top: 1px solid var(--br-line);
 }
 
+.me-keys-card {
+  margin: 1rem 0 1.15rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--br-line);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--br-accent, #c4a35a) 8%, transparent);
+}
+
+.me-keys-card .toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.im-note-action {
+  display: inline;
+  margin-left: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--br-accent, #8a6a2f);
+  font: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.im-note-action:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.im-note-action:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .app-folio .board-tabs {
   gap: 0;
   margin: 0 0 0.85rem;
@@ -714,8 +750,15 @@ body:has(.app-folio) .tab-bar a {
   border-bottom: 1px solid var(--lh-border);
 }
 
-.comms-tabs {
+.comms-tabs,
+.me-tabs {
   grid-template-columns: repeat(4, 1fr);
+}
+
+.me-tabs .plans-tab {
+  font-size: 0.8rem;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
 }
 
 .plans-tab {

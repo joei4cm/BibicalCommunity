@@ -567,7 +567,9 @@ export default function MeScreen() {
         disabled={keyBusy}
         onPress={() => void uploadDeviceKeys()}
       >
-        <Text style={styles.btnText}>{t(locale, "security.uploadKeys")}</Text>
+        <Text style={styles.btnText}>
+          {hasDeviceKey ? t(locale, "security.reuploadKeys") : t(locale, "security.uploadKeys")}
+        </Text>
       </Pressable>
 
       <Text style={[styles.section, { marginTop: 28 }]}>{t(locale, "me.churches")}</Text>

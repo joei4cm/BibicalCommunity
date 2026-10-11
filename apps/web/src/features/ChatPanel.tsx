@@ -15,6 +15,7 @@ import {
   isGroupFanoutHeader,
 } from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
+import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
@@ -117,6 +118,62 @@ export function ChatPanel({
     () => conversations.find((c) => c.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+
+  const [keyBusy, setKeyBusy] = useState(false);
+  const keysPromptedRef = useRef(false);
+
+  async function confirmAndUploadKeys() {
+    if (!getToken() || keyBusy) return;
+    if (!window.confirm(t("security.uploadKeysConfirm"))) return;
+    setKeyBusy(true);
+    try {
+      await uploadDeviceKeyBundle();
+      setNote("keys_uploaded");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "keys_failed");
+    } finally {
+      setKeyBusy(false);
+    }
+  }
+
+  function renderNote(code: string) {
+    const text = humanizeStatus(t, code);
+    const keysTip =
+      code === "chat_degraded_soft" || code === "chat_degraded_no_peer_keys";
+    if (!keysTip) {
+      return <p className="muted im-note">{text}</p>;
+    }
+    return (
+      <p className="muted im-note" data-testid="chat-keys-tip">
+        {text}{" "}
+        <button
+          type="button"
+          className="im-note-action"
+          data-testid="chat-upload-keys-confirm"
+          disabled={keyBusy}
+          onClick={() => void confirmAndUploadKeys()}
+        >
+          {t("security.confirmUploadKeys")}
+        </button>
+      </p>
+    );
+  }
+
+  // Opening a thread without local keys: one confirm dialog — no Me-page navigation.
+  useEffect(() => {
+    if (!selectedId || !getToken() || keysPromptedRef.current || keyBusy) return;
+    let cancelled = false;
+    void (async () => {
+      const has = await hasLocalDeviceKeys();
+      if (cancelled || has || keysPromptedRef.current) return;
+      keysPromptedRef.current = true;
+      await confirmAndUploadKeys();
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt once per session when keys missing
+  }, [selectedId]);
 
   useEffect(() => {
     onThreadOpenChange?.(Boolean(selectedId));
@@ -849,7 +906,7 @@ export function ChatPanel({
         onHangup={hangup}
         onToggleVideo={() => setCallVideo((v) => !v)}
       />
-      {note && !selected && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
+      {note && !selected && renderNote(note)}
 
       {selected ? (
         <div className="im-thread" data-testid="im-thread">
@@ -985,7 +1042,7 @@ export function ChatPanel({
           </div>
 
           <footer className="im-composer">
-            {note && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
+            {note && renderNote(note)}
             <div className="im-composer-tools">
               <button
                 type="button"
