@@ -463,6 +463,11 @@ export function BibleReader() {
     const n = Number(raw);
     return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
   })();
+  const fromPlans = searchParams.get("from") === "plans";
+  const returnPlanId = searchParams.get("planId");
+  const plansReturnHref = returnPlanId
+    ? `/app/plans?resume=1&planId=${encodeURIComponent(returnPlanId)}`
+    : "/app/plans?resume=1";
 
   const [translationId, setTranslationId] = useState(routeTid);
   const [secondTranslationId, setSecondTranslationId] = useState("web");
@@ -1628,6 +1633,25 @@ export function BibleReader() {
           </button>
         </div>
       </header>
+
+      {fromPlans && (
+        <div className="reader-plans-return" data-testid="reader-plans-return">
+          <Link
+            className="btn ghost reader-plans-return-back"
+            to={plansReturnHref}
+            data-testid="reader-back-to-plans"
+          >
+            {t("reader.backToPlans")}
+          </Link>
+          <Link
+            className="btn reader-plans-return-done"
+            to={plansReturnHref}
+            data-testid="reader-done-return-plans"
+          >
+            {t("reader.doneReadingReturn")}
+          </Link>
+        </div>
+      )}
 
       {error && <p className="bible-reader-error">{humanizeStatus(t, error)}</p>}
 

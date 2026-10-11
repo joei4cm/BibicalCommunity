@@ -1,9 +1,8 @@
 /**
  * Keep installed PWAs from sticking on stale precaches after a Pages deploy.
- * - Poll SW update on focus / visibility
- * - Reload once when a new controller takes over
+ * Uses native Service Worker APIs (no workbox-window) — VitePWA already
+ * injects registerSW.js; we only poll updates and reload on controllerchange.
  */
-import { registerSW } from "virtual:pwa-register";
 
 let reloading = false;
 
@@ -13,26 +12,31 @@ function reloadOnce() {
   window.location.reload();
 }
 
-if ("serviceWorker" in navigator) {
+async function pingUpdates() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.update().catch(() => undefined)));
+  } catch {
+    /* ignore */
+  }
+}
+
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     reloadOnce();
   });
-}
 
-registerSW({
-  immediate: true,
-  onRegisteredSW(_url: string, registration: ServiceWorkerRegistration | undefined) {
-    if (!registration) return;
-    const ping = () => {
-      void registration.update();
-    };
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") ping();
-    });
-    window.addEventListener("focus", ping);
-    window.setInterval(ping, 5 * 60 * 1000);
-  },
-  onNeedRefresh() {
-    reloadOnce();
-  },
-});
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void pingUpdates();
+  });
+  window.addEventListener("focus", () => {
+    void pingUpdates();
+  });
+  window.setInterval(() => {
+    void pingUpdates();
+  }, 5 * 60 * 1000);
+
+  // First paint: ask for an update check once SW is ready.
+  void navigator.serviceWorker.ready.then(() => pingUpdates()).catch(() => undefined);
+}

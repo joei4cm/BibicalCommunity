@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   bookSlug,
@@ -53,14 +53,24 @@ function isSubscriptionComplete(sub: Subscription): boolean {
   return (sub.progressDay ?? 0) >= total;
 }
 
-/** Deep-link today's plan ref into the WeDevote-shaped Bible reader. */
-function bibleHrefFromPlanRef(ref: string): string | null {
+/** Deep-link a plan day into the Bible reader, with a return path to 计划. */
+function bibleHrefFromPlanRef(ref: string, planId?: string | null): string | null {
   const parsed = parseRef(ref);
   if (!parsed) return null;
   const slug = bookSlug(parsed.book);
   if (!slug) return null;
   const base = `/app/bible/cuvs/${slug}/${parsed.chapter}`;
-  return parsed.verseStart ? `${base}?verse=${parsed.verseStart}` : base;
+  const qs = new URLSearchParams();
+  if (parsed.verseStart) qs.set("verse", String(parsed.verseStart));
+  qs.set("from", "plans");
+  if (planId) qs.set("planId", planId);
+  const q = qs.toString();
+  return q ? `${base}?${q}` : base;
+}
+
+function todayDayForSub(sub: Subscription): PlanDay | null {
+  const dayNum = (sub.progressDay ?? 0) + 1;
+  return (sub.days ?? []).find((d) => d.day === dayNum) ?? null;
 }
 
 function defaultDraftDays(): DraftDay[] {
@@ -72,6 +82,8 @@ function defaultDraftDays(): DraftDay[] {
 
 export function PlansPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<PlansTab>("mine");
   const [sheet, setSheet] = useState<PlansSheet>("none");
   const [createStep, setCreateStep] = useState<CreateStep>(1);
@@ -162,8 +174,12 @@ export function PlansPage() {
     }
   }, [activeSubs, activeSubPlanId]);
 
-  async function persistDevotion(nextStepValue: DevotionStep, nextMaterialId?: string) {
-    const planId = activeSub?.planId;
+  async function persistDevotion(
+    nextStepValue: DevotionStep,
+    nextMaterialId?: string,
+    planIdOverride?: string,
+  ) {
+    const planId = planIdOverride ?? activeSub?.planId;
     if (!planId || !getToken()) {
       setStep(nextStepValue);
       if (nextMaterialId) setMaterialId(nextMaterialId);
@@ -193,6 +209,35 @@ export function PlansPage() {
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "error");
     }
+  }
+
+  /** Resume from Bible reader after finishing today's passage. */
+  useEffect(() => {
+    if (searchParams.get("resume") !== "1") return;
+    const pid = searchParams.get("planId");
+    if (pid) setActiveSubPlanId(pid);
+    setTab("mine");
+    const targetPlan = pid ?? activeSubPlanId;
+    void (async () => {
+      const cur =
+        (subscriptions ?? []).find((s) => s.planId === targetPlan)?.devotionStep ?? step;
+      const next: DevotionStep =
+        cur === "pause" || cur === "read" ? "reflect" : nextStep(cur) ?? cur;
+      await persistDevotion(next, undefined, targetPlan ?? undefined);
+      setSearchParams({}, { replace: true });
+    })();
+    // Intentionally run once when resume lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  function openReadingForSub(sub: Subscription) {
+    const day = todayDayForSub(sub);
+    const href = day ? bibleHrefFromPlanRef(day.ref, sub.planId) : null;
+    setActiveSubPlanId(sub.planId);
+    if (!href) return;
+    void persistDevotion("read", undefined, sub.planId).finally(() => {
+      navigate(href);
+    });
   }
 
   function selectPlan(id: string) {
@@ -463,71 +508,51 @@ export function PlansPage() {
 
       {tab === "mine" && (
         <div className="plans-tab-panel" data-testid="plans-panel-mine" role="tabpanel">
-          {activeSubs.length > 0 ? (
-            <div className="panel" data-testid="plans-devotion-today">
-              <h2>{t("plans.devotionToday")}</h2>
-              <div className="field">
-                <label>{t("plans.devotionPlan")}</label>
-                <select
-                  value={activeSub?.planId ?? ""}
-                  onChange={(e) => setActiveSubPlanId(e.target.value)}
-                >
-                  {activeSubs.map((s) => (
-                    <option key={s.planId} value={s.planId}>
-                      {s.title ?? t("plans.untitled")}
-                    </option>
-                  ))}
-                </select>
+          {activeSubs.length > 0 && activeSub ? (
+            <div className="panel plans-today" data-testid="plans-devotion-today">
+              <div className="plans-today-head">
+                <h2>{t("plans.devotionToday")}</h2>
+                {activeSubs.length > 1 && (
+                  <select
+                    className="plans-today-plan-select"
+                    value={activeSub.planId}
+                    aria-label={t("plans.devotionPlan")}
+                    onChange={(e) => setActiveSubPlanId(e.target.value)}
+                    data-testid="plans-active-select"
+                  >
+                    {activeSubs.map((s) => (
+                      <option key={s.planId} value={s.planId}>
+                        {s.title ?? t("plans.untitled")}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
-              <div className="field">
-                <label>{t("plans.devotionMaterial")}</label>
-                <select
-                  value={activeMaterial?.id ?? ""}
-                  onChange={(e) => void persistDevotion(step, e.target.value)}
-                >
-                  {devotionMaterials.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.title[localeKey] ?? m.title.en}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {todayDay && (
-                <p className="muted" data-testid="plans-today-reading">
-                  {t("plans.todayReading")}:{" "}
-                  {(() => {
-                    const href = bibleHrefFromPlanRef(todayDay.ref);
-                    const label = (
-                      <>
-                        <strong>{todayDay.ref}</strong>
-                        {todayDay.title ? ` · ${todayDay.title}` : ""}
-                      </>
-                    );
-                    if (!href) return label;
-                    return (
-                      <Link
-                        className="plans-today-ref"
-                        to={href}
-                        data-testid="plans-today-ref-link"
-                      >
-                        {label}
-                      </Link>
-                    );
-                  })()}
-                </p>
-              )}
-              {activeMaterial && (
-                <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
-              )}
-              <p className="muted">
-                {progress.done
-                  ? t("plans.stepDone")
-                  : t("plans.stepProgress", {
-                      current: progress.index + 1,
-                      total: progress.total,
-                    })}
+              <p className="plans-today-title" data-testid="plans-today-plan-name">
+                {activeSub.title ?? t("plans.untitled")}
               </p>
-              <div className="step-track" role="list">
+              {todayDay ? (
+                <>
+                  <p className="muted plans-today-ref-line" data-testid="plans-today-reading">
+                    {t("plans.todayReading")}
+                    {todayDay.title ? ` · ${todayDay.title}` : ""} · <strong>{todayDay.ref}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    className="btn plans-read-cta"
+                    data-testid="plans-start-reading"
+                    onClick={() => openReadingForSub(activeSub)}
+                  >
+                    {step === "read" || step === "pause"
+                      ? t("plans.startReading")
+                      : t("plans.continueReading")}
+                  </button>
+                </>
+              ) : (
+                <p className="muted">{t("plans.noTodayReading")}</p>
+              )}
+
+              <div className="step-track plans-step-track-compact" role="list">
                 {stepGuide.map((s, i) => {
                   const state = i < progress.index ? "done" : i === progress.index ? "current" : "todo";
                   return (
@@ -544,14 +569,21 @@ export function PlansPage() {
                   );
                 })}
               </div>
-              <div className="toolbar">
-                <button type="button" className="btn" onClick={advance} disabled={progress.done}>
+              <div className="toolbar plans-today-toolbar">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={advance}
+                  disabled={progress.done}
+                  data-testid="plans-next-step"
+                >
                   {progress.done ? t("plans.stepDone") : t("plans.nextStep")}
                 </button>
                 <button
                   type="button"
                   className="btn ghost"
                   disabled={!activeSub}
+                  data-testid="plans-advance-day"
                   onClick={() => {
                     if (!activeSub) return;
                     void advancePlanDay(activeSub.planId, activeSub.progressDay);
@@ -559,47 +591,68 @@ export function PlansPage() {
                 >
                   {t("plans.advanceDay")}
                 </button>
+              </div>
+              <details className="plans-advanced plans-today-more">
+                <summary>{t("plans.devotionMore")}</summary>
+                <div className="field">
+                  <label>{t("plans.devotionMaterial")}</label>
+                  <select
+                    value={activeMaterial?.id ?? ""}
+                    onChange={(e) => void persistDevotion(step, e.target.value)}
+                  >
+                    {devotionMaterials.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title[localeKey] ?? m.title.en}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {activeMaterial && (
+                  <p className="muted">{activeMaterial.body[localeKey] ?? activeMaterial.body.en}</p>
+                )}
                 <button type="button" className="btn ghost" onClick={resetSteps}>
                   {t("plans.resetSteps")}
                 </button>
-              </div>
+              </details>
             </div>
           ) : (
             <div className="panel plans-empty-mine" data-testid="plans-empty-mine">
               <p className="plans-empty-lead">{t("plans.emptyMine")}</p>
               <p className="muted">{t("plans.emptyMineHint")}</p>
-              <button
-                type="button"
-                className="btn ghost"
-                data-testid="plans-empty-discover"
-                onClick={() => setTab("discover")}
-              >
-                {t("plans.openDiscover")}
-              </button>
             </div>
           )}
 
           {activeSubs.length > 0 && (
-            <div className="panel">
+            <div className="panel" data-testid="plans-subscriptions">
               <h2>{t("plans.subscriptions")}</h2>
-              <ul className="list">
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("plans.subscriptionsHint")}
+              </p>
+              <ul className="list plans-sub-list">
                 {activeSubs.map((s) => {
                   const total = s.days?.length ?? 0;
+                  const day = todayDayForSub(s);
+                  const isOn = s.planId === activeSub?.planId;
                   return (
                     <li key={s.subscriptionId ?? s.id ?? s.planId}>
                       <button
                         type="button"
-                        className="linkish"
-                        onClick={() => setActiveSubPlanId(s.planId)}
+                        className={`plans-sub-row${isOn ? " is-on" : ""}`}
+                        data-testid={`plans-sub-${s.planId}`}
+                        onClick={() => openReadingForSub(s)}
                       >
-                        <strong>{s.title ?? t("plans.untitled")}</strong>
+                        <span className="plans-sub-row-main">
+                          <strong>{s.title ?? t("plans.untitled")}</strong>
+                          <span className="muted">
+                            {t("plans.inProgress")}
+                            {total > 0
+                              ? ` · ${t("plans.dayOf", { day: Math.min((s.progressDay ?? 0) + 1, total) })} / ${total}`
+                              : ` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
+                            {day ? ` · ${day.ref}` : ""}
+                          </span>
+                        </span>
+                        <span className="plans-sub-row-cta">{t("plans.openReading")}</span>
                       </button>
-                      <div className="muted">
-                        {t("plans.inProgress")}
-                        {total > 0
-                          ? ` · ${t("plans.dayOf", { day: Math.min((s.progressDay ?? 0) + 1, total) })} / ${total}`
-                          : ` · ${t("plans.dayOf", { day: s.progressDay ?? 0 })}`}
-                      </div>
                     </li>
                   );
                 })}
