@@ -85,6 +85,26 @@ chatRoutes.get("/conversations", async (c) => {
     .from(schema.conversationMembers)
     .where(eq(schema.conversationMembers.userId, userId));
 
+  const unreadRows = await c.env.DB.prepare(
+    `SELECT m.conversation_id AS conversationId, COUNT(*) AS n
+     FROM messages m
+     INNER JOIN conversation_members cm
+       ON cm.conversation_id = m.conversation_id AND cm.user_id = ?
+     LEFT JOIN devices d ON d.id = m.sender_device_id
+     WHERE IFNULL(cm.archived, 0) = 0
+       AND IFNULL(m.tombstoned, 0) = 0
+       AND m.content_type = 'msg'
+       AND m.created_at > IFNULL(cm.last_read_at, 0)
+       AND (d.user_id IS NULL OR d.user_id != ?)
+     GROUP BY m.conversation_id`,
+  )
+    .bind(userId, userId)
+    .all<{ conversationId: string; n: number }>();
+  const unreadByConvo = new Map<string, number>();
+  for (const row of unreadRows.results ?? []) {
+    unreadByConvo.set(row.conversationId, Number(row.n ?? 0));
+  }
+
   const conversations = [];
   for (const m of memberships) {
     const convo = (
@@ -108,14 +128,45 @@ chatRoutes.get("/conversations", async (c) => {
       createdAt: convo.createdAt,
       memberIds: members.map((row) => row.userId),
       peerUserIds: members.map((row) => row.userId).filter((id) => id !== userId),
+      unreadCount: unreadByConvo.get(convo.id) ?? 0,
       membership: {
         id: m.id,
         role: m.role,
         archived: m.archived,
+        lastReadAt: m.lastReadAt ?? null,
       },
     });
   }
   return c.json({ conversations });
+});
+
+/** Mark a conversation as read up to `at` (default: now). Clears chat badge for that thread. */
+chatRoutes.post("/conversations/:id/read", async (c) => {
+  const conversationId = c.req.param("id");
+  const body = z
+    .object({ at: z.number().int().positive().optional() })
+    .parse(await c.req.json().catch(() => ({})));
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const member = (
+    await db
+      .select()
+      .from(schema.conversationMembers)
+      .where(
+        and(
+          eq(schema.conversationMembers.conversationId, conversationId),
+          eq(schema.conversationMembers.userId, userId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!member) return c.json({ error: "forbidden" }, 403);
+  const at = body.at ?? Date.now();
+  await db
+    .update(schema.conversationMembers)
+    .set({ lastReadAt: at })
+    .where(eq(schema.conversationMembers.id, member.id));
+  return c.json({ ok: true, lastReadAt: at });
 });
 
 const patchConvoSchema = z.object({
@@ -274,7 +325,13 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
     });
   }
 
-  return c.json({ messages: live });
+  // Opening the thread marks it read for badge purposes.
+  await db
+    .update(schema.conversationMembers)
+    .set({ lastReadAt: now })
+    .where(eq(schema.conversationMembers.id, member.id));
+
+  return c.json({ messages: live, lastReadAt: now });
 });
 
 const favoriteSchema = z.object({

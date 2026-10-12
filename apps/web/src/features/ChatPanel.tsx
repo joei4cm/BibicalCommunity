@@ -42,7 +42,8 @@ type Conversation = {
   createdAt: number;
   memberIds?: string[];
   peerUserIds?: string[];
-  membership: { id: string; role: string; archived: boolean };
+  unreadCount?: number;
+  membership: { id: string; role: string; archived: boolean; lastReadAt?: number | null };
 };
 
 type ChatMessage = {
@@ -70,10 +71,12 @@ export function ChatPanel({
   initialPeer,
   onPeerConsumed,
   onThreadOpenChange,
+  onBadgesMaybeChanged,
 }: {
   initialPeer?: string | null;
   onPeerConsumed?: () => void;
   onThreadOpenChange?: (open: boolean) => void;
+  onBadgesMaybeChanged?: () => void;
 } = {}) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,6 +112,7 @@ export function ChatPanel({
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
+  const conversationsRef = useRef<Conversation[]>([]);
   const callRef = useRef<CallSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -257,6 +261,7 @@ export function ChatPanel({
       return;
     }
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
+    conversationsRef.current = res.conversations;
     setConversations(res.conversations);
     setNote(null);
   }, []);
@@ -431,6 +436,8 @@ export function ChatPanel({
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
+      const hadUnread =
+        (conversationsRef.current.find((c) => c.id === conversationId)?.unreadCount ?? 0) > 0;
       const res = await api<{ messages: ChatMessage[] }>(
         `/v1/chat/conversations/${conversationId}/messages`,
       );
@@ -445,6 +452,21 @@ export function ChatPanel({
         }
         return live;
       });
+      // GET messages marks the thread read server-side — clear local unread chip.
+      setConversations((prev) => {
+        const next = prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                unreadCount: 0,
+                membership: { ...c.membership, lastReadAt: now },
+              }
+            : c,
+        );
+        conversationsRef.current = next;
+        return next;
+      });
+      if (hadUnread) onBadgesMaybeChanged?.();
       const key = await sessionKeyFor(conversationId);
       const peer = peerFor(conversationId);
       const prevPt = plaintextsRef.current;
@@ -482,7 +504,7 @@ export function ChatPanel({
       }
       setPlaintexts(decoded);
     },
-    [peerFor, selfUserId],
+    [onBadgesMaybeChanged, peerFor, selfUserId],
   );
 
   const loadFavorites = useCallback(async () => {
@@ -1307,9 +1329,14 @@ export function ChatPanel({
             )}
             {visibleConversations.map((c) => {
               const label = convoLabel(c);
+              const unread = c.unreadCount ?? 0;
               return (
                 <li key={c.id}>
-                  <button type="button" className="convo-row convo-row-rich" onClick={() => setSelectedId(c.id)}>
+                  <button
+                    type="button"
+                    className={`convo-row convo-row-rich${unread > 0 ? " is-unread" : ""}`}
+                    onClick={() => setSelectedId(c.id)}
+                  >
                     <span className="im-avatar" aria-hidden>
                       {avatarLetter(label)}
                     </span>
@@ -1323,8 +1350,15 @@ export function ChatPanel({
                             : t("chat.tapToOpen")}
                       </span>
                     </span>
-                    <span className="muted convo-row-time">
-                      {new Date(c.createdAt).toLocaleDateString()}
+                    <span className="convo-row-meta">
+                      {unread > 0 ? (
+                        <span className="nav-badge" data-testid="chat-convo-badge">
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      ) : null}
+                      <span className="muted convo-row-time">
+                        {new Date(c.createdAt).toLocaleDateString()}
+                      </span>
                     </span>
                   </button>
                 </li>

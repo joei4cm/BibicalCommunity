@@ -125,6 +125,49 @@ select {
   transition: color 180ms ease;
 }
 
+.tab-bar-label {
+  display: inline-block;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 0.12rem;
+  inset-inline-end: 0.15rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lh-accent, #0f6b5c) 88%, #8b2e2e);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.05rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.plans-tab .nav-badge,
+.comms-tabs .nav-badge {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 0.35rem;
+  vertical-align: middle;
+}
+
+.convo-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.convo-row-meta .nav-badge {
+  position: static;
+}
+
 .tab-bar a.active {
   color: var(--lh-accent);
   background: transparent;
@@ -4348,6 +4391,10 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 .convo-row-time {
   font-size: 0.75rem;
   flex-shrink: 0;
+}
+
+.convo-row-rich.is-unread .convo-row-main strong {
+  font-weight: 800;
 }
 
 .im-thread-peer {

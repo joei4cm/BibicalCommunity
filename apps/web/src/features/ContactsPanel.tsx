@@ -27,7 +27,13 @@ function labelOf(c: { nickname?: string | null; uid?: string | null; userId?: st
   return c.nickname || c.uid || c.userId || c.id || "—";
 }
 
-export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => void }) {
+export function ContactsPanel({
+  onOpenChat,
+  onBadgesMaybeChanged,
+}: {
+  onOpenChat: (userId: string) => void;
+  onBadgesMaybeChanged?: () => void;
+}) {
   const { t } = useTranslation();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [incoming, setIncoming] = useState<FriendReq[]>([]);
@@ -89,6 +95,7 @@ export function ContactsPanel({ onOpenChat }: { onOpenChat: (userId: string) => 
         body: "{}",
       });
       await refresh();
+      onBadgesMaybeChanged?.();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {

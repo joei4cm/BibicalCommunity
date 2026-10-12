@@ -51,7 +51,11 @@ function eventHour(e: CalEvent) {
   return new Date(e.startAt).getHours();
 }
 
-export function CalendarPanel() {
+export function CalendarPanel({
+  onBadgesMaybeChanged,
+}: {
+  onBadgesMaybeChanged?: () => void;
+} = {}) {
   const { t, i18n } = useTranslation();
   const [view, setView] = useState<ViewMode>("week");
   const [weekMode, setWeekMode] = useState<WeekMode>("natural");
@@ -202,6 +206,7 @@ export function CalendarPanel() {
         body: JSON.stringify({ accept }),
       });
       await refresh();
+      onBadgesMaybeChanged?.();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
