@@ -233,9 +233,10 @@ export function CalendarPanel() {
         <div className="muted">
           {e.allDay
             ? t("comms.allDay")
-            : new Date(e.startAt).toLocaleTimeString([], {
+            : new Date(e.startAt).toLocaleTimeString(i18n.language, {
                 hour: "2-digit",
                 minute: "2-digit",
+                hour12: false,
               })}
           {" · "}
           {e.kind === "seminar"
