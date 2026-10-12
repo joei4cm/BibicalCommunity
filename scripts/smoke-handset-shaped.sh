@@ -138,8 +138,10 @@ await catalogToggle.first().click({ force: true });
 await page.getByTestId("reader-corpus-catalog").waitFor({ state: "visible", timeout: 10_000 });
 console.log("DEVICE_HANDSET_CORPUS_CATALOG_OK");
 
-await page.goto(WEB + "/app/me", { waitUntil: "networkidle" });
+await page.goto(WEB + "/app/me?section=devices", { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
+const devicesTab = page.getByTestId("me-tab-devices");
+await devicesTab.waitFor({ state: "visible", timeout: 10_000 });
 const backend = page.getByTestId("me-signal-backend");
 await backend.waitFor({ state: "visible", timeout: 10_000 });
 const defaultBackend = await backend.inputValue();
