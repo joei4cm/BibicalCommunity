@@ -35,6 +35,7 @@ import {
 } from "../components/icons";
 import {
   encodeChatPayload,
+  formatCallDuration,
   parseChatPayload,
   payloadPreview,
   type ChatPayload,
@@ -591,14 +592,33 @@ export function ChatPanel({
     const onVis = () => {
       if (document.visibilityState === "visible") tick();
     };
+    const onControl = (ev: Event) => {
+      const id = (ev as CustomEvent<{ conversationId?: string }>).detail?.conversationId;
+      if (id && id === selectedId) tick();
+    };
     window.addEventListener("focus", tick);
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("lh:chat-messages", onControl);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", tick);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("lh:chat-messages", onControl);
     };
   }, [selectedId, loadMessages]);
+
+  function callRecordLabel(payload: Extract<ChatPayload, { kind: "call" }>): string {
+    const video = payload.video ? t("chat.callVideo") : t("chat.callAudio");
+    const dur = formatCallDuration(payload.durationSec);
+    if (payload.event === "ended") {
+      return dur
+        ? t("chat.callRecordEnded", { type: video, duration: dur })
+        : t("chat.callRecordEndedShort", { type: video });
+    }
+    if (payload.event === "missed") return t("chat.callRecordMissed", { type: video });
+    if (payload.event === "declined") return t("chat.callRecordDeclined", { type: video });
+    return t("chat.callRecordCanceled", { type: video });
+  }
 
   async function createConversation(explicitIds?: string[], explicitKind?: ConversationKind) {
     if (!getToken()) {
@@ -1042,9 +1062,33 @@ export function ChatPanel({
             onScroll={onMessagesScroll}
           >
             {messages.length === 0 && <p className="muted im-empty">{t("chat.noMessages")}</p>}
-            {messages.map((m) => {
+            {messages.map((m, idx) => {
               const payload = parseChatPayload(plaintexts[m.id]);
               const loading = plaintexts[m.id] == null;
+              // Dedupe call records both sides may post for the same callId.
+              if (payload?.kind === "call" && payload.callId) {
+                const seen = messages.slice(0, idx).some((prev) => {
+                  const p = parseChatPayload(plaintexts[prev.id]);
+                  return p?.kind === "call" && p.callId === payload.callId;
+                });
+                if (seen) return null;
+              }
+              if (!loading && payload?.kind === "call") {
+                return (
+                  <div
+                    key={m.id}
+                    className="chat-call-record"
+                    data-testid="chat-call-record"
+                    data-call-event={payload.event}
+                  >
+                    <IconPhone className="ui-icon-inline" />
+                    <span>{callRecordLabel(payload)}</span>
+                    <time dateTime={new Date(m.createdAt).toISOString()}>
+                      {new Date(m.createdAt).toLocaleString()}
+                    </time>
+                  </div>
+                );
+              }
               const mine = Boolean(
                 (selfUserId && m.senderUserId && m.senderUserId === selfUserId) ||
                   (selfDeviceId && m.senderDeviceId === selfDeviceId),

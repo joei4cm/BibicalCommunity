@@ -12,9 +12,13 @@ import { useTranslation } from "react-i18next";
 import { CallOverlay, type CallPhase } from "../components/CallOverlay";
 import { api, apiWsUrl, getToken } from "../lib/api";
 import { startCallSession, type CallSession } from "../lib/call-session";
+import type { CallEvent } from "../lib/chat-payload";
+import { showAppNotification } from "../lib/notify";
+import { postControlMessage } from "../lib/post-control-message";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
+import { NotifyHost } from "./NotifyHost";
 
 type ConvoRow = {
   id: string;
@@ -22,6 +26,16 @@ type ConvoRow = {
   title: string | null;
   peerUserIds?: string[];
   membership: { archived: boolean };
+};
+
+type CallMeta = {
+  conversationId: string | null;
+  callId: string | null;
+  role: "caller" | "callee" | null;
+  phase: CallPhase;
+  connectedAt: number | null;
+  ringingAt: number | null;
+  video: boolean;
 };
 
 type CallContextValue = {
@@ -32,7 +46,7 @@ type CallContextValue = {
   shareScreen: (conversationId?: string | null) => Promise<void>;
   endScreen: () => Promise<void>;
   screenShareReady: boolean;
-}
+};
 
 const CallContext = createContext<CallContextValue | null>(null);
 
@@ -51,6 +65,16 @@ function labelFor(c: ConvoRow | undefined, peerLabels: Record<string, string>): 
   return "…";
 }
 
+const EMPTY_META: CallMeta = {
+  conversationId: null,
+  callId: null,
+  role: null,
+  phase: "idle",
+  connectedAt: null,
+  ringingAt: null,
+  video: false,
+};
+
 /**
  * App-shell call host for installed PWA / web: keeps DM ring listen alive on every
  * tab (Bible, Plans, Me, …), not only while ChatPanel is mounted.
@@ -67,6 +91,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [callSessionActive, setCallSessionActive] = useState(false);
+  const [selfUserId, setSelfUserId] = useState<string | null>(null);
 
   const callRef = useRef<CallSession | null>(null);
   const pendingOfferRef = useRef<string | null>(null);
@@ -74,6 +99,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const answeringRef = useRef(false);
   const conversationsRef = useRef<ConvoRow[]>([]);
   const peerLabelsRef = useRef<Record<string, string>>({});
+  const metaRef = useRef<CallMeta>({ ...EMPTY_META });
+  const selfUserIdRef = useRef<string | null>(null);
+  const postedCallIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -81,6 +109,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     peerLabelsRef.current = peerLabels;
   }, [peerLabels]);
+  useEffect(() => {
+    selfUserIdRef.current = selfUserId;
+  }, [selfUserId]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    void api<{ id?: string; userId?: string }>("/v1/me")
+      .then((me) => setSelfUserId(me.id ?? me.userId ?? null))
+      .catch(() => setSelfUserId(null));
+  }, []);
 
   const refreshConversations = useCallback(async () => {
     if (!getToken()) {
@@ -118,7 +156,52 @@ export function CallProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshConversations]);
 
-  const hangup = useCallback(() => {
+  const setPhase = useCallback((phase: CallPhase) => {
+    setCallPhase(phase);
+    metaRef.current.phase = phase;
+    if (phase === "connected" && !metaRef.current.connectedAt) {
+      metaRef.current.connectedAt = Date.now();
+    }
+    if (phase === "incoming" && !metaRef.current.ringingAt) {
+      metaRef.current.ringingAt = Date.now();
+    }
+  }, []);
+
+  const postCallRecord = useCallback(
+    async (event: CallEvent, meta: CallMeta) => {
+      if (!meta.conversationId) return;
+      const dedupeKey = meta.callId ?? `${meta.conversationId}:${event}:${meta.ringingAt ?? 0}`;
+      if (postedCallIdsRef.current.has(dedupeKey)) return;
+      postedCallIdsRef.current.add(dedupeKey);
+      const convo = conversationsRef.current.find((c) => c.id === meta.conversationId);
+      const durationSec =
+        event === "ended" && meta.connectedAt
+          ? Math.max(0, Math.round((Date.now() - meta.connectedAt) / 1000))
+          : undefined;
+      try {
+        await postControlMessage({
+          conversationId: meta.conversationId,
+          peerUserIds: convo?.peerUserIds ?? [],
+          selfUserId: selfUserIdRef.current,
+          kind: convo?.kind ?? "dm",
+          payload: {
+            v: 1,
+            kind: "call",
+            event,
+            callId: meta.callId ?? undefined,
+            durationSec,
+            video: meta.video,
+            direction: meta.role === "callee" ? "in" : "out",
+          },
+        });
+      } catch {
+        postedCallIdsRef.current.delete(dedupeKey);
+      }
+    },
+    [],
+  );
+
+  const clearCallUi = useCallback(() => {
     callRef.current?.close();
     callRef.current = null;
     pendingOfferRef.current = null;
@@ -131,9 +214,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
       return null;
     });
     setCallOpen(false);
-    setCallPhase("idle");
+    setPhase("idle");
     setCallNote(null);
-  }, []);
+    metaRef.current = { ...EMPTY_META, video: metaRef.current.video };
+  }, [setPhase]);
+
+  const endCall = useCallback(
+    (reason: "local-hangup" | "peer-hangup") => {
+      const meta = { ...metaRef.current };
+      let event: CallEvent;
+      if (meta.connectedAt || meta.phase === "connected") {
+        event = "ended";
+      } else if (meta.role === "caller" || meta.phase === "outgoing") {
+        event = reason === "local-hangup" ? "canceled" : "missed";
+      } else {
+        event = reason === "local-hangup" ? "declined" : "missed";
+      }
+      clearCallUi();
+      void postCallRecord(event, meta);
+    },
+    [clearCallUi, postCallRecord],
+  );
+
+  const hangup = useCallback(() => {
+    endCall("local-hangup");
+  }, [endCall]);
 
   const prepareIce = useCallback(async (): Promise<RTCIceServer[]> => {
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -173,7 +278,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setCallNote(null);
       setCallOpen(true);
       // Leave "incoming" immediately so a late re-ring cannot flash Accept again.
-      setCallPhase("outgoing");
+      setPhase("outgoing");
+      metaRef.current = {
+        ...metaRef.current,
+        conversationId,
+        role: asAnswerer ? "callee" : "caller",
+        video,
+        phase: "outgoing",
+      };
       const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
       try {
         callRef.current?.close();
@@ -187,6 +299,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           method: "POST",
           body: JSON.stringify({ conversationId }),
         });
+        metaRef.current.callId = res.callId;
         const iceServers = await prepareIce();
         const token = getToken();
         const wsUrl = token
@@ -203,16 +316,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
           existingLocalStream: opts?.existingLocalStream ?? null,
           onRemoteStream: (stream) => {
             setRemoteStream(stream);
-            setCallPhase("connected");
+            setPhase("connected");
           },
           onNote: (m) => {
             if (m === "answered-remote-offer" || m === "got-remote-answer") {
-              setCallPhase("connected");
+              setPhase("connected");
             }
             // Ignore peer-ring on the session socket — re-offer must not reopen Accept UI.
             if (m === "peer-ring") return;
             if (m === "peer-hangup") {
-              hangup();
+              endCall("peer-hangup");
               return;
             }
             setCallNote((prev) => `${prev ?? ""} · ${m}`);
@@ -222,10 +335,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
         pendingOfferRef.current = null;
         incomingConvoRef.current = null;
         setLocalStream(session.localStream);
-        if (!asAnswerer) setCallPhase("outgoing");
+        if (!asAnswerer) setPhase("outgoing");
       } catch (e) {
         setCallNote(e instanceof Error ? e.message : "error");
-        setCallPhase("idle");
+        setPhase("idle");
         setCallOpen(false);
         setCallSessionActive(false);
         pendingOfferRef.current = null;
@@ -237,7 +350,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         answeringRef.current = false;
       }
     },
-    [callVideo, hangup, prepareIce],
+    [callVideo, endCall, prepareIce, setPhase],
   );
 
   const acceptIncoming = useCallback(() => {
@@ -254,7 +367,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           video,
         });
         setLocalStream(early);
-        setCallPhase("outgoing");
+        setPhase("outgoing");
       } catch {
         /* startCallSession will retry getUserMedia */
       }
@@ -263,7 +376,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         existingLocalStream: early,
       });
     })();
-  }, [callVideo, runCall]);
+  }, [callVideo, runCall, setPhase]);
 
   const startOutboundCall = useCallback(
     (conversationId: string, opts?: { video?: boolean; peerLabel?: string }) => {
@@ -339,6 +452,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [conversations],
   );
 
+  const alertIncoming = useCallback(
+    (conversationId: string, label: string) => {
+      showAppNotification({
+        kind: "call",
+        title: t("notify.incomingCall"),
+        body: label,
+        tag: `lh-call-${conversationId}`,
+        force: true,
+        onClickUrl: `/app/chat?conversation=${encodeURIComponent(conversationId)}`,
+      });
+    },
+    [t],
+  );
+
   // Global DM ring listen — survives tab switches away from /app/chat.
   useEffect(() => {
     if (!getToken() || callSessionActive) return;
@@ -352,7 +479,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       for (const conversationId of dmIds) {
         if (closed) return;
         try {
-          const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
+          const res = await api<{ signalingPath: string; callId?: string }>("/v1/chat/calls", {
             method: "POST",
             body: JSON.stringify({ conversationId }),
           });
@@ -369,24 +496,60 @@ export function CallProvider({ children }: { children: ReactNode }) {
                 pendingOfferRef.current = msg.sdp;
                 incomingConvoRef.current = conversationId;
                 const c = conversationsRef.current.find((x) => x.id === conversationId);
-                setPeerLabel(labelFor(c, peerLabelsRef.current));
+                const label = labelFor(c, peerLabelsRef.current);
+                setPeerLabel(label);
+                metaRef.current = {
+                  conversationId,
+                  callId: res.callId ?? metaRef.current.callId,
+                  role: "callee",
+                  phase: "incoming",
+                  connectedAt: null,
+                  ringingAt: Date.now(),
+                  video: callVideo,
+                };
                 setCallOpen(true);
-                setCallPhase("incoming");
+                setPhase("incoming");
+                alertIncoming(conversationId, label);
               } else if (msg.type === "ring") {
                 if (answeringRef.current || callRef.current) return;
+                if (
+                  metaRef.current.phase === "outgoing" ||
+                  metaRef.current.phase === "connected"
+                ) {
+                  return;
+                }
                 incomingConvoRef.current = conversationId;
                 const c = conversationsRef.current.find((x) => x.id === conversationId);
-                setPeerLabel(labelFor(c, peerLabelsRef.current));
+                const label = labelFor(c, peerLabelsRef.current);
+                setPeerLabel(label);
+                const firstRing = metaRef.current.phase !== "incoming";
+                metaRef.current = {
+                  conversationId,
+                  callId: res.callId ?? metaRef.current.callId,
+                  role: "callee",
+                  phase: "incoming",
+                  connectedAt: null,
+                  ringingAt: metaRef.current.ringingAt ?? Date.now(),
+                  video: callVideo,
+                };
                 setCallOpen(true);
-                setCallPhase((prev) =>
-                  prev === "outgoing" || prev === "connected" ? prev : "incoming",
-                );
+                setPhase("incoming");
+                if (firstRing) alertIncoming(conversationId, label);
               } else if (msg.type === "hangup") {
                 if (!callRef.current && incomingConvoRef.current === conversationId) {
+                  const meta = { ...metaRef.current };
                   pendingOfferRef.current = null;
                   incomingConvoRef.current = null;
                   setCallOpen(false);
-                  setCallPhase("idle");
+                  setPhase("idle");
+                  if (meta.phase === "incoming" && !meta.connectedAt) {
+                    void postCallRecord("missed", {
+                      ...meta,
+                      conversationId,
+                      role: "callee",
+                    });
+                  }
+                  metaRef.current = { ...EMPTY_META };
                 }
               }
             } catch {
@@ -404,7 +567,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       closed = true;
       for (const s of socks) s.close();
     };
-  }, [callSessionActive, callListenKey]);
+  }, [alertIncoming, callSessionActive, callListenKey, callVideo, postCallRecord, setPhase]);
 
   const value = useMemo(
     () => ({
@@ -420,6 +583,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   return (
     <CallContext.Provider value={value}>
       {children}
+      <NotifyHost />
       <CallOverlay
         open={callOpen}
         phase={callPhase}

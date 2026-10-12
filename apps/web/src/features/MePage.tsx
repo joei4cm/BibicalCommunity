@@ -19,6 +19,10 @@ import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-
 import { humanizeStatus } from "../lib/status";
 import { APP_VERSION } from "../lib/app-version";
 import { buildDeviceName, detectDevicePlatform, platformLabel } from "../lib/device-label";
+import {
+  requestNotificationPermission,
+  saveNotifyPrefs,
+} from "../lib/notify";
 
 function authDevicePayload() {
   const detected = detectDevicePlatform();
@@ -72,6 +76,8 @@ const DEFAULT_PRIVACY: PrivacySettings = {
   shareReadReceipts: true,
   shareTypingIndicators: true,
   shareLastActive: false,
+  notifyMessages: true,
+  notifyCalls: true,
 };
 
 export function MePage() {
@@ -154,7 +160,14 @@ export function MePage() {
     if (me.nickname) setNickname(me.nickname);
     if (me.legalName) setLegalName(me.legalName);
     if (me.signature) setSignature(me.signature);
-    if (me.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...me.privacy });
+    if (me.privacy) {
+      const next = { ...DEFAULT_PRIVACY, ...me.privacy };
+      setPrivacy(next);
+      saveNotifyPrefs({
+        notifyMessages: next.notifyMessages,
+        notifyCalls: next.notifyCalls,
+      });
+    }
   }
 
   async function checkPendingWipe() {
@@ -350,6 +363,8 @@ export function MePage() {
           shareReadReceipts: privacy.shareReadReceipts,
           shareTypingIndicators: privacy.shareTypingIndicators,
           shareLastActive: privacy.shareLastActive,
+          notifyMessages: privacy.notifyMessages,
+          notifyCalls: privacy.notifyCalls,
         },
       }),
     });
@@ -658,6 +673,51 @@ export function MePage() {
             </div>
 
             <h3 style={{ marginTop: "1.1rem" }}>{t("me.notifications")}</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t("me.notifyHint")}
+            </p>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.notifyMessages}
+                onChange={(e) => {
+                  const notifyMessages = e.target.checked;
+                  setPrivacy((p) => ({ ...p, notifyMessages }));
+                  saveNotifyPrefs({ notifyMessages });
+                }}
+              />
+              {t("me.notifyMessages")}
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.notifyCalls}
+                onChange={(e) => {
+                  const notifyCalls = e.target.checked;
+                  setPrivacy((p) => ({ ...p, notifyCalls }));
+                  saveNotifyPrefs({ notifyCalls });
+                }}
+              />
+              {t("me.notifyCalls")}
+            </label>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="me-enable-notifications"
+              onClick={() => {
+                void requestNotificationPermission().then((perm) => {
+                  setMsg(
+                    perm === "granted"
+                      ? t("me.notifyEnabled")
+                      : perm === "denied"
+                        ? t("me.notifyDenied")
+                        : t("me.notifyUnsupported"),
+                  );
+                });
+              }}
+            >
+              {t("me.enableNotifications")}
+            </button>
             <label className="check-row">
               <input
                 type="checkbox"

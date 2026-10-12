@@ -57,6 +57,8 @@ const DEFAULT_PRIVACY: PrivacySettings = {
   shareReadReceipts: true,
   shareTypingIndicators: true,
   shareLastActive: false,
+  notifyMessages: true,
+  notifyCalls: true,
 };
 
 type MeChurch = {
@@ -276,6 +278,8 @@ export default function MeScreen() {
             shareReadReceipts: privacy.shareReadReceipts,
             shareTypingIndicators: privacy.shareTypingIndicators,
             shareLastActive: privacy.shareLastActive,
+            notifyMessages: privacy.notifyMessages,
+            notifyCalls: privacy.notifyCalls,
           },
         }),
       });
