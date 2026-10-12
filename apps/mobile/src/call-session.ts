@@ -128,13 +128,15 @@ export async function startCallSession(opts: {
     opts.onNote?.("answered-remote-offer");
   }
 
-  /** Caller: if peer joins after our first offer was missed, resend ring + local SDP. */
+  /**
+   * Caller: if peer joins after our first offer was missed, resend local SDP only.
+   * Do NOT send another `ring` — that reopens Accept UI on the callee mid-answer.
+   */
   async function maybeReoffer(reason: string) {
     if (role !== "caller" || gotRemoteAnswer || reofferInFlight) return;
     if (pc.remoteDescription) return;
     reofferInFlight = true;
     try {
-      sendSignal({ type: "ring" });
       const existing = pc.localDescription?.sdp;
       if (existing) {
         sendSignal({ type: "offer", sdp: existing });

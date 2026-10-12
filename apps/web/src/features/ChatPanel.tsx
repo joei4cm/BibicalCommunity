@@ -7,7 +7,7 @@ import {
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
-import { api, apiWsUrl, getToken } from "../lib/api";
+import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
   decryptGroupFanout,
@@ -17,14 +17,10 @@ import {
 import { humanizeStatus } from "../lib/status";
 import { peerHasProductKeys } from "../lib/product-signal-chat";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
-import { startCallSession, type CallSession } from "../lib/call-session";
-import { startScreenShare, stopScreenShare } from "../lib/webrtc";
-import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
-import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
 import { SheetPortal } from "../components/SheetPortal";
 import { EmojiPicker } from "../components/EmojiPicker";
-import { CallOverlay, type CallPhase } from "../components/CallOverlay";
 import { ChatVerseText } from "../components/ChatVerseText";
+import { useCall } from "./CallProvider";
 import {
   IconCheck,
   IconCheckRead,
@@ -103,6 +99,7 @@ export function ChatPanel({
   onBadgesMaybeChanged?: () => void;
 } = {}) {
   const { t } = useTranslation();
+  const { startOutboundCall, shareScreen, endScreen, screenShareReady } = useCall();
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -113,7 +110,6 @@ export function ChatPanel({
   const [memberIds, setMemberIds] = useState("");
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
-  const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
@@ -130,20 +126,8 @@ export function ChatPanel({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [listQuery, setListQuery] = useState("");
-  const [callOpen, setCallOpen] = useState(false);
-  const [callPhase, setCallPhase] = useState<CallPhase>("idle");
-  const [callVideo, setCallVideo] = useState(false);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const conversationsRef = useRef<Conversation[]>([]);
-  const callRef = useRef<CallSession | null>(null);
-  /** Offer SDP captured on the listen socket before Accept opens a full session. */
-  const pendingOfferRef = useRef<string | null>(null);
-  /** Conversation that the pending inbound invite belongs to. */
-  const incomingConvoRef = useRef<string | null>(null);
-  /** True while a full WebRTC session owns the signaling socket (not mere incoming UI). */
-  const [callSessionActive, setCallSessionActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -917,225 +901,6 @@ export function ChatPanel({
     await refreshConversations();
   }
 
-  async function prepareIce(): Promise<RTCIceServer[]> {
-    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-    try {
-      const turn = await api<{
-        username?: string;
-        credential?: string;
-        uris: string[];
-        ttl: number;
-        iceServers?: RTCIceServer[];
-        hasRelay?: boolean;
-        note?: string;
-      }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-      iceServers = buildIceServersFromTurnResponse(turn, iceServers);
-      setCallNote(
-        turnResponseHasRelay(turn) ? t("chat.callRelayOn") : t("chat.turnRelayMissing"),
-      );
-    } catch {
-      /* STUN-only fallback */
-      setCallNote(t("chat.turnRelayMissing"));
-    }
-    return iceServers;
-  }
-
-  async function startCall(asAnswerer = false) {
-    const conversationId =
-      (asAnswerer ? incomingConvoRef.current : null) ?? selectedId;
-    if (!conversationId) return;
-    if (asAnswerer && conversationId !== selectedId) {
-      setSelectedId(conversationId);
-      setListTab("dm");
-    }
-    setBusy(true);
-    setCallNote(null);
-    setCallOpen(true);
-    setCallPhase(asAnswerer ? "incoming" : "outgoing");
-    const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
-    try {
-      callRef.current?.close();
-      callRef.current = null;
-      // Own the room before tearing down the listen sockets.
-      setCallSessionActive(true);
-      const res = await api<{
-        callId: string;
-        signalingPath: string;
-        note?: string;
-      }>("/v1/chat/calls", {
-        method: "POST",
-        body: JSON.stringify({ conversationId }),
-      });
-      const iceServers = await prepareIce();
-      const token = getToken();
-      const wsUrl = token
-        ? apiWsUrl(
-            `${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(conversationId)}`,
-          )
-        : null;
-      const session = await startCallSession({
-        wsUrl,
-        iceServers,
-        role: asAnswerer ? "callee" : "caller",
-        video: callVideo,
-        initialOfferSdp,
-        onRemoteStream: (stream) => {
-          setRemoteStream(stream);
-          setCallPhase("connected");
-        },
-        onNote: (m) => {
-          if (m === "answered-remote-offer" || m === "got-remote-answer") setCallPhase("connected");
-          if (m === "peer-ring" && !asAnswerer) return;
-          if (m === "peer-ring") {
-            setCallOpen(true);
-            setCallPhase("incoming");
-            return;
-          }
-          if (m === "peer-hangup") {
-            hangup();
-            return;
-          }
-          setCallNote((prev) => `${prev ?? ""} · ${m}`);
-        },
-      });
-      callRef.current = session;
-      pendingOfferRef.current = null;
-      incomingConvoRef.current = null;
-      setLocalStream(session.localStream);
-      if (!asAnswerer) setCallPhase("outgoing");
-    } catch (e) {
-      setCallNote(e instanceof Error ? e.message : "error");
-      setCallPhase("idle");
-      setCallOpen(false);
-      setCallSessionActive(false);
-      pendingOfferRef.current = null;
-      incomingConvoRef.current = null;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const callListenKey = useMemo(
-    () =>
-      conversations
-        .filter((c) => c.kind === "dm" && !c.membership.archived)
-        .map((c) => c.id)
-        .sort()
-        .join("|"),
-    [conversations],
-  );
-
-  // Listen on active DM rooms (not only the open thread) so inbound ring/offer
-  // can show Accept even when the user is on the chat list.
-  useEffect(() => {
-    if (!getToken() || callSessionActive) return;
-    const dmIds = callListenKey ? callListenKey.split("|") : [];
-    // Also keep the selected thread if it is a group/seminar call room.
-    if (selectedId && !dmIds.includes(selectedId)) dmIds.push(selectedId);
-    if (dmIds.length === 0) return;
-
-    let closed = false;
-    const socks: WebSocket[] = [];
-
-    void (async () => {
-      for (const conversationId of dmIds) {
-        if (closed) return;
-        try {
-          const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
-            method: "POST",
-            body: JSON.stringify({ conversationId }),
-          });
-          if (closed) return;
-          const url = apiWsUrl(
-            `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(conversationId)}`,
-          );
-          const sock = new WebSocket(url);
-          sock.onmessage = (ev) => {
-            try {
-              const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
-              if (msg.type === "offer" && msg.sdp) {
-                pendingOfferRef.current = msg.sdp;
-                incomingConvoRef.current = conversationId;
-                setSelectedId(conversationId);
-                setListTab("dm");
-                setCallOpen(true);
-                setCallPhase("incoming");
-              } else if (msg.type === "ring") {
-                incomingConvoRef.current = conversationId;
-                setSelectedId(conversationId);
-                setListTab("dm");
-                setCallOpen(true);
-                setCallPhase("incoming");
-              } else if (msg.type === "hangup") {
-                if (
-                  !callRef.current &&
-                  incomingConvoRef.current === conversationId
-                ) {
-                  pendingOfferRef.current = null;
-                  incomingConvoRef.current = null;
-                  setCallOpen(false);
-                  setCallPhase("idle");
-                }
-              }
-            } catch {
-              /* ignore */
-            }
-          };
-          socks.push(sock);
-        } catch {
-          /* listen optional per convo */
-        }
-      }
-    })();
-
-    return () => {
-      closed = true;
-      for (const s of socks) s.close();
-    };
-  }, [callSessionActive, selectedId, callListenKey]);
-
-  async function shareScreen() {
-    const gate = probeDisplayMedia();
-    if (!gate.available) {
-      setCallNote((prev) => `${prev ?? ""} · ${t("chat.screenShareUnavailable")} (${gate.reason})`);
-      return;
-    }
-    if (!callRef.current) {
-      await startCall();
-    }
-    if (!callRef.current) return;
-    try {
-      await startScreenShare(callRef.current.pc);
-      // Signal screen renegotiation over DO (getDisplayMedia itself is browser-gated).
-      await callRef.current.sendScreenOffer();
-      setCallNote((prev) => `${prev ?? ""} · screen-share-on · screen-offer`);
-    } catch (e) {
-      setCallNote(e instanceof Error ? e.message : "screen_share_failed");
-    }
-  }
-
-  const screenShareReady = canStartScreenShare();
-
-  async function endScreen() {
-    if (!callRef.current) return;
-    await stopScreenShare(callRef.current.pc, callRef.current.localStream);
-    callRef.current.sendScreenStop();
-    setCallNote((prev) => `${prev ?? ""} · screen-share-off`);
-  }
-
-  function hangup() {
-    callRef.current?.close();
-    callRef.current = null;
-    pendingOfferRef.current = null;
-    incomingConvoRef.current = null;
-    setCallSessionActive(false);
-    setRemoteStream(null);
-    setLocalStream(null);
-    setCallOpen(false);
-    setCallPhase("idle");
-    setCallNote(null);
-  }
-
   function kindLabel(k: ConversationKind) {
     if (k === "seminar") return t("comms.seminar");
     if (k === "group") return t("chat.group");
@@ -1175,18 +940,6 @@ export function ChatPanel({
 
   return (
     <div className={`chat-home im-shell${selected ? " is-thread" : ""}`} data-testid="home-chat-panel">
-      <CallOverlay
-        open={callOpen}
-        phase={callPhase}
-        peerLabel={selected ? convoLabel(selected) : "…"}
-        note={callNote}
-        localStream={localStream}
-        remoteStream={remoteStream}
-        video={callVideo}
-        onAccept={() => void startCall(true)}
-        onHangup={hangup}
-        onToggleVideo={() => setCallVideo((v) => !v)}
-      />
       {note && !selected && renderNote(note)}
 
       {selected ? (
@@ -1218,7 +971,12 @@ export function ChatPanel({
               data-testid="chat-call"
               disabled={busy || dmPeerBlocked}
               aria-label={t("chat.call")}
-              onClick={() => void startCall(false)}
+              onClick={() => {
+                if (!selectedId) return;
+                startOutboundCall(selectedId, {
+                  peerLabel: selected ? convoLabel(selected) : undefined,
+                });
+              }}
             >
               <IconPhone />
             </button>
@@ -1248,11 +1006,16 @@ export function ChatPanel({
                   type="button"
                   className="btn ghost"
                   disabled={busy || !screenShareReady}
-                  onClick={() => void shareScreen()}
+                  onClick={() => void shareScreen(selectedId)}
                 >
                   {t("chat.screenShare")}
                 </button>
-                <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={busy}
+                  onClick={() => void endScreen()}
+                >
                   {t("chat.stopShare")}
                 </button>
                 <button
