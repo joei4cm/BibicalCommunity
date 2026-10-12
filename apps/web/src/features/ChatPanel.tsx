@@ -112,8 +112,25 @@ export function ChatPanel({
   const callRef = useRef<CallSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const prevMsgSigRef = useRef("");
   const mediaLoadedRef = useRef<Set<string>>(new Set());
   const selfDeviceId = useMemo(() => localStorage.getItem("lh.deviceId"), []);
+
+  function scrollMessagesToBottom(force = false) {
+    const el = messagesRef.current;
+    if (!el) return;
+    if (!force && !stickToBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function onMessagesScroll() {
+    const el = messagesRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = dist < 96;
+  }
 
   const selected = useMemo(
     () => conversations.find((c) => c.id === selectedId) ?? null,
@@ -500,10 +517,26 @@ export function ChatPanel({
   useEffect(() => {
     if (!selectedId) {
       setMessages([]);
+      prevMsgSigRef.current = "";
       return;
     }
+    stickToBottomRef.current = true;
+    prevMsgSigRef.current = "";
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
+
+  // Stick to bottom when the thread grows (send or receive), unless user scrolled up.
+  useEffect(() => {
+    if (!selectedId) return;
+    const sig = `${messages.length}:${messages[messages.length - 1]?.id ?? ""}`;
+    const changed = sig !== prevMsgSigRef.current;
+    const wasEmpty = prevMsgSigRef.current === "" || prevMsgSigRef.current.startsWith("0:");
+    prevMsgSigRef.current = sig;
+    if (!changed) return;
+    requestAnimationFrame(() => {
+      scrollMessagesToBottom(wasEmpty || stickToBottomRef.current);
+    });
+  }, [messages, plaintexts, selectedId]);
 
   /** Soft realtime: poll open thread + refresh on tab focus (no message WS yet). */
   useEffect(() => {
@@ -676,7 +709,9 @@ export function ChatPanel({
       const text = draft.trim();
       setDraft("");
       setEmojiOpen(false);
+      stickToBottomRef.current = true;
       await sendEncryptedPayload({ v: 1, kind: "text", text });
+      requestAnimationFrame(() => scrollMessagesToBottom(true));
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -703,6 +738,7 @@ export function ChatPanel({
       const caption = draft.trim();
       setDraft("");
       setEmojiOpen(false);
+      stickToBottomRef.current = true;
       await sendEncryptedPayload({
         v: 1,
         kind: "media",
@@ -711,6 +747,7 @@ export function ChatPanel({
         name: file.name || "file",
         text: caption || undefined,
       });
+      requestAnimationFrame(() => scrollMessagesToBottom(true));
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -1101,7 +1138,12 @@ export function ChatPanel({
             </p>
           )}
 
-          <div className="im-messages chat-thread">
+          <div
+            className="im-messages chat-thread"
+            ref={messagesRef}
+            data-testid="chat-messages"
+            onScroll={onMessagesScroll}
+          >
             {messages.length === 0 && <p className="muted im-empty">{t("chat.noMessages")}</p>}
             {messages.map((m) => {
               const payload = parseChatPayload(plaintexts[m.id]);

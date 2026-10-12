@@ -1457,6 +1457,78 @@ body:has(.bible-reader)::after {
   mix-blend-mode: soft-light;
 }
 
+/* Night: keep chat/comms + chrome on theme tokens (no parchment / white wash). */
+[data-theme="night"] .im-shell.is-thread {
+  background:
+    radial-gradient(120% 80% at 10% -10%, color-mix(in srgb, var(--lh-accent) 14%, transparent), transparent 55%),
+    linear-gradient(180deg, var(--lh-bg) 0%, var(--lh-atmosphere-mid) 100%);
+}
+
+[data-theme="night"] .im-thread-bar,
+[data-theme="night"] .im-composer,
+[data-theme="night"] .im-more-menu,
+[data-theme="night"] .sheet-panel,
+[data-theme="night"] .chat-home,
+[data-theme="night"] .comms-tabs {
+  background: var(--lh-bg-elevated);
+  color: var(--lh-ink);
+}
+
+[data-theme="night"] .im-back,
+[data-theme="night"] .im-thread-bar .btn.ghost,
+[data-theme="night"] .im-composer .btn.ghost,
+[data-theme="night"] .im-tool,
+[data-theme="night"] .im-composer-input,
+[data-theme="night"] .im-emoji-picker,
+[data-theme="night"] .im-search {
+  background: var(--lh-bg);
+  color: var(--lh-ink);
+  box-shadow: none;
+  border-color: var(--lh-border);
+}
+
+[data-theme="night"] .im-tool.is-active {
+  background: color-mix(in srgb, var(--lh-accent) 18%, var(--lh-bg));
+  color: var(--lh-accent);
+}
+
+[data-theme="night"] .im-banner,
+[data-theme="night"] .im-note {
+  color: var(--lh-ink-muted);
+}
+
+[data-theme="night"] .im-thread .chat-bubble.is-peer {
+  background: color-mix(in srgb, var(--lh-bg-elevated) 80%, var(--lh-ink) 6%);
+}
+
+[data-theme="night"] .im-thread .chat-bubble.is-mine {
+  background: color-mix(in srgb, var(--lh-accent) 22%, var(--lh-bg-elevated));
+}
+
+[data-theme="night"] .convo-row-rich,
+[data-theme="night"] .manage-subtab,
+[data-theme="night"] .app-folio .field input,
+[data-theme="night"] .app-folio .field textarea,
+[data-theme="night"] .app-folio .field select {
+  color: var(--lh-ink);
+}
+
+[data-theme="night"] .app-folio .field input,
+[data-theme="night"] .app-folio .field textarea,
+[data-theme="night"] .app-folio .field select {
+  background: var(--lh-bg);
+  box-shadow: none;
+}
+
+[data-theme="night"] .tab-bar {
+  background: color-mix(in srgb, var(--lh-bg-elevated) 88%, transparent);
+  border-top-color: var(--lh-border);
+}
+
+[data-theme="night"] .sheet-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
 .app-shell:has(.bible-reader) {
   position: relative;
   z-index: 1;
@@ -3962,9 +4034,14 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   min-height: 100dvh;
   background:
     radial-gradient(120% 80% at 10% -10%, color-mix(in srgb, var(--lh-accent, #0f6b5c) 10%, transparent), transparent 55%),
-    linear-gradient(180deg, var(--lh-bg, #f3efe6) 0%, color-mix(in srgb, var(--lh-bg, #f3efe6) 82%, #d9e3ea) 100%);
+    linear-gradient(
+      180deg,
+      var(--lh-bg) 0%,
+      color-mix(in srgb, var(--lh-bg) 88%, var(--lh-atmosphere-mid, var(--lh-bg)) 100%)
+    );
   display: flex;
   flex-direction: column;
+  color: var(--lh-ink);
 }
 
 .im-thread {
@@ -3980,7 +4057,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   gap: 0.45rem;
   padding: calc(0.55rem + env(safe-area-inset-top)) 0.75rem 0.6rem;
   border-bottom: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 70%, transparent);
-  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 92%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated) 92%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -3994,8 +4071,9 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   place-items: center;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 85%, transparent);
-  background: var(--lh-bg-elevated, #fff);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: var(--lh-bg-elevated);
+  color: var(--lh-ink);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--lh-ink) 8%, transparent);
 }
 
 .im-back {
@@ -4043,8 +4121,9 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   padding: 0.75rem;
   border-radius: 12px;
   border: 1px solid var(--br-line, var(--lh-border));
-  background: var(--lh-bg-elevated, #fff);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  background: var(--lh-bg-elevated);
+  color: var(--lh-ink);
+  box-shadow: var(--lh-shadow);
   display: grid;
   gap: 0.45rem;
 }
@@ -4083,8 +4162,9 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   border-bottom: 0;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 55%, transparent);
-  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 94%, transparent);
-  box-shadow: 0 1px 2px rgba(20, 28, 36, 0.04);
+  background: color-mix(in srgb, var(--lh-bg-elevated) 88%, var(--lh-bg));
+  color: var(--lh-ink);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--lh-ink) 6%, transparent);
   max-width: min(88%, 26rem);
 }
 
@@ -4108,7 +4188,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   gap: 0.4rem;
   padding: 0.55rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
   border-top: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 70%, transparent);
-  background: color-mix(in srgb, var(--lh-bg-elevated, #fff) 96%, var(--lh-bg, #f3efe6));
+  background: color-mix(in srgb, var(--lh-bg-elevated) 92%, var(--lh-bg));
   flex-shrink: 0;
 }
 
@@ -4132,7 +4212,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 .im-emoji-picker {
   border-radius: 12px;
   border: 1px solid var(--br-line, var(--lh-border));
-  background: var(--lh-bg, #f6f4f1);
+  background: var(--lh-bg-elevated);
   overflow: hidden;
 }
 
@@ -4213,7 +4293,8 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   padding: 0.55rem 0.75rem;
   margin-bottom: 0.55rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--lh-ink) 6%, var(--lh-bg, #f6f4f1));
+  background: color-mix(in srgb, var(--lh-ink) 6%, var(--lh-bg));
+  color: var(--lh-ink);
 }
 
 .im-search input {
@@ -4222,6 +4303,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   background: transparent;
   font: inherit;
   outline: none;
+  color: inherit;
 }
 
 .im-avatar {
@@ -4425,15 +4507,16 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   resize: none;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 90%, transparent);
-  background: var(--lh-bg-elevated, #fff);
+  background: var(--lh-bg);
+  color: var(--lh-ink);
   padding: 0.6rem 0.85rem;
   font: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lh-ink) 6%, transparent);
 }
 
 .im-composer-input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--lh-accent, #0f6b5c) 45%, var(--br-line, #ccc));
+  border-color: color-mix(in srgb, var(--lh-accent, #0f6b5c) 45%, var(--br-line, var(--lh-border)));
 }
 
 .im-send {
@@ -4447,7 +4530,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 .im-thread .chat-bubble.is-mine {
   margin-left: auto;
   border-color: color-mix(in srgb, var(--lh-accent, #0f6b5c) 22%, transparent);
-  background: color-mix(in srgb, var(--lh-accent, #0f6b5c) 14%, #fff);
+  background: color-mix(in srgb, var(--lh-accent, #0f6b5c) 18%, var(--lh-bg-elevated));
 }
 
 .im-thread .chat-bubble.is-peer {
