@@ -69,6 +69,7 @@ export default function MessagesScreen() {
   const [title, setTitle] = useState("");
   const [memberIds, setMemberIds] = useState("");
   const [draft, setDraft] = useState("");
+  const [composerHeight, setComposerHeight] = useState(40);
   const [note, setNote] = useState<string | null>(null);
   const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -554,11 +555,15 @@ export default function MessagesScreen() {
             );
           })}
           <TextInput
-            style={[styles.input, { minHeight: 72 }]}
+            style={[styles.input, { height: Math.max(40, Math.min(composerHeight, 140)) }]}
             value={draft}
             onChangeText={setDraft}
             multiline
+            textAlignVertical="top"
             placeholder={t(locale, "chat.message")}
+            onContentSizeChange={(e) => {
+              setComposerHeight(e.nativeEvent.contentSize.height + 16);
+            }}
           />
           <Pressable
             style={[styles.btn, busy && styles.btnDisabled]}
@@ -577,11 +582,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f3efe6" },
   content: { padding: 20, paddingBottom: 40, paddingTop: 56 },
   back: { marginBottom: 12 },
-  backText: { color: "#0f6b5c", fontWeight: "600", fontSize: 15 },
-  title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
-  section: { marginTop: 20, marginBottom: 8, fontSize: 16, fontWeight: "600", color: "#1c2b2a" },
-  label: { fontSize: 13, fontWeight: "600", color: "#5a6a68", marginBottom: 8 },
-  muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
+  backText: { color: "#0f6b5c", fontWeight: "600", fontSize: 14 },
+  title: { fontSize: 22, fontWeight: "700", color: "#1c2b2a" },
+  section: { marginTop: 20, marginBottom: 8, fontSize: 15, fontWeight: "600", color: "#1c2b2a" },
+  label: { fontSize: 12, fontWeight: "600", color: "#5a6a68", marginBottom: 8 },
+  muted: { marginTop: 8, color: "#5a6a68", fontSize: 13, lineHeight: 20 },
   ttlRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 12, gap: 8 },
   ttlChip: {
     paddingHorizontal: 12,
@@ -600,7 +605,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#fff",
     color: "#1c2b2a",
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 22,
     marginBottom: 10,
   },
   btn: {
@@ -658,7 +664,7 @@ const styles = StyleSheet.create({
   receiptRead: {
     color: "#0f6b5c",
   },
-  body: { color: "#1c2b2a", fontSize: 16, lineHeight: 24 },
+  body: { color: "#1c2b2a", fontSize: 15, lineHeight: 22 },
   remoteVideo: {
     width: "100%",
     height: 220,

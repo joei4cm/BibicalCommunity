@@ -3,6 +3,12 @@
 :root {
   --lh-glass-blur: blur(22px) saturate(1.2);
   --lh-control-radius: 12px;
+  /* UI type scale — slightly tighter than browser 16px so chrome matches reader density. */
+  --lh-text: 0.9375rem; /* 15px */
+  --lh-text-sm: 0.8125rem; /* 13px */
+  --lh-text-md: 1rem;
+  --lh-text-lg: 1.0625rem; /* 17px */
+  --lh-text-title: 1.125rem; /* 18px */
 }
 
 *,
@@ -25,6 +31,8 @@ html {
 body {
   margin: 0;
   font-family: var(--lh-font-ui);
+  font-size: var(--lh-text);
+  line-height: 1.5;
   color: var(--lh-ink);
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
@@ -250,12 +258,12 @@ select {
 }
 
 .app-folio .panel h2 {
-  font-size: 1.05rem;
+  font-size: var(--lh-text-md);
   margin: 0 0 0.65rem;
 }
 
 .app-folio .panel h3 {
-  font-size: 0.95rem;
+  font-size: var(--lh-text);
   margin: 1rem 0 0.5rem;
 }
 
@@ -345,7 +353,7 @@ select {
 
 .app-folio .folio-hero-name {
   font-family: var(--br-font-reader);
-  font-size: 1.35rem;
+  font-size: var(--lh-text-title);
   font-weight: 650;
   letter-spacing: 0.04em;
   margin: 0 0 0.25rem;
@@ -389,7 +397,7 @@ select {
 .app-folio .church-row-title,
 .app-folio .post-row-title {
   font-family: var(--br-font-reader);
-  font-size: 1.05rem;
+  font-size: var(--lh-text-md);
   font-weight: 650;
   letter-spacing: 0.02em;
 }
@@ -483,7 +491,7 @@ select {
 
 .board-card-title {
   font-family: var(--br-font-reader);
-  font-size: 1.15rem;
+  font-size: var(--lh-text-lg);
   font-weight: 650;
 }
 
@@ -735,7 +743,7 @@ select {
 .plans-empty-mine .plans-empty-lead {
   margin: 0 0 0.35rem;
   font-family: var(--lh-font-reader, var(--br-font-reader));
-  font-size: 1.15rem;
+  font-size: var(--lh-text-lg);
   color: var(--lh-ink);
 }
 
@@ -758,7 +766,7 @@ select {
 .plans-today-title {
   margin: 0 0 0.35rem;
   font-family: var(--lh-font-reader, var(--br-font-reader));
-  font-size: 1.2rem;
+  font-size: var(--lh-text-title);
 }
 
 .plans-today-ref-line {
@@ -1090,6 +1098,7 @@ select {
 
 .app-folio .chat-bubble-text {
   margin: 0;
+  font-size: var(--lh-text);
   line-height: 1.5;
   font-family: var(--br-font-reader);
 }
@@ -1374,7 +1383,7 @@ body:has(.app-folio) .tab-bar a {
 
 .me-version-brand-zh {
   font-family: var(--lh-font-reader);
-  font-size: 1.15rem;
+  font-size: var(--lh-text-lg);
   margin-right: 0.45rem;
 }
 
@@ -1700,14 +1709,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .login-title {
   margin: 0 0 0.35rem;
-  font-size: 1.2rem;
+  font-size: var(--lh-text-title);
   font-weight: 650;
 }
 
 .login-support {
   margin: 0 0 1rem;
   color: var(--lh-ink-muted);
-  font-size: 0.95rem;
+  font-size: var(--lh-text);
   line-height: 1.5;
 }
 
@@ -4063,7 +4072,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 .dadao-feed-title {
   font-family: var(--br-font-reader, var(--lh-font-reader));
   font-weight: 650;
-  font-size: 1.08rem;
+  font-size: var(--lh-text-md);
   margin: 0.25rem 0 0.2rem;
 }
 
@@ -4346,7 +4355,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .home-org-block h3 {
   margin: 0 0 0.35rem;
-  font-size: 1.05rem;
+  font-size: var(--lh-text-md);
 }
 
 .home-assembly {
@@ -4362,7 +4371,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .home-assembly-copy h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--lh-text-md);
 }
 
 .home-assembly-copy p {
@@ -4524,18 +4533,22 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 }
 
 .im-thread .chat-bubble {
-  padding: 0.55rem 0.8rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 0;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 55%, transparent);
   background: color-mix(in srgb, var(--lh-bg-elevated) 88%, var(--lh-bg));
   color: var(--lh-ink);
+  font-size: var(--lh-text);
+  line-height: 1.5;
   box-shadow: 0 1px 2px color-mix(in srgb, var(--lh-ink) 6%, transparent);
   max-width: min(88%, 26rem);
 }
 
 .im-thread .chat-bubble-text {
   font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .im-empty {
@@ -4708,7 +4721,8 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 
 .im-list-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: var(--lh-text-title);
+  font-weight: 650;
 }
 
 .im-search {
@@ -5008,12 +5022,16 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   min-height: 2.55rem;
   max-height: 7rem;
   resize: none;
+  overflow-y: auto;
+  field-sizing: content;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 90%, transparent);
   background: var(--lh-bg);
   color: var(--lh-ink);
-  padding: 0.6rem 0.85rem;
+  padding: 0.55rem 0.85rem;
   font: inherit;
+  font-size: var(--lh-text);
+  line-height: 1.45;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lh-ink) 6%, transparent);
 }
 

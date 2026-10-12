@@ -472,7 +472,7 @@ export default function MeScreen() {
             {t(locale, "me.tabPersonal")}
           </Text>
 
-          <Text style={[styles.section, { marginTop: 16, fontSize: 16 }]}>{t(locale, "me.account")}</Text>
+          <Text style={[styles.section, { marginTop: 16, fontSize: 15 }]}>{t(locale, "me.account")}</Text>
           <Text style={styles.body}>
             {t(locale, "me.signedIn")} · UID: <Text style={styles.strong}>{profile?.uid}</Text>
           </Text>
@@ -480,7 +480,7 @@ export default function MeScreen() {
             <Text style={[styles.btnText, styles.btnGhostText]}>{t(locale, "me.signOut")}</Text>
           </Pressable>
 
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.profile")}</Text>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>{t(locale, "me.profile")}</Text>
           <Text style={styles.label}>{t(locale, "me.nickname")}</Text>
           <TextInput style={styles.input} value={nickname} onChangeText={setNickname} />
           <Text style={styles.label}>{t(locale, "me.legalName")}</Text>
@@ -501,7 +501,7 @@ export default function MeScreen() {
             <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
           </Pressable>
 
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.privacy")}</Text>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>{t(locale, "me.privacy")}</Text>
           <View style={styles.toggleRow}>
             <Text style={styles.toggleLabel}>{t(locale, "me.discoverableByHandle")}</Text>
             <Switch
@@ -534,7 +534,7 @@ export default function MeScreen() {
             <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
           </Pressable>
 
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.churches")}</Text>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>{t(locale, "me.churches")}</Text>
           {!profile?.churches?.length ? (
             <Text style={styles.muted}>—</Text>
           ) : (
@@ -552,7 +552,7 @@ export default function MeScreen() {
             ))
           )}
 
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>{t(locale, "me.search")}</Text>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>{t(locale, "me.search")}</Text>
           <Text style={styles.label}>{t(locale, "me.searchUid")}</Text>
           <TextInput
             style={styles.input}
@@ -611,7 +611,7 @@ export default function MeScreen() {
 
       {signedIn && (
         <>
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>
             {t(locale, "me.notifications")}
           </Text>
           <View style={styles.toggleRow}>
@@ -646,7 +646,7 @@ export default function MeScreen() {
             <Text style={styles.btnText}>{t(locale, "me.save")}</Text>
           </Pressable>
 
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>
             {t(locale, "security.deviceKeys")}
           </Text>
           <Text style={styles.muted}>{t(locale, "security.deviceKeysHint")}</Text>
@@ -665,7 +665,7 @@ export default function MeScreen() {
             </Text>
           </Pressable>
 
-          <Text style={[styles.section, { marginTop: 28, fontSize: 16 }]}>
+          <Text style={[styles.section, { marginTop: 28, fontSize: 15 }]}>
             {t(locale, "security.wipe")}
           </Text>
           <Text style={styles.muted}>{t(locale, "security.wipeHint")}</Text>
@@ -686,9 +686,9 @@ function makeStyles(p: ThemePalette) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: p.bg },
     content: { padding: 20, paddingBottom: 40 },
-    title: { fontSize: 28, fontWeight: "700", color: p.text },
-    section: { fontSize: 18, fontWeight: "600", color: p.text },
-    label: { marginTop: 14, marginBottom: 6, fontSize: 13, fontWeight: "600", color: p.muted },
+    title: { fontSize: 22, fontWeight: "700", color: p.text },
+    section: { fontSize: 15, fontWeight: "600", color: p.text },
+    label: { marginTop: 14, marginBottom: 6, fontSize: 12, fontWeight: "600", color: p.muted },
     input: {
       borderWidth: 1,
       borderColor: p.border,
@@ -697,7 +697,7 @@ function makeStyles(p: ThemePalette) {
       paddingVertical: 10,
       backgroundColor: p.surface,
       color: p.text,
-      fontSize: 16,
+      fontSize: 15,
     },
     textarea: { minHeight: 72 },
     row: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
@@ -720,7 +720,7 @@ function makeStyles(p: ThemePalette) {
     btnDanger: { backgroundColor: p.danger },
     btnText: { color: p.id === "highContrast" ? "#000" : "#fff", fontWeight: "600" },
     btnGhostText: { color: p.accent },
-    body: { marginTop: 16, color: p.text, fontSize: 16 },
+    body: { marginTop: 16, color: p.text, fontSize: 15 },
     strong: { fontWeight: "700", color: p.text },
     muted: { marginTop: 12, color: p.muted, lineHeight: 22 },
     listItem: { marginTop: 10 },

@@ -810,6 +810,20 @@ export function ChatPanel({
     }
   }
 
+  function resizeComposer() {
+    const el = composerRef.current;
+    if (!el) return;
+    const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const minPx = Math.round(2.55 * rootPx);
+    const maxPx = Math.round(7 * rootPx);
+    el.style.height = "0px";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, minPx), maxPx)}px`;
+  }
+
+  useEffect(() => {
+    resizeComposer();
+  }, [draft]);
+
   function insertEmoji(emoji: string) {
     const el = composerRef.current;
     if (!el) {
@@ -824,6 +838,7 @@ export function ChatPanel({
       el.focus();
       const pos = start + emoji.length;
       el.setSelectionRange(pos, pos);
+      resizeComposer();
     });
   }
 
@@ -1346,7 +1361,9 @@ export function ChatPanel({
                 value={draft}
                 placeholder={t("chat.message")}
                 disabled={dmPeerBlocked}
+                data-testid="chat-composer"
                 onChange={(e) => setDraft(e.target.value)}
+                onInput={resizeComposer}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();

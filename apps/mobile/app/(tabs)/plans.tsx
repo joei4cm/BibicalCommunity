@@ -332,8 +332,8 @@ export default function PlansScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f3efe6" },
   content: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: "700", color: "#1c2b2a" },
-  section: { marginTop: 16, fontSize: 18, fontWeight: "600", color: "#1c2b2a" },
+  title: { fontSize: 22, fontWeight: "700", color: "#1c2b2a" },
+  section: { marginTop: 16, fontSize: 15, fontWeight: "600", color: "#1c2b2a" },
   muted: { marginTop: 8, color: "#5a6a68", lineHeight: 22 },
   card: {
     marginTop: 8,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     borderColor: "#0f6b5c",
     backgroundColor: "#fffdf8",
   },
-  todayRef: { marginTop: 4, fontWeight: "700", color: "#0f6b5c", fontSize: 16 },
+  todayRef: { marginTop: 4, fontWeight: "700", color: "#0f6b5c", fontSize: 15 },
   input: {
     marginTop: 10,
     minHeight: 120,
