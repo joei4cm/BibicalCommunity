@@ -362,11 +362,11 @@ export default function HomeChurchScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#e4e8ee" },
   content: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: "700", color: "#18232b" },
-  section: { marginTop: 20, fontSize: 18, fontWeight: "600", color: "#18232b" },
-  muted: { marginTop: 8, color: "#5f6d78", lineHeight: 22 },
+  title: { fontSize: 22, fontWeight: "700", color: "#18232b" },
+  section: { marginTop: 20, fontSize: 15, fontWeight: "600", color: "#18232b" },
+  muted: { marginTop: 8, color: "#5f6d78", fontSize: 13, lineHeight: 20 },
   msgLink: { marginTop: 8, marginBottom: 4 },
-  msgLinkText: { color: "#1c3d48", fontWeight: "600", fontSize: 16 },
+  msgLinkText: { color: "#1c3d48", fontWeight: "600", fontSize: 15 },
   list: { marginTop: 8, gap: 8 },
   item: {
     padding: 12,
