@@ -34,7 +34,7 @@ function friendlyDeviceTitle(d: { name: string | null; platform: string }): stri
   return raw;
 }
 
-type MeSection = "personal" | "system";
+type MeSection = "personal" | "devices" | "system";
 
 type MeChurch = {
   churchId: string;
@@ -359,15 +359,13 @@ export function MePage() {
 
   useEffect(() => {
     const section = searchParams.get("section");
-    if (section === "personal" || section === "system") {
+    if (section === "personal" || section === "devices" || section === "system") {
       setMeSection(section);
     } else if (section === "account" || section === "profile" || section === "privacy") {
       setMeSection("personal");
-    } else if (section === "devices") {
-      setMeSection("system");
     }
     if (searchParams.get("keys") === "1") {
-      setMeSection("system");
+      setMeSection("devices");
       setKeysPanelOpen(true);
       window.setTimeout(() => {
         keysPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -390,6 +388,7 @@ export function MePage() {
       if (searchParams.get("keys") === "1") {
         const next = new URLSearchParams(searchParams);
         next.delete("keys");
+        next.set("section", "devices");
         setSearchParams(next, { replace: true });
       }
     } catch (e) {
@@ -484,6 +483,7 @@ export function MePage() {
         {(
           [
             ["personal", "me.tabPersonal"],
+            ["devices", "me.tabDevices"],
             ["system", "me.tabSystem"],
           ] as const
         ).map(([id, key]) => (
@@ -494,7 +494,13 @@ export function MePage() {
             aria-selected={meSection === id}
             className={`plans-tab${meSection === id ? " is-active" : ""}`}
             data-testid={`me-tab-${id}`}
-            onClick={() => setMeSection(id)}
+            onClick={() => {
+              setMeSection(id);
+              const next = new URLSearchParams(searchParams);
+              next.set("section", id);
+              if (id !== "devices") next.delete("keys");
+              setSearchParams(next, { replace: true });
+            }}
           >
             {t(key)}
           </button>
@@ -508,39 +514,6 @@ export function MePage() {
             <p className="muted" style={{ marginTop: 0 }}>
               {t("me.signedInAs", { uid: profile?.uid ?? "" })}
             </p>
-
-            <div className="me-keys-card" data-testid="me-keys-card">
-              <h3 style={{ margin: "0 0 0.35rem" }}>{t("security.deviceKeys")}</h3>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
-              </p>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {t("security.deviceKeysHintShort")}
-              </p>
-              <div className="toolbar">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={keyBusy}
-                  data-testid="me-upload-keys-account"
-                  onClick={() => void registerDeviceKeys()}
-                >
-                  {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  data-testid="me-open-keys-panel"
-                  onClick={() => {
-                    setMeSection("system");
-                    setKeysPanelOpen(true);
-                    setSearchParams({ section: "system", keys: "1" }, { replace: true });
-                  }}
-                >
-                  {t("security.openKeysPanel")}
-                </button>
-              </div>
-            </div>
 
             <div className="toolbar">
               <button type="button" className="btn ghost" data-testid="me-sign-out" onClick={signOut}>
@@ -736,7 +709,11 @@ export function MePage() {
               </dl>
             </div>
           </div>
+        </div>
+      )}
 
+      {meSection === "devices" && (
+        <div className="plans-tab-panel" data-testid="me-devices-section">
           <div className="panel" data-testid="me-devices-panel">
             <h2>{t("me.devices")}</h2>
             <p className="muted" style={{ marginTop: 0 }}>
@@ -777,53 +754,60 @@ export function MePage() {
                 );
               })}
             </ul>
+          </div>
 
-            <div
-              className="me-keys-card"
-              ref={keysPanelRef}
-              data-testid="me-keys-panel"
-              style={{ marginTop: "0.85rem" }}
-            >
-              <details
-                className="plans-advanced"
-                open={keysPanelOpen}
-                onToggle={(e) => setKeysPanelOpen((e.target as HTMLDetailsElement).open)}
+          <div
+            className="panel me-keys-card"
+            ref={keysPanelRef}
+            data-testid="me-keys-panel"
+          >
+            <h2>{t("security.deviceKeys")}</h2>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t("security.deviceKeysHintShort")}
+            </p>
+            <p className="muted" data-testid="me-keys-status">
+              {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
+            </p>
+            <div className="field">
+              <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
+              <select
+                id="signal-backend"
+                data-testid="me-signal-backend"
+                value={signalPrefer}
+                onChange={(e) => {
+                  const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
+                  setSignalPrefer(next);
+                  saveProductSignalPrefer(next);
+                }}
               >
-                <summary>{t("security.deviceKeys")}</summary>
-                <p className="muted">{t("security.deviceKeysHint")}</p>
-                <p className="muted">
-                  {hasDeviceKey ? t("security.deviceKeysPresent") : t("security.deviceKeysMissing")}
-                </p>
-                <div className="field">
-                  <label htmlFor="signal-backend">{t("security.signalBackend")}</label>
-                  <select
-                    id="signal-backend"
-                    data-testid="me-signal-backend"
-                    value={signalPrefer}
-                    onChange={(e) => {
-                      const next = e.target.value === "opene2ee" ? "opene2ee" : "x25519";
-                      setSignalPrefer(next);
-                      saveProductSignalPrefer(next);
-                    }}
-                  >
-                    <option value="x25519">{t("security.signalBackend.x25519")}</option>
-                    <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
-                  </select>
-                  <p className="muted">{t("security.signalBackendHint")}</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={keyBusy}
-                  data-testid="me-upload-keys"
-                  onClick={() => void registerDeviceKeys()}
-                >
-                  {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
-                </button>
-              </details>
+                <option value="x25519">{t("security.signalBackend.x25519")}</option>
+                <option value="opene2ee">{t("security.signalBackend.opene2ee")}</option>
+              </select>
+              <p className="muted">{t("security.signalBackendHint")}</p>
             </div>
+            <details
+              className="plans-advanced"
+              open={keysPanelOpen}
+              onToggle={(e) => setKeysPanelOpen((e.target as HTMLDetailsElement).open)}
+            >
+              <summary>{t("security.openKeysPanel")}</summary>
+              <p className="muted">{t("security.deviceKeysHint")}</p>
+            </details>
+            <div className="toolbar" style={{ marginTop: "0.65rem" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={keyBusy}
+                data-testid="me-upload-keys"
+                onClick={() => void registerDeviceKeys()}
+              >
+                {hasDeviceKey ? t("security.reuploadKeys") : t("security.uploadKeys")}
+              </button>
+            </div>
+          </div>
 
-            <details className="plans-advanced" style={{ marginTop: "0.85rem" }}>
+          <div className="panel" data-testid="me-wipe-panel">
+            <details className="plans-advanced">
               <summary>{t("security.wipe")}</summary>
               <p className="muted">{t("security.wipeHint")}</p>
               <button type="button" className="btn danger" onClick={() => void selfWipe()}>
