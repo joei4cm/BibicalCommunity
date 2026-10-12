@@ -34,40 +34,33 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
-/** Classic handset — outbound / place call. */
+/** Classic corner handset — place / outbound call. */
 export function IconPhone(props: IconProps) {
   return (
     <Svg {...props}>
       <path
         {...stroke}
-        d="M6.2 4.8c.5-.5 1.3-.6 1.9-.3l2.1 1.1c.6.3.9 1 .7 1.7l-.5 1.8c-.1.5 0 1 .4 1.3 1.1.9 2.4 2.1 3.4 3.2.4.4.9.5 1.4.4l1.8-.5c.7-.2 1.4.1 1.7.7l1.1 2.1c.3.6.2 1.4-.3 1.9l-1.1 1.1c-.6.6-1.5.9-2.4.7-2.3-.4-5.1-2.3-7.8-5-2.7-2.7-4.6-5.5-5-7.8-.2-.9.1-1.8.7-2.4l1.1-1.1z"
+        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"
       />
     </Svg>
   );
 }
 
-/** Incoming accept — handset with upward hint. */
+/** Incoming accept — same handset; button color carries the meaning. */
 export function IconPhoneAccept(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path
-        {...stroke}
-        d="M7 15.5c2.8 1.4 5.7 2.3 8.5 2.5.7 0 1.3-.4 1.6-1l.7-1.5c.2-.5 0-1.1-.4-1.4l-1.6-1.1c-.4-.3-1-.2-1.3.1l-.7.7c-.3.3-.7.4-1.1.3-1.2-.4-2.3-1.1-3.2-2-.9-.9-1.6-2-2-3.2-.1-.4 0-.8.3-1.1l.7-.7c.3-.3.4-.9.1-1.3L7.1 4.6c-.3-.4-.9-.6-1.4-.4L4.2 4.9c-.6.3-1 1-1 1.6.2 2.8 1.1 5.7 2.5 8.5l1.3.5z"
-      />
-      <path {...stroke} d="M15 4.5v4.5h4.5" />
-      <path {...stroke} d="M15 9 20 4" />
-    </Svg>
-  );
+  return <IconPhone {...props} />;
 }
 
-/** End call — handset rotated down. */
+/** End call — handset rotated to the classic hang-up angle. */
 export function IconPhoneHangup(props: IconProps) {
   return (
     <Svg {...props}>
-      <path
-        {...stroke}
-        d="M5.5 11.2c2.8-1.2 5.7-1.8 8.6-1.8s5.8.6 8.6 1.8c.5.2.8.7.8 1.2v1.4c0 .7-.6 1.2-1.3 1.1l-2.2-.3c-.5-.1-.9-.4-1.1-.9l-.5-1.2c-.1-.3-.4-.5-.7-.5-1.2.1-2.4.1-3.6 0-.3 0-.6.2-.7.5l-.5 1.2c-.2.5-.6.8-1.1.9l-2.2.3c-.7.1-1.3-.4-1.3-1.1v-1.4c0-.5.3-1 .8-1.2z"
-      />
+      <g transform="rotate(135 12 12)">
+        <path
+          {...stroke}
+          d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"
+        />
+      </g>
     </Svg>
   );
 }
@@ -75,8 +68,11 @@ export function IconPhoneHangup(props: IconProps) {
 export function IconVideo(props: IconProps) {
   return (
     <Svg {...props}>
-      <rect {...stroke} x="3.5" y="7" width="11.5" height="10" rx="2" />
-      <path {...stroke} d="M15 10.5 20.5 7.5v9L15 13.5" />
+      <rect {...stroke} x="2.5" y="6.5" width="13.5" height="11" rx="2" />
+      <path
+        {...stroke}
+        d="m16 10.2 4.4-2.75a.6.6 0 0 1 .9.52v8.06a.6.6 0 0 1-.9.52L16 13.8"
+      />
     </Svg>
   );
 }
@@ -84,10 +80,19 @@ export function IconVideo(props: IconProps) {
 export function IconVideoOff(props: IconProps) {
   return (
     <Svg {...props}>
-      <path {...stroke} d="M3.5 8.5V15a2 2 0 0 0 2 2h7.2" />
-      <path {...stroke} d="M15 13.2v1.3L20.5 17V8.5L15 11" />
-      <path {...stroke} d="M4 5.5 19.5 18.5" />
-      <path {...stroke} d="M9.2 7h3.8a2 2 0 0 1 2 2v.4" />
+      <path
+        {...stroke}
+        d="M10.66 6.5H16a2 2 0 0 1 2 2v.34"
+      />
+      <path
+        {...stroke}
+        d="M16 10.2v3.6l4.4 2.75a.6.6 0 0 0 .9-.52V7.97a.6.6 0 0 0-.9-.52L16 10.2z"
+      />
+      <path
+        {...stroke}
+        d="M2.5 8.5v7a2 2 0 0 0 2 2H14"
+      />
+      <path {...stroke} d="m3 4 17 14" />
     </Svg>
   );
 }
@@ -96,9 +101,10 @@ export function IconVideoOff(props: IconProps) {
 export function IconEmoji(props: IconProps) {
   return (
     <Svg {...props}>
-      <circle {...stroke} cx="12" cy="12" r="8.25" />
-      <path {...stroke} d="M8.4 13.6c.9 1.3 2.1 1.95 3.6 1.95s2.7-.65 3.6-1.95" />
-      <path {...stroke} d="M9 9.6h.01M15 9.6h.01" strokeWidth={2.4} />
+      <circle {...stroke} cx="12" cy="12" r="8.5" />
+      <path {...stroke} d="M8.5 14s1.4 2 3.5 2 3.5-2 3.5-2" />
+      <circle cx="9" cy="10" r="1" fill="currentColor" />
+      <circle cx="15" cy="10" r="1" fill="currentColor" />
     </Svg>
   );
 }
@@ -116,7 +122,7 @@ export function IconPaperclip(props: IconProps) {
     <Svg {...props}>
       <path
         {...stroke}
-        d="M8.5 12.5v4.2a3.5 3.5 0 0 0 7 0V8.2a2.4 2.4 0 0 0-4.8 0v7.6a1.3 1.3 0 0 0 2.6 0V9.5"
+        d="m16.5 7-7.6 7.6a2.1 2.1 0 0 0 3 3l7.5-7.5a3.7 3.7 0 0 0-5.2-5.2l-7.6 7.6a5.2 5.2 0 0 0 7.4 7.4l6.4-6.4"
       />
     </Svg>
   );
@@ -135,7 +141,7 @@ export function IconMore(props: IconProps) {
 export function IconChevronLeft(props: IconProps) {
   return (
     <Svg {...props}>
-      <path {...stroke} d="M14.5 5.5 8 12l6.5 6.5" />
+      <path {...stroke} d="m15 6-6 6 6 6" />
     </Svg>
   );
 }
@@ -143,7 +149,7 @@ export function IconChevronLeft(props: IconProps) {
 export function IconChevronRight(props: IconProps) {
   return (
     <Svg {...props}>
-      <path {...stroke} d="M9.5 5.5 16 12l-6.5 6.5" />
+      <path {...stroke} d="m9 6 6 6-6 6" />
     </Svg>
   );
 }
@@ -151,8 +157,8 @@ export function IconChevronRight(props: IconProps) {
 export function IconSend(props: IconProps) {
   return (
     <Svg {...props}>
-      <path {...stroke} d="M4.5 11.2 19 5.5 13.2 19.5l-1.8-6.1-6.9-2.2z" />
-      <path {...stroke} d="M11.4 13.4 19 5.5" />
+      <path {...stroke} d="m22 2-7 20-4-9-9-4Z" />
+      <path {...stroke} d="M22 2 11 13" />
     </Svg>
   );
 }
@@ -161,7 +167,7 @@ export function IconSearch(props: IconProps) {
   return (
     <Svg {...props}>
       <circle {...stroke} cx="11" cy="11" r="6.25" />
-      <path {...stroke} d="M16.2 16.2 20 20" />
+      <path {...stroke} d="m16.5 16.5 4 4" />
     </Svg>
   );
 }
