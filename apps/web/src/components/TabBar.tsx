@@ -1,17 +1,21 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useCommsBadges } from "../hooks/useCommsBadges";
+import { formatBadgeCount } from "../lib/comms-badges";
 
 /** Primary consumer tabs only — ops console lives at /app/admin (no TabBar). */
 export function TabBar() {
   const { t } = useTranslation();
   const location = useLocation();
+  const { badges } = useCommsBadges();
+  const chatBadge = formatBadgeCount(badges.total);
 
   const tabs = [
-    { to: "/app/bible/cuvs/john/1", label: t("nav.bible"), end: false },
-    { to: "/app/plans", label: t("nav.plans") },
-    { to: "/app/chat", label: t("nav.chat"), end: false },
-    { to: "/app/home", label: t("nav.community") },
-    { to: "/app/me", label: t("nav.me") },
+    { to: "/app/bible/cuvs/john/1", label: t("nav.bible"), end: false, badge: "" },
+    { to: "/app/plans", label: t("nav.plans"), badge: "" },
+    { to: "/app/chat", label: t("nav.chat"), end: false, badge: chatBadge },
+    { to: "/app/home", label: t("nav.community"), badge: "" },
+    { to: "/app/me", label: t("nav.me"), badge: "" },
   ];
 
   return (
@@ -33,8 +37,18 @@ export function TabBar() {
               tab.to.startsWith("/app/chat") && location.pathname.startsWith("/app/chat");
             return isActive || bibleActive || chatActive ? "active" : "";
           }}
+          aria-label={
+            tab.badge
+              ? `${tab.label} (${tab.badge} ${t("comms.badgePending")})`
+              : tab.label
+          }
         >
-          {tab.label}
+          <span className="tab-bar-label">{tab.label}</span>
+          {tab.badge ? (
+            <span className="nav-badge" data-testid="tab-chat-badge">
+              {tab.badge}
+            </span>
+          ) : null}
         </NavLink>
       ))}
     </nav>

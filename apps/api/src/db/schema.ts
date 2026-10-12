@@ -216,17 +216,23 @@ export const conversations = sqliteTable("conversations", {
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 
-export const conversationMembers = sqliteTable("conversation_members", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversations.id),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  role: text("role").notNull().default("member"),
-  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
-});
+export const conversationMembers = sqliteTable(
+  "conversation_members",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role").notNull().default("member"),
+    archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+    /** Client last opened / marked-read time; used for unread badges (opaque message counts). */
+    lastReadAt: integer("last_read_at", { mode: "number" }),
+  },
+  (t) => [index("conversation_members_user_last_read_idx").on(t.userId, t.lastReadAt)],
+);
 
 export const messages = sqliteTable("messages", {
   id: text("id").primaryKey(),

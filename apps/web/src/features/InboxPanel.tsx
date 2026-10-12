@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
+import { notifyCommsBadgesChanged } from "../lib/comms-badges";
 
 type InboxMessage = {
   id: string;
@@ -16,8 +17,10 @@ type InboxMessage = {
 
 export function InboxPanel({
   onAcceptFriend,
+  onBadgesMaybeChanged,
 }: {
   onAcceptFriend?: (requestId: string) => Promise<void>;
+  onBadgesMaybeChanged?: () => void;
 }) {
   const { t } = useTranslation();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -52,6 +55,8 @@ export function InboxPanel({
     setMessages((prev) =>
       prev.map((m) => (m.id === id ? { ...m, readAt: m.readAt ?? Date.now() } : m)),
     );
+    notifyCommsBadgesChanged();
+    onBadgesMaybeChanged?.();
   }
 
   async function markAll() {
@@ -59,6 +64,8 @@ export function InboxPanel({
     try {
       await api("/v1/inbox/read-all", { method: "POST", body: "{}" });
       await refresh();
+      notifyCommsBadgesChanged();
+      onBadgesMaybeChanged?.();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {

@@ -5,6 +5,8 @@ import { ChatPanel } from "./ChatPanel";
 import { ContactsPanel } from "./ContactsPanel";
 import { CalendarPanel } from "./CalendarPanel";
 import { InboxPanel } from "./InboxPanel";
+import { useCommsBadges } from "../hooks/useCommsBadges";
+import { formatBadgeCount, notifyCommsBadgesChanged } from "../lib/comms-badges";
 
 type CommsTab = "chat" | "contacts" | "calendar" | "inbox";
 
@@ -20,6 +22,7 @@ export function ChatPage() {
   const tab = useMemo(() => parseTab(searchParams.get("tab")), [searchParams]);
   const [chatPeer, setChatPeer] = useState<string | null>(null);
   const [threadOpen, setThreadOpen] = useState(false);
+  const { badges, refresh } = useCommsBadges();
 
   const setTab = useCallback(
     (next: CommsTab) => {
@@ -56,6 +59,13 @@ export function ChatPage() {
 
   const immersive = tab === "chat" && threadOpen;
 
+  const tabBadges: Record<CommsTab, string> = {
+    chat: formatBadgeCount(badges.chatUnread),
+    contacts: formatBadgeCount(badges.friendRequestsPending),
+    calendar: formatBadgeCount(badges.calendarPending),
+    inbox: formatBadgeCount(badges.inboxUnread),
+  };
+
   return (
     <section
       className={`fade-up chat-page app-folio${immersive ? " is-im-thread" : ""}`}
@@ -80,7 +90,12 @@ export function ChatPage() {
               data-testid={`comms-tab-${id}`}
               onClick={() => setTab(id)}
             >
-              {t(key)}
+              <span>{t(key)}</span>
+              {tabBadges[id] ? (
+                <span className="nav-badge" data-testid={`comms-badge-${id}`}>
+                  {tabBadges[id]}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -92,11 +107,37 @@ export function ChatPage() {
           initialPeer={chatPeer}
           onPeerConsumed={() => setChatPeer(null)}
           onThreadOpenChange={setThreadOpen}
+          onBadgesMaybeChanged={() => {
+            notifyCommsBadgesChanged();
+            void refresh();
+          }}
         />
       )}
-      {tab === "contacts" && <ContactsPanel onOpenChat={openChatWith} />}
-      {tab === "calendar" && <CalendarPanel />}
-      {tab === "inbox" && <InboxPanel />}
+      {tab === "contacts" && (
+        <ContactsPanel
+          onOpenChat={openChatWith}
+          onBadgesMaybeChanged={() => {
+            notifyCommsBadgesChanged();
+            void refresh();
+          }}
+        />
+      )}
+      {tab === "calendar" && (
+        <CalendarPanel
+          onBadgesMaybeChanged={() => {
+            notifyCommsBadgesChanged();
+            void refresh();
+          }}
+        />
+      )}
+      {tab === "inbox" && (
+        <InboxPanel
+          onBadgesMaybeChanged={() => {
+            notifyCommsBadgesChanged();
+            void refresh();
+          }}
+        />
+      )}
     </section>
   );
 }
