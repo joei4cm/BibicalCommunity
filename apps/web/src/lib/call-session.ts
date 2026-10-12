@@ -38,6 +38,7 @@ function parseSignal(data: unknown): {
   type?: string;
   sdp?: string;
   candidate?: RTCIceCandidateInit | null;
+  peers?: number;
 } {
   if (typeof data === "string") {
     try {
@@ -45,13 +46,19 @@ function parseSignal(data: unknown): {
         type?: string;
         sdp?: string;
         candidate?: RTCIceCandidateInit | null;
+        peers?: number;
       };
     } catch {
       return {};
     }
   }
   if (data && typeof data === "object") {
-    return data as { type?: string; sdp?: string; candidate?: RTCIceCandidateInit | null };
+    return data as {
+      type?: string;
+      sdp?: string;
+      candidate?: RTCIceCandidateInit | null;
+      peers?: number;
+    };
   }
   return {};
 }
@@ -63,6 +70,8 @@ export async function startCallSession(opts: {
   /** caller sends offer; callee waits for remote offer then answers. */
   role?: "caller" | "callee";
   video?: boolean;
+  /** Offer SDP already received on a listen socket (applied after media attach). */
+  initialOfferSdp?: string | null;
   onRemoteStream?: (stream: MediaStream) => void;
   onNote?: (msg: string) => void;
 }): Promise<CallSession> {
@@ -72,6 +81,8 @@ export async function startCallSession(opts: {
 
   /** When answering a screen-offer, reply with screen-answer (not plain answer). */
   let answerAsScreen = false;
+  let gotRemoteAnswer = false;
+  let reofferInFlight = false;
 
   const callbacks: PeerCallbacks = {
     onLocalDescription: (desc) => {
@@ -100,19 +111,50 @@ export async function startCallSession(opts: {
     video: opts.video ?? false,
   });
 
+  async function applyRemoteOffer(sdp: string, asScreen = false) {
+    // Ignore buffered/replayed initial offers once we already have a remote description.
+    if (!asScreen && pc.remoteDescription) return;
+    answerAsScreen = asScreen;
+    await handleRemoteOffer(pc, { type: "offer", sdp }, callbacks);
+    opts.onNote?.(asScreen ? "answered-screen-offer" : "answered-remote-offer");
+  }
+
+  /** Caller: if peer joins after our first offer was missed, resend ring + local SDP. */
+  async function maybeReoffer(reason: string) {
+    if (role !== "caller" || gotRemoteAnswer || reofferInFlight) return;
+    if (pc.remoteDescription) return;
+    reofferInFlight = true;
+    try {
+      sendSignal({ type: "ring" });
+      const existing = pc.localDescription?.sdp;
+      if (existing) {
+        sendSignal({ type: "offer", sdp: existing });
+        opts.onNote?.(`reoffer:${reason}`);
+      } else {
+        await createOffer(pc, callbacks);
+        opts.onNote?.(`reoffer-new:${reason}`);
+      }
+    } catch (e) {
+      opts.onNote?.(e instanceof Error ? `reoffer-failed:${e.message}` : "reoffer-failed");
+    } finally {
+      reofferInFlight = false;
+    }
+  }
+
   const onMessage = async (ev: MessageEvent | CustomEvent) => {
     const raw = "data" in ev ? ev.data : (ev as CustomEvent).detail;
     const msg = parseSignal(raw);
     if (!msg.type) return;
     if (msg.type === "offer" && msg.sdp) {
-      answerAsScreen = false;
-      await handleRemoteOffer(pc, { type: "offer", sdp: msg.sdp }, callbacks);
-      opts.onNote?.("answered-remote-offer");
+      if (role === "caller" && pc.localDescription) {
+        // Glare / echo — ignore own fan-out style offers while calling out.
+        return;
+      }
+      await applyRemoteOffer(msg.sdp, false);
     } else if (msg.type === "screen-offer" && msg.sdp) {
-      answerAsScreen = true;
-      await handleRemoteOffer(pc, { type: "offer", sdp: msg.sdp }, callbacks);
-      opts.onNote?.("answered-screen-offer");
+      await applyRemoteOffer(msg.sdp, true);
     } else if ((msg.type === "answer" || msg.type === "screen-answer") && msg.sdp) {
+      gotRemoteAnswer = true;
       await handleRemoteAnswer(pc, { type: "answer", sdp: msg.sdp });
       opts.onNote?.(msg.type === "screen-answer" ? "got-screen-answer" : "got-remote-answer");
     } else if (msg.type === "ice") {
@@ -123,6 +165,12 @@ export async function startCallSession(opts: {
       opts.onNote?.("peer-hangup");
     } else if (msg.type === "ring") {
       opts.onNote?.("peer-ring");
+    } else if (msg.type === "peer-joined") {
+      opts.onNote?.("peer-joined");
+      await maybeReoffer("peer-joined");
+    } else if (msg.type === "joined" && typeof msg.peers === "number" && msg.peers >= 2) {
+      // Late join into a room that already has the peer (listen already up).
+      await maybeReoffer("joined-multi");
     }
   };
 
@@ -135,6 +183,8 @@ export async function startCallSession(opts: {
   if (role === "caller") {
     sendSignal({ type: "ring" });
     await createOffer(pc, callbacks);
+  } else if (opts.initialOfferSdp) {
+    await applyRemoteOffer(opts.initialOfferSdp, false);
   }
 
   return {

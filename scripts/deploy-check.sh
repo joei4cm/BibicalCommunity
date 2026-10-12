@@ -170,6 +170,8 @@ cat <<'EOF'
   [ ] wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
   [ ] wrangler secret put KEK_MASTER    -c wrangler.production.toml
   [ ] wrangler secret put TURN_SECRET   -c wrangler.production.toml
+  [ ] wrangler secret put TURN_CF_KEY_ID -c wrangler.production.toml   (or turn: URIs in TURN_URIS)
+  [ ] wrangler secret put TURN_CF_API_TOKEN -c wrangler.production.toml
   [ ] Confirm PARTNER_SSO_MOCK=false; SSO flags false until partner OAuth is ready
   [ ] wrangler d1 migrations apply logoshome --remote -c wrangler.production.toml
   [ ] wrangler deploy --dry-run -c wrangler.production.toml

@@ -110,6 +110,10 @@ export function ChatPanel({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const callRef = useRef<CallSession | null>(null);
+  /** Offer SDP captured on the listen socket before Accept opens a full session. */
+  const pendingOfferRef = useRef<string | null>(null);
+  /** True while a full WebRTC session owns the signaling socket (not mere incoming UI). */
+  const [callSessionActive, setCallSessionActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -876,8 +880,12 @@ export function ChatPanel({
     setCallNote(null);
     setCallOpen(true);
     setCallPhase(asAnswerer ? "incoming" : "outgoing");
+    const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
     try {
       callRef.current?.close();
+      callRef.current = null;
+      // Own the room before tearing down the listen socket.
+      setCallSessionActive(true);
       const res = await api<{
         callId: string;
         signalingPath: string;
@@ -898,6 +906,7 @@ export function ChatPanel({
         iceServers,
         role: asAnswerer ? "callee" : "caller",
         video: callVideo,
+        initialOfferSdp,
         onRemoteStream: (stream) => {
           setRemoteStream(stream);
           setCallPhase("connected");
@@ -918,20 +927,25 @@ export function ChatPanel({
         },
       });
       callRef.current = session;
+      pendingOfferRef.current = null;
       setLocalStream(session.localStream);
       if (!asAnswerer) setCallPhase("outgoing");
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "error");
       setCallPhase("idle");
       setCallOpen(false);
+      setCallSessionActive(false);
+      pendingOfferRef.current = null;
     } finally {
       setBusy(false);
     }
   }
 
   // Keep a light listen socket on the deterministic call room while a thread is open.
+  // Do NOT tear it down merely because incoming UI is showing (callOpen) — that used to
+  // drop the offer before Accept could join a full session.
   useEffect(() => {
-    if (!selectedId || !getToken() || callOpen) return;
+    if (!selectedId || !getToken() || callSessionActive) return;
     let closed = false;
     let sock: WebSocket | null = null;
     void (async () => {
@@ -947,10 +961,20 @@ export function ChatPanel({
         sock = new WebSocket(url);
         sock.onmessage = (ev) => {
           try {
-            const msg = JSON.parse(String(ev.data)) as { type?: string };
-            if (msg.type === "ring" || msg.type === "offer") {
+            const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
+            if (msg.type === "offer" && msg.sdp) {
+              pendingOfferRef.current = msg.sdp;
               setCallOpen(true);
               setCallPhase("incoming");
+            } else if (msg.type === "ring") {
+              setCallOpen(true);
+              setCallPhase("incoming");
+            } else if (msg.type === "hangup") {
+              pendingOfferRef.current = null;
+              if (!callRef.current) {
+                setCallOpen(false);
+                setCallPhase("idle");
+              }
             }
           } catch {
             /* ignore */
@@ -964,7 +988,7 @@ export function ChatPanel({
       closed = true;
       sock?.close();
     };
-  }, [selectedId, callOpen]);
+  }, [selectedId, callSessionActive]);
 
   async function shareScreen() {
     const gate = probeDisplayMedia();
@@ -998,6 +1022,8 @@ export function ChatPanel({
   function hangup() {
     callRef.current?.close();
     callRef.current = null;
+    pendingOfferRef.current = null;
+    setCallSessionActive(false);
     setRemoteStream(null);
     setLocalStream(null);
     setCallOpen(false);

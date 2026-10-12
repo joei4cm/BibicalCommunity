@@ -21,10 +21,12 @@ Workflow: [`.github/workflows/deploy-cloudflare.yml`](../.github/workflows/deplo
 | --- | --- |
 | `HANDLE_PEPPER` | Auth handle hashing |
 | `KEK_MASTER` | Field encryption (≥32 chars) |
-| `TURN_SECRET` | TURN HMAC |
+| `TURN_SECRET` | TURN HMAC (coturn) |
+| `TURN_CF_KEY_ID` | Cloudflare Calls TURN key id |
+| `TURN_CF_API_TOKEN` | Cloudflare Calls TURN API token |
 | `PLATFORM_ADMIN_BOOTSTRAP_SECRET` | One-time platform admin bootstrap |
 
-Without the optional Worker secrets, deploy still succeeds, but login/crypto/TURN will fail until you add them (Actions re-run syncs them, or use `wrangler secret put`).
+Without the optional Worker secrets, deploy still succeeds, but login/crypto/TURN will fail until you add them (Actions re-run syncs them, or use `wrangler secret put`). For cross-NAT calls, set `TURN_CF_KEY_ID` + `TURN_CF_API_TOKEN` (or coturn `turn:` URIs).
 
 ### What the workflow does
 
@@ -91,18 +93,20 @@ cd apps/api
 pnpm wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
 pnpm wrangler secret put KEK_MASTER -c wrangler.production.toml
 pnpm wrangler secret put TURN_SECRET -c wrangler.production.toml
-# Optional Cloudflare Calls TURN (preferred real relay):
-# pnpm wrangler secret put TURN_CF_KEY_ID -c wrangler.production.toml
-# pnpm wrangler secret put TURN_CF_API_TOKEN -c wrangler.production.toml
+# Cloudflare Calls TURN (preferred real relay — required for most mobile NATs):
+pnpm wrangler secret put TURN_CF_KEY_ID -c wrangler.production.toml
+pnpm wrangler secret put TURN_CF_API_TOKEN -c wrangler.production.toml
 ```
 
 Generate long random values (≥32 chars for `KEK_MASTER`). Never commit them.
+
+For CI deploy, also add the same names as **GitHub Actions secrets** so `.github/workflows/deploy-cloudflare.yml` can sync them to the Worker. Without `TURN_CF_*` (or coturn `turn:` URIs in `TURN_URIS`), `/v1/calls/turn-credentials` returns `hasRelay: false` and the web client shows the STUN-only warning.
 
 **Sessions / JWT:** Auth uses opaque Bearer session tokens hashed in D1 (`sessions.token_hash`). There is **no** `JWT_SECRET` (or similar) to configure. Identity hashing uses `HANDLE_PEPPER`; field encryption uses `KEK_MASTER`.
 
 **Bindings (must exist in production toml):** `DB` (D1), `MEDIA` (R2), `CALL_ROOM` → `CallRoomDO`.
 
-**Calls / TURN:** Set `TURN_URIS` to include `turn:` / `turns:` hosts (with matching `TURN_SECRET` for coturn HMAC), **or** set `TURN_CF_KEY_ID` + `TURN_CF_API_TOKEN` for Cloudflare Calls TURN. STUN-only configs work for LAN/same-NAT demos but fail on many mobile networks.
+**Calls / TURN:** Set `TURN_URIS` to include `turn:` / `turns:` hosts (with matching `TURN_SECRET` for coturn HMAC), **or** set `TURN_CF_KEY_ID` + `TURN_CF_API_TOKEN` for Cloudflare Calls TURN (Realtime → TURN keys in the Cloudflare dashboard). STUN-only configs work for LAN/same-NAT demos but fail on many mobile networks.
 
 Non-secret `[vars]`: `ENDAO_SSO_ENABLED`, `WEREAD_SSO_ENABLED`, `PARTNER_SSO_MOCK` (must be `"false"` in production), `TURN_URIS`. For real partner authorize URLs also set `ENDAO_OAUTH_CLIENT_ID` / `WEREAD_OAUTH_CLIENT_ID` and `PARTNER_OAUTH_REDIRECT_BASE` (see `wrangler.production.toml` comments). Keep partner SSO flags false until real OAuth client credentials and token exchange are wired.
 

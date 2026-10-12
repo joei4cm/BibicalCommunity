@@ -14,7 +14,8 @@
 # ── Required secrets (wrangler secret put NAME -c wrangler.production.toml) ──
 #   HANDLE_PEPPER   — HMAC pepper for handle/email hashing (auth identity)
 #   KEK_MASTER      — AES master key for field-level encryption (≥32 chars)
-#   TURN_SECRET     — ephemeral TURN HMAC secret (calls / WebRTC)
+#   TURN_SECRET     — ephemeral TURN HMAC secret (calls / WebRTC coturn)
+#   TURN_CF_KEY_ID / TURN_CF_API_TOKEN — Cloudflare Calls TURN (preferred relay)
 # Session tokens are opaque bearers hashed in D1 (no separate JWT secret).
 # Partner SSO (恩道 / 微读): keep ENDAO_SSO_ENABLED / WEREAD_SSO_ENABLED false
 # until real OAuth client_id + token exchange are configured; never enable
@@ -33,6 +34,8 @@
 #   wrangler secret put HANDLE_PEPPER -c wrangler.production.toml
 #   wrangler secret put KEK_MASTER -c wrangler.production.toml
 #   wrangler secret put TURN_SECRET -c wrangler.production.toml
+#   wrangler secret put TURN_CF_KEY_ID -c wrangler.production.toml
+#   wrangler secret put TURN_CF_API_TOKEN -c wrangler.production.toml
 
 # ── Required bindings (declared below) ──────────────────────────────────────
 #   DB         — D1 database (logoshome)

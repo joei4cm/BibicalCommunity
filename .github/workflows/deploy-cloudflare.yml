@@ -8,6 +8,8 @@
 #   HANDLE_PEPPER
 #   KEK_MASTER
 #   TURN_SECRET
+#   TURN_CF_KEY_ID          — Cloudflare Calls TURN key id (preferred relay)
+#   TURN_CF_API_TOKEN      — Cloudflare Calls TURN API token
 #   PLATFORM_ADMIN_BOOTSTRAP_SECRET
 #
 # Manual: Actions → Deploy Cloudflare → Run workflow
@@ -81,6 +83,8 @@ jobs:
           HANDLE_PEPPER: ${{ secrets.HANDLE_PEPPER }}
           KEK_MASTER: ${{ secrets.KEK_MASTER }}
           TURN_SECRET: ${{ secrets.TURN_SECRET }}
+          TURN_CF_KEY_ID: ${{ secrets.TURN_CF_KEY_ID }}
+          TURN_CF_API_TOKEN: ${{ secrets.TURN_CF_API_TOKEN }}
           PLATFORM_ADMIN_BOOTSTRAP_SECRET: ${{ secrets.PLATFORM_ADMIN_BOOTSTRAP_SECRET }}
         run: |
           CFG=wrangler.production.ci.toml
@@ -97,6 +101,11 @@ jobs:
           sync_secret HANDLE_PEPPER "$HANDLE_PEPPER"
           sync_secret KEK_MASTER "$KEK_MASTER"
           sync_secret TURN_SECRET "$TURN_SECRET"
+          sync_secret TURN_CF_KEY_ID "$TURN_CF_KEY_ID"
+          sync_secret TURN_CF_API_TOKEN "$TURN_CF_API_TOKEN"
+          if [ -z "$TURN_CF_KEY_ID" ] || [ -z "$TURN_CF_API_TOKEN" ]; then
+            echo "WARN: TURN_CF_KEY_ID / TURN_CF_API_TOKEN missing — calls stay STUN-only until Cloudflare Calls TURN secrets are set (or TURN_URIS includes turn: hosts + TURN_SECRET)."
+          fi
           sync_secret PLATFORM_ADMIN_BOOTSTRAP_SECRET "$PLATFORM_ADMIN_BOOTSTRAP_SECRET"
 
       - name: Health check API
@@ -133,4 +142,4 @@ jobs:
           echo "## Cloudflare deploy" >> "$GITHUB_STEP_SUMMARY"
           echo "- API: \`${{ steps.deploy_api.outputs.api_base }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pages project: \`logoshome-web\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Optional Worker secrets: HANDLE_PEPPER / KEK_MASTER / TURN_SECRET (sync when present)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Optional Worker secrets: HANDLE_PEPPER / KEK_MASTER / TURN_SECRET / TURN_CF_KEY_ID / TURN_CF_API_TOKEN (sync when present)" >> "$GITHUB_STEP_SUMMARY"
