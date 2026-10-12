@@ -770,7 +770,13 @@ export function HomePage() {
 
   return (
     <section className="fade-up home-page app-folio" data-testid="home-page">
-      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+      <div className="home-atmosphere" aria-hidden="true" />
+      {note && <p className="muted home-note">{humanizeStatus(t, note)}</p>}
+
+      <header className="home-hub-header">
+        <div className="home-hub-kicker">{t("nav.community")}</div>
+        <p className="home-hub-support">{t("home.communityHint")}</p>
+      </header>
 
       <div className="plans-tabs home-section-tabs" role="tablist" data-testid="home-section-tabs">
         {sectionTabs.map(([id, label]) => (
@@ -790,37 +796,29 @@ export function HomePage() {
 
       {homeSection === "home" && (
         <>
-          <div className="panel" data-testid="home-church-panel">
-            <h2>{t("home.myHomes")}</h2>
-            <ul className="list">
-              {churches.length === 0 && <li className="muted">{t("home.noHomes")}</li>}
+          <div className="home-church-hub" data-testid="home-church-panel">
+            <div className="home-church-switcher" role="list" aria-label={t("home.myHomes")}>
+              {churches.length === 0 && <p className="muted">{t("home.noHomes")}</p>}
               {churches.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    className={`church-row${selectedChurchId === c.id ? " is-selected" : ""}`}
-                    onClick={() => setSelectedChurchId(c.id)}
-                  >
-                    <div className="church-row-title">
-                      {c.name}
-                      {selectedChurchId === c.id ? ` · ${t("home.selected")}` : ""}
-                    </div>
-                    <div className="muted">
-                      {(c.roles ?? [c.role]).join(" · ")}
-                      {c.slug ? ` · ${c.slug}` : ""}
-                      {c.verified ? ` · ${t("me.verified")}` : ""}
-                      {c.securityMode === "hostile" ? (
-                        <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
-                      ) : (
-                        <span> · {t("home.securityMode.standardBadge")}</span>
-                      )}
-                    </div>
-                  </button>
-                </li>
+                <button
+                  key={c.id}
+                  type="button"
+                  role="listitem"
+                  className={`home-church-chip${selectedChurchId === c.id ? " is-selected" : ""}`}
+                  onClick={() => setSelectedChurchId(c.id)}
+                >
+                  <span className="home-church-chip-name">{c.name}</span>
+                  <span className="home-church-chip-meta">
+                    {c.slug ? c.slug : (c.roles ?? [c.role])[0]}
+                    {c.securityMode === "hostile"
+                      ? ` · ${t("home.securityMode.hostileBadge")}`
+                      : ""}
+                  </span>
+                </button>
               ))}
-            </ul>
+            </div>
 
-            <details className="plans-advanced" style={{ marginTop: "1rem" }} open={churches.length === 0}>
+            <details className="home-join-block" open={churches.length === 0}>
               <summary>{t("home.joinHome")}</summary>
               <div className="field" style={{ marginTop: "0.75rem" }}>
                 <label>{t("home.joinSlug")}</label>
@@ -836,7 +834,7 @@ export function HomePage() {
             </details>
 
             {platformAdmin && (
-              <details className="plans-advanced" style={{ marginTop: "0.75rem" }}>
+              <details className="home-join-block">
                 <summary>{t("home.createHome")}</summary>
                 <p className="muted">{t("home.createHomeHint")}</p>
                 <div className="field" style={{ marginTop: "0.75rem" }}>
@@ -869,11 +867,10 @@ export function HomePage() {
           </div>
 
           {selectedChurch && org && (
-            <div className="panel" data-testid="home-info-panel">
-              <h2>{t("home.currentHome")}</h2>
-              <div className="folio-hero">
-                <div className="folio-hero-name">{org.church.name}</div>
-                <div className="folio-hero-meta">
+            <div className="home-current" data-testid="home-info-panel">
+              <div className="home-current-identity">
+                <h2 className="home-current-name">{org.church.name}</h2>
+                <p className="home-current-meta">
                   {org.church.slug}
                   {" · "}
                   {org.church.securityMode === "hostile"
@@ -886,53 +883,51 @@ export function HomePage() {
                   {org.viewer.roleLayer
                     ? ` · ${t(`home.roleLayer.${org.viewer.roleLayer}`)}`
                     : ""}
-                </div>
+                </p>
               </div>
-              <h3>{t("home.orgTree")}</h3>
-              <p className="muted" style={{ marginTop: 0 }}>
-                {t("home.orgTreeHint")}
-              </p>
-              {org.tree.length === 0 ? (
-                <p className="muted">{t("home.noGroups")}</p>
-              ) : (
-                <OrgTreeView
-                  nodes={org.tree}
-                  depth={0}
-                  onPerson={setActivePerson}
-                  t={t}
-                  expanded={orgExpanded}
-                  toggle={(id) =>
-                    setOrgExpanded((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(id)) next.delete(id);
-                      else next.add(id);
-                      return next;
-                    })
-                  }
-                />
-              )}
+              <div className="home-org-block">
+                <h3>{t("home.orgTree")}</h3>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  {t("home.orgTreeHint")}
+                </p>
+                {org.tree.length === 0 ? (
+                  <p className="muted">{t("home.noGroups")}</p>
+                ) : (
+                  <OrgTreeView
+                    nodes={org.tree}
+                    depth={0}
+                    onPerson={setActivePerson}
+                    t={t}
+                    expanded={orgExpanded}
+                    toggle={(id) =>
+                      setOrgExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(id)) next.delete(id);
+                        else next.add(id);
+                        return next;
+                      })
+                    }
+                  />
+                )}
+              </div>
             </div>
           )}
 
           {selectedChurch && assembly?.viewer.canOpenChat && (
-            <div className="panel assembly-panel" data-testid="home-assembly">
-              <div className="assembly-heading">
-                <h2 style={{ margin: 0 }}>{t("home.assembly.title")}</h2>
+            <div className="home-assembly" data-testid="home-assembly">
+              <div className="home-assembly-copy">
+                <h2>{t("home.assembly.title")}</h2>
+                <p className="muted">{t("home.assembly.openChatOnly")}</p>
               </div>
-              <p className="muted" style={{ marginTop: "0.45rem" }}>
-                {t("home.assembly.openChatOnly")}
-              </p>
-              <div className="toolbar">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy}
-                  data-testid="home-assembly-chat-btn"
-                  onClick={() => void openAssemblyChat()}
-                >
-                  {t("home.assembly.openChat")}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy}
+                data-testid="home-assembly-chat-btn"
+                onClick={() => void openAssemblyChat()}
+              >
+                {t("home.assembly.openChat")}
+              </button>
             </div>
           )}
 

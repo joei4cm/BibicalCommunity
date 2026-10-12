@@ -5,6 +5,7 @@ import { normalizeLocale } from "@logoshome/shared";
 import { api, getToken, setToken } from "../lib/api";
 import { buildDeviceName, detectDevicePlatform } from "../lib/device-label";
 import { humanizeStatus } from "../lib/status";
+import { BrandMark } from "../components/BrandMark";
 
 function authDevicePayload() {
   const detected = detectDevicePlatform();
@@ -126,13 +127,17 @@ export function LoginPage() {
   }
 
   return (
-    <section className="fade-up login-page app-folio" data-testid="login-page">
-      <div className="panel login-card" data-testid="login-card">
-        <p className="login-brand">{t("app.name")}</p>
-        <h1 className="page-title" style={{ marginTop: "0.35rem" }}>
+    <section className="fade-up login-page" data-testid="login-page">
+      <div className="login-atmosphere" aria-hidden="true" />
+      <div className="login-card" data-testid="login-card">
+        <p className="login-brand">
+          <BrandMark className="login-brand-mark" />
+          <span>{t("app.name")}</span>
+        </p>
+        <h1 className="login-title">
           {mode === "login" ? t("auth.login") : t("auth.register")}
         </h1>
-        <p className="muted" style={{ marginTop: 0 }}>
+        <p className="login-support">
           {mode === "login" ? t("auth.loginHint") : t("auth.registerHint")}
         </p>
         {msg ? (

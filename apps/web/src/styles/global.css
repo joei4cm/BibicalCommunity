@@ -1629,21 +1629,67 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .login-page {
-  min-height: calc(100dvh - 2rem);
+  position: relative;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 1.25rem 1rem 2rem;
+  padding: 1.5rem 1rem 2.5rem;
+  overflow: hidden;
+}
+
+.login-atmosphere {
+  position: absolute;
+  inset: -15%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 45% at 20% 20%, var(--lh-accent-soft), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 75%, color-mix(in srgb, var(--lh-accent) 16%, transparent), transparent 55%),
+    linear-gradient(160deg, var(--lh-bg) 0%, var(--lh-atmosphere-mid) 55%, var(--lh-bg-elevated) 100%);
+  animation: gradient-drift 20s ease-in-out infinite alternate;
 }
 
 .login-card {
+  position: relative;
+  z-index: 1;
   width: min(26rem, 100%);
+  padding: 1.6rem 1.35rem 1.4rem;
+  background: color-mix(in srgb, var(--lh-bg-elevated) 88%, transparent);
+  border: 1px solid var(--lh-glass-border);
+  box-shadow: var(--lh-glass-shadow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .login-brand {
-  margin: 0;
-  font-family: var(--lh-font-display, Georgia, "Noto Serif SC", serif);
-  font-size: clamp(1.6rem, 4vw, 2rem);
-  letter-spacing: 0.04em;
+  margin: 0 0 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-family: "Fraunces", "Noto Serif SC", "Shippori Mincho", serif;
+  font-size: clamp(1.55rem, 4vw, 1.95rem);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--lh-ink);
+}
+
+.login-brand-mark {
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
+}
+
+.login-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+
+.login-support {
+  margin: 0 0 1rem;
+  color: var(--lh-ink-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 /* Top bar: passage left, book/chapter + gear right */
@@ -3692,7 +3738,37 @@ body:has(.bible-reader) .tab-bar a.active::after {
   accent-color: var(--lh-accent);
 }
 
-/* —— Landing (productized hero) —— */
+/* —— Brand mark —— */
+.brand-mark {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
+.brand-mark .bm-field {
+  fill: var(--lh-accent);
+}
+
+.brand-mark .bm-glow {
+  fill: var(--lh-bg-elevated);
+  opacity: 0.12;
+}
+
+.brand-mark .bm-paper {
+  fill: var(--lh-bg-elevated);
+}
+
+.brand-mark .bm-paper-stroke {
+  stroke: var(--lh-bg-elevated);
+  fill: none;
+}
+
+.brand-mark .bm-field-stroke {
+  stroke: var(--lh-accent);
+  fill: none;
+}
+
+/* —— Landing (brand-first full-bleed hero) —— */
 .landing {
   position: relative;
   min-height: 100dvh;
@@ -3702,17 +3778,41 @@ body:has(.bible-reader) .tab-bar a.active::after {
   color: var(--lh-ink);
 }
 
+.landing-hero-plane {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .landing-atmosphere {
   position: absolute;
   inset: -20% -10%;
-  z-index: 0;
   background:
     radial-gradient(ellipse 70% 55% at 18% 28%, var(--lh-accent-soft), transparent 58%),
     radial-gradient(ellipse 60% 50% at 88% 18%, color-mix(in srgb, var(--lh-accent) 18%, transparent), transparent 55%),
     radial-gradient(ellipse 80% 60% at 50% 100%, color-mix(in srgb, var(--lh-reader-bg) 90%, var(--lh-accent)), transparent 60%),
     linear-gradient(165deg, var(--lh-bg) 0%, var(--lh-reader-bg) 45%, color-mix(in srgb, var(--lh-bg) 70%, var(--lh-accent-soft)) 100%);
   animation: gradient-drift 22s ease-in-out infinite alternate;
-  pointer-events: none;
+}
+
+.landing-hero-art {
+  position: absolute;
+  inset: auto 0 0 auto;
+  width: min(92vw, 640px);
+  height: min(72dvh, 640px);
+  display: grid;
+  place-items: end end;
+  padding: 0 4vw 6vh 0;
+  opacity: 0.22;
+  animation: landing-art-drift 18s ease-in-out infinite alternate;
+}
+
+.landing-hero-mark {
+  width: min(72vw, 520px);
+  height: min(72vw, 520px);
+  color: var(--lh-accent);
 }
 
 @keyframes gradient-drift {
@@ -3721,6 +3821,15 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
   to {
     transform: translate3d(2%, 1.5%, 0) scale(1.06);
+  }
+}
+
+@keyframes landing-art-drift {
+  from {
+    transform: translate3d(0, 2%, 0) rotate(-2deg);
+  }
+  to {
+    transform: translate3d(-2%, -1%, 0) rotate(1deg);
   }
 }
 
@@ -3776,18 +3885,38 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .landing-brand {
-  display: none;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1.1rem;
+  animation: fade-up 420ms ease both;
+}
+
+.landing-brand-mark {
+  width: 3.25rem;
+  height: 3.25rem;
+  flex-shrink: 0;
+  animation: landing-mark-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-brand-name {
+  font-family: "Fraunces", "Noto Serif SC", "Shippori Mincho", serif;
+  font-size: clamp(2.4rem, 8vw, 3.6rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  color: var(--lh-ink);
 }
 
 .landing-headline {
   margin: 0 0 0.85rem;
   font-family: var(--lh-font-reader);
-  font-size: clamp(2rem, 6vw, 3.1rem);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
+  font-size: clamp(1.35rem, 3.6vw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
   color: var(--lh-ink);
-  max-width: 14ch;
+  max-width: 22ch;
   animation: fade-up 480ms ease 80ms both;
 }
 
@@ -3812,6 +3941,17 @@ body:has(.bible-reader) .tab-bar a.active::after {
   animation: cta-pulse 3.2s ease-in-out infinite;
 }
 
+@keyframes landing-mark-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes cta-pulse {
   0%,
   100% {
@@ -3826,9 +3966,12 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 @media (prefers-reduced-motion: reduce) {
   .landing-atmosphere,
+  .landing-hero-art,
   .landing-cta-btn,
+  .login-atmosphere,
   .fade-up,
   .landing-brand,
+  .landing-brand-mark,
   .landing-headline,
   .landing-support,
   .landing-cta {
@@ -4045,9 +4188,170 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 }
 
-/* —— Comms / IM / shared bottom sheets (mobile-first) —— */
-.chat-page.app-folio,
+/* —— Logged-in community home (API hub, not marketing) —— */
 .home-page.app-folio {
+  position: relative;
+  padding-top: 0.35rem;
+}
+
+.home-atmosphere {
+  position: absolute;
+  inset: -2rem -1rem auto;
+  height: 14rem;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 80% at 10% 0%, var(--lh-accent-soft), transparent 70%),
+    radial-gradient(ellipse 50% 60% at 90% 20%, color-mix(in srgb, var(--lh-accent) 12%, transparent), transparent 65%);
+}
+
+.home-page > *:not(.home-atmosphere) {
+  position: relative;
+  z-index: 1;
+}
+
+.home-hub-header {
+  margin: 0.15rem 0 0.85rem;
+}
+
+.home-hub-kicker {
+  font-family: "Fraunces", "Noto Serif SC", serif;
+  font-size: clamp(1.55rem, 4vw, 1.95rem);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--lh-ink);
+  line-height: 1.15;
+}
+
+.home-hub-support {
+  margin: 0.35rem 0 0;
+  color: var(--lh-ink-muted);
+  font-size: 0.95rem;
+  max-width: 40ch;
+  line-height: 1.5;
+}
+
+.home-note {
+  margin: 0 0 0.65rem;
+}
+
+.home-church-hub {
+  margin-bottom: 1.1rem;
+}
+
+.home-church-switcher {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0.15rem 0 0.55rem;
+  scrollbar-width: thin;
+}
+
+.home-church-chip {
+  appearance: none;
+  border: 1px solid var(--lh-border);
+  background: color-mix(in srgb, var(--lh-bg-elevated) 80%, transparent);
+  color: inherit;
+  text-align: left;
+  min-width: 9.5rem;
+  max-width: 14rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.home-church-chip:hover {
+  border-color: color-mix(in srgb, var(--lh-accent) 35%, var(--lh-border));
+}
+
+.home-church-chip.is-selected {
+  border-color: color-mix(in srgb, var(--lh-accent) 55%, var(--lh-border));
+  background: var(--lh-accent-soft);
+  transform: translateY(-1px);
+}
+
+.home-church-chip-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.98rem;
+  margin-bottom: 0.2rem;
+}
+
+.home-church-chip-meta {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--lh-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-join-block {
+  margin-top: 0.65rem;
+  border-top: 1px solid color-mix(in srgb, var(--lh-border) 80%, transparent);
+  padding-top: 0.55rem;
+}
+
+.home-join-block summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--lh-accent);
+}
+
+.home-current {
+  margin: 0.35rem 0 1.25rem;
+}
+
+.home-current-identity {
+  margin-bottom: 1rem;
+  padding: 0.85rem 0 0.95rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+}
+
+.home-current-name {
+  margin: 0;
+  font-family: "Fraunces", "Noto Serif SC", serif;
+  font-size: clamp(1.45rem, 3.5vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.home-current-meta {
+  margin: 0.35rem 0 0;
+  color: var(--lh-ink-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.home-org-block h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.home-assembly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+}
+
+.home-assembly-copy h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.home-assembly-copy p {
+  margin: 0.3rem 0 0;
+}
+
+/* —— Comms / IM / shared bottom sheets (mobile-first) —— */
+.chat-page.app-folio {
   padding-top: 0.35rem;
 }
 

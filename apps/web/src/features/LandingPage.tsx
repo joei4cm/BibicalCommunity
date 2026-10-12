@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { THEME_IDS, type ThemeId } from "@logoshome/shared";
 import { applyTheme } from "@logoshome/ui";
+import { BrandMark } from "../components/BrandMark";
 
 const LOCALES = [
   { id: "zh-CN", label: "中文" },
@@ -15,6 +16,7 @@ export function LandingPage() {
   const [theme, setTheme] = useState<ThemeId>(
     () => (localStorage.getItem("lh.theme") as ThemeId) ?? "day",
   );
+  const signedIn = Boolean(localStorage.getItem("lh.token"));
 
   function setLocale(lng: string) {
     localStorage.setItem("lh.locale", lng);
@@ -30,8 +32,14 @@ export function LandingPage() {
   }
 
   return (
-    <div className="landing">
-      <div className="landing-atmosphere" aria-hidden="true" />
+    <div className="landing" data-testid="landing-page">
+      <div className="landing-hero-plane" aria-hidden="true">
+        <div className="landing-atmosphere" />
+        <div className="landing-hero-art">
+          <BrandMark className="landing-hero-mark" title="" />
+        </div>
+      </div>
+
       <header className="landing-chrome">
         <div className="landing-lang" role="group" aria-label="Language">
           {LOCALES.map((loc) => (
@@ -50,16 +58,20 @@ export function LandingPage() {
         </button>
       </header>
 
-      <section className="landing-hero fade-up">
+      <section className="landing-hero">
+        <p className="landing-brand" data-testid="landing-brand">
+          <BrandMark className="landing-brand-mark" />
+          <span className="landing-brand-name">{t("app.name")}</span>
+        </p>
         <h1 className="landing-headline">{t("landing.headline")}</h1>
         <p className="landing-support">{t("landing.support")}</p>
         <div className="landing-cta">
           <Link
             className="btn landing-cta-btn"
-            to={localStorage.getItem("lh.token") ? "/app/bible/cuvs/john/1" : "/app/login"}
+            to={signedIn ? "/app/bible/cuvs/john/1" : "/app/login"}
             data-testid="landing-cta"
           >
-            {localStorage.getItem("lh.token") ? t("landing.ctaOpen") : t("landing.cta")}
+            {signedIn ? t("landing.ctaOpen") : t("landing.cta")}
           </Link>
         </div>
       </section>
