@@ -1,4 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-  <rect width="128" height="128" rx="28" fill="#0f6b5c"/>
-  <path d="M36 88V40h16.5c12 0 19 6.5 19 16.5S64.5 73 52.5 73H48v15H36zm12-27h3.8c5.2 0 8.2-2.4 8.2-6.5S57 48 51.8 48H48v13zM78 88l18-48h13l18 48h-13l-3.2-9.5H94.2L91 88H78zm19.5-20.5h11.2L103.6 52h-.2l-6 15.5z" fill="#f7f3ea"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" role="img" aria-label="圣言家">
+  <!-- Cement-slate field — open book under a quiet roof (home + scripture). -->
+  <rect width="128" height="128" rx="30" fill="#1c3d48"/>
+  <!-- Soft paper glow -->
+  <circle cx="64" cy="70" r="42" fill="#f7f5f1" opacity="0.08"/>
+  <!-- Roof / house peak -->
+  <path
+    d="M28 58 L64 28 L100 58"
+    stroke="#f7f5f1"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- Open book -->
+  <path
+    d="M36 62 C48 58 56 58 64 64 C72 58 80 58 92 62 L92 96 C80 90 72 90 64 96 C56 90 48 90 36 96 Z"
+    fill="#f7f5f1"
+  />
+  <!-- Spine -->
+  <path d="M64 64 V96" stroke="#1c3d48" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Verse lines -->
+  <path d="M44 74 H56 M44 82 H54" stroke="#1c3d48" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+  <path d="M72 74 H84 M74 82 H84" stroke="#1c3d48" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
 </svg>

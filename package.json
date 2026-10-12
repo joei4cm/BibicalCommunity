@@ -13,7 +13,8 @@
     "lint": "turbo run lint",
     "db:generate": "pnpm --filter @logoshome/api db:generate",
     "db:migrate:local": "pnpm --filter @logoshome/api db:migrate:local",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "icons:generate": "node scripts/generate-app-icons.mjs"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

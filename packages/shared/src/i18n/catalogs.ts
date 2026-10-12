@@ -1,8 +1,8 @@
 export const zhCN: Record<string, string> = {
   "app.name": "圣言家",
   "app.tagline": "读经 · 灵修 · 家",
-  "landing.headline": "在家中读经、灵修、同行",
-  "landing.support": "把圣经阅读、灵修计划与家的同行放在同一处，端到端加密守护你的笔记与消息。",
+  "landing.headline": "读经、灵修、与家同行",
+  "landing.support": "一处安放圣经阅读与灵修计划；加密笔记与消息，守护每一次同行。",
   "landing.cta": "登录 / 注册",
   "landing.ctaOpen": "进入应用",
   "landing.theme": "主题",
@@ -684,8 +684,8 @@ export const zhCN: Record<string, string> = {
 export const en: Record<string, string> = {
   "app.name": "LogosHome",
   "app.tagline": "Scripture · Devotion · Home",
-  "landing.headline": "Scripture, devotion, and home — together",
-  "landing.support": "Bible reading, devotion plans, and church community in one place — with end-to-end encryption for your notes and messages.",
+  "landing.headline": "Scripture, devotion, walking home",
+  "landing.support": "Bible reading and devotion plans in one place — encrypted notes and messages for every step together.",
   "landing.cta": "Log in / Sign up",
   "landing.ctaOpen": "Open app",
   "landing.theme": "Theme",
@@ -1367,8 +1367,8 @@ export const en: Record<string, string> = {
 export const ja: Record<string, string> = {
   "app.name": "ロゴスホーム",
   "app.tagline": "聖書 · 黙想 · ホーム",
-  "landing.headline": "聖書・黙想・ホームをひとつに",
-  "landing.support": "聖書朗読、黙想プラン、教会コミュニティをひとつに。ノートとメッセージはエンドツーエンド暗号化で守ります。",
+  "landing.headline": "聖書と黙想、ホームと共に",
+  "landing.support": "朗読と黙想プランをひとつに。暗号化されたノートとメッセージが、歩みを守ります。",
   "landing.cta": "ログイン / 登録",
   "landing.ctaOpen": "アプリを開く",
   "landing.theme": "テーマ",

@@ -8,11 +8,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: "#f3efe6" },
-        headerTitleStyle: { fontWeight: "700", color: "#1c2b2a" },
-        tabBarActiveTintColor: "#0f6b5c",
-        tabBarInactiveTintColor: "#5a6a68",
-        tabBarStyle: { backgroundColor: "#f7f3ea" },
+        headerStyle: { backgroundColor: "#e4e8ee" },
+        headerTitleStyle: { fontWeight: "700", color: "#18232b" },
+        tabBarActiveTintColor: "#1c3d48",
+        tabBarInactiveTintColor: "#5f6d78",
+        tabBarStyle: { backgroundColor: "#f7f5f1" },
       }}
     >
       <Tabs.Screen name="bible" options={{ title: t(locale, "nav.bible") }} />
