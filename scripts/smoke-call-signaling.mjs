@@ -193,6 +193,60 @@ console.log("HANGUP_FANOUT_OK");
 
 a.ws.close();
 b.ws.close();
+
+console.log("== late joiner gets buffered offer + peer-joined ==");
+const call2 = await json("POST", "/v1/chat/calls", {
+  token: tokenA,
+  body: { conversationId },
+});
+const path2 = call2.signalingPath;
+const urlA2 = `${origin}${path2}?token=${encodeURIComponent(tokenA)}&conversationId=${encodeURIComponent(conversationId)}`;
+const urlB2 = `${origin}${path2}?token=${encodeURIComponent(tokenB)}&conversationId=${encodeURIComponent(conversationId)}`;
+const a2 = await connectWs(urlA2);
+const expectPeerJoined = waitForType(a2.ws, "peer-joined");
+a2.ws.send(JSON.stringify({ type: "ring" }));
+a2.ws.send(JSON.stringify({ type: "offer", sdp: "v=0\r\no=- buffered-offer" }));
+await new Promise((r) => setTimeout(r, 50));
+
+const b2 = await new Promise((resolve, reject) => {
+  const ws = new WebSocket(urlB2);
+  const timer = setTimeout(() => reject(new Error(`ws join timeout: ${urlB2}`)), 10000);
+  let joined = null;
+  let offer = null;
+  const maybeDone = () => {
+    if (joined && offer) {
+      clearTimeout(timer);
+      resolve({ ws, joined, offer });
+    }
+  };
+  ws.addEventListener("error", () => {
+    clearTimeout(timer);
+    reject(new Error("ws error"));
+  });
+  ws.addEventListener("message", (ev) => {
+    let msg;
+    try {
+      msg = JSON.parse(String(ev.data));
+    } catch {
+      return;
+    }
+    if (msg.type === "joined") joined = msg;
+    if (msg.type === "offer" && String(msg.sdp || "").includes("buffered-offer")) offer = msg;
+    maybeDone();
+  });
+});
+
+const peerJoined = await expectPeerJoined;
+if (!peerJoined.peers || peerJoined.peers < 2) {
+  throw new Error(`peer-joined peers expected ≥2, got ${peerJoined.peers}`);
+}
+console.log("PEER_JOINED_OK");
+if (!b2.offer?.sdp) throw new Error("buffered offer not replayed to late joiner");
+console.log("BUFFERED_OFFER_OK");
+if (b2.joined.peers < 2) throw new Error(`late joiner peers expected ≥2, got ${b2.joined.peers}`);
+
+a2.ws.close();
+b2.ws.close();
 console.log("SCREEN_SIGNAL_OK");
 console.log("CALL_SCREEN_SIGNAL_OK");
 process.exit(0);

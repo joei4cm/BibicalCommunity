@@ -167,6 +167,7 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
   const cfToken = c.env.TURN_CF_API_TOKEN;
 
   // Prefer Cloudflare Calls TURN when configured (real turn: / turns: relays).
+  let cfMintFailed = false;
   if (cfKey && cfToken) {
     const minted = await mintCloudflareTurnIce(cfKey, cfToken, ttl);
     if (minted?.hasRelay) {
@@ -181,6 +182,7 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
         note: "Cloudflare Calls TURN credentials (ephemeral).",
       });
     }
+    cfMintFailed = true;
   }
 
   const secret = c.env.TURN_SECRET ?? "dev-turn-secret";
@@ -200,6 +202,10 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
   const credential = bytesToBase64(sig);
   const { iceServers, hasRelay } = buildIceServers(uris, username, credential);
 
+  const stunOnlyNote = cfMintFailed
+    ? "Cloudflare Calls TURN mint failed — falling back to STUN-only. Check TURN_CF_KEY_ID / TURN_CF_API_TOKEN, or set TURN_URIS with turn: hosts + TURN_SECRET."
+    : "No turn:/turns: URI configured — STUN only. Set TURN_URIS with turn: hosts + TURN_SECRET, or TURN_CF_KEY_ID + TURN_CF_API_TOKEN for Cloudflare Calls TURN.";
+
   return c.json({
     username,
     credential,
@@ -210,6 +216,6 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
     provider: hasRelay ? "coturn-hmac" : "stun-only",
     note: hasRelay
       ? "Ephemeral TURN secret (HMAC-SHA1 / coturn REST). Set TURN_URIS to turn:… hosts."
-      : "No turn:/turns: URI configured — STUN only. Set TURN_URIS with turn: hosts + TURN_SECRET, or TURN_CF_KEY_ID + TURN_CF_API_TOKEN for Cloudflare Calls TURN.",
+      : stunOnlyNote,
   });
 });
