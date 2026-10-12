@@ -1,5 +1,7 @@
 export * from "./translations.js";
 export * from "./refs.js";
+export * from "./book-aliases.js";
+export * from "./verse-cites.js";
 export * from "./provider.js";
 export * from "./csv-plans.js";
 export * from "./books.js";
