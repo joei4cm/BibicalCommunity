@@ -8,6 +8,8 @@
  * R2 stubs for downloadable ids — Workers fill verses from MEDIA.
  */
 
+import { osisFromZhToken } from "./book-aliases.js";
+import { getBook } from "./books.js";
 import { assertAllowedContentSource } from "./content-policy.js";
 import { buildExternalUrl, getTranslation, type TranslationMeta } from "./translations.js";
 import { formatRef, type VerseRef } from "./refs.js";
@@ -28,6 +30,8 @@ export interface PartnerSsoFlags {
 
 /** Normalize book aliases used by dual-pane / plans / smoke refs. */
 export function normalizeBookKey(book: string): string | null {
+  const zhOsis = osisFromZhToken(book);
+  if (zhOsis) return zhOsis.toLowerCase();
   const b = book.toLowerCase().replace(/\s+/g, "");
   if (b === "john" || book === "ヨハネ") return "john";
   if (b === "gen" || b === "genesis" || book === "创世记" || book === "創世記") return "gen";
@@ -131,6 +135,8 @@ export function normalizeBookKey(book: string): string | null {
 }
 
 export function canonicalBookId(key: string): string {
+  const known = getBook(key);
+  if (known) return known.id;
   switch (key) {
     case "john":
       return "John";

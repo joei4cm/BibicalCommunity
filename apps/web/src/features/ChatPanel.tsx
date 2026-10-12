@@ -24,6 +24,7 @@ import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
 import { SheetPortal } from "../components/SheetPortal";
 import { EmojiPicker } from "../components/EmojiPicker";
 import { CallOverlay, type CallPhase } from "../components/CallOverlay";
+import { ChatVerseText } from "../components/ChatVerseText";
 import {
   IconChevronLeft,
   IconEmoji,
@@ -40,6 +41,14 @@ import {
   payloadPreview,
   type ChatPayload,
 } from "../lib/chat-payload";
+
+function readerTranslationId(): string {
+  try {
+    return localStorage.getItem("lh.bible.translation") ?? "cuvs";
+  } catch {
+    return "cuvs";
+  }
+}
 
 type ConversationKind = "dm" | "group" | "seminar";
 
@@ -1237,14 +1246,20 @@ export function ChatPanel({
                           <IconPaperclip className="ui-icon-inline" /> {payload.name}
                         </a>
                       )}
-                      {payload.text ? <p className="chat-bubble-text">{payload.text}</p> : null}
+                      {payload.text ? (
+                        <ChatVerseText text={payload.text} translationId={readerTranslationId()} />
+                      ) : null}
                     </div>
                   )}
                   {!loading && payload?.kind === "text" && (
-                    <p className="chat-bubble-text">{payload.text}</p>
+                    <ChatVerseText text={payload.text} translationId={readerTranslationId()} />
                   )}
                   {!loading && !payload && (
-                    <p className="chat-bubble-text muted">{plaintexts[m.id]}</p>
+                    <ChatVerseText
+                      text={plaintexts[m.id] ?? ""}
+                      translationId={readerTranslationId()}
+                      className="chat-bubble-text muted"
+                    />
                   )}
                   <div className="muted im-bubble-meta">
                     {new Date(m.createdAt).toLocaleString()}
