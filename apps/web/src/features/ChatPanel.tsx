@@ -6,7 +6,7 @@ import {
   decryptSessionPayload,
   encryptSessionPayload,
 } from "@logoshome/crypto";
-import { isCoworkerAssemblyConversationTitle } from "@logoshome/shared";
+import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
 import { api, apiWsUrl, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
@@ -20,12 +20,14 @@ import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-
 import { startCallSession, type CallSession } from "../lib/call-session";
 import { startScreenShare, stopScreenShare } from "../lib/webrtc";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
-import { buildIceServersFromTurnResponse } from "../lib/turn-ice";
+import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
 import { SheetPortal } from "../components/SheetPortal";
 import { EmojiPicker } from "../components/EmojiPicker";
 import { CallOverlay, type CallPhase } from "../components/CallOverlay";
 import { ChatVerseText } from "../components/ChatVerseText";
 import {
+  IconCheck,
+  IconCheckRead,
   IconChevronLeft,
   IconEmoji,
   IconMore,
@@ -62,12 +64,15 @@ type Conversation = {
   memberIds?: string[];
   peerUserIds?: string[];
   unreadCount?: number;
+  /** Latest peer lastReadAt when they share read receipts (WhatsApp-style ticks). */
+  peerLastReadAt?: number | null;
   membership: { id: string; role: string; archived: boolean; lastReadAt?: number | null };
 };
 
 type ChatMessage = {
   id: string;
   senderDeviceId: string;
+  senderUserId?: string | null;
   ratchetHeader: string;
   ciphertext: string;
   contentType: string;
@@ -461,9 +466,10 @@ export function ChatPanel({
     async (conversationId: string) => {
       const hadUnread =
         (conversationsRef.current.find((c) => c.id === conversationId)?.unreadCount ?? 0) > 0;
-      const res = await api<{ messages: ChatMessage[] }>(
-        `/v1/chat/conversations/${conversationId}/messages`,
-      );
+      const res = await api<{
+        messages: ChatMessage[];
+        peerLastReadAt?: number | null;
+      }>(`/v1/chat/conversations/${conversationId}/messages`);
       const now = Date.now();
       const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
       setMessages((prev) => {
@@ -476,12 +482,15 @@ export function ChatPanel({
         return live;
       });
       // GET messages marks the thread read server-side — clear local unread chip.
+      // Also refresh peerLastReadAt for ✓✓ ticks while the thread is open.
       setConversations((prev) => {
         const next = prev.map((c) =>
           c.id === conversationId
             ? {
                 ...c,
                 unreadCount: 0,
+                peerLastReadAt:
+                  res.peerLastReadAt !== undefined ? res.peerLastReadAt : c.peerLastReadAt,
                 membership: { ...c.membership, lastReadAt: now },
               }
             : c,
@@ -905,12 +914,11 @@ export function ChatPanel({
       }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
       iceServers = buildIceServersFromTurnResponse(turn, iceServers);
       setCallNote(
-        turn.hasRelay
-          ? t("chat.callRelayOn")
-          : `${t("chat.turnRelayMissing")}`,
+        turnResponseHasRelay(turn) ? t("chat.callRelayOn") : t("chat.turnRelayMissing"),
       );
     } catch {
       /* STUN-only fallback */
+      setCallNote(t("chat.turnRelayMissing"));
     }
     return iceServers;
   }
@@ -1218,7 +1226,12 @@ export function ChatPanel({
             {messages.map((m) => {
               const payload = parseChatPayload(plaintexts[m.id]);
               const loading = plaintexts[m.id] == null;
-              const mine = Boolean(selfDeviceId && m.senderDeviceId === selfDeviceId);
+              const mine = Boolean(
+                (selfUserId && m.senderUserId && m.senderUserId === selfUserId) ||
+                  (selfDeviceId && m.senderDeviceId === selfDeviceId),
+              );
+              const isRead =
+                mine && messageReceiptState(m.createdAt, selected?.peerLastReadAt) === "read";
               return (
                 <div key={m.id} className={`chat-bubble${mine ? " is-mine" : " is-peer"}`}>
                   {loading && <p className="chat-bubble-text">{t("common.loading")}</p>}
@@ -1262,10 +1275,26 @@ export function ChatPanel({
                     />
                   )}
                   <div className="muted im-bubble-meta">
-                    {new Date(m.createdAt).toLocaleString()}
-                    {m.expiresAt
-                      ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
-                      : ""}
+                    <span className="im-bubble-time">
+                      {new Date(m.createdAt).toLocaleString()}
+                      {m.expiresAt
+                        ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
+                        : ""}
+                    </span>
+                    {mine && m.contentType !== "control" && (
+                      <span
+                        className={`im-receipt${isRead ? " is-read" : ""}`}
+                        data-testid={isRead ? "chat-receipt-read" : "chat-receipt-sent"}
+                        title={isRead ? t("chat.receiptRead") : t("chat.receiptSent")}
+                        aria-label={isRead ? t("chat.receiptRead") : t("chat.receiptSent")}
+                      >
+                        {isRead ? (
+                          <IconCheckRead className="ui-icon-receipt" />
+                        ) : (
+                          <IconCheck className="ui-icon-receipt" />
+                        )}
+                      </span>
+                    )}
                   </div>
                 </div>
               );

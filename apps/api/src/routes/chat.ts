@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { createId } from "@logoshome/shared";
+import { createId, privacySettingsSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
@@ -11,6 +11,44 @@ chatRoutes.use("*", requireAuth);
 
 function orderedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+type MemberRow = { userId: string; lastReadAt: number | null };
+
+/** Latest peer lastReadAt that peers allow sharing (WhatsApp-style read ticks). */
+async function sharedPeerLastReadAt(
+  db: ReturnType<typeof drizzle>,
+  members: MemberRow[],
+  selfUserId: string,
+): Promise<number | null> {
+  const peers = members.filter((m) => m.userId !== selfUserId);
+  if (peers.length === 0) return null;
+  const users = await db
+    .select({ id: schema.users.id, privacyJson: schema.users.privacyJson })
+    .from(schema.users)
+    .where(
+      inArray(
+        schema.users.id,
+        peers.map((p) => p.userId),
+      ),
+    );
+  const privacyById = new Map(
+    users.map((u) => {
+      try {
+        return [u.id, privacySettingsSchema.parse(JSON.parse(u.privacyJson))] as const;
+      } catch {
+        return [u.id, privacySettingsSchema.parse({})] as const;
+      }
+    }),
+  );
+  let max = 0;
+  for (const p of peers) {
+    const privacy = privacyById.get(p.userId) ?? privacySettingsSchema.parse({});
+    if (!privacy.shareReadReceipts) continue;
+    const at = p.lastReadAt ?? 0;
+    if (at > max) max = at;
+  }
+  return max > 0 ? max : null;
 }
 
 async function areFriends(
@@ -119,6 +157,7 @@ chatRoutes.get("/conversations", async (c) => {
       .select()
       .from(schema.conversationMembers)
       .where(eq(schema.conversationMembers.conversationId, convo.id));
+    const peerLastReadAt = await sharedPeerLastReadAt(db, members, userId);
     conversations.push({
       id: convo.id,
       kind: convo.kind,
@@ -129,6 +168,7 @@ chatRoutes.get("/conversations", async (c) => {
       memberIds: members.map((row) => row.userId),
       peerUserIds: members.map((row) => row.userId).filter((id) => id !== userId),
       unreadCount: unreadByConvo.get(convo.id) ?? 0,
+      peerLastReadAt,
       membership: {
         id: m.id,
         role: m.role,
@@ -304,6 +344,17 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
     .from(schema.messages)
     .where(and(eq(schema.messages.conversationId, conversationId), eq(schema.messages.tombstoned, false)));
 
+  // Resolve sender user ids so clients can mark "mine" across devices.
+  const senderDeviceIds = Array.from(new Set(rows.map((m) => m.senderDeviceId)));
+  const senderDevices =
+    senderDeviceIds.length > 0
+      ? await db
+          .select({ id: schema.devices.id, userId: schema.devices.userId })
+          .from(schema.devices)
+          .where(inArray(schema.devices.id, senderDeviceIds))
+      : [];
+  const senderUserByDevice = new Map(senderDevices.map((d) => [d.id, d.userId]));
+
   // Disappearing messages: tombstone expired rows and omit ciphertext from the response.
   const live = [];
   for (const m of rows) {
@@ -317,6 +368,7 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
     live.push({
       id: m.id,
       senderDeviceId: m.senderDeviceId,
+      senderUserId: senderUserByDevice.get(m.senderDeviceId) ?? null,
       ratchetHeader: m.ratchetHeader,
       ciphertext: m.ciphertext,
       contentType: m.contentType,
@@ -331,7 +383,13 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
     .set({ lastReadAt: now })
     .where(eq(schema.conversationMembers.id, member.id));
 
-  return c.json({ messages: live, lastReadAt: now });
+  const members = await db
+    .select()
+    .from(schema.conversationMembers)
+    .where(eq(schema.conversationMembers.conversationId, conversationId));
+  const peerLastReadAt = await sharedPeerLastReadAt(db, members, c.get("userId"));
+
+  return c.json({ messages: live, lastReadAt: now, peerLastReadAt });
 });
 
 const favoriteSchema = z.object({
