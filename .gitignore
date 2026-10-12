@@ -16,3 +16,4 @@ apps/mobile/ios
 coverage
 *.log
 .pnpm-store
+apps/mobile/expo-env.d.ts
