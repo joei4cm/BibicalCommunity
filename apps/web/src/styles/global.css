@@ -2098,35 +2098,181 @@ body:has(.bible-reader) .tab-bar a.active::after {
   color: var(--br-accent, var(--lh-accent));
 }
 
-.cal-week {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: 0.45rem;
-  margin-bottom: 0.75rem;
+.cal-week-outlook,
+.cal-day-outlook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+  margin-bottom: 0.5rem;
 }
 
-.cal-week-day {
+.cal-date-strip {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding: 0.15rem 0.1rem 0.35rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.cal-date-pill {
   appearance: none;
-  border: 1px solid var(--br-line, var(--lh-border));
-  background: transparent;
-  border-radius: 10px;
-  padding: 0.55rem 0.65rem;
-  text-align: left;
+  flex: 0 0 auto;
+  width: 3.15rem;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--br-muted, var(--lh-muted)) 8%, transparent);
+  border-radius: 12px;
+  padding: 0.4rem 0.2rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
   font: inherit;
   color: inherit;
   cursor: pointer;
-  min-height: 6rem;
+  scroll-snap-align: center;
 }
 
-.cal-week-day.is-selected {
+.cal-date-pill-dow {
+  font-size: 0.68rem;
+  opacity: 0.72;
+  line-height: 1;
+}
+
+.cal-date-pill-num {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.cal-date-pill-dot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: var(--br-accent, var(--lh-accent));
+  margin-top: 0.1rem;
+}
+
+.cal-date-pill-dot.is-empty {
+  background: transparent;
+}
+
+.cal-date-pill.is-today .cal-date-pill-num {
+  color: var(--br-accent, var(--lh-accent));
+}
+
+.cal-date-pill.is-selected {
   border-color: var(--br-accent, var(--lh-accent));
+  background: color-mix(in srgb, var(--br-accent, var(--lh-accent)) 14%, transparent);
 }
 
-.cal-week-day ul {
+.cal-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 0;
+}
+
+.cal-agenda-allday {
+  display: grid;
+  grid-template-columns: 3.25rem 1fr;
+  gap: 0.35rem;
+  align-items: start;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--br-line, var(--lh-border));
+}
+
+.cal-agenda-allday-label {
+  font-size: 0.72rem;
+  padding-top: 0.35rem;
+}
+
+.cal-agenda-allday-list {
   list-style: none;
-  margin: 0.35rem 0 0;
+  margin: 0;
   padding: 0;
-  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cal-agenda-chip,
+.cal-agenda-event {
+  border-left: 3px solid var(--br-accent, var(--lh-accent));
+  background: color-mix(in srgb, var(--br-accent, var(--lh-accent)) 10%, transparent);
+  border-radius: 0 8px 8px 0;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.88rem;
+}
+
+.cal-agenda-chip.is-seminar,
+.cal-agenda-event.is-seminar {
+  border-left-color: color-mix(in srgb, var(--br-accent, var(--lh-accent)) 55%, #c45c26);
+  background: color-mix(in srgb, #c45c26 10%, transparent);
+}
+
+.cal-agenda-scroll {
+  max-height: min(62vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--br-line, var(--lh-border));
+  border-radius: 12px;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.cal-agenda-empty {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--br-bg, var(--lh-bg, #fff)) 88%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.cal-agenda-row {
+  display: grid;
+  grid-template-columns: 3.25rem 1fr;
+  min-height: 3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 70%, transparent);
+}
+
+.cal-agenda-row:last-child {
+  border-bottom: none;
+}
+
+.cal-agenda-row.is-now {
+  background: color-mix(in srgb, var(--br-accent, var(--lh-accent)) 6%, transparent);
+}
+
+.cal-agenda-hour {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.35rem 0 0.45rem;
+  line-height: 1;
+}
+
+.cal-agenda-slot {
+  padding: 0.2rem 0.4rem 0.35rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 2.8rem;
+}
+
+.cal-cursor-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.cal-week-modes .btn.ghost.is-on,
+.cal-week-modes .btn.ghost[aria-pressed="true"] {
+  border-color: var(--br-accent, var(--lh-accent));
+  color: var(--br-accent, var(--lh-accent));
 }
 
 .convo-row.is-unread {

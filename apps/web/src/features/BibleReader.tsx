@@ -209,6 +209,22 @@ function verseMapFromChapter(chapter: ChapterPayload | null): Map<number, string
 /** Verse-stacked compare: same verse number, primary + peer lines. */
 const LONG_PRESS_MS = 420;
 
+/** Resolve verse under the finger/cursor — pointer capture would pin the first verse. */
+function verseFromPoint(clientX: number, clientY: number): number | null {
+  const stack =
+    typeof document.elementsFromPoint === "function"
+      ? document.elementsFromPoint(clientX, clientY)
+      : [document.elementFromPoint(clientX, clientY)].filter(Boolean);
+  for (const node of stack) {
+    if (!(node instanceof Element)) continue;
+    const host = node.closest("[data-verse]");
+    if (!(host instanceof HTMLElement)) continue;
+    const n = Number(host.dataset.verse);
+    if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+  }
+  return null;
+}
+
 function useVerseLongPress(opts: {
   onSelectVerse: (verse: number) => void;
   onExtendSelection: (verse: number) => void;
@@ -216,6 +232,9 @@ function useVerseLongPress(opts: {
   const timer = useRef<number | null>(null);
   const armed = useRef(false);
   const startXY = useRef<{ x: number; y: number } | null>(null);
+  const pointerId = useRef<number | null>(null);
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
 
   function clearTimer() {
     if (timer.current != null) {
@@ -224,25 +243,58 @@ function useVerseLongPress(opts: {
     }
   }
 
+  function detachDrag() {
+    window.removeEventListener("pointermove", onWinMove);
+    window.removeEventListener("pointerup", onWinUp);
+    window.removeEventListener("pointercancel", onWinUp);
+  }
+
+  function onWinMove(e: PointerEvent) {
+    if (!armed.current || pointerId.current !== e.pointerId) return;
+    if (e.buttons === 0) return;
+    const v = verseFromPoint(e.clientX, e.clientY);
+    if (v != null) optsRef.current.onExtendSelection(v);
+    e.preventDefault();
+  }
+
+  function onWinUp(e: PointerEvent) {
+    if (pointerId.current != null && e.pointerId !== pointerId.current) return;
+    clearTimer();
+    armed.current = false;
+    startXY.current = null;
+    pointerId.current = null;
+    detachDrag();
+  }
+
+  useEffect(
+    () => () => {
+      clearTimer();
+      detachDrag();
+    },
+    [],
+  );
+
   function onPointerDown(verse: number, e: ReactPointerEvent) {
     if (e.button !== 0) return;
     clearTimer();
+    detachDrag();
     armed.current = false;
     startXY.current = { x: e.clientX, y: e.clientY };
+    pointerId.current = e.pointerId;
     timer.current = window.setTimeout(() => {
       armed.current = true;
-      opts.onSelectVerse(verse);
-      try {
-        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-      } catch {
-        /* ignore */
-      }
+      optsRef.current.onSelectVerse(verse);
+      // Window listeners + elementFromPoint (no setPointerCapture — that pins the first verse).
+      window.addEventListener("pointermove", onWinMove, { passive: false });
+      window.addEventListener("pointerup", onWinUp);
+      window.addEventListener("pointercancel", onWinUp);
     }, LONG_PRESS_MS);
   }
 
-  function onPointerMove(verse: number, e: ReactPointerEvent) {
+  function onPointerMove(_verse: number, e: ReactPointerEvent) {
     if (armed.current && e.buttons === 1) {
-      opts.onExtendSelection(verse);
+      const v = verseFromPoint(e.clientX, e.clientY);
+      if (v != null) optsRef.current.onExtendSelection(v);
       return;
     }
     const start = startXY.current;
@@ -253,9 +305,11 @@ function useVerseLongPress(opts: {
   }
 
   function onPointerUp() {
-    clearTimer();
-    armed.current = false;
-    startXY.current = null;
+    if (!armed.current) {
+      clearTimer();
+      startXY.current = null;
+      pointerId.current = null;
+    }
   }
 
   return { onPointerDown, onPointerMove, onPointerUp };
@@ -726,6 +780,7 @@ export function BibleReader() {
   const swipeStart = useRef<{ x: number; y: number; t: number } | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [highlightPaletteOpen, setHighlightPaletteOpen] = useState(false);
+  const [copyFlash, setCopyFlash] = useState<string | null>(null);
   const [focusVerse, setFocusVerse] = useState<number | null>(null);
   const [installedByTid, setInstalledByTid] = useState<
     Record<string, InstalledTranslationSummary>
@@ -1244,7 +1299,8 @@ export function BibleReader() {
   function selectVerse(verse: number) {
     dragAnchor.current = verse;
     setSelection({ start: verse, end: verse });
-    setHighlightPaletteOpen(false);
+    setHighlightPaletteOpen(true);
+    setDockCollapsed(false);
     // Keep 研读/搜索/朗读 open so verse picks refresh study tools; close only chrome overlays.
     setDockPanel((cur) => (cur === "note" ? null : cur));
   }
@@ -1557,6 +1613,20 @@ export function BibleReader() {
     Array.from({ length: selection.end - selection.start + 1 }, (_, i) => selection.start + i).every(
       (v) => Boolean(highlightIdByVerse[v]),
     );
+
+  async function copySelection() {
+    const text = selectionPlainText().trim();
+    if (!text) return;
+    const payload = selectionLabel ? `${selectionLabel}\n${text}` : text;
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyFlash(t("reader.copied"));
+      window.setTimeout(() => setCopyFlash(null), 1600);
+    } catch {
+      setCopyFlash(t("reader.copyFailed"));
+      window.setTimeout(() => setCopyFlash(null), 2000);
+    }
+  }
 
   function openPassagePicker() {
     setPickerBookId(bookId);
@@ -2190,17 +2260,32 @@ export function BibleReader() {
               </div>
             )}
             {selection && (
-              <button
-                type="button"
-                className="bible-dock-btn"
-                data-testid="reader-clear-selection"
-                onClick={() => {
-                  setSelection(null);
-                  setHighlightPaletteOpen(false);
-                }}
-              >
-                {t("reader.clearSelection")}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="bible-dock-btn"
+                  data-testid="reader-copy-selection"
+                  onClick={() => void copySelection()}
+                >
+                  {t("reader.copy")}
+                </button>
+                <button
+                  type="button"
+                  className="bible-dock-btn"
+                  data-testid="reader-clear-selection"
+                  onClick={() => {
+                    setSelection(null);
+                    setHighlightPaletteOpen(false);
+                  }}
+                >
+                  {t("reader.clearSelection")}
+                </button>
+              </>
+            )}
+            {copyFlash && (
+              <span className="bible-hint" data-testid="reader-copy-flash">
+                {copyFlash}
+              </span>
             )}
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
@@ -37,9 +37,23 @@ function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function weekStartMonday(d: Date) {
+  const day = d.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return addDays(startOfDay(d), mondayOffset);
+}
+
+function formatHour(hour: number) {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+function eventHour(e: CalEvent) {
+  return new Date(e.startAt).getHours();
+}
+
 export function CalendarPanel() {
-  const { t } = useTranslation();
-  const [view, setView] = useState<ViewMode>("day");
+  const { t, i18n } = useTranslation();
+  const [view, setView] = useState<ViewMode>("week");
   const [weekMode, setWeekMode] = useState<WeekMode>("natural");
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -51,6 +65,9 @@ export function CalendarPanel() {
   const [allDay, setAllDay] = useState(true);
   const [eventKind, setEventKind] = useState<EventKind>("event");
   const [startLocal, setStartLocal] = useState("");
+  const agendaScrollRef = useRef<HTMLDivElement | null>(null);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const today = useMemo(() => startOfDay(new Date()), []);
 
   const range = useMemo(() => {
     if (view === "day") {
@@ -58,9 +75,7 @@ export function CalendarPanel() {
       return { from, to: from + 86400000 - 1 };
     }
     if (view === "week") {
-      const day = cursor.getDay();
-      const mondayOffset = day === 0 ? -6 : 1 - day;
-      const weekStart = addDays(startOfDay(cursor), mondayOffset);
+      const weekStart = weekStartMonday(cursor);
       const days = weekMode === "work" ? 5 : 7;
       const from = weekStart.getTime();
       return { from, to: from + days * 86400000 - 1, weekStart, days };
@@ -87,7 +102,11 @@ export function CalendarPanel() {
   }, [refresh]);
 
   const dayEvents = useMemo(
-    () => events.filter((e) => sameDay(new Date(e.startAt), cursor)),
+    () =>
+      events
+        .filter((e) => sameDay(new Date(e.startAt), cursor))
+        .slice()
+        .sort((a, b) => a.startAt - b.startAt),
     [events, cursor],
   );
 
@@ -108,13 +127,45 @@ export function CalendarPanel() {
     return cells;
   }, [cursor]);
 
-  const weekDays = useMemo(() => {
-    const day = cursor.getDay();
-    const mondayOffset = day === 0 ? -6 : 1 - day;
-    const weekStart = addDays(startOfDay(cursor), mondayOffset);
+  const stripDays = useMemo(() => {
+    if (view === "day") {
+      // Nearby strip: selected day ±3 for quick jumping.
+      return Array.from({ length: 7 }, (_, i) => addDays(cursor, i - 3));
+    }
+    const weekStart = weekStartMonday(cursor);
     const count = weekMode === "work" ? 5 : 7;
     return Array.from({ length: count }, (_, i) => addDays(weekStart, i));
-  }, [cursor, weekMode]);
+  }, [cursor, view, weekMode]);
+
+  const allDayEvents = useMemo(() => dayEvents.filter((e) => e.allDay), [dayEvents]);
+  const timedEvents = useMemo(() => dayEvents.filter((e) => !e.allDay), [dayEvents]);
+
+  // Scroll agenda to first timed event, else "now" when viewing today.
+  useEffect(() => {
+    if (view === "month") return;
+    const el = agendaScrollRef.current;
+    if (!el) return;
+    let hour = 8;
+    if (timedEvents.length > 0) {
+      hour = Math.max(0, eventHour(timedEvents[0]!) - 1);
+    } else if (sameDay(cursor, today)) {
+      hour = Math.max(0, new Date().getHours() - 1);
+    }
+    const row = el.querySelector(`[data-hour="${hour}"]`);
+    if (row instanceof HTMLElement) {
+      el.scrollTop = Math.max(0, row.offsetTop - 8);
+    }
+  }, [cursor, view, timedEvents, today]);
+
+  // Keep selected pill visible in the horizontal strip.
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const selected = strip.querySelector(".cal-date-pill.is-selected");
+    if (selected instanceof HTMLElement) {
+      selected.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [cursor, view, weekMode]);
 
   async function createEvent() {
     if (!title.trim() || !startLocal) return;
@@ -168,6 +219,138 @@ export function CalendarPanel() {
     }
   }
 
+  function weekdayLabel(d: Date) {
+    return d.toLocaleDateString(i18n.language, { weekday: "short" });
+  }
+
+  function renderEventBody(e: CalEvent) {
+    return (
+      <>
+        <strong>
+          {e.kind === "seminar" ? `${t("comms.seminar")} · ` : ""}
+          {e.title}
+        </strong>
+        <div className="muted">
+          {e.allDay
+            ? t("comms.allDay")
+            : new Date(e.startAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+          {" · "}
+          {e.kind === "seminar"
+            ? t("comms.seminar")
+            : e.source === "invited"
+              ? t("comms.invitedEvent")
+              : t("comms.localEvent")}
+          {e.inviteStatus ? ` · ${e.inviteStatus}` : ""}
+        </div>
+        {e.notes ? <div className="muted">{e.notes}</div> : null}
+        {e.source === "invited" && e.inviteStatus === "pending" && e.inviteId && (
+          <div className="toolbar" style={{ marginTop: "0.35rem" }}>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy}
+              onClick={() => void respondInvite(e.inviteId!, true)}
+            >
+              {t("comms.accept")}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              onClick={() => void respondInvite(e.inviteId!, false)}
+            >
+              {t("comms.decline")}
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  function renderDayAgenda() {
+    const byHour = new Map<number, CalEvent[]>();
+    for (const e of timedEvents) {
+      const h = eventHour(e);
+      const list = byHour.get(h) ?? [];
+      list.push(e);
+      byHour.set(h, list);
+    }
+    const nowHour = sameDay(cursor, today) ? new Date().getHours() : -1;
+
+    return (
+      <div className="cal-agenda" data-testid="calendar-day-agenda">
+        {allDayEvents.length > 0 && (
+          <div className="cal-agenda-allday" data-testid="calendar-allday">
+            <div className="cal-agenda-allday-label muted">{t("comms.allDay")}</div>
+            <ul className="cal-agenda-allday-list">
+              {allDayEvents.map((e) => (
+                <li key={e.id} className={`cal-agenda-chip${e.kind === "seminar" ? " is-seminar" : ""}`}>
+                  {renderEventBody(e)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="cal-agenda-scroll" ref={agendaScrollRef} data-testid="calendar-day-list">
+          {dayEvents.length === 0 && (
+            <p className="muted cal-agenda-empty">{t("comms.noEvents")}</p>
+          )}
+          {Array.from({ length: 24 }, (_, hour) => {
+            const list = byHour.get(hour) ?? [];
+            return (
+              <div
+                key={hour}
+                className={`cal-agenda-row${hour === nowHour ? " is-now" : ""}${list.length ? " has-events" : ""}`}
+                data-hour={hour}
+              >
+                <div className="cal-agenda-hour muted">{formatHour(hour)}</div>
+                <div className="cal-agenda-slot">
+                  {list.map((e) => (
+                    <div
+                      key={e.id}
+                      className={`cal-agenda-event${e.kind === "seminar" ? " is-seminar" : ""}`}
+                    >
+                      {renderEventBody(e)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderDateStrip(testId: string) {
+    return (
+      <div className="cal-date-strip" ref={stripRef} data-testid={testId}>
+        {stripDays.map((d) => {
+          const count = events.filter((e) => sameDay(new Date(e.startAt), d)).length;
+          const selected = sameDay(d, cursor);
+          const isToday = sameDay(d, today);
+          return (
+            <button
+              key={d.toISOString()}
+              type="button"
+              className={`cal-date-pill${selected ? " is-selected" : ""}${isToday ? " is-today" : ""}`}
+              aria-pressed={selected}
+              onClick={() => setCursor(startOfDay(d))}
+            >
+              <span className="cal-date-pill-dow">{weekdayLabel(d)}</span>
+              <span className="cal-date-pill-num">{d.getDate()}</span>
+              {count > 0 ? <span className="cal-date-pill-dot" aria-hidden /> : <span className="cal-date-pill-dot is-empty" aria-hidden />}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="calendar-panel" data-testid="comms-calendar">
       {note && <p className="muted">{humanizeStatus(t, note)}</p>}
@@ -193,10 +376,10 @@ export function CalendarPanel() {
       </div>
 
       {view === "week" && (
-        <div className="toolbar" style={{ marginBottom: "0.65rem" }}>
+        <div className="toolbar cal-week-modes" style={{ marginBottom: "0.55rem" }}>
           <button
             type="button"
-            className={`btn ghost${weekMode === "natural" ? "" : ""}`}
+            className={`btn ghost${weekMode === "natural" ? " is-on" : ""}`}
             aria-pressed={weekMode === "natural"}
             onClick={() => setWeekMode("natural")}
           >
@@ -204,7 +387,7 @@ export function CalendarPanel() {
           </button>
           <button
             type="button"
-            className="btn ghost"
+            className={`btn ghost${weekMode === "work" ? " is-on" : ""}`}
             aria-pressed={weekMode === "work"}
             onClick={() => setWeekMode("work")}
           >
@@ -213,16 +396,21 @@ export function CalendarPanel() {
         </div>
       )}
 
-      <div className="toolbar" style={{ marginBottom: "0.75rem" }}>
-        <button type="button" className="btn ghost" onClick={() => shift(-1)}>
+      <div className="toolbar" style={{ marginBottom: "0.55rem" }}>
+        <button type="button" className="btn ghost" onClick={() => shift(-1)} aria-label="prev">
           ←
         </button>
-        <strong>
+        <strong className="cal-cursor-label">
           {view === "month"
             ? `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`
-            : cursor.toLocaleDateString()}
+            : cursor.toLocaleDateString(i18n.language, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                weekday: "short",
+              })}
         </strong>
-        <button type="button" className="btn ghost" onClick={() => shift(1)}>
+        <button type="button" className="btn ghost" onClick={() => shift(1)} aria-label="next">
           →
         </button>
         <button
@@ -263,80 +451,17 @@ export function CalendarPanel() {
       )}
 
       {view === "week" && (
-        <div className="cal-week" data-testid="calendar-week">
-          {weekDays.map((d) => {
-            const list = events.filter((e) => sameDay(new Date(e.startAt), d));
-            return (
-              <button
-                key={d.toISOString()}
-                type="button"
-                className={`cal-week-day${sameDay(d, cursor) ? " is-selected" : ""}`}
-                onClick={() => {
-                  setCursor(startOfDay(d));
-                  setView("day");
-                }}
-              >
-                <strong>
-                  {d.getMonth() + 1}/{d.getDate()}
-                </strong>
-                <ul>
-                  {list.slice(0, 3).map((e) => (
-                    <li key={e.id}>{e.title}</li>
-                  ))}
-                  {list.length === 0 && <li className="muted">—</li>}
-                </ul>
-              </button>
-            );
-          })}
+        <div className="cal-week-outlook" data-testid="calendar-week">
+          {renderDateStrip("calendar-week-strip")}
+          {renderDayAgenda()}
         </div>
       )}
 
       {view === "day" && (
-        <ul className="list" data-testid="calendar-day-list">
-          {dayEvents.length === 0 && <li className="muted">{t("comms.noEvents")}</li>}
-          {dayEvents.map((e) => (
-            <li key={e.id}>
-              <div className="convo-row" style={{ cursor: "default" }}>
-                <strong>
-                  {e.kind === "seminar" ? `${t("comms.seminar")} · ` : ""}
-                  {e.title}
-                </strong>
-                <div className="muted">
-                  {e.allDay
-                    ? t("comms.allDay")
-                    : new Date(e.startAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                  {" · "}
-                  {e.kind === "seminar" ? t("comms.seminar") : e.source === "invited" ? t("comms.invitedEvent") : t("comms.localEvent")}
-                  {e.inviteStatus ? ` · ${e.inviteStatus}` : ""}
-                </div>
-                {e.notes ? <div className="muted">{e.notes}</div> : null}
-                {e.source === "invited" && e.inviteStatus === "pending" && e.inviteId && (
-                  <div className="toolbar" style={{ marginTop: "0.4rem" }}>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy}
-                      onClick={() => void respondInvite(e.inviteId!, true)}
-                    >
-                      {t("comms.accept")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      disabled={busy}
-                      onClick={() => void respondInvite(e.inviteId!, false)}
-                    >
-                      {t("comms.decline")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="cal-day-outlook" data-testid="calendar-day">
+          {renderDateStrip("calendar-day-strip")}
+          {renderDayAgenda()}
+        </div>
       )}
 
       <button
@@ -350,70 +475,70 @@ export function CalendarPanel() {
 
       {composeOpen && (
         <SheetPortal>
-        <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
-          <div
-            className="sheet-panel"
-            role="dialog"
-            aria-modal="true"
-            data-testid="calendar-compose"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sheet-handle" aria-hidden />
-            <div className="chat-sheet-head">
-              <h3 style={{ margin: 0 }}>{t("comms.newEvent")}</h3>
-              <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
-                ✕
-              </button>
-            </div>
-            <div className="field">
-              <label>{t("comms.eventKind")}</label>
-              <div className="bible-more-actions" role="group">
-                <button
-                  type="button"
-                  className={`bible-text-btn${eventKind === "event" ? " is-on" : ""}`}
-                  onClick={() => setEventKind("event")}
-                >
-                  {t("comms.eventKind.event")}
-                </button>
-                <button
-                  type="button"
-                  className={`bible-text-btn${eventKind === "seminar" ? " is-on" : ""}`}
-                  onClick={() => setEventKind("seminar")}
-                >
-                  {t("comms.seminar")}
+          <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
+            <div
+              className="sheet-panel"
+              role="dialog"
+              aria-modal="true"
+              data-testid="calendar-compose"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sheet-handle" aria-hidden />
+              <div className="chat-sheet-head">
+                <h3 style={{ margin: 0 }}>{t("comms.newEvent")}</h3>
+                <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
+                  ✕
                 </button>
               </div>
+              <div className="field">
+                <label>{t("comms.eventKind")}</label>
+                <div className="bible-more-actions" role="group">
+                  <button
+                    type="button"
+                    className={`bible-text-btn${eventKind === "event" ? " is-on" : ""}`}
+                    onClick={() => setEventKind("event")}
+                  >
+                    {t("comms.eventKind.event")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`bible-text-btn${eventKind === "seminar" ? " is-on" : ""}`}
+                    onClick={() => setEventKind("seminar")}
+                  >
+                    {t("comms.seminar")}
+                  </button>
+                </div>
+              </div>
+              <div className="field">
+                <label>{t("comms.eventTitle")}</label>
+                <input value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>{t("comms.eventStart")}</label>
+                <input
+                  type="datetime-local"
+                  value={startLocal}
+                  onChange={(e) => setStartLocal(e.target.value)}
+                />
+              </div>
+              <label className="muted" style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+                {t("comms.allDay")}
+              </label>
+              <div className="field">
+                <label>{t("comms.eventNotes")}</label>
+                <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !title.trim() || !startLocal}
+                onClick={() => void createEvent()}
+              >
+                {t("comms.saveEvent")}
+              </button>
             </div>
-            <div className="field">
-              <label>{t("comms.eventTitle")}</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>{t("comms.eventStart")}</label>
-              <input
-                type="datetime-local"
-                value={startLocal}
-                onChange={(e) => setStartLocal(e.target.value)}
-              />
-            </div>
-            <label className="muted" style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-              <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
-              {t("comms.allDay")}
-            </label>
-            <div className="field">
-              <label>{t("comms.eventNotes")}</label>
-              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
-            <button
-              type="button"
-              className="btn"
-              disabled={busy || !title.trim() || !startLocal}
-              onClick={() => void createEvent()}
-            >
-              {t("comms.saveEvent")}
-            </button>
           </div>
-        </div>
         </SheetPortal>
       )}
     </div>
