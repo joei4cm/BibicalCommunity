@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { t } from "@logoshome/shared";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { messageReceiptState, t } from "@logoshome/shared";
 import { api, getApiBase, getToken, hydrateToken } from "../src/api";
 import { startCallSession, type CallSession } from "../src/call-session";
 import { ensureBase64Globals } from "../src/crypto-polyfill";
@@ -21,7 +22,7 @@ import {
 import { useLocale } from "../src/locale";
 import { decryptMobileMessage, encryptMobileMessage } from "../src/session-crypto";
 import { humanizeStatus } from "../src/status";
-import { buildIceServersFromTurnResponse } from "../src/turn-ice";
+import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../src/turn-ice";
 import { RTCView, signalingWsUrl, type RnMediaStream } from "../src/webrtc";
 
 ensureBase64Globals();
@@ -32,11 +33,14 @@ type Conversation = {
   title: string | null;
   disappearingTtlSec: number | null;
   peerUserIds?: string[];
+  peerLastReadAt?: number | null;
   membership: { id: string; role: string; archived: boolean };
 };
 
 type ChatMessage = {
   id: string;
+  senderDeviceId?: string;
+  senderUserId?: string | null;
   ratchetHeader: string;
   ciphertext: string;
   createdAt: number;
@@ -70,6 +74,7 @@ export default function MessagesScreen() {
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
+  const [selfDeviceId, setSelfDeviceId] = useState<string | null>(null);
   const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
   const callRef = useRef<CallSession | null>(null);
 
@@ -105,12 +110,20 @@ export default function MessagesScreen() {
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
-      const res = await api<{ messages: ChatMessage[] }>(
-        `/v1/chat/conversations/${conversationId}/messages`,
-      );
+      const res = await api<{
+        messages: ChatMessage[];
+        peerLastReadAt?: number | null;
+      }>(`/v1/chat/conversations/${conversationId}/messages`);
       const now = Date.now();
       const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
       setMessages(live);
+      if (res.peerLastReadAt !== undefined) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === conversationId ? { ...c, peerLastReadAt: res.peerLastReadAt } : c,
+          ),
+        );
+      }
       const peer = peersFor(conversationId)[0] ?? null;
       const decoded: Record<string, string> = {};
       for (const m of live) {
@@ -150,6 +163,12 @@ export default function MessagesScreen() {
       } catch {
         setSelfUserId(null);
       }
+      try {
+        const stored = await AsyncStorage.getItem("lh.deviceId");
+        setSelfDeviceId(stored);
+      } catch {
+        setSelfDeviceId(null);
+      }
     })();
   }, []);
 
@@ -163,6 +182,15 @@ export default function MessagesScreen() {
       return;
     }
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
+  }, [selectedId, loadMessages]);
+
+  /** Soft realtime: poll open thread for new messages + peer read receipts. */
+  useEffect(() => {
+    if (!selectedId) return;
+    const timer = setInterval(() => {
+      void loadMessages(selectedId).catch(() => {});
+    }, 2500);
+    return () => clearInterval(timer);
   }, [selectedId, loadMessages]);
 
   useEffect(() => {
@@ -320,12 +348,12 @@ export default function MessagesScreen() {
         }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
         iceServers = buildIceServersFromTurnResponse(turn);
         setCallNote(
-          turn.hasRelay
-            ? `TURN relay · ttl=${turn.ttl}s`
-            : `STUN-only · ttl=${turn.ttl}s · ${t(locale, "chat.turnRelayMissing")}`,
+          turnResponseHasRelay(turn)
+            ? t(locale, "chat.callRelayOn")
+            : t(locale, "chat.turnRelayMissing"),
         );
       } catch {
-        /* STUN-only */
+        setCallNote(t(locale, "chat.turnRelayMissing"));
       }
 
       const token = getToken();
@@ -496,15 +524,35 @@ export default function MessagesScreen() {
           {messages.length === 0 && (
             <Text style={styles.muted}>{t(locale, "chat.noMessages")}</Text>
           )}
-          {messages.map((m) => (
-            <View key={m.id} style={styles.bubble}>
-              <Text style={styles.body}>{plaintexts[m.id] ?? "[ciphertext]"}</Text>
-              <Text style={styles.muted}>
-                {new Date(m.createdAt).toLocaleString()}
-                {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
-              </Text>
-            </View>
-          ))}
+          {messages.map((m) => {
+            const mine = Boolean(
+              (selfUserId && m.senderUserId && m.senderUserId === selfUserId) ||
+                (selfDeviceId && m.senderDeviceId && m.senderDeviceId === selfDeviceId),
+            );
+            const isRead =
+              mine && messageReceiptState(m.createdAt, selected?.peerLastReadAt) === "read";
+            return (
+              <View key={m.id} style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer]}>
+                <Text style={styles.body}>{plaintexts[m.id] ?? "[ciphertext]"}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.muted}>
+                    {new Date(m.createdAt).toLocaleString()}
+                    {m.expiresAt ? ` · exp ${new Date(m.expiresAt).toLocaleString()}` : ""}
+                  </Text>
+                  {mine ? (
+                    <Text
+                      style={[styles.receipt, isRead && styles.receiptRead]}
+                      accessibilityLabel={
+                        isRead ? t(locale, "chat.receiptRead") : t(locale, "chat.receiptSent")
+                      }
+                    >
+                      {isRead ? "✓✓" : "✓"}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
           <TextInput
             style={[styles.input, { minHeight: 72 }]}
             value={draft}
@@ -586,6 +634,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#e8e2d4",
     marginBottom: 8,
+    maxWidth: "88%",
+  },
+  bubbleMine: {
+    alignSelf: "flex-end",
+    backgroundColor: "#d5ebe6",
+  },
+  bubblePeer: {
+    alignSelf: "flex-start",
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    marginTop: 4,
+  },
+  receipt: {
+    color: "#5a6a68",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  receiptRead: {
+    color: "#0f6b5c",
   },
   body: { color: "#1c2b2a", fontSize: 16, lineHeight: 24 },
   remoteVideo: {

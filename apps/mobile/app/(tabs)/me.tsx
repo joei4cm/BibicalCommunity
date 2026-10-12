@@ -184,16 +184,20 @@ export default function MeScreen() {
       return;
     }
     try {
-      const res = await api<{ token: string; uid?: string; userId?: string }>("/v1/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          handle,
-          password,
-          nickname: nickname || handle,
-          locale: normalizeApiLocale(locale),
-        }),
-      });
+      const res = await api<{ token: string; uid?: string; userId?: string; deviceId?: string }>(
+        "/v1/auth/register",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            handle,
+            password,
+            nickname: nickname || handle,
+            locale: normalizeApiLocale(locale),
+          }),
+        },
+      );
       await setToken(res.token);
+      if (res.deviceId) await AsyncStorage.setItem("lh.deviceId", res.deviceId);
       setProfile({
         id: res.userId ?? "",
         uid: res.uid ?? handle,
@@ -216,11 +220,15 @@ export default function MeScreen() {
       return;
     }
     try {
-      const res = await api<{ token: string; uid?: string; userId?: string }>("/v1/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ handleOrEmail: handle, password, platform: "ios" }),
-      });
+      const res = await api<{ token: string; uid?: string; userId?: string; deviceId?: string }>(
+        "/v1/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({ handleOrEmail: handle, password, platform: "ios" }),
+        },
+      );
       await setToken(res.token);
+      if (res.deviceId) await AsyncStorage.setItem("lh.deviceId", res.deviceId);
       setProfile({
         id: res.userId ?? "",
         uid: res.uid ?? handle,

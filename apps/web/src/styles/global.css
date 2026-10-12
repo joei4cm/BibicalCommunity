@@ -4544,8 +4544,32 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 }
 
 .im-bubble-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
   font-size: 0.72rem;
   margin-top: 0.2rem;
+}
+
+.im-thread .chat-bubble.is-peer .im-bubble-meta {
+  justify-content: flex-start;
+}
+
+.im-receipt {
+  display: inline-flex;
+  align-items: center;
+  color: color-mix(in srgb, var(--lh-ink-muted, var(--lh-ink)) 72%, transparent);
+  flex-shrink: 0;
+}
+
+.im-receipt.is-read {
+  color: var(--lh-accent, #0f6b5c);
+}
+
+.ui-icon-receipt {
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .im-composer {

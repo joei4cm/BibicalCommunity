@@ -172,3 +172,22 @@ export function IconSearch(props: IconProps) {
     </Svg>
   );
 }
+
+/** Single check — message sent (WhatsApp / Telegram style). */
+export function IconCheck(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="m5 12.5 4.2 4.2L19 7" strokeWidth={2} />
+    </Svg>
+  );
+}
+
+/** Double check — peer has read (when they share read receipts). */
+export function IconCheckRead(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="m2.5 12.5 4.2 4.2L15.5 7" strokeWidth={2} />
+      <path {...stroke} d="m8.5 12.5 4.2 4.2L21.5 7" strokeWidth={2} />
+    </Svg>
+  );
+}

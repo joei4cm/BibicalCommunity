@@ -78,6 +78,51 @@ function buildIceServers(
 }
 
 /**
+ * Public Open Relay (Metered) — used only when Cloudflare Calls TURN and
+ * coturn turn: URIs are unavailable so web/app calls still work cross-NAT.
+ * Prefer TURN_CF_* or self-hosted TURN_URIS in production.
+ */
+export function openRelayIceServers(): {
+  iceServers: IceServerJson[];
+  uris: string[];
+  username: string;
+  credential: string;
+  hasRelay: true;
+  provider: "openrelay-fallback";
+} {
+  const username = "openrelayproject";
+  const credential = "openrelayproject";
+  const uris = [
+    "stun:stun.l.google.com:19302",
+    "stun:stun.cloudflare.com:3478",
+    "turn:openrelay.metered.ca:80",
+    "turn:openrelay.metered.ca:80?transport=tcp",
+    "turn:openrelay.metered.ca:443",
+    "turns:openrelay.metered.ca:443?transport=tcp",
+  ];
+  return {
+    username,
+    credential,
+    uris,
+    hasRelay: true,
+    provider: "openrelay-fallback",
+    iceServers: [
+      { urls: ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"] },
+      {
+        urls: [
+          "turn:openrelay.metered.ca:80",
+          "turn:openrelay.metered.ca:80?transport=tcp",
+          "turn:openrelay.metered.ca:443",
+          "turns:openrelay.metered.ca:443?transport=tcp",
+        ],
+        username,
+        credential,
+      },
+    ],
+  };
+}
+
+/**
  * Optional Cloudflare Calls TURN:
  * https://developers.cloudflare.com/realtime/turn/generate-credentials/
  */
@@ -202,20 +247,32 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
   const credential = bytesToBase64(sig);
   const { iceServers, hasRelay } = buildIceServers(uris, username, credential);
 
-  const stunOnlyNote = cfMintFailed
-    ? "Cloudflare Calls TURN mint failed — falling back to STUN-only. Check TURN_CF_KEY_ID / TURN_CF_API_TOKEN, or set TURN_URIS with turn: hosts + TURN_SECRET."
-    : "No turn:/turns: URI configured — STUN only. Set TURN_URIS with turn: hosts + TURN_SECRET, or TURN_CF_KEY_ID + TURN_CF_API_TOKEN for Cloudflare Calls TURN.";
+  if (hasRelay) {
+    return c.json({
+      username,
+      credential,
+      ttl,
+      uris,
+      iceServers,
+      hasRelay: true,
+      provider: "coturn-hmac",
+      note: "Ephemeral TURN secret (HMAC-SHA1 / coturn REST).",
+    });
+  }
 
+  // No Cloudflare / coturn relay — use public Open Relay so web & app can still call.
+  const fallback = openRelayIceServers();
+  const why = cfMintFailed
+    ? "Cloudflare Calls TURN mint failed; using public Open Relay fallback."
+    : "No TURN_CF_* / turn: URIs; using public Open Relay fallback (set TURN_CF_KEY_ID + TURN_CF_API_TOKEN for production relay).";
   return c.json({
-    username,
-    credential,
+    username: fallback.username,
+    credential: fallback.credential,
     ttl,
-    uris,
-    iceServers,
-    hasRelay,
-    provider: hasRelay ? "coturn-hmac" : "stun-only",
-    note: hasRelay
-      ? "Ephemeral TURN secret (HMAC-SHA1 / coturn REST). Set TURN_URIS to turn:… hosts."
-      : stunOnlyNote,
+    uris: fallback.uris,
+    iceServers: fallback.iceServers,
+    hasRelay: true,
+    provider: fallback.provider,
+    note: why,
   });
 });
