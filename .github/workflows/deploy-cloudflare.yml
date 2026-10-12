@@ -67,9 +67,32 @@ jobs:
         id: deploy_api
         working-directory: apps/api
         run: |
-          set -euo pipefail
-          pnpm exec wrangler deploy -c wrangler.production.ci.toml | tee /tmp/cf-deploy-api.log
-          BASE=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' /tmp/cf-deploy-api.log | head -1 || true)
+          set -uo pipefail
+          # Cloudflare Workers upload occasionally returns 504 / malformed JSON.
+          # Retry with backoff; parse workers.dev URL from successful output.
+          BASE=""
+          for attempt in 1 2 3 4; do
+            echo "== wrangler deploy attempt ${attempt}/4 =="
+            set +e
+            pnpm exec wrangler deploy -c wrangler.production.ci.toml 2>&1 | tee /tmp/cf-deploy-api.log
+            code=${PIPESTATUS[0]}
+            set -e
+            BASE=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' /tmp/cf-deploy-api.log | head -1 || true)
+            if [ "$code" -eq 0 ] && [ -n "$BASE" ]; then
+              break
+            fi
+            # Sometimes upload lands but the follow-up versions poll times out —
+            # if the workers.dev URL appeared, treat as success.
+            if [ -n "$BASE" ] && grep -qE 'Uploaded |Deployed ' /tmp/cf-deploy-api.log; then
+              echo "WARN: wrangler exited ${code} but upload/deploy markers + URL present — continuing"
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "FAIL: wrangler deploy failed after ${attempt} attempts (last exit=${code})"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
           if [ -z "$BASE" ]; then
             echo "FAIL: could not parse workers.dev URL from wrangler deploy output"
             exit 1
