@@ -140,6 +140,8 @@ export function ChatPanel({
   const callRef = useRef<CallSession | null>(null);
   /** Offer SDP captured on the listen socket before Accept opens a full session. */
   const pendingOfferRef = useRef<string | null>(null);
+  /** Conversation that the pending inbound invite belongs to. */
+  const incomingConvoRef = useRef<string | null>(null);
   /** True while a full WebRTC session owns the signaling socket (not mere incoming UI). */
   const [callSessionActive, setCallSessionActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -939,7 +941,13 @@ export function ChatPanel({
   }
 
   async function startCall(asAnswerer = false) {
-    if (!selectedId) return;
+    const conversationId =
+      (asAnswerer ? incomingConvoRef.current : null) ?? selectedId;
+    if (!conversationId) return;
+    if (asAnswerer && conversationId !== selectedId) {
+      setSelectedId(conversationId);
+      setListTab("dm");
+    }
     setBusy(true);
     setCallNote(null);
     setCallOpen(true);
@@ -948,7 +956,7 @@ export function ChatPanel({
     try {
       callRef.current?.close();
       callRef.current = null;
-      // Own the room before tearing down the listen socket.
+      // Own the room before tearing down the listen sockets.
       setCallSessionActive(true);
       const res = await api<{
         callId: string;
@@ -956,13 +964,13 @@ export function ChatPanel({
         note?: string;
       }>("/v1/chat/calls", {
         method: "POST",
-        body: JSON.stringify({ conversationId: selectedId }),
+        body: JSON.stringify({ conversationId }),
       });
       const iceServers = await prepareIce();
       const token = getToken();
       const wsUrl = token
         ? apiWsUrl(
-            `${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(selectedId)}`,
+            `${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(conversationId)}`,
           )
         : null;
       const session = await startCallSession({
@@ -992,6 +1000,7 @@ export function ChatPanel({
       });
       callRef.current = session;
       pendingOfferRef.current = null;
+      incomingConvoRef.current = null;
       setLocalStream(session.localStream);
       if (!asAnswerer) setCallPhase("outgoing");
     } catch (e) {
@@ -1000,59 +1009,90 @@ export function ChatPanel({
       setCallOpen(false);
       setCallSessionActive(false);
       pendingOfferRef.current = null;
+      incomingConvoRef.current = null;
     } finally {
       setBusy(false);
     }
   }
 
-  // Keep a light listen socket on the deterministic call room while a thread is open.
-  // Do NOT tear it down merely because incoming UI is showing (callOpen) — that used to
-  // drop the offer before Accept could join a full session.
+  const callListenKey = useMemo(
+    () =>
+      conversations
+        .filter((c) => c.kind === "dm" && !c.membership.archived)
+        .map((c) => c.id)
+        .sort()
+        .join("|"),
+    [conversations],
+  );
+
+  // Listen on active DM rooms (not only the open thread) so inbound ring/offer
+  // can show Accept even when the user is on the chat list.
   useEffect(() => {
-    if (!selectedId || !getToken() || callSessionActive) return;
+    if (!getToken() || callSessionActive) return;
+    const dmIds = callListenKey ? callListenKey.split("|") : [];
+    // Also keep the selected thread if it is a group/seminar call room.
+    if (selectedId && !dmIds.includes(selectedId)) dmIds.push(selectedId);
+    if (dmIds.length === 0) return;
+
     let closed = false;
-    let sock: WebSocket | null = null;
+    const socks: WebSocket[] = [];
+
     void (async () => {
-      try {
-        const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
-          method: "POST",
-          body: JSON.stringify({ conversationId: selectedId }),
-        });
+      for (const conversationId of dmIds) {
         if (closed) return;
-        const url = apiWsUrl(
-          `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(selectedId)}`,
-        );
-        sock = new WebSocket(url);
-        sock.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
-            if (msg.type === "offer" && msg.sdp) {
-              pendingOfferRef.current = msg.sdp;
-              setCallOpen(true);
-              setCallPhase("incoming");
-            } else if (msg.type === "ring") {
-              setCallOpen(true);
-              setCallPhase("incoming");
-            } else if (msg.type === "hangup") {
-              pendingOfferRef.current = null;
-              if (!callRef.current) {
-                setCallOpen(false);
-                setCallPhase("idle");
+        try {
+          const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
+            method: "POST",
+            body: JSON.stringify({ conversationId }),
+          });
+          if (closed) return;
+          const url = apiWsUrl(
+            `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(conversationId)}`,
+          );
+          const sock = new WebSocket(url);
+          sock.onmessage = (ev) => {
+            try {
+              const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
+              if (msg.type === "offer" && msg.sdp) {
+                pendingOfferRef.current = msg.sdp;
+                incomingConvoRef.current = conversationId;
+                setSelectedId(conversationId);
+                setListTab("dm");
+                setCallOpen(true);
+                setCallPhase("incoming");
+              } else if (msg.type === "ring") {
+                incomingConvoRef.current = conversationId;
+                setSelectedId(conversationId);
+                setListTab("dm");
+                setCallOpen(true);
+                setCallPhase("incoming");
+              } else if (msg.type === "hangup") {
+                if (
+                  !callRef.current &&
+                  incomingConvoRef.current === conversationId
+                ) {
+                  pendingOfferRef.current = null;
+                  incomingConvoRef.current = null;
+                  setCallOpen(false);
+                  setCallPhase("idle");
+                }
               }
+            } catch {
+              /* ignore */
             }
-          } catch {
-            /* ignore */
-          }
-        };
-      } catch {
-        /* listen optional */
+          };
+          socks.push(sock);
+        } catch {
+          /* listen optional per convo */
+        }
       }
     })();
+
     return () => {
       closed = true;
-      sock?.close();
+      for (const s of socks) s.close();
     };
-  }, [selectedId, callSessionActive]);
+  }, [callSessionActive, selectedId, callListenKey]);
 
   async function shareScreen() {
     const gate = probeDisplayMedia();
@@ -1087,6 +1127,7 @@ export function ChatPanel({
     callRef.current?.close();
     callRef.current = null;
     pendingOfferRef.current = null;
+    incomingConvoRef.current = null;
     setCallSessionActive(false);
     setRemoteStream(null);
     setLocalStream(null);
