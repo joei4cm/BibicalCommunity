@@ -4889,8 +4889,13 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 }
 
 .call-btn-icon {
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.call-btn.hangup .call-btn-icon {
+  width: 1.9rem;
+  height: 1.9rem;
 }
 
 .call-btn.accept {
