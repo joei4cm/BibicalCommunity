@@ -4545,15 +4545,39 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   align-items: center;
 }
 
+.ui-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: block;
+  flex-shrink: 0;
+}
+
+.ui-icon-inline {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  margin-inline-end: 0.2em;
+}
+
 .im-tool {
   min-width: 2.4rem;
+  min-height: 2.4rem;
   padding-inline: 0.35rem;
-  font-size: 1.15rem;
+  display: inline-grid;
+  place-items: center;
   line-height: 1;
+  color: var(--lh-ink);
+}
+
+.im-tool .ui-icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .im-tool.is-active {
   background: color-mix(in srgb, var(--lh-accent) 12%, transparent);
+  color: var(--lh-accent);
 }
 
 .im-emoji-picker {
@@ -4644,6 +4668,13 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   color: var(--lh-ink);
 }
 
+.im-search-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--lh-ink-muted);
+  flex-shrink: 0;
+}
+
 .im-search input {
   flex: 1;
   border: 0;
@@ -4715,8 +4746,34 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   font-size: 0.9rem;
 }
 
-.im-call-btn {
-  font-size: 1.15rem;
+.im-call-btn,
+.im-back,
+.im-more > summary.btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  color: var(--lh-ink);
+}
+
+.im-call-btn .ui-icon,
+.im-back .ui-icon,
+.im-more > summary .ui-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.cal-nav-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding-inline: 0.35rem;
+}
+
+.cal-nav-btn .ui-icon {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .im-banner {
@@ -4764,7 +4821,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   font-size: 2rem;
   font-weight: 700;
   margin-top: 12vh;
-  background: color-mix(in srgb, #8b7ec8 70%, #fff);
+  background: color-mix(in srgb, var(--lh-accent, #1c3d48) 55%, #fff);
 }
 
 .call-peer-name {
@@ -4820,10 +4877,20 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   min-width: 5.5rem;
   border: 0;
   border-radius: 999px;
-  padding: 0.85rem 1.15rem;
+  padding: 0.75rem 1.1rem;
   font: inherit;
   font-weight: 650;
   cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.call-btn-icon {
+  width: 1.45rem;
+  height: 1.45rem;
 }
 
 .call-btn.accept {
@@ -4876,6 +4943,15 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   min-width: 4.4rem;
   border-radius: 14px;
   padding-inline: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.im-send .ui-icon {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .im-thread .chat-bubble.is-mine {

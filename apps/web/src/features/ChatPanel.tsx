@@ -25,6 +25,16 @@ import { SheetPortal } from "../components/SheetPortal";
 import { EmojiPicker } from "../components/EmojiPicker";
 import { CallOverlay, type CallPhase } from "../components/CallOverlay";
 import {
+  IconChevronLeft,
+  IconEmoji,
+  IconMore,
+  IconPaperclip,
+  IconPhone,
+  IconPlus,
+  IconSearch,
+  IconSend,
+} from "../components/icons";
+import {
   encodeChatPayload,
   parseChatPayload,
   payloadPreview,
@@ -1113,9 +1123,10 @@ export function ChatPanel({
               type="button"
               className="btn ghost im-back"
               data-testid="chat-back-list"
+              aria-label={t("chat.back")}
               onClick={() => setSelectedId(null)}
             >
-              ←
+              <IconChevronLeft />
             </button>
             <div className="im-thread-peer">
               <span className="im-avatar" aria-hidden>
@@ -1136,10 +1147,12 @@ export function ChatPanel({
               aria-label={t("chat.call")}
               onClick={() => void startCall(false)}
             >
-              📞
+              <IconPhone />
             </button>
             <details className="im-more">
-              <summary className="btn ghost">···</summary>
+              <summary className="btn ghost" aria-label={t("chat.more")}>
+                <IconMore />
+              </summary>
               <div className="im-more-menu">
                 <div className="field">
                   <label>{t("chat.disappearing")}</label>
@@ -1221,7 +1234,7 @@ export function ChatPanel({
                             if (!mediaUrls[payload.mediaKey]) e.preventDefault();
                           }}
                         >
-                          📎 {payload.name}
+                          <IconPaperclip className="ui-icon-inline" /> {payload.name}
                         </a>
                       )}
                       {payload.text ? <p className="chat-bubble-text">{payload.text}</p> : null}
@@ -1255,7 +1268,7 @@ export function ChatPanel({
                 disabled={busy || dmPeerBlocked}
                 onClick={() => fileInputRef.current?.click()}
               >
-                ＋
+                <IconPlus />
               </button>
               <button
                 type="button"
@@ -1266,7 +1279,7 @@ export function ChatPanel({
                 disabled={dmPeerBlocked}
                 onClick={() => setEmojiOpen((v) => !v)}
               >
-                😊
+                <IconEmoji />
               </button>
               <input
                 ref={fileInputRef}
@@ -1301,9 +1314,11 @@ export function ChatPanel({
                 type="button"
                 className="btn im-send"
                 disabled={busy || dmPeerBlocked || !draft.trim()}
+                aria-label={t("chat.send")}
                 onClick={() => void sendMessage()}
               >
-                {t("chat.send")}
+                <IconSend />
+                <span className="im-send-label">{t("chat.send")}</span>
               </button>
             </div>
           </footer>
@@ -1314,7 +1329,7 @@ export function ChatPanel({
             <h2 className="im-list-title">{t("chat.tabChats")}</h2>
           </div>
           <label className="im-search">
-            <span aria-hidden>⌕</span>
+            <IconSearch className="im-search-icon" />
             <input
               value={listQuery}
               onChange={(e) => setListQuery(e.target.value)}

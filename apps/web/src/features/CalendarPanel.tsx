@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
+import { IconChevronLeft, IconChevronRight } from "../components/icons";
 
 type CalEvent = {
   id: string;
@@ -403,8 +404,8 @@ export function CalendarPanel({
       )}
 
       <div className="toolbar" style={{ marginBottom: "0.55rem" }}>
-        <button type="button" className="btn ghost" onClick={() => shift(-1)} aria-label="prev">
-          ←
+        <button type="button" className="btn ghost cal-nav-btn" onClick={() => shift(-1)} aria-label="prev">
+          <IconChevronLeft />
         </button>
         <strong className="cal-cursor-label">
           {view === "month"
@@ -416,8 +417,8 @@ export function CalendarPanel({
                 weekday: "short",
               })}
         </strong>
-        <button type="button" className="btn ghost" onClick={() => shift(1)} aria-label="next">
-          →
+        <button type="button" className="btn ghost cal-nav-btn" onClick={() => shift(1)} aria-label="next">
+          <IconChevronRight />
         </button>
         <button
           type="button"
