@@ -1,4 +1,6 @@
-/** Stroke icon set for chat / calls chrome (no emoji glyphs). */
+/** Stroke icon set for chat / calls chrome (no emoji glyphs).
+ * Colors follow `currentColor` so day / blush / sepia / night / highContrast all work.
+ */
 import type { ReactNode } from "react";
 
 type IconProps = {
@@ -10,12 +12,13 @@ function Svg({
   className,
   title,
   children,
-}: IconProps & { children: ReactNode }) {
+  filled = false,
+}: IconProps & { children: ReactNode; filled?: boolean }) {
   return (
     <svg
-      className={`ui-icon${className ? ` ${className}` : ""}`}
+      className={`ui-icon${filled ? " ui-icon--filled" : ""}${className ? ` ${className}` : ""}`}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden={title ? undefined : true}
       role={title ? "img" : undefined}
@@ -54,13 +57,10 @@ export function IconPhoneAccept(props: IconProps) {
 /** End call — classic downward receiver (filled; readable on the red button). */
 export function IconPhoneHangup(props: IconProps) {
   return (
-    <Svg {...props}>
+    <Svg {...props} filled>
       {/* Scale/center Material call_end so earpieces read at button size */}
       <g transform="translate(12 12) scale(1.15) translate(-12 -11.2)">
-        <path
-          fill="currentColor"
-          d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08A.996.996 0 0 1 0 12.37c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.68-1.36-2.66-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"
-        />
+        <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08A.996.996 0 0 1 0 12.37c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.68-1.36-2.66-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
       </g>
     </Svg>
   );
