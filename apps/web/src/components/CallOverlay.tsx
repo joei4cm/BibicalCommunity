@@ -1,5 +1,11 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  IconPhoneAccept,
+  IconPhoneHangup,
+  IconVideo,
+  IconVideoOff,
+} from "./icons";
 
 export type CallPhase = "idle" | "outgoing" | "incoming" | "connected";
 
@@ -64,15 +70,37 @@ export function CallOverlay({
 
         <div className="call-actions">
           {phase === "incoming" && (
-            <button type="button" className="call-btn accept" onClick={onAccept}>
-              {t("chat.callAccept")}
+            <button
+              type="button"
+              className="call-btn accept"
+              onClick={onAccept}
+              aria-label={t("chat.callAccept")}
+            >
+              <IconPhoneAccept className="call-btn-icon" />
+              <span>{t("chat.callAccept")}</span>
             </button>
           )}
-          <button type="button" className="call-btn ghost" onClick={onToggleVideo}>
-            {video ? t("chat.callAudio") : t("chat.callVideo")}
+          <button
+            type="button"
+            className="call-btn ghost"
+            onClick={onToggleVideo}
+            aria-label={video ? t("chat.callAudio") : t("chat.callVideo")}
+          >
+            {video ? (
+              <IconVideoOff className="call-btn-icon" />
+            ) : (
+              <IconVideo className="call-btn-icon" />
+            )}
+            <span>{video ? t("chat.callAudio") : t("chat.callVideo")}</span>
           </button>
-          <button type="button" className="call-btn hangup" onClick={onHangup}>
-            {t("chat.hangup")}
+          <button
+            type="button"
+            className="call-btn hangup"
+            onClick={onHangup}
+            aria-label={t("chat.hangup")}
+          >
+            <IconPhoneHangup className="call-btn-icon" />
+            <span>{t("chat.hangup")}</span>
           </button>
         </div>
       </div>

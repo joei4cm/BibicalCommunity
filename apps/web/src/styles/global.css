@@ -1417,7 +1417,7 @@ body:has(.app-folio) .tab-bar a {
   border-radius: var(--lh-control-radius);
   padding: 0.62rem 1.15rem;
   background: color-mix(in srgb, var(--lh-accent) 94%, #0a1a20);
-  color: #f7f5f1;
+  color: var(--lh-on-accent, #f7f5f1);
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -1527,12 +1527,31 @@ body:has(.bible-reader)::after {
   background: var(--lh-bg);
   color: var(--lh-ink);
   box-shadow: none;
-  border-color: var(--lh-border);
+  /* Stronger than default --lh-border so stroke icons read on dark chrome */
+  border-color: color-mix(in srgb, var(--lh-ink) 22%, transparent);
+}
+
+[data-theme="night"] .im-call-btn,
+[data-theme="night"] .im-back,
+[data-theme="night"] .im-more > summary.btn,
+[data-theme="night"] .im-tool,
+[data-theme="night"] .cal-nav-btn {
+  color: var(--lh-ink);
 }
 
 [data-theme="night"] .im-tool.is-active {
   background: color-mix(in srgb, var(--lh-accent) 18%, var(--lh-bg));
   color: var(--lh-accent);
+  border-color: color-mix(in srgb, var(--lh-accent) 50%, transparent);
+}
+
+[data-theme="night"] .im-search-icon {
+  color: var(--lh-ink-muted);
+}
+
+[data-theme="night"] .im-send .ui-icon,
+[data-theme="night"] .btn:not(.ghost) .ui-icon {
+  color: inherit;
 }
 
 [data-theme="night"] .im-banner,
@@ -4545,15 +4564,49 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   align-items: center;
 }
 
+.ui-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: block;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.ui-icon--filled {
+  fill: currentColor;
+}
+
+.ui-icon-inline {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  margin-inline-end: 0.2em;
+}
+
+/* High-contrast: slightly heavier strokes for chrome glyphs */
+[data-theme="highContrast"] .ui-icon:not(.ui-icon--filled) :is(path, circle, rect, line, polyline) {
+  stroke-width: 2.1;
+}
+
 .im-tool {
   min-width: 2.4rem;
+  min-height: 2.4rem;
   padding-inline: 0.35rem;
-  font-size: 1.15rem;
+  display: inline-grid;
+  place-items: center;
   line-height: 1;
+  color: var(--lh-ink);
+}
+
+.im-tool .ui-icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .im-tool.is-active {
   background: color-mix(in srgb, var(--lh-accent) 12%, transparent);
+  color: var(--lh-accent);
 }
 
 .im-emoji-picker {
@@ -4644,6 +4697,13 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   color: var(--lh-ink);
 }
 
+.im-search-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--lh-ink-muted);
+  flex-shrink: 0;
+}
+
 .im-search input {
   flex: 1;
   border: 0;
@@ -4715,8 +4775,34 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   font-size: 0.9rem;
 }
 
-.im-call-btn {
-  font-size: 1.15rem;
+.im-call-btn,
+.im-back,
+.im-more > summary.btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  color: var(--lh-ink);
+}
+
+.im-call-btn .ui-icon,
+.im-back .ui-icon,
+.im-more > summary .ui-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.cal-nav-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding-inline: 0.35rem;
+}
+
+.cal-nav-btn .ui-icon {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .im-banner {
@@ -4764,7 +4850,7 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   font-size: 2rem;
   font-weight: 700;
   margin-top: 12vh;
-  background: color-mix(in srgb, #8b7ec8 70%, #fff);
+  background: color-mix(in srgb, var(--lh-accent, #1c3d48) 55%, #fff);
 }
 
 .call-peer-name {
@@ -4820,10 +4906,28 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   min-width: 5.5rem;
   border: 0;
   border-radius: 999px;
-  padding: 0.85rem 1.15rem;
+  padding: 0.75rem 1.1rem;
   font: inherit;
   font-weight: 650;
   cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  /* Overlay is always a dark stage — keep glyphs light across app themes */
+  color: #fff;
+}
+
+.call-btn-icon {
+  width: 1.7rem;
+  height: 1.7rem;
+  color: inherit;
+}
+
+.call-btn.hangup .call-btn-icon {
+  width: 1.9rem;
+  height: 1.9rem;
 }
 
 .call-btn.accept {
@@ -4839,6 +4943,10 @@ body:has(.chat-page.is-im-thread) .tab-bar {
 .call-btn.ghost {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
+.call-btn .ui-icon {
+  color: inherit;
 }
 
 .im-composer-row {
@@ -4876,6 +4984,15 @@ body:has(.chat-page.is-im-thread) .tab-bar {
   min-width: 4.4rem;
   border-radius: 14px;
   padding-inline: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.im-send .ui-icon {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .im-thread .chat-bubble.is-mine {

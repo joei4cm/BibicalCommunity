@@ -6,6 +6,7 @@
   --lh-ink: #18232b;
   --lh-ink-muted: #5f6d78;
   --lh-accent: #1c3d48;
+  --lh-on-accent: #f7f5f1;
   --lh-accent-soft: rgba(28, 61, 72, 0.1);
   --lh-danger: #9b2c2c;
   --lh-border: rgba(28, 42, 50, 0.12);
@@ -33,6 +34,7 @@
   --lh-ink: #3a2428;
   --lh-ink-muted: #8a6570;
   --lh-accent: #c45c6a;
+  --lh-on-accent: #fff8f9;
   --lh-accent-soft: rgba(196, 92, 106, 0.12);
   --lh-danger: #9b2c2c;
   --lh-border: rgba(58, 36, 40, 0.12);
@@ -59,6 +61,7 @@
   --lh-ink: #3b2f2a;
   --lh-ink-muted: #6d5a4e;
   --lh-accent: #8a5a2b;
+  --lh-on-accent: #f7f5f1;
   --lh-accent-soft: #ebd7b8;
   --lh-reader-bg: #f0e4cf;
   --lh-reader-verse: #3b2f2a;
@@ -80,6 +83,8 @@
   --lh-ink: #e7efed;
   --lh-ink-muted: #9bb0ac;
   --lh-accent: #3dbaa4;
+  /* Light glyph on teal primary — matches other night chrome icons */
+  --lh-on-accent: #f4fffc;
   --lh-accent-soft: #1e3d38;
   --lh-reader-bg: #0e1514;
   --lh-reader-verse: #e7efed;
@@ -102,6 +107,7 @@
   --lh-ink: #000000;
   --lh-ink-muted: #222222;
   --lh-accent: #004d40;
+  --lh-on-accent: #ffffff;
   --lh-accent-soft: #e0f2f1;
   --lh-reader-bg: #ffffff;
   --lh-reader-verse: #000000;
