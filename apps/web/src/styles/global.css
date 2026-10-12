@@ -1476,12 +1476,25 @@ body:has(.bible-reader)::after {
 
 [data-theme="night"] .im-back,
 [data-theme="night"] .im-thread-bar .btn.ghost,
+[data-theme="night"] .im-composer .btn.ghost,
+[data-theme="night"] .im-tool,
 [data-theme="night"] .im-composer-input,
 [data-theme="night"] .im-emoji-picker,
 [data-theme="night"] .im-search {
   background: var(--lh-bg);
   color: var(--lh-ink);
   box-shadow: none;
+  border-color: var(--lh-border);
+}
+
+[data-theme="night"] .im-tool.is-active {
+  background: color-mix(in srgb, var(--lh-accent) 18%, var(--lh-bg));
+  color: var(--lh-accent);
+}
+
+[data-theme="night"] .im-banner,
+[data-theme="night"] .im-note {
+  color: var(--lh-ink-muted);
 }
 
 [data-theme="night"] .im-thread .chat-bubble.is-peer {
