@@ -2244,11 +2244,72 @@ body:has(.bible-reader) .tab-bar a.active::after {
   min-height: 2.5rem;
 }
 
+/* Calendar: keep month/week/day inside the mobile viewport */
+.calendar-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  box-sizing: border-box;
+}
+
+.app-main:has(.chat-page) {
+  width: min(720px, 100%);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  box-sizing: border-box;
+  /* Match me-page: folio padding was expanding past the phone via grid min-content. */
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.chat-page.app-folio {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  box-sizing: border-box;
+  padding-top: 0.35rem;
+  contain: inline-size;
+}
+
+.app-shell:has(.chat-page) {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.calendar-panel .field input,
+.calendar-panel .field textarea,
+.sheet-panel .field input,
+.sheet-panel .field textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.sheet-panel .field input[type="datetime-local"],
+.sheet-panel .field input[type="date"],
+.calendar-panel .field input[type="datetime-local"],
+.calendar-panel .field input[type="date"] {
+  /* WebKit datetime-local has a large intrinsic min-width that blows past phones. */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .cal-month {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.25rem;
   margin-bottom: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cal-weekday {
@@ -2294,11 +2355,17 @@ body:has(.bible-reader) .tab-bar a.active::after {
   gap: 0.55rem;
   min-height: 0;
   margin-bottom: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .cal-date-strip {
   display: flex;
   gap: 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
@@ -2363,15 +2430,21 @@ body:has(.bible-reader) .tab-bar a.active::after {
   flex-direction: column;
   gap: 0.45rem;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .cal-agenda-allday {
   display: grid;
-  grid-template-columns: 3.25rem 1fr;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
   gap: 0.35rem;
   align-items: start;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--br-line, var(--lh-border));
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .cal-agenda-allday-label {
@@ -2395,6 +2468,10 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border-radius: 0 8px 8px 0;
   padding: 0.4rem 0.55rem;
   font-size: 0.88rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .cal-agenda-chip.is-seminar,
@@ -2425,9 +2502,10 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .cal-agenda-row {
   display: grid;
-  grid-template-columns: 3.25rem 1fr;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
   min-height: 3rem;
   border-bottom: 1px solid color-mix(in srgb, var(--br-line, var(--lh-border)) 70%, transparent);
+  min-width: 0;
 }
 
 .cal-agenda-row:last-child {
@@ -2450,12 +2528,43 @@ body:has(.bible-reader) .tab-bar a.active::after {
   flex-direction: column;
   gap: 0.25rem;
   min-height: 2.8rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cal-cursor-label {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   text-align: center;
   font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-panel > .toolbar {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+}
+
+.cal-invite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.cal-invite-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
 }
 
 .cal-week-modes .btn.ghost.is-on,
@@ -4379,10 +4488,6 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 /* —— Comms / IM / shared bottom sheets (mobile-first) —— */
-.chat-page.app-folio {
-  padding-top: 0.35rem;
-}
-
 .chat-page .comms-tabs {
   margin-bottom: 0.55rem;
 }
@@ -5216,8 +5321,11 @@ body:has(.sheet-backdrop) .dadao-fab {
 
 .sheet-panel {
   width: min(32rem, 100%);
+  max-width: 100%;
+  min-width: 0;
   max-height: min(88dvh, 42rem);
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
   margin: 0;
   padding: 0.35rem 1rem calc(1rem + env(safe-area-inset-bottom));
   border-radius: 16px 16px 0 0;
@@ -5225,6 +5333,7 @@ body:has(.sheet-backdrop) .dadao-fab {
   color: var(--lh-ink);
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
   animation: sheet-up 0.22s ease;
+  box-sizing: border-box;
 }
 
 .sheet-handle {

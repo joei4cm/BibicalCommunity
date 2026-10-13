@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
+import {
+  parseEventStartMs,
+  toDateInputValue,
+  toDateTimeLocalValue,
+} from "../lib/calendar-time";
 import { humanizeStatus } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
 import { IconChevronLeft, IconChevronRight } from "../components/icons";
@@ -17,6 +22,10 @@ type CalEvent = {
   inviteStatus: string | null;
   inviteId: string | null;
   mine: boolean;
+};
+
+type FriendRow = {
+  user: { id: string; uid?: string | null; nickname?: string | null };
 };
 
 type EventKind = "event" | "seminar";
@@ -52,6 +61,24 @@ function eventHour(e: CalEvent) {
   return new Date(e.startAt).getHours();
 }
 
+function friendLabel(f: FriendRow): string {
+  return f.user.nickname?.trim() || f.user.uid?.trim() || f.user.id.slice(0, 8);
+}
+
+function defaultStartValue(cursor: Date, allDay: boolean): string {
+  if (allDay) return toDateInputValue(cursor);
+  const base = startOfDay(cursor);
+  const now = new Date();
+  if (sameDay(base, now)) {
+    const rounded = new Date(now);
+    rounded.setMinutes(0, 0, 0);
+    rounded.setHours(rounded.getHours() + 1);
+    return toDateTimeLocalValue(rounded);
+  }
+  base.setHours(9, 0, 0, 0);
+  return toDateTimeLocalValue(base);
+}
+
 export function CalendarPanel({
   onBadgesMaybeChanged,
 }: {
@@ -63,6 +90,7 @@ export function CalendarPanel({
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [note, setNote] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -70,6 +98,8 @@ export function CalendarPanel({
   const [allDay, setAllDay] = useState(true);
   const [eventKind, setEventKind] = useState<EventKind>("event");
   const [startLocal, setStartLocal] = useState("");
+  const [friends, setFriends] = useState<FriendRow[]>([]);
+  const [inviteeIds, setInviteeIds] = useState<string[]>([]);
   const agendaScrollRef = useRef<HTMLDivElement | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -105,6 +135,51 @@ export function CalendarPanel({
   useEffect(() => {
     void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [refresh]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  const loadFriends = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      const fr = await api<{ friends: FriendRow[] }>("/v1/friends");
+      setFriends(fr.friends);
+    } catch {
+      setFriends([]);
+    }
+  }, []);
+
+  function openCompose() {
+    setToast(null);
+    setTitle("");
+    setNotes("");
+    setEventKind("event");
+    setAllDay(true);
+    setStartLocal(defaultStartValue(cursor, true));
+    setInviteeIds([]);
+    setComposeOpen(true);
+    void loadFriends();
+  }
+
+  function closeCompose() {
+    setComposeOpen(false);
+  }
+
+  function toggleInvitee(id: string) {
+    setInviteeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function onAllDayChange(next: boolean) {
+    setAllDay(next);
+    setStartLocal((prev) => {
+      const ms = parseEventStartMs(prev, allDay);
+      const base = ms != null ? new Date(ms) : cursor;
+      return defaultStartValue(base, next);
+    });
+  }
 
   const dayEvents = useMemo(
     () =>
@@ -173,10 +248,14 @@ export function CalendarPanel({
   }, [cursor, view, weekMode]);
 
   async function createEvent() {
-    if (!title.trim() || !startLocal) return;
+    if (!title.trim()) return;
+    const startAt = parseEventStartMs(startLocal, allDay);
+    if (startAt == null) {
+      setNote("event_start_invalid");
+      return;
+    }
     setBusy(true);
     try {
-      const startAt = new Date(startLocal).getTime();
       await api("/v1/calendar/events", {
         method: "POST",
         body: JSON.stringify({
@@ -185,12 +264,17 @@ export function CalendarPanel({
           startAt,
           allDay,
           kind: eventKind,
+          inviteeIds: inviteeIds.length ? inviteeIds : undefined,
         }),
       });
-      setComposeOpen(false);
+      closeCompose();
       setTitle("");
       setNotes("");
       setEventKind("event");
+      setInviteeIds([]);
+      setCursor(startOfDay(new Date(startAt)));
+      setView("day");
+      setToast("event_saved");
       await refresh();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
@@ -358,9 +442,21 @@ export function CalendarPanel({
     );
   }
 
+  const statusNote =
+    note === "event_start_invalid"
+      ? t("comms.eventStartInvalid")
+      : note
+        ? humanizeStatus(t, note)
+        : null;
+
   return (
     <div className="calendar-panel" data-testid="comms-calendar">
-      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+      {toast === "event_saved" && (
+        <p className="muted" data-testid="calendar-event-saved">
+          {t("comms.eventSaved")}
+        </p>
+      )}
+      {statusNote && <p className="muted">{statusNote}</p>}
 
       <div className="manage-subtabs" role="tablist">
         {(
@@ -475,14 +571,15 @@ export function CalendarPanel({
         type="button"
         className="comms-fab"
         aria-label={t("comms.newEvent")}
-        onClick={() => setComposeOpen(true)}
+        data-testid="calendar-new-event"
+        onClick={openCompose}
       >
         +
       </button>
 
       {composeOpen && (
         <SheetPortal>
-          <div className="sheet-backdrop" role="presentation" onClick={() => setComposeOpen(false)}>
+          <div className="sheet-backdrop" role="presentation" onClick={closeCompose}>
             <div
               className="sheet-panel"
               role="dialog"
@@ -493,7 +590,7 @@ export function CalendarPanel({
               <div className="sheet-handle" aria-hidden />
               <div className="chat-sheet-head">
                 <h3 style={{ margin: 0 }}>{t("comms.newEvent")}</h3>
-                <button type="button" className="btn ghost" onClick={() => setComposeOpen(false)}>
+                <button type="button" className="btn ghost" onClick={closeCompose}>
                   ✕
                 </button>
               </div>
@@ -518,31 +615,65 @@ export function CalendarPanel({
               </div>
               <div className="field">
                 <label>{t("comms.eventTitle")}</label>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  data-testid="calendar-event-title"
+                />
               </div>
               <div className="field">
                 <label>{t("comms.eventStart")}</label>
                 <input
-                  type="datetime-local"
+                  type={allDay ? "date" : "datetime-local"}
                   value={startLocal}
                   onChange={(e) => setStartLocal(e.target.value)}
+                  data-testid="calendar-event-start"
                 />
               </div>
               <label className="muted" style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={allDay}
+                  onChange={(e) => onAllDayChange(e.target.checked)}
+                  data-testid="calendar-event-allday"
+                />
                 {t("comms.allDay")}
               </label>
               <div className="field">
                 <label>{t("comms.eventNotes")}</label>
                 <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
+              <div className="field">
+                <label>{t("comms.inviteFriends")}</label>
+                {friends.length === 0 ? (
+                  <p className="muted" style={{ margin: 0 }}>
+                    {t("comms.noFriendsToInvite")}
+                  </p>
+                ) : (
+                  <ul className="cal-invite-list" data-testid="calendar-invite-list">
+                    {friends.map((f) => (
+                      <li key={f.user.id}>
+                        <label className="cal-invite-row">
+                          <input
+                            type="checkbox"
+                            checked={inviteeIds.includes(f.user.id)}
+                            onChange={() => toggleInvitee(f.user.id)}
+                          />
+                          <span>{friendLabel(f)}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <button
                 type="button"
                 className="btn"
                 disabled={busy || !title.trim() || !startLocal}
+                data-testid="calendar-publish-event"
                 onClick={() => void createEvent()}
               >
-                {t("comms.saveEvent")}
+                {t("comms.publishEvent")}
               </button>
             </div>
           </div>
