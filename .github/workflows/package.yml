@@ -160,6 +160,7 @@ jobs:
           npm run sync:web
           npx cap add android
           npx cap sync android
+          npm run patch:android
       - name: Assemble Android debug APK
         working-directory: apps/native/android
         env:

@@ -5,8 +5,9 @@
   "description": "Capacitor shell wrapping the LogosHome web build for Android / iOS",
   "scripts": {
     "sync:web": "node ./scripts/sync-web.mjs",
-    "cap:sync": "npm run sync:web && npx cap sync",
-    "build:android": "npm run sync:web && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "patch:android": "node ./scripts/patch-android.mjs",
+    "cap:sync": "npm run sync:web && npx cap sync && npm run patch:android",
+    "build:android": "npm run sync:web && npx cap sync android && npm run patch:android && cd android && ./gradlew assembleDebug",
     "build:ios": "npm run sync:web && npx cap sync ios"
   },
   "dependencies": {

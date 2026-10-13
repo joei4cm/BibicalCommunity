@@ -2,14 +2,19 @@
   "appId": "app.logoshome.shell",
   "appName": "圣言家 LogosHome",
   "webDir": "www",
+  "zoomEnabled": false,
   "server": {
     "androidScheme": "https"
   },
   "android": {
-    "allowMixedContent": true
+    "allowMixedContent": true,
+    "zoomEnabled": false,
+    "backgroundColor": "#1c3d48",
+    "adjustMarginsForEdgeToEdge": "force"
   },
   "ios": {
-    "contentInset": "automatic",
-    "scheme": "LogosHome"
+    "contentInset": "never",
+    "scheme": "LogosHome",
+    "backgroundColor": "#1c3d48"
   }
 }
