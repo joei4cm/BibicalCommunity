@@ -313,18 +313,43 @@ jobs:
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           fi
           echo "Publishing release tag: $(grep tag "$GITHUB_OUTPUT")"
+      - name: Bundle web-dist (avoid duplicate asset basenames on Release)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          if [ -d artifacts/web-dist ]; then
+            (cd artifacts/web-dist && zip -r -q ../../release-assets/LogosHome-web-dist.zip .)
+          fi
+          # Flatten installers / APK / iOS zip with unique names.
+          shopt -s nullglob
+          for f in artifacts/desktop-linux/* artifacts/desktop-windows/* artifacts/desktop-mac/* artifacts/android-apk/* artifacts/ios-simulator/*; do
+            cp -f "$f" "release-assets/$(basename "$f")"
+          done
+          ls -lah release-assets
+      - name: Drop prior draft for this tag (if any)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Draft failures leave untagged/partial releases; remove before republish.
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          # Also delete draft releases whose name matches this tag.
+          mapfile -t IDS < <(gh api "repos/${{ github.repository }}/releases?per_page=20" \
+            --jq ".[] | select(.draft==true and ((.tag_name==\"$TAG\") or (.name|test(\"$TAG\")))) | .id")
+          for id in "${IDS[@]:-}"; do
+            [ -n "$id" ] || continue
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" || true
+          done
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: LogosHome ${{ steps.tag.outputs.tag }}
+          draft: false
           generate_release_notes: true
-          files: |
-            artifacts/desktop-linux/**
-            artifacts/desktop-windows/**
-            artifacts/desktop-mac/**
-            artifacts/android-apk/**
-            artifacts/ios-simulator/**
-            artifacts/web-dist/**
+          fail_on_unmatched_files: true
+          files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
