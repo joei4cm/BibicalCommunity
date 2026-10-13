@@ -29,6 +29,9 @@ concurrency:
 
 env:
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
+  # Packaged Electron/Capacitor builds load file:// — relative /v1 hits HTML.
+  # Bake the production Worker URL into web-dist used by desktop/APK/iOS.
+  VITE_API_BASE: https://logoshome-api.joei4cm.workers.dev
 
 jobs:
   web-dist:
@@ -50,7 +53,10 @@ jobs:
           echo "VITE_APP_VERSION=${BASE}+${HASH}" >> "$GITHUB_ENV"
       - run: pnpm install
       - run: pnpm --filter @logoshome/shared --filter @logoshome/bible --filter @logoshome/crypto --filter @logoshome/ui build
-      - run: pnpm --filter @logoshome/web build
+      - name: Build web (VITE_API_BASE for packaged shells)
+        env:
+          VITE_API_BASE: ${{ env.VITE_API_BASE }}
+        run: pnpm --filter @logoshome/web build
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist

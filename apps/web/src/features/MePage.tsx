@@ -8,7 +8,7 @@ import {
   type ThemeId,
 } from "@logoshome/shared";
 import { applyTheme } from "@logoshome/ui";
-import { api, getToken, setToken } from "../lib/api";
+import { api, getApiBase, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
 import {
   loadProductSignalPrefer,
@@ -194,7 +194,7 @@ export function MePage() {
     setPendingWipes([]);
     setMsg("wiped");
     if (!token) return;
-    const base = import.meta.env.VITE_API_BASE ?? "";
+    const base = getApiBase();
     for (const cmd of commands) {
       try {
         await fetch(`${base}/v1/admin/wipe/${cmd.id}/ack`, {

@@ -2,7 +2,15 @@ import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { normalizeLocale } from "@logoshome/shared";
-import { api, getToken, setToken } from "../lib/api";
+import {
+  DEFAULT_PROD_API_BASE,
+  api,
+  getApiBase,
+  getToken,
+  isPackagedShell,
+  setApiBase,
+  setToken,
+} from "../lib/api";
 import { buildDeviceName, detectDevicePlatform } from "../lib/device-label";
 import { humanizeStatus } from "../lib/status";
 import { BrandMark } from "../components/BrandMark";
@@ -37,8 +45,10 @@ export function LoginPage() {
   const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
+  const [serverUrl, setServerUrl] = useState(() => getApiBase() || DEFAULT_PROD_API_BASE);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const showServerField = isPackagedShell();
 
   if (getToken()) {
     return <Navigate to={returnTo} replace />;
@@ -71,10 +81,17 @@ export function LoginPage() {
     }
   }
 
+  function applyServerUrl() {
+    const next = serverUrl.trim() || DEFAULT_PROD_API_BASE;
+    setApiBase(next);
+    setServerUrl(next.replace(/\/$/, ""));
+  }
+
   async function onLogin() {
     setMsg(null);
     setBusy(true);
     try {
+      if (showServerField) applyServerUrl();
       const fields = readForm();
       if (!fields.handle || !fields.password) {
         setMsg("auth.invalidCredentials");
@@ -118,6 +135,7 @@ export function LoginPage() {
     setMsg(null);
     setBusy(true);
     try {
+      if (showServerField) applyServerUrl();
       const fields = readForm();
       if (!fields.handle || fields.password.length < 10) {
         setMsg("auth.invalidCredentials");
@@ -175,6 +193,24 @@ export function LoginPage() {
             else void onRegister();
           }}
         >
+          {showServerField && (
+            <div className="field">
+              <label htmlFor="lh-login-server">{t("me.serverUrl")}</label>
+              <input
+                id="lh-login-server"
+                name="serverUrl"
+                inputMode="url"
+                autoComplete="url"
+                data-testid="login-server-url"
+                placeholder={DEFAULT_PROD_API_BASE}
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+              />
+              <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.85em" }}>
+                {t("me.serverUrlHint")}
+              </p>
+            </div>
+          )}
           <div className="field">
             <label htmlFor="lh-login-handle">{t("auth.handle")}</label>
             <input

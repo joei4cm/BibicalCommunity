@@ -60,6 +60,8 @@ export function humanizeStatus(
     keys_failed: "security.deviceKeysMissing",
     wiped: "security.wipe",
     device_revoked: "me.deviceRevoked",
+    api_html_response: "auth.apiHtmlResponse",
+    api_base_required: "me.serverUrlHint",
   };
   const key = map[code];
   return key ? t(key) : code;
