@@ -182,10 +182,20 @@ jobs:
         env:
           JAVA_HOME: ${{ env.JAVA_HOME }}
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Rename APK to LogosHome-<version>-android-debug.apk
+        run: |
+          set -euo pipefail
+          VER=$(node -p "require('./package.json').version")
+          SRC=$(ls apps/native/android/app/build/outputs/apk/debug/*.apk | head -n 1)
+          test -n "$SRC"
+          mkdir -p apps/native/release
+          DEST="apps/native/release/LogosHome-${VER}-android-debug.apk"
+          cp -f "$SRC" "$DEST"
+          ls -lah "$DEST"
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: apps/native/android/app/build/outputs/apk/debug/*.apk
+          path: apps/native/release/LogosHome-*-android-debug.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -230,14 +240,18 @@ jobs:
       - name: Package simulator .app
         working-directory: apps/native/ios/App
         run: |
+          set -euo pipefail
           APP_PATH=$(find build -type d -name "App.app" | head -n 1)
           test -n "$APP_PATH"
+          VER=$(node -p "require(process.env.GITHUB_WORKSPACE + '/package.json').version")
           mkdir -p ../../release
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" ../../release/LogosHome-ios-simulator.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" \
+            "../../release/LogosHome-${VER}-ios-simulator.zip"
+          ls -lah ../../release
       - uses: actions/upload-artifact@v4
         with:
           name: ios-simulator
-          path: apps/native/release/*.zip
+          path: apps/native/release/LogosHome-*-ios-simulator.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -324,16 +338,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          VER=$(node -p "require('./package.json').version")
           mkdir -p release-assets
           if [ -d artifacts/web-dist ]; then
-            (cd artifacts/web-dist && zip -r -q ../../release-assets/LogosHome-web-dist.zip .)
+            (cd artifacts/web-dist && zip -r -q "../../release-assets/LogosHome-${VER}-web-dist.zip" .)
           fi
-          # Flatten installers / APK / iOS zip with unique names.
+          # Flatten installers / APK / iOS zip (already LogosHome-<ver>-* from job steps).
           shopt -s nullglob
           for f in artifacts/desktop-linux/* artifacts/desktop-windows/* artifacts/desktop-mac/* artifacts/android-apk/* artifacts/ios-simulator/*; do
             cp -f "$f" "release-assets/$(basename "$f")"
           done
           ls -lah release-assets
+          # Guard: Android asset must not ship as bare app-debug.apk
+          if ls release-assets/app-debug.apk >/dev/null 2>&1; then
+            echo "FAIL: raw app-debug.apk leaked into release-assets" >&2
+            exit 1
+          fi
+          test -n "$(ls release-assets/LogosHome-*-android-debug.apk 2>/dev/null | head -n 1)"
       - name: Drop prior draft for this tag (if any)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
