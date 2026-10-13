@@ -54,11 +54,21 @@ export function LoginPage() {
     };
   }
 
-  function persistSession(res: { token: string; deviceId: string; uid: string; userId: string }) {
+  function persistSession(
+    res: { token: string; deviceId: string; uid: string; userId: string },
+    nickname?: string | null,
+  ) {
     setToken(res.token);
     localStorage.setItem("lh.deviceId", res.deviceId);
     localStorage.setItem("lh.uid", res.uid);
     localStorage.setItem("lh.userId", res.userId);
+    if (nickname) {
+      try {
+        localStorage.setItem("lh.nickname", nickname);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   async function onLogin() {
@@ -84,6 +94,18 @@ export function LoginPage() {
         }),
       });
       persistSession(res);
+      // Warm nickname cache so Me/home do not flash UID while /v1/me loads.
+      void api<{ nickname?: string | null }>("/v1/me")
+        .then((me) => {
+          if (me.nickname) {
+            try {
+              localStorage.setItem("lh.nickname", me.nickname);
+            } catch {
+              /* ignore */
+            }
+          }
+        })
+        .catch(() => undefined);
       navigate(returnTo, { replace: true });
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
@@ -117,7 +139,7 @@ export function LoginPage() {
           ...authDevicePayload(),
         }),
       });
-      persistSession(res);
+      persistSession(res, nick);
       navigate(returnTo, { replace: true });
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");

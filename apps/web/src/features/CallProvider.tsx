@@ -14,6 +14,11 @@ import { api, apiWsUrl, getToken } from "../lib/api";
 import { startCallSession, type CallSession } from "../lib/call-session";
 import type { CallEvent } from "../lib/chat-payload";
 import { showAppNotification } from "../lib/notify";
+import {
+  labelFromPeer,
+  loadPeerLabelCache,
+  mergePeerLabels,
+} from "../lib/peer-labels";
 import { postControlMessage } from "../lib/post-control-message";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
@@ -25,8 +30,15 @@ type ConvoRow = {
   kind: "dm" | "group" | "seminar";
   title: string | null;
   peerUserIds?: string[];
+  peers?: { userId: string; uid: string; nickname: string | null }[];
+  createdAt?: number;
+  unreadCount?: number;
   membership: { archived: boolean };
 };
+
+/** Cap concurrent call-listen sockets — most recent / unread DMs first. */
+const MAX_CALL_LISTEN = 6;
+const LISTEN_DEFER_MS = 900;
 
 type CallMeta = {
   conversationId: string | null;
@@ -61,8 +73,23 @@ function labelFor(c: ConvoRow | undefined, peerLabels: Record<string, string>): 
   if (c.title) return c.title;
   const peer = c.peerUserIds?.[0];
   if (peer && peerLabels[peer]) return peerLabels[peer];
+  const enriched = (c.peers ?? []).find((p) => p.userId === peer) ?? c.peers?.[0];
+  if (enriched) return labelFromPeer(enriched, peer);
   if (peer) return peer.slice(0, 10);
   return "…";
+}
+
+function pickListenDmIds(conversations: ConvoRow[]): string[] {
+  return conversations
+    .filter((c) => c.kind === "dm" && !c.membership.archived)
+    .sort((a, b) => {
+      const ur = (b.unreadCount ?? 0) - (a.unreadCount ?? 0);
+      if (ur !== 0) return ur;
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+    })
+    .slice(0, MAX_CALL_LISTEN)
+    .map((c) => c.id)
+    .sort();
 }
 
 const EMPTY_META: CallMeta = {
@@ -82,7 +109,7 @@ const EMPTY_META: CallMeta = {
 export function CallProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const [conversations, setConversations] = useState<ConvoRow[]>([]);
-  const [peerLabels, setPeerLabels] = useState<Record<string, string>>({});
+  const [peerLabels, setPeerLabels] = useState<Record<string, string>>(() => loadPeerLabelCache());
   const [callOpen, setCallOpen] = useState(false);
   const [callPhase, setCallPhase] = useState<CallPhase>("idle");
   const [callVideo, setCallVideo] = useState(false);
@@ -125,30 +152,40 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setConversations([]);
       return;
     }
-    try {
-      const res = await api<{ conversations: ConvoRow[] }>("/v1/chat/conversations");
-      setConversations(res.conversations);
-    } catch {
-      /* keep last list */
-    }
-    try {
-      const fr = await api<{
+    const [convoRes, friendsRes] = await Promise.allSettled([
+      api<{ conversations: ConvoRow[] }>("/v1/chat/conversations"),
+      api<{
         friends: { user: { id: string; uid: string | null; nickname: string | null } }[];
-      }>("/v1/friends");
+      }>("/v1/friends"),
+    ]);
+    if (convoRes.status === "fulfilled") {
+      const list = convoRes.value.conversations;
+      setConversations(list);
+      const fromPeers: Record<string, string> = {};
+      for (const c of list) {
+        for (const p of c.peers ?? []) {
+          fromPeers[p.userId] = labelFromPeer(p, p.userId);
+        }
+      }
+      if (Object.keys(fromPeers).length > 0) {
+        setPeerLabels((prev) => mergePeerLabels(prev, fromPeers));
+      }
+    }
+    if (friendsRes.status === "fulfilled") {
       const next: Record<string, string> = {};
-      for (const f of fr.friends) {
+      for (const f of friendsRes.value.friends) {
         next[f.user.id] = f.user.nickname || f.user.uid || f.user.id.slice(0, 10);
       }
-      setPeerLabels((prev) => ({ ...prev, ...next }));
-    } catch {
-      /* labels optional */
+      setPeerLabels((prev) => mergePeerLabels(prev, next));
     }
   }, []);
 
   useEffect(() => {
     void refreshConversations();
-    const timer = window.setInterval(() => void refreshConversations(), 45_000);
-    const onFocus = () => void refreshConversations();
+    const timer = window.setInterval(() => void refreshConversations(), 60_000);
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void refreshConversations();
+    };
     window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(timer);
@@ -443,12 +480,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const screenShareReady = canStartScreenShare();
 
   const callListenKey = useMemo(
-    () =>
-      conversations
-        .filter((c) => c.kind === "dm" && !c.membership.archived)
-        .map((c) => c.id)
-        .sort()
-        .join("|"),
+    () => pickListenDmIds(conversations).join("|"),
     [conversations],
   );
 
@@ -466,105 +498,112 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [t],
   );
 
-  // Global DM ring listen — survives tab switches away from /app/chat.
+  // Global DM ring listen — deferred + capped so first paint is not blocked by N sockets.
   useEffect(() => {
     if (!getToken() || callSessionActive) return;
-    const dmIds = callListenKey ? callListenKey.split("|") : [];
+    const dmIds = callListenKey ? callListenKey.split("|").filter(Boolean) : [];
     if (dmIds.length === 0) return;
 
     let closed = false;
     const socks: WebSocket[] = [];
-
-    void (async () => {
-      for (const conversationId of dmIds) {
-        if (closed) return;
-        try {
-          const res = await api<{ signalingPath: string; callId?: string }>("/v1/chat/calls", {
-            method: "POST",
-            body: JSON.stringify({ conversationId }),
-          });
-          if (closed) return;
-          const url = apiWsUrl(
-            `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(conversationId)}`,
-          );
-          const sock = new WebSocket(url);
-          sock.onmessage = (ev) => {
-            if (callRef.current || answeringRef.current) return;
+    const deferTimer = window.setTimeout(() => {
+      void (async () => {
+        await Promise.all(
+          dmIds.map(async (conversationId) => {
+            if (closed) return;
             try {
-              const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
-              if (msg.type === "offer" && msg.sdp) {
-                pendingOfferRef.current = msg.sdp;
-                incomingConvoRef.current = conversationId;
-                const c = conversationsRef.current.find((x) => x.id === conversationId);
-                const label = labelFor(c, peerLabelsRef.current);
-                setPeerLabel(label);
-                metaRef.current = {
-                  conversationId,
-                  callId: res.callId ?? metaRef.current.callId,
-                  role: "callee",
-                  phase: "incoming",
-                  connectedAt: null,
-                  ringingAt: Date.now(),
-                  video: callVideo,
-                };
-                setCallOpen(true);
-                setPhase("incoming");
-                alertIncoming(conversationId, label);
-              } else if (msg.type === "ring") {
-                if (answeringRef.current || callRef.current) return;
-                if (
-                  metaRef.current.phase === "outgoing" ||
-                  metaRef.current.phase === "connected"
-                ) {
-                  return;
-                }
-                incomingConvoRef.current = conversationId;
-                const c = conversationsRef.current.find((x) => x.id === conversationId);
-                const label = labelFor(c, peerLabelsRef.current);
-                setPeerLabel(label);
-                const firstRing = metaRef.current.phase !== "incoming";
-                metaRef.current = {
-                  conversationId,
-                  callId: res.callId ?? metaRef.current.callId,
-                  role: "callee",
-                  phase: "incoming",
-                  connectedAt: null,
-                  ringingAt: metaRef.current.ringingAt ?? Date.now(),
-                  video: callVideo,
-                };
-                setCallOpen(true);
-                setPhase("incoming");
-                if (firstRing) alertIncoming(conversationId, label);
-              } else if (msg.type === "hangup") {
-                if (!callRef.current && incomingConvoRef.current === conversationId) {
-                  const meta = { ...metaRef.current };
-                  pendingOfferRef.current = null;
-                  incomingConvoRef.current = null;
-                  setCallOpen(false);
-                  setPhase("idle");
-                  if (meta.phase === "incoming" && !meta.connectedAt) {
-                    void postCallRecord("missed", {
-                      ...meta,
+              const res = await api<{ signalingPath: string; callId?: string }>(
+                "/v1/chat/calls",
+                {
+                  method: "POST",
+                  body: JSON.stringify({ conversationId }),
+                },
+              );
+              if (closed) return;
+              const url = apiWsUrl(
+                `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(conversationId)}`,
+              );
+              const sock = new WebSocket(url);
+              sock.onmessage = (ev) => {
+                if (callRef.current || answeringRef.current) return;
+                try {
+                  const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
+                  if (msg.type === "offer" && msg.sdp) {
+                    pendingOfferRef.current = msg.sdp;
+                    incomingConvoRef.current = conversationId;
+                    const c = conversationsRef.current.find((x) => x.id === conversationId);
+                    const label = labelFor(c, peerLabelsRef.current);
+                    setPeerLabel(label);
+                    metaRef.current = {
                       conversationId,
+                      callId: res.callId ?? metaRef.current.callId,
                       role: "callee",
-                    });
+                      phase: "incoming",
+                      connectedAt: null,
+                      ringingAt: Date.now(),
+                      video: callVideo,
+                    };
+                    setCallOpen(true);
+                    setPhase("incoming");
+                    alertIncoming(conversationId, label);
+                  } else if (msg.type === "ring") {
+                    if (answeringRef.current || callRef.current) return;
+                    if (
+                      metaRef.current.phase === "outgoing" ||
+                      metaRef.current.phase === "connected"
+                    ) {
+                      return;
+                    }
+                    incomingConvoRef.current = conversationId;
+                    const c = conversationsRef.current.find((x) => x.id === conversationId);
+                    const label = labelFor(c, peerLabelsRef.current);
+                    setPeerLabel(label);
+                    const firstRing = metaRef.current.phase !== "incoming";
+                    metaRef.current = {
+                      conversationId,
+                      callId: res.callId ?? metaRef.current.callId,
+                      role: "callee",
+                      phase: "incoming",
+                      connectedAt: null,
+                      ringingAt: metaRef.current.ringingAt ?? Date.now(),
+                      video: callVideo,
+                    };
+                    setCallOpen(true);
+                    setPhase("incoming");
+                    if (firstRing) alertIncoming(conversationId, label);
+                  } else if (msg.type === "hangup") {
+                    if (!callRef.current && incomingConvoRef.current === conversationId) {
+                      const meta = { ...metaRef.current };
+                      pendingOfferRef.current = null;
+                      incomingConvoRef.current = null;
+                      setCallOpen(false);
+                      setPhase("idle");
+                      if (meta.phase === "incoming" && !meta.connectedAt) {
+                        void postCallRecord("missed", {
+                          ...meta,
+                          conversationId,
+                          role: "callee",
+                        });
+                      }
+                      metaRef.current = { ...EMPTY_META };
+                    }
                   }
-                  metaRef.current = { ...EMPTY_META };
+                } catch {
+                  /* ignore */
                 }
-              }
+              };
+              socks.push(sock);
             } catch {
-              /* ignore */
+              /* listen optional per convo */
             }
-          };
-          socks.push(sock);
-        } catch {
-          /* listen optional per convo */
-        }
-      }
-    })();
+          }),
+        );
+      })();
+    }, LISTEN_DEFER_MS);
 
     return () => {
       closed = true;
+      window.clearTimeout(deferTimer);
       for (const s of socks) s.close();
     };
   }, [alertIncoming, callSessionActive, callListenKey, callVideo, postCallRecord, setPhase]);

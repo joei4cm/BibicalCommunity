@@ -40,6 +40,11 @@ import {
   payloadPreview,
   type ChatPayload,
 } from "../lib/chat-payload";
+import {
+  labelFromPeer,
+  loadPeerLabelCache,
+  mergePeerLabels,
+} from "../lib/peer-labels";
 
 function readerTranslationId(): string {
   try {
@@ -60,6 +65,8 @@ type Conversation = {
   createdAt: number;
   memberIds?: string[];
   peerUserIds?: string[];
+  /** Server-enriched peer labels (avoids UID flash while friends load). */
+  peers?: { userId: string; uid: string; nickname: string | null }[];
   unreadCount?: number;
   /** Latest peer lastReadAt when they share read receipts (WhatsApp-style ticks). */
   peerLastReadAt?: number | null;
@@ -120,7 +127,7 @@ export function ChatPanel({
   const [discoverHits, setDiscoverHits] = useState<
     { id: string; uid: string; nickname: string | null }[]
   >([]);
-  const [peerLabels, setPeerLabels] = useState<Record<string, string>>({});
+  const [peerLabels, setPeerLabels] = useState<Record<string, string>>(() => loadPeerLabelCache());
   const [directory, setDirectory] = useState<
     { userId: string; uid: string | null; nickname: string | null }[]
   >([]);
@@ -278,6 +285,15 @@ export function ChatPanel({
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
     conversationsRef.current = res.conversations;
     setConversations(res.conversations);
+    const fromPeers: Record<string, string> = {};
+    for (const c of res.conversations) {
+      for (const p of c.peers ?? []) {
+        fromPeers[p.userId] = labelFromPeer(p, p.userId);
+      }
+    }
+    if (Object.keys(fromPeers).length > 0) {
+      setPeerLabels((prev) => mergePeerLabels(prev, fromPeers));
+    }
     setNote(null);
   }, []);
 
@@ -302,7 +318,7 @@ export function ChatPanel({
           ids.add(f.user.id);
           map[f.user.id] = f.user.nickname || f.user.uid || f.user.id.slice(0, 10);
         }
-        setPeerLabels((prev) => ({ ...map, ...prev }));
+        setPeerLabels((prev) => mergePeerLabels(prev, map));
         setFriendIds(ids);
       })
       .catch(() => {
@@ -325,7 +341,7 @@ export function ChatPanel({
       for (const c of dir.contacts) {
         map[c.userId] = c.nickname || c.uid || c.userId.slice(0, 10);
       }
-      setPeerLabels((prev) => ({ ...prev, ...map }));
+      setPeerLabels((prev) => mergePeerLabels(prev, map));
       setDirectory(dir.contacts);
       setFriendIds((prev) => {
         const next = new Set(prev);
@@ -582,8 +598,9 @@ export function ChatPanel({
   /** Soft realtime: poll open thread + refresh on tab focus (no message WS yet). */
   useEffect(() => {
     if (!selectedId) return;
-    const POLL_MS = 2500;
+    const POLL_MS = 5_000;
     const tick = () => {
+      if (document.visibilityState !== "visible") return;
       void loadMessages(selectedId).catch(() => {
         /* keep last good snapshot while offline */
       });
@@ -933,6 +950,8 @@ export function ChatPanel({
     if (c.kind === "dm") {
       const peer = (c.peerUserIds ?? [])[0];
       if (peer && peerLabels[peer]) return peerLabels[peer];
+      const enriched = (c.peers ?? []).find((p) => p.userId === peer) ?? c.peers?.[0];
+      if (enriched) return labelFromPeer(enriched, peer);
       if (peer) return peer.slice(0, 10);
     }
     return kindLabel(c.kind);
