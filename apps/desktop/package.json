@@ -1,6 +1,6 @@
 {
   "name": "logoshome-desktop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Electron shell packaging the LogosHome web build for Linux / macOS / Windows",
   "author": "LogosHome <dev@logoshome.app>",
@@ -34,19 +34,28 @@
       }
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Education",
       "executableName": "LogosHome",
       "maintainer": "LogosHome <dev@logoshome.app>",
       "vendor": "LogosHome"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.education",
       "identity": null
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "executableName": "LogosHome"
     },
     "nsis": {
