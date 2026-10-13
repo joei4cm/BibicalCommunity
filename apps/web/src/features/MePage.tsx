@@ -8,7 +8,7 @@ import {
   type ThemeId,
 } from "@logoshome/shared";
 import { applyTheme } from "@logoshome/ui";
-import { api, getToken, setToken } from "../lib/api";
+import { api, getApiBase, getToken, setToken } from "../lib/api";
 import { wipeLocalClientState } from "../lib/local-wipe";
 import {
   loadProductSignalPrefer,
@@ -19,6 +19,11 @@ import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-
 import { humanizeStatus } from "../lib/status";
 import { APP_VERSION } from "../lib/app-version";
 import { buildDeviceName, detectDevicePlatform, platformLabel } from "../lib/device-label";
+import {
+  requestNotificationPermission,
+  saveNotifyPrefs,
+} from "../lib/notify";
+import { cachedSelfNickname, clearSelfNickname, persistSelfNickname } from "../lib/peer-labels";
 
 function authDevicePayload() {
   const detected = detectDevicePlatform();
@@ -72,6 +77,8 @@ const DEFAULT_PRIVACY: PrivacySettings = {
   shareReadReceipts: true,
   shareTypingIndicators: true,
   shareLastActive: false,
+  notifyMessages: true,
+  notifyCalls: true,
 };
 
 export function MePage() {
@@ -154,7 +161,15 @@ export function MePage() {
     if (me.nickname) setNickname(me.nickname);
     if (me.legalName) setLegalName(me.legalName);
     if (me.signature) setSignature(me.signature);
-    if (me.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...me.privacy });
+    if (me.nickname) persistSelfNickname(me.nickname);
+    if (me.privacy) {
+      const next = { ...DEFAULT_PRIVACY, ...me.privacy };
+      setPrivacy(next);
+      saveNotifyPrefs({
+        notifyMessages: next.notifyMessages,
+        notifyCalls: next.notifyCalls,
+      });
+    }
   }
 
   async function checkPendingWipe() {
@@ -179,7 +194,7 @@ export function MePage() {
     setPendingWipes([]);
     setMsg("wiped");
     if (!token) return;
-    const base = import.meta.env.VITE_API_BASE ?? "";
+    const base = getApiBase();
     for (const cmd of commands) {
       try {
         await fetch(`${base}/v1/admin/wipe/${cmd.id}/ack`, {
@@ -197,17 +212,19 @@ export function MePage() {
     if (getToken()) {
       const cachedUid = localStorage.getItem("lh.uid");
       if (cachedUid) {
+        const nick = cachedSelfNickname();
         setProfile((prev) =>
           prev ?? {
             id: localStorage.getItem("lh.userId") ?? "",
             uid: cachedUid,
-            nickname: null,
+            nickname: nick,
             legalName: null,
             signature: null,
             privacy: DEFAULT_PRIVACY,
             churches: [],
           },
         );
+        if (nick) setNickname(nick);
       }
     }
     void refresh().catch(() => undefined);
@@ -259,6 +276,7 @@ export function MePage() {
       localStorage.setItem("lh.deviceId", res.deviceId);
       localStorage.setItem("lh.uid", res.uid);
       localStorage.setItem("lh.userId", res.userId);
+      persistSelfNickname(nick);
       // Full optimistic profile — partial objects crash render on profile.churches.map.
       setProfile({
         id: res.userId,
@@ -350,6 +368,8 @@ export function MePage() {
           shareReadReceipts: privacy.shareReadReceipts,
           shareTypingIndicators: privacy.shareTypingIndicators,
           shareLastActive: privacy.shareLastActive,
+          notifyMessages: privacy.notifyMessages,
+          notifyCalls: privacy.notifyCalls,
         },
       }),
     });
@@ -452,6 +472,7 @@ export function MePage() {
     setToken(null);
     localStorage.removeItem("lh.uid");
     localStorage.removeItem("lh.userId");
+    clearSelfNickname();
     setProfile(null);
     setDevices([]);
     setCurrentDeviceId(null);
@@ -658,6 +679,51 @@ export function MePage() {
             </div>
 
             <h3 style={{ marginTop: "1.1rem" }}>{t("me.notifications")}</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t("me.notifyHint")}
+            </p>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.notifyMessages}
+                onChange={(e) => {
+                  const notifyMessages = e.target.checked;
+                  setPrivacy((p) => ({ ...p, notifyMessages }));
+                  saveNotifyPrefs({ notifyMessages });
+                }}
+              />
+              {t("me.notifyMessages")}
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={privacy.notifyCalls}
+                onChange={(e) => {
+                  const notifyCalls = e.target.checked;
+                  setPrivacy((p) => ({ ...p, notifyCalls }));
+                  saveNotifyPrefs({ notifyCalls });
+                }}
+              />
+              {t("me.notifyCalls")}
+            </label>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="me-enable-notifications"
+              onClick={() => {
+                void requestNotificationPermission().then((perm) => {
+                  setMsg(
+                    perm === "granted"
+                      ? t("me.notifyEnabled")
+                      : perm === "denied"
+                        ? t("me.notifyDenied")
+                        : t("me.notifyUnsupported"),
+                  );
+                });
+              }}
+            >
+              {t("me.enableNotifications")}
+            </button>
             <label className="check-row">
               <input
                 type="checkbox"

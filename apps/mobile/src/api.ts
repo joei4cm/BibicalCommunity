@@ -4,6 +4,8 @@ import { kvDelete, kvGet, kvSet } from "./secure-kv";
 const TOKEN_KEY = "lh.token";
 const API_BASE_KEY = "lh.apiBase";
 const ENV_API_BASE = (process.env.EXPO_PUBLIC_API_BASE ?? "").replace(/\/$/, "");
+/** Same production Worker as web packaged shells. */
+const DEFAULT_PROD_API_BASE = "https://logoshome-api.joei4cm.workers.dev";
 
 /** Runtime override (Me screen) wins over build-time EXPO_PUBLIC_API_BASE. */
 let memoryApiBase: string | null = null;
@@ -19,7 +21,8 @@ function normalizeBase(url: string): string {
 
 export function getApiBase(): string {
   if (memoryApiBase) return memoryApiBase;
-  return ENV_API_BASE;
+  if (ENV_API_BASE) return ENV_API_BASE;
+  return DEFAULT_PROD_API_BASE;
 }
 
 export async function hydrateApiBase(): Promise<void> {

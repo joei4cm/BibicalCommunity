@@ -6,6 +6,7 @@ import { createId, privacySettingsSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
+import { openField } from "../services/field-crypto";
 export const chatRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 chatRoutes.use("*", requireAuth);
 
@@ -143,21 +144,85 @@ chatRoutes.get("/conversations", async (c) => {
     unreadByConvo.set(row.conversationId, Number(row.n ?? 0));
   }
 
+  const convoIds = memberships.map((m) => m.conversationId);
+  const membershipByConvo = new Map(memberships.map((m) => [m.conversationId, m]));
+
+  const convos =
+    convoIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(schema.conversations)
+          .where(inArray(schema.conversations.id, convoIds));
+
+  const allMembers =
+    convoIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(schema.conversationMembers)
+          .where(inArray(schema.conversationMembers.conversationId, convoIds));
+
+  const membersByConvo = new Map<string, typeof allMembers>();
+  for (const row of allMembers) {
+    const list = membersByConvo.get(row.conversationId) ?? [];
+    list.push(row);
+    membersByConvo.set(row.conversationId, list);
+  }
+
+  const peerIds = [
+    ...new Set(allMembers.map((m) => m.userId).filter((id) => id !== userId)),
+  ];
+  const peerUsers =
+    peerIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: schema.users.id,
+            uid: schema.users.uid,
+            nicknameCt: schema.users.nicknameCt,
+            privacyJson: schema.users.privacyJson,
+          })
+          .from(schema.users)
+          .where(inArray(schema.users.id, peerIds));
+
+  const peerLabelEntries = await Promise.all(
+    peerUsers.map(async (u) => {
+      const nickname = await openField(c.env, u.id, "nickname", u.nicknameCt);
+      return [u.id, { userId: u.id, uid: u.uid, nickname }] as const;
+    }),
+  );
+  const peerLabelById = new Map(peerLabelEntries);
+
+  const privacyById = new Map(
+    peerUsers.map((u) => {
+      try {
+        return [u.id, privacySettingsSchema.parse(JSON.parse(u.privacyJson))] as const;
+      } catch {
+        return [u.id, privacySettingsSchema.parse({})] as const;
+      }
+    }),
+  );
+
+  function peerLastReadFast(members: MemberRow[]): number | null {
+    const peers = members.filter((m) => m.userId !== userId);
+    if (peers.length === 0) return null;
+    let max = 0;
+    for (const p of peers) {
+      const privacy = privacyById.get(p.userId) ?? privacySettingsSchema.parse({});
+      if (!privacy.shareReadReceipts) continue;
+      const at = p.lastReadAt ?? 0;
+      if (at > max) max = at;
+    }
+    return max > 0 ? max : null;
+  }
+
   const conversations = [];
-  for (const m of memberships) {
-    const convo = (
-      await db
-        .select()
-        .from(schema.conversations)
-        .where(eq(schema.conversations.id, m.conversationId))
-        .limit(1)
-    )[0];
-    if (!convo) continue;
-    const members = await db
-      .select()
-      .from(schema.conversationMembers)
-      .where(eq(schema.conversationMembers.conversationId, convo.id));
-    const peerLastReadAt = await sharedPeerLastReadAt(db, members, userId);
+  for (const convo of convos) {
+    const m = membershipByConvo.get(convo.id);
+    if (!m) continue;
+    const members = membersByConvo.get(convo.id) ?? [];
+    const peerUserIds = members.map((row) => row.userId).filter((id) => id !== userId);
     conversations.push({
       id: convo.id,
       kind: convo.kind,
@@ -166,9 +231,12 @@ chatRoutes.get("/conversations", async (c) => {
       createdBy: convo.createdBy,
       createdAt: convo.createdAt,
       memberIds: members.map((row) => row.userId),
-      peerUserIds: members.map((row) => row.userId).filter((id) => id !== userId),
+      peerUserIds,
+      peers: peerUserIds
+        .map((id) => peerLabelById.get(id))
+        .filter((p): p is { userId: string; uid: string; nickname: string | null } => Boolean(p)),
       unreadCount: unreadByConvo.get(convo.id) ?? 0,
-      peerLastReadAt,
+      peerLastReadAt: peerLastReadFast(members),
       membership: {
         id: m.id,
         role: m.role,

@@ -38,7 +38,7 @@ import {
   type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
-import { API_BASE, api, getToken } from "../lib/api";
+import { api, getApiBase, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { decryptJson, encryptJson } from "../lib/note-crypto";
 import {
@@ -1426,7 +1426,7 @@ export function BibleReader() {
   }
 
   function panshiAudioSrc(): string {
-    return `${API_BASE}/v1/bible/audio/panshi?book=${encodeURIComponent(bookId)}&chapter=${chapterNum}`;
+    return `${getApiBase()}/v1/bible/audio/panshi?book=${encodeURIComponent(bookId)}&chapter=${chapterNum}`;
   }
 
   function playPanshiChapter() {

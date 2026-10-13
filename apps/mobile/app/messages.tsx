@@ -72,12 +72,18 @@ export default function MessagesScreen() {
   const [composerHeight, setComposerHeight] = useState(40);
   const [note, setNote] = useState<string | null>(null);
   const [callNote, setCallNote] = useState<string | null>(null);
+  const [callPhase, setCallPhase] = useState<"idle" | "incoming" | "outgoing" | "connected">(
+    "idle",
+  );
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const [selfDeviceId, setSelfDeviceId] = useState<string | null>(null);
   const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
+  const [callSessionActive, setCallSessionActive] = useState(false);
   const callRef = useRef<CallSession | null>(null);
+  const pendingOfferRef = useRef<string | null>(null);
+  const incomingConvoRef = useRef<string | null>(null);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
@@ -320,67 +326,101 @@ export default function MessagesScreen() {
     }
   }
 
-  async function startCall() {
-    if (!selectedId) return;
+  async function prepareIce() {
+    let iceServers = buildIceServersFromTurnResponse({ uris: [] });
+    try {
+      const turn = await api<{
+        username?: string;
+        credential?: string;
+        uris: string[];
+        ttl: number;
+        iceServers?: { urls: string | string[]; username?: string; credential?: string }[];
+        hasRelay?: boolean;
+      }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
+      iceServers = buildIceServersFromTurnResponse(turn);
+      setCallNote(
+        turnResponseHasRelay(turn)
+          ? t(locale, "chat.callRelayOn")
+          : t(locale, "chat.turnRelayMissing"),
+      );
+    } catch {
+      setCallNote(t(locale, "chat.turnRelayMissing"));
+    }
+    return iceServers;
+  }
+
+  async function startCall(asAnswerer = false) {
+    const conversationId =
+      (asAnswerer ? incomingConvoRef.current : null) ?? selectedId;
+    if (!conversationId) return;
+    if (asAnswerer && conversationId !== selectedId) {
+      setSelectedId(conversationId);
+    }
     setBusy(true);
     setCallNote(null);
+    setCallPhase(asAnswerer ? "incoming" : "outgoing");
+    const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
     try {
       callRef.current?.close();
       callRef.current = null;
       setRemoteStreamUrl(null);
+      // Own the room before tearing down listen sockets.
+      setCallSessionActive(true);
 
       const res = await api<{ callId: string; signalingPath: string; note?: string }>(
         "/v1/chat/calls",
         {
           method: "POST",
-          body: JSON.stringify({ conversationId: selectedId }),
+          body: JSON.stringify({ conversationId }),
         },
       );
 
-      let iceServers = buildIceServersFromTurnResponse({ uris: [] });
-      try {
-        const turn = await api<{
-          username?: string;
-          credential?: string;
-          uris: string[];
-          ttl: number;
-          iceServers?: { urls: string | string[]; username?: string; credential?: string }[];
-          hasRelay?: boolean;
-        }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-        iceServers = buildIceServersFromTurnResponse(turn);
-        setCallNote(
-          turnResponseHasRelay(turn)
-            ? t(locale, "chat.callRelayOn")
-            : t(locale, "chat.turnRelayMissing"),
-        );
-      } catch {
-        setCallNote(t(locale, "chat.turnRelayMissing"));
-      }
-
+      const iceServers = await prepareIce();
       const token = getToken();
       const base = getApiBase();
       const wsUrl =
         token && base
-          ? signalingWsUrl(base, res.signalingPath, token, selectedId)
+          ? signalingWsUrl(base, res.signalingPath, token, conversationId)
           : null;
 
       const session = await startCallSession({
         wsUrl,
         iceServers,
+        role: asAnswerer ? "callee" : "caller",
+        video: false,
+        initialOfferSdp,
         onRemoteStream: (stream: RnMediaStream) => {
           setRemoteStreamUrl(stream.toURL());
+          setCallPhase("connected");
         },
-        onNote: (m) => setCallNote((prev) => `${prev ?? ""} · ${m}`),
+        onNote: (m) => {
+          if (m === "answered-remote-offer" || m === "got-remote-answer") {
+            setCallPhase("connected");
+          }
+          if (m === "peer-hangup") {
+            hangup();
+            return;
+          }
+          if (m === "peer-ring" && !asAnswerer) return;
+          setCallNote((prev) => `${prev ?? ""} · ${m}`);
+        },
       });
       callRef.current = session;
+      pendingOfferRef.current = null;
+      incomingConvoRef.current = null;
+      if (!asAnswerer) setCallPhase("outgoing");
       setCallNote(
         (prev) =>
           `${prev ? `${prev} · ` : ""}${t(locale, "chat.callStarted")}: ${res.callId}` +
           (res.note ? ` · ${res.note}` : "") +
+          ` · role=${asAnswerer ? "callee" : "caller"}` +
           ` · signaling=${session.channel.kind}`,
       );
     } catch (e) {
       setCallNote(e instanceof Error ? e.message : "error");
+      setCallPhase("idle");
+      setCallSessionActive(false);
+      pendingOfferRef.current = null;
     } finally {
       setBusy(false);
     }
@@ -390,8 +430,77 @@ export default function MessagesScreen() {
     callRef.current?.close();
     callRef.current = null;
     setRemoteStreamUrl(null);
+    setCallSessionActive(false);
+    setCallPhase("idle");
+    pendingOfferRef.current = null;
+    incomingConvoRef.current = null;
     setCallNote((prev) => `${prev ?? ""} · hung-up`);
   }
+
+  // Listen on active DM rooms so inbound ring/offer shows Accept (web parity).
+  useEffect(() => {
+    if (callSessionActive) return;
+    const token = getToken();
+    const base = getApiBase();
+    if (!token || !base) return;
+
+    const dmIds = conversations
+      .filter((c) => c.kind === "dm" && !c.membership.archived)
+      .map((c) => c.id)
+      .slice(0, 24);
+    if (dmIds.length === 0) return;
+
+    let closed = false;
+    const socks: WebSocket[] = [];
+
+    void (async () => {
+      for (const conversationId of dmIds) {
+        if (closed) return;
+        try {
+          const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
+            method: "POST",
+            body: JSON.stringify({ conversationId }),
+          });
+          if (closed) return;
+          const url = signalingWsUrl(base, res.signalingPath, token, conversationId);
+          const sock = new WebSocket(url);
+          sock.onmessage = (ev) => {
+            try {
+              const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
+              if (msg.type === "offer" && msg.sdp) {
+                pendingOfferRef.current = msg.sdp;
+                incomingConvoRef.current = conversationId;
+                setSelectedId(conversationId);
+                setCallPhase("incoming");
+                setCallNote(t(locale, "chat.callIncoming"));
+              } else if (msg.type === "ring") {
+                incomingConvoRef.current = conversationId;
+                setSelectedId(conversationId);
+                setCallPhase("incoming");
+                setCallNote(t(locale, "chat.callIncoming"));
+              } else if (msg.type === "hangup") {
+                if (!callRef.current && incomingConvoRef.current === conversationId) {
+                  pendingOfferRef.current = null;
+                  incomingConvoRef.current = null;
+                  setCallPhase("idle");
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+          };
+          socks.push(sock);
+        } catch {
+          /* listen optional per convo */
+        }
+      }
+    })();
+
+    return () => {
+      closed = true;
+      for (const s of socks) s.close();
+    };
+  }, [conversations, callSessionActive, locale]);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
@@ -475,11 +584,36 @@ export default function MessagesScreen() {
 
       {selectedId && (
         <View style={styles.thread}>
+          {callPhase === "incoming" && (
+            <View style={styles.incomingBanner} testID="call-incoming-banner">
+              <Text style={styles.incomingTitle}>{t(locale, "chat.callIncoming")}</Text>
+              <View style={styles.ttlRow}>
+                <Pressable
+                  style={[styles.btn, styles.btnAccept, busy && styles.btnDisabled]}
+                  disabled={busy}
+                  onPress={() => void startCall(true)}
+                  testID="call-accept"
+                >
+                  <Text style={styles.btnText}>{t(locale, "chat.callAccept")}</Text>
+                </Pressable>
+                <Pressable style={[styles.btn, styles.btnGhost]} onPress={hangup}>
+                  <Text style={styles.btnGhostText}>{t(locale, "chat.hangup")}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+          {callPhase !== "idle" && callPhase !== "incoming" && (
+            <Text style={styles.callPhase}>
+              {callPhase === "connected"
+                ? t(locale, "chat.callConnected")
+                : t(locale, "chat.callCalling")}
+            </Text>
+          )}
           <View style={styles.ttlRow}>
             <Pressable
               style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
-              disabled={busy}
-              onPress={() => void startCall()}
+              disabled={busy || callPhase === "incoming"}
+              onPress={() => void startCall(false)}
             >
               <Text style={styles.btnGhostText}>{t(locale, "chat.call")}</Text>
             </Pressable>
@@ -622,8 +756,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   btnGhostText: { color: "#1c2b2a", fontWeight: "600" },
+  btnAccept: {
+    backgroundColor: "#0f6b5c",
+  },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "600" },
+  incomingBanner: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#d5ebe6",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#0f6b5c",
+  },
+  incomingTitle: { color: "#0f6b5c", fontWeight: "700", fontSize: 16, marginBottom: 8 },
+  callPhase: { color: "#0f6b5c", fontWeight: "600", marginBottom: 8, fontSize: 14 },
   item: {
     padding: 12,
     borderRadius: 8,

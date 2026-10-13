@@ -1,4 +1,6 @@
 /** Structured chat plaintext (still E2E-encrypted as a string blob). */
+export type CallEvent = "ended" | "missed" | "declined" | "canceled";
+
 export type ChatPayload =
   | { v: 1; kind: "text"; text: string }
   | {
@@ -8,6 +10,15 @@ export type ChatPayload =
       mime: string;
       name: string;
       text?: string;
+    }
+  | {
+      v: 1;
+      kind: "call";
+      event: CallEvent;
+      callId?: string;
+      durationSec?: number;
+      video?: boolean;
+      direction?: "out" | "in";
     };
 
 export function encodeChatPayload(payload: ChatPayload): string {
@@ -32,6 +43,15 @@ export function parseChatPayload(raw: string | undefined | null): ChatPayload | 
     ) {
       return parsed;
     }
+    if (
+      parsed.kind === "call" &&
+      (parsed.event === "ended" ||
+        parsed.event === "missed" ||
+        parsed.event === "declined" ||
+        parsed.event === "canceled")
+    ) {
+      return parsed;
+    }
     return { v: 1, kind: "text", text: raw };
   } catch {
     return { v: 1, kind: "text", text: raw };
@@ -42,5 +62,18 @@ export function payloadPreview(raw: string | undefined | null, fallback = ""): s
   const p = parseChatPayload(raw);
   if (!p) return fallback;
   if (p.kind === "media") return p.text?.trim() || p.name || fallback;
+  if (p.kind === "call") {
+    if (p.event === "ended") return fallback || "📞";
+    if (p.event === "missed") return fallback || "📞";
+    return fallback || "📞";
+  }
   return p.text || fallback;
+}
+
+export function formatCallDuration(sec: number | undefined): string {
+  if (sec == null || !Number.isFinite(sec) || sec < 0) return "";
+  const s = Math.floor(sec);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
 }

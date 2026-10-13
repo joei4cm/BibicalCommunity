@@ -72,6 +72,11 @@ export async function startCallSession(opts: {
   video?: boolean;
   /** Offer SDP already received on a listen socket (applied after media attach). */
   initialOfferSdp?: string | null;
+  /**
+   * Media already captured in a user-gesture turn (iOS/PWA). When set, skips a
+   * second getUserMedia after awaits that would lose the gesture.
+   */
+  existingLocalStream?: MediaStream | null;
   onRemoteStream?: (stream: MediaStream) => void;
   onNote?: (msg: string) => void;
 }): Promise<CallSession> {
@@ -106,10 +111,14 @@ export async function startCallSession(opts: {
   };
 
   const pc = createPeerConnection(callbacks, { iceServers: opts.iceServers });
-  const localStream = await attachLocalMedia(pc, {
-    audio: true,
-    video: opts.video ?? false,
-  });
+  const localStream = await attachLocalMedia(
+    pc,
+    {
+      audio: true,
+      video: opts.video ?? false,
+    },
+    opts.existingLocalStream ?? undefined,
+  );
 
   async function applyRemoteOffer(sdp: string, asScreen = false) {
     // Ignore buffered/replayed initial offers once we already have a remote description.
@@ -119,13 +128,15 @@ export async function startCallSession(opts: {
     opts.onNote?.(asScreen ? "answered-screen-offer" : "answered-remote-offer");
   }
 
-  /** Caller: if peer joins after our first offer was missed, resend ring + local SDP. */
+  /**
+   * Caller: if peer joins after our first offer was missed, resend local SDP only.
+   * Do NOT send another `ring` — that reopens Accept UI on PWA callees mid-answer.
+   */
   async function maybeReoffer(reason: string) {
     if (role !== "caller" || gotRemoteAnswer || reofferInFlight) return;
     if (pc.remoteDescription) return;
     reofferInFlight = true;
     try {
-      sendSignal({ type: "ring" });
       const existing = pc.localDescription?.sdp;
       if (existing) {
         sendSignal({ type: "offer", sdp: existing });

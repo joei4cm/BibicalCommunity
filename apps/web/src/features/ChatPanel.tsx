@@ -7,7 +7,7 @@ import {
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
-import { api, apiWsUrl, getToken } from "../lib/api";
+import { api, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
   decryptGroupFanout,
@@ -17,14 +17,10 @@ import {
 import { humanizeStatus } from "../lib/status";
 import { peerHasProductKeys } from "../lib/product-signal-chat";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
-import { startCallSession, type CallSession } from "../lib/call-session";
-import { startScreenShare, stopScreenShare } from "../lib/webrtc";
-import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
-import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
 import { SheetPortal } from "../components/SheetPortal";
 import { EmojiPicker } from "../components/EmojiPicker";
-import { CallOverlay, type CallPhase } from "../components/CallOverlay";
 import { ChatVerseText } from "../components/ChatVerseText";
+import { useCall } from "./CallProvider";
 import {
   IconCheck,
   IconCheckRead,
@@ -39,10 +35,16 @@ import {
 } from "../components/icons";
 import {
   encodeChatPayload,
+  formatCallDuration,
   parseChatPayload,
   payloadPreview,
   type ChatPayload,
 } from "../lib/chat-payload";
+import {
+  labelFromPeer,
+  loadPeerLabelCache,
+  mergePeerLabels,
+} from "../lib/peer-labels";
 
 function readerTranslationId(): string {
   try {
@@ -63,6 +65,8 @@ type Conversation = {
   createdAt: number;
   memberIds?: string[];
   peerUserIds?: string[];
+  /** Server-enriched peer labels (avoids UID flash while friends load). */
+  peers?: { userId: string; uid: string; nickname: string | null }[];
   unreadCount?: number;
   /** Latest peer lastReadAt when they share read receipts (WhatsApp-style ticks). */
   peerLastReadAt?: number | null;
@@ -103,6 +107,7 @@ export function ChatPanel({
   onBadgesMaybeChanged?: () => void;
 } = {}) {
   const { t } = useTranslation();
+  const { startOutboundCall, shareScreen, endScreen, screenShareReady } = useCall();
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -113,7 +118,6 @@ export function ChatPanel({
   const [memberIds, setMemberIds] = useState("");
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
-  const [callNote, setCallNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
@@ -123,25 +127,15 @@ export function ChatPanel({
   const [discoverHits, setDiscoverHits] = useState<
     { id: string; uid: string; nickname: string | null }[]
   >([]);
-  const [peerLabels, setPeerLabels] = useState<Record<string, string>>({});
+  const [peerLabels, setPeerLabels] = useState<Record<string, string>>(() => loadPeerLabelCache());
   const [directory, setDirectory] = useState<
     { userId: string; uid: string | null; nickname: string | null }[]
   >([]);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [listQuery, setListQuery] = useState("");
-  const [callOpen, setCallOpen] = useState(false);
-  const [callPhase, setCallPhase] = useState<CallPhase>("idle");
-  const [callVideo, setCallVideo] = useState(false);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const conversationsRef = useRef<Conversation[]>([]);
-  const callRef = useRef<CallSession | null>(null);
-  /** Offer SDP captured on the listen socket before Accept opens a full session. */
-  const pendingOfferRef = useRef<string | null>(null);
-  /** True while a full WebRTC session owns the signaling socket (not mere incoming UI). */
-  const [callSessionActive, setCallSessionActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -291,6 +285,15 @@ export function ChatPanel({
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
     conversationsRef.current = res.conversations;
     setConversations(res.conversations);
+    const fromPeers: Record<string, string> = {};
+    for (const c of res.conversations) {
+      for (const p of c.peers ?? []) {
+        fromPeers[p.userId] = labelFromPeer(p, p.userId);
+      }
+    }
+    if (Object.keys(fromPeers).length > 0) {
+      setPeerLabels((prev) => mergePeerLabels(prev, fromPeers));
+    }
     setNote(null);
   }, []);
 
@@ -315,7 +318,7 @@ export function ChatPanel({
           ids.add(f.user.id);
           map[f.user.id] = f.user.nickname || f.user.uid || f.user.id.slice(0, 10);
         }
-        setPeerLabels((prev) => ({ ...map, ...prev }));
+        setPeerLabels((prev) => mergePeerLabels(prev, map));
         setFriendIds(ids);
       })
       .catch(() => {
@@ -338,7 +341,7 @@ export function ChatPanel({
       for (const c of dir.contacts) {
         map[c.userId] = c.nickname || c.uid || c.userId.slice(0, 10);
       }
-      setPeerLabels((prev) => ({ ...prev, ...map }));
+      setPeerLabels((prev) => mergePeerLabels(prev, map));
       setDirectory(dir.contacts);
       setFriendIds((prev) => {
         const next = new Set(prev);
@@ -595,8 +598,9 @@ export function ChatPanel({
   /** Soft realtime: poll open thread + refresh on tab focus (no message WS yet). */
   useEffect(() => {
     if (!selectedId) return;
-    const POLL_MS = 2500;
+    const POLL_MS = 5_000;
     const tick = () => {
+      if (document.visibilityState !== "visible") return;
       void loadMessages(selectedId).catch(() => {
         /* keep last good snapshot while offline */
       });
@@ -605,14 +609,33 @@ export function ChatPanel({
     const onVis = () => {
       if (document.visibilityState === "visible") tick();
     };
+    const onControl = (ev: Event) => {
+      const id = (ev as CustomEvent<{ conversationId?: string }>).detail?.conversationId;
+      if (id && id === selectedId) tick();
+    };
     window.addEventListener("focus", tick);
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("lh:chat-messages", onControl);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", tick);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("lh:chat-messages", onControl);
     };
   }, [selectedId, loadMessages]);
+
+  function callRecordLabel(payload: Extract<ChatPayload, { kind: "call" }>): string {
+    const video = payload.video ? t("chat.callVideo") : t("chat.callAudio");
+    const dur = formatCallDuration(payload.durationSec);
+    if (payload.event === "ended") {
+      return dur
+        ? t("chat.callRecordEnded", { type: video, duration: dur })
+        : t("chat.callRecordEndedShort", { type: video });
+    }
+    if (payload.event === "missed") return t("chat.callRecordMissed", { type: video });
+    if (payload.event === "declined") return t("chat.callRecordDeclined", { type: video });
+    return t("chat.callRecordCanceled", { type: video });
+  }
 
   async function createConversation(explicitIds?: string[], explicitKind?: ConversationKind) {
     if (!getToken()) {
@@ -915,186 +938,6 @@ export function ChatPanel({
     await refreshConversations();
   }
 
-  async function prepareIce(): Promise<RTCIceServer[]> {
-    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-    try {
-      const turn = await api<{
-        username?: string;
-        credential?: string;
-        uris: string[];
-        ttl: number;
-        iceServers?: RTCIceServer[];
-        hasRelay?: boolean;
-        note?: string;
-      }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-      iceServers = buildIceServersFromTurnResponse(turn, iceServers);
-      setCallNote(
-        turnResponseHasRelay(turn) ? t("chat.callRelayOn") : t("chat.turnRelayMissing"),
-      );
-    } catch {
-      /* STUN-only fallback */
-      setCallNote(t("chat.turnRelayMissing"));
-    }
-    return iceServers;
-  }
-
-  async function startCall(asAnswerer = false) {
-    if (!selectedId) return;
-    setBusy(true);
-    setCallNote(null);
-    setCallOpen(true);
-    setCallPhase(asAnswerer ? "incoming" : "outgoing");
-    const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
-    try {
-      callRef.current?.close();
-      callRef.current = null;
-      // Own the room before tearing down the listen socket.
-      setCallSessionActive(true);
-      const res = await api<{
-        callId: string;
-        signalingPath: string;
-        note?: string;
-      }>("/v1/chat/calls", {
-        method: "POST",
-        body: JSON.stringify({ conversationId: selectedId }),
-      });
-      const iceServers = await prepareIce();
-      const token = getToken();
-      const wsUrl = token
-        ? apiWsUrl(
-            `${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(selectedId)}`,
-          )
-        : null;
-      const session = await startCallSession({
-        wsUrl,
-        iceServers,
-        role: asAnswerer ? "callee" : "caller",
-        video: callVideo,
-        initialOfferSdp,
-        onRemoteStream: (stream) => {
-          setRemoteStream(stream);
-          setCallPhase("connected");
-        },
-        onNote: (m) => {
-          if (m === "answered-remote-offer" || m === "got-remote-answer") setCallPhase("connected");
-          if (m === "peer-ring" && !asAnswerer) return;
-          if (m === "peer-ring") {
-            setCallOpen(true);
-            setCallPhase("incoming");
-            return;
-          }
-          if (m === "peer-hangup") {
-            hangup();
-            return;
-          }
-          setCallNote((prev) => `${prev ?? ""} · ${m}`);
-        },
-      });
-      callRef.current = session;
-      pendingOfferRef.current = null;
-      setLocalStream(session.localStream);
-      if (!asAnswerer) setCallPhase("outgoing");
-    } catch (e) {
-      setCallNote(e instanceof Error ? e.message : "error");
-      setCallPhase("idle");
-      setCallOpen(false);
-      setCallSessionActive(false);
-      pendingOfferRef.current = null;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Keep a light listen socket on the deterministic call room while a thread is open.
-  // Do NOT tear it down merely because incoming UI is showing (callOpen) — that used to
-  // drop the offer before Accept could join a full session.
-  useEffect(() => {
-    if (!selectedId || !getToken() || callSessionActive) return;
-    let closed = false;
-    let sock: WebSocket | null = null;
-    void (async () => {
-      try {
-        const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
-          method: "POST",
-          body: JSON.stringify({ conversationId: selectedId }),
-        });
-        if (closed) return;
-        const url = apiWsUrl(
-          `${res.signalingPath}?token=${encodeURIComponent(getToken()!)}&conversationId=${encodeURIComponent(selectedId)}`,
-        );
-        sock = new WebSocket(url);
-        sock.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
-            if (msg.type === "offer" && msg.sdp) {
-              pendingOfferRef.current = msg.sdp;
-              setCallOpen(true);
-              setCallPhase("incoming");
-            } else if (msg.type === "ring") {
-              setCallOpen(true);
-              setCallPhase("incoming");
-            } else if (msg.type === "hangup") {
-              pendingOfferRef.current = null;
-              if (!callRef.current) {
-                setCallOpen(false);
-                setCallPhase("idle");
-              }
-            }
-          } catch {
-            /* ignore */
-          }
-        };
-      } catch {
-        /* listen optional */
-      }
-    })();
-    return () => {
-      closed = true;
-      sock?.close();
-    };
-  }, [selectedId, callSessionActive]);
-
-  async function shareScreen() {
-    const gate = probeDisplayMedia();
-    if (!gate.available) {
-      setCallNote((prev) => `${prev ?? ""} · ${t("chat.screenShareUnavailable")} (${gate.reason})`);
-      return;
-    }
-    if (!callRef.current) {
-      await startCall();
-    }
-    if (!callRef.current) return;
-    try {
-      await startScreenShare(callRef.current.pc);
-      // Signal screen renegotiation over DO (getDisplayMedia itself is browser-gated).
-      await callRef.current.sendScreenOffer();
-      setCallNote((prev) => `${prev ?? ""} · screen-share-on · screen-offer`);
-    } catch (e) {
-      setCallNote(e instanceof Error ? e.message : "screen_share_failed");
-    }
-  }
-
-  const screenShareReady = canStartScreenShare();
-
-  async function endScreen() {
-    if (!callRef.current) return;
-    await stopScreenShare(callRef.current.pc, callRef.current.localStream);
-    callRef.current.sendScreenStop();
-    setCallNote((prev) => `${prev ?? ""} · screen-share-off`);
-  }
-
-  function hangup() {
-    callRef.current?.close();
-    callRef.current = null;
-    pendingOfferRef.current = null;
-    setCallSessionActive(false);
-    setRemoteStream(null);
-    setLocalStream(null);
-    setCallOpen(false);
-    setCallPhase("idle");
-    setCallNote(null);
-  }
-
   function kindLabel(k: ConversationKind) {
     if (k === "seminar") return t("comms.seminar");
     if (k === "group") return t("chat.group");
@@ -1107,6 +950,8 @@ export function ChatPanel({
     if (c.kind === "dm") {
       const peer = (c.peerUserIds ?? [])[0];
       if (peer && peerLabels[peer]) return peerLabels[peer];
+      const enriched = (c.peers ?? []).find((p) => p.userId === peer) ?? c.peers?.[0];
+      if (enriched) return labelFromPeer(enriched, peer);
       if (peer) return peer.slice(0, 10);
     }
     return kindLabel(c.kind);
@@ -1134,18 +979,6 @@ export function ChatPanel({
 
   return (
     <div className={`chat-home im-shell${selected ? " is-thread" : ""}`} data-testid="home-chat-panel">
-      <CallOverlay
-        open={callOpen}
-        phase={callPhase}
-        peerLabel={selected ? convoLabel(selected) : "…"}
-        note={callNote}
-        localStream={localStream}
-        remoteStream={remoteStream}
-        video={callVideo}
-        onAccept={() => void startCall(true)}
-        onHangup={hangup}
-        onToggleVideo={() => setCallVideo((v) => !v)}
-      />
       {note && !selected && renderNote(note)}
 
       {selected ? (
@@ -1177,7 +1010,12 @@ export function ChatPanel({
               data-testid="chat-call"
               disabled={busy || dmPeerBlocked}
               aria-label={t("chat.call")}
-              onClick={() => void startCall(false)}
+              onClick={() => {
+                if (!selectedId) return;
+                startOutboundCall(selectedId, {
+                  peerLabel: selected ? convoLabel(selected) : undefined,
+                });
+              }}
             >
               <IconPhone />
             </button>
@@ -1207,11 +1045,16 @@ export function ChatPanel({
                   type="button"
                   className="btn ghost"
                   disabled={busy || !screenShareReady}
-                  onClick={() => void shareScreen()}
+                  onClick={() => void shareScreen(selectedId)}
                 >
                   {t("chat.screenShare")}
                 </button>
-                <button type="button" className="btn ghost" disabled={busy} onClick={() => void endScreen()}>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={busy}
+                  onClick={() => void endScreen()}
+                >
                   {t("chat.stopShare")}
                 </button>
                 <button
@@ -1238,9 +1081,33 @@ export function ChatPanel({
             onScroll={onMessagesScroll}
           >
             {messages.length === 0 && <p className="muted im-empty">{t("chat.noMessages")}</p>}
-            {messages.map((m) => {
+            {messages.map((m, idx) => {
               const payload = parseChatPayload(plaintexts[m.id]);
               const loading = plaintexts[m.id] == null;
+              // Dedupe call records both sides may post for the same callId.
+              if (payload?.kind === "call" && payload.callId) {
+                const seen = messages.slice(0, idx).some((prev) => {
+                  const p = parseChatPayload(plaintexts[prev.id]);
+                  return p?.kind === "call" && p.callId === payload.callId;
+                });
+                if (seen) return null;
+              }
+              if (!loading && payload?.kind === "call") {
+                return (
+                  <div
+                    key={m.id}
+                    className="chat-call-record"
+                    data-testid="chat-call-record"
+                    data-call-event={payload.event}
+                  >
+                    <IconPhone className="ui-icon-inline" />
+                    <span>{callRecordLabel(payload)}</span>
+                    <time dateTime={new Date(m.createdAt).toISOString()}>
+                      {new Date(m.createdAt).toLocaleString()}
+                    </time>
+                  </div>
+                );
+              }
               const mine = Boolean(
                 (selfUserId && m.senderUserId && m.senderUserId === selfUserId) ||
                   (selfDeviceId && m.senderDeviceId === selfDeviceId),

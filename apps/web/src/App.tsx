@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthGate } from "./components/AuthGate";
 import { TabBar } from "./components/TabBar";
 import { BibleReader } from "./features/BibleReader";
+import { CallProvider } from "./features/CallProvider";
 import { PlansPage } from "./features/PlansPage";
 import { HomePage } from "./features/HomePage";
 import { ChatPage } from "./features/ChatPage";
@@ -14,23 +15,25 @@ import { LoginPage } from "./features/LoginPage";
 function AppShell() {
   return (
     <AuthGate>
-      <div className="app-shell">
-        <main className="app-main">
-          <Routes>
-            <Route index element={<Navigate to="bible/cuvs/john/1" replace />} />
-            <Route path="bible/:tid/:bookSlug/:chapter" element={<BibleReader />} />
-            <Route path="bible/:tid/:bookSlug" element={<BibleReader />} />
-            <Route path="bible/:tid" element={<BibleReader />} />
-            <Route path="bible" element={<Navigate to="bible/cuvs/john/1" replace />} />
-            <Route path="plans" element={<PlansPage />} />
-            <Route path="chat" element={<ChatPage />} />
-            <Route path="home" element={<HomePage />} />
-            <Route path="me" element={<MePage />} />
-            <Route path="*" element={<Navigate to="/app/bible/cuvs/john/1" replace />} />
-          </Routes>
-        </main>
-        <TabBar />
-      </div>
+      <CallProvider>
+        <div className="app-shell">
+          <main className="app-main">
+            <Routes>
+              <Route index element={<Navigate to="bible/cuvs/john/1" replace />} />
+              <Route path="bible/:tid/:bookSlug/:chapter" element={<BibleReader />} />
+              <Route path="bible/:tid/:bookSlug" element={<BibleReader />} />
+              <Route path="bible/:tid" element={<BibleReader />} />
+              <Route path="bible" element={<Navigate to="bible/cuvs/john/1" replace />} />
+              <Route path="plans" element={<PlansPage />} />
+              <Route path="chat" element={<ChatPage />} />
+              <Route path="home" element={<HomePage />} />
+              <Route path="me" element={<MePage />} />
+              <Route path="*" element={<Navigate to="/app/bible/cuvs/john/1" replace />} />
+            </Routes>
+          </main>
+          <TabBar />
+        </div>
+      </CallProvider>
     </AuthGate>
   );
 }

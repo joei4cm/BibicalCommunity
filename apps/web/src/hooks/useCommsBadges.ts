@@ -2,46 +2,43 @@ import { useCallback, useEffect, useState } from "react";
 import {
   EMPTY_COMMS_BADGES,
   fetchCommsBadges,
+  peekCommsBadges,
   subscribeCommsBadges,
   type CommsBadges,
 } from "../lib/comms-badges";
 import { getToken } from "../lib/api";
 
-const POLL_MS = 30_000;
-
+/** Shared badge state — one network poll for TabBar + ChatPage + NotifyHost. */
 export function useCommsBadges() {
-  const [badges, setBadges] = useState<CommsBadges>(EMPTY_COMMS_BADGES);
+  const [badges, setBadges] = useState<CommsBadges>(() => peekCommsBadges());
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
     if (!getToken()) {
       setBadges(EMPTY_COMMS_BADGES);
       return;
     }
     try {
-      setBadges(await fetchCommsBadges());
+      setBadges(await fetchCommsBadges({ force }));
     } catch {
       /* keep last good counts */
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(false);
     const unsub = subscribeCommsBadges(() => {
-      void refresh();
+      setBadges(peekCommsBadges());
+      void refresh(false);
     });
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, POLL_MS);
     const onFocus = () => {
-      void refresh();
+      void refresh(true);
     };
     window.addEventListener("focus", onFocus);
     return () => {
       unsub();
-      window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
     };
   }, [refresh]);
 
-  return { badges, refresh };
+  return { badges, refresh: () => refresh(true) };
 }

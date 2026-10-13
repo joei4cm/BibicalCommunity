@@ -60,6 +60,10 @@ export const privacySettingsSchema = z.object({
   shareReadReceipts: z.boolean().default(true),
   shareTypingIndicators: z.boolean().default(true),
   shareLastActive: z.boolean().default(false),
+  /** OS/PWA alerts for new chat messages (generic title only). */
+  notifyMessages: z.boolean().default(true),
+  /** OS/PWA alerts for incoming calls. */
+  notifyCalls: z.boolean().default(true),
 });
 
 /** Church deployment security posture. */
