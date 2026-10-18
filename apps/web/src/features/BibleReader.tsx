@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { saveReaderPlace } from "../lib/reader-place";
+import {
+  applyVerseTap,
+  highlightIdsInRange,
+  normalizeVerseRange,
+  type VerseRange,
+} from "../lib/reader-selection";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -139,12 +145,6 @@ function displayVerseText(text: string): string {
     .trim();
 }
 
-type VerseRange = { start: number; end: number };
-
-function normalizeRange(a: number, b: number): VerseRange {
-  return a <= b ? { start: a, end: b } : { start: b, end: a };
-}
-
 function rangeIncludes(range: VerseRange | null, verse: number): boolean {
   return Boolean(range && verse >= range.start && verse <= range.end);
 }
@@ -155,9 +155,6 @@ function verseMapFromChapter(chapter: ChapterPayload | null): Map<number, string
   for (const v of chapter.verses) map.set(v.verse, v.text);
   return map;
 }
-
-/** Verse-stacked compare: same verse number, primary + peer lines. */
-const LONG_PRESS_MS = 420;
 
 /** Resolve verse under the finger/cursor — pointer capture would pin the first verse. */
 function verseFromPoint(clientX: number, clientY: number): number | null {
@@ -175,94 +172,89 @@ function verseFromPoint(clientX: number, clientY: number): number | null {
   return null;
 }
 
-function useVerseLongPress(opts: {
-  onSelectVerse: (verse: number) => void;
-  onExtendSelection: (verse: number) => void;
+/**
+ * Tap selects. Moving onto another verse selects that range immediately.
+ * A page scroll (the document actually moves) does not select.
+ */
+function useVerseGesture(opts: {
+  onTapVerse: (verse: number) => void;
+  onDragSelection: (anchor: number, verse: number) => void;
 }) {
-  const timer = useRef<number | null>(null);
-  const armed = useRef(false);
-  const startXY = useRef<{ x: number; y: number } | null>(null);
-  const pointerId = useRef<number | null>(null);
+  const start = useRef<{
+    x: number;
+    y: number;
+    scrollY: number;
+    verse: number;
+    pointerId: number;
+  } | null>(null);
+  const mode = useRef<"pending" | "selecting" | "scrolling">("pending");
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
-  function clearTimer() {
-    if (timer.current != null) {
-      window.clearTimeout(timer.current);
-      timer.current = null;
-    }
-  }
-
-  function detachDrag() {
+  function detach() {
     window.removeEventListener("pointermove", onWinMove);
     window.removeEventListener("pointerup", onWinUp);
     window.removeEventListener("pointercancel", onWinUp);
   }
 
+  function pageScrolled(originScrollY: number): boolean {
+    return Math.abs(window.scrollY - originScrollY) > 6;
+  }
+
   function onWinMove(e: PointerEvent) {
-    if (!armed.current || pointerId.current !== e.pointerId) return;
-    if (e.buttons === 0) return;
-    const v = verseFromPoint(e.clientX, e.clientY);
-    if (v != null) optsRef.current.onExtendSelection(v);
-    e.preventDefault();
+    const origin = start.current;
+    if (!origin || origin.pointerId !== e.pointerId || e.buttons === 0) return;
+    const under = verseFromPoint(e.clientX, e.clientY);
+    if (pageScrolled(origin.scrollY)) {
+      mode.current = "scrolling";
+      return;
+    }
+    if (under != null && under !== origin.verse) {
+      mode.current = "selecting";
+      optsRef.current.onDragSelection(origin.verse, under);
+      e.preventDefault();
+      return;
+    }
+    if (mode.current === "selecting") {
+      if (under != null) optsRef.current.onDragSelection(origin.verse, under);
+      e.preventDefault();
+    }
   }
 
   function onWinUp(e: PointerEvent) {
-    if (pointerId.current != null && e.pointerId !== pointerId.current) return;
-    clearTimer();
-    armed.current = false;
-    startXY.current = null;
-    pointerId.current = null;
-    detachDrag();
+    const origin = start.current;
+    if (!origin || origin.pointerId !== e.pointerId) return;
+    const dx = e.clientX - origin.x;
+    const dy = e.clientY - origin.y;
+    const selecting = mode.current === "selecting";
+    const scrolling = mode.current === "scrolling" || pageScrolled(origin.scrollY);
+    start.current = null;
+    mode.current = "pending";
+    detach();
+    if (!selecting && !scrolling && dx * dx + dy * dy <= 576) {
+      optsRef.current.onTapVerse(origin.verse);
+    }
   }
 
-  useEffect(
-    () => () => {
-      clearTimer();
-      detachDrag();
-    },
-    [],
-  );
+  useEffect(() => () => detach(), []);
 
   function onPointerDown(verse: number, e: ReactPointerEvent) {
     if (e.button !== 0) return;
-    clearTimer();
-    detachDrag();
-    armed.current = false;
-    startXY.current = { x: e.clientX, y: e.clientY };
-    pointerId.current = e.pointerId;
-    timer.current = window.setTimeout(() => {
-      armed.current = true;
-      optsRef.current.onSelectVerse(verse);
-      // Window listeners + elementFromPoint (no setPointerCapture — that pins the first verse).
-      window.addEventListener("pointermove", onWinMove, { passive: false });
-      window.addEventListener("pointerup", onWinUp);
-      window.addEventListener("pointercancel", onWinUp);
-    }, LONG_PRESS_MS);
+    detach();
+    start.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollY: window.scrollY,
+      verse,
+      pointerId: e.pointerId,
+    };
+    mode.current = "pending";
+    window.addEventListener("pointermove", onWinMove, { passive: false });
+    window.addEventListener("pointerup", onWinUp);
+    window.addEventListener("pointercancel", onWinUp);
   }
 
-  function onPointerMove(_verse: number, e: ReactPointerEvent) {
-    if (armed.current && e.buttons === 1) {
-      const v = verseFromPoint(e.clientX, e.clientY);
-      if (v != null) optsRef.current.onExtendSelection(v);
-      return;
-    }
-    const start = startXY.current;
-    if (!start || timer.current == null) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    if (dx * dx + dy * dy > 100) clearTimer();
-  }
-
-  function onPointerUp() {
-    if (!armed.current) {
-      clearTimer();
-      startXY.current = null;
-      pointerId.current = null;
-    }
-  }
-
-  return { onPointerDown, onPointerMove, onPointerUp };
+  return { onPointerDown };
 }
 
 
@@ -275,8 +267,8 @@ function CompareChapterPane({
   lineHeight,
   fontFamily,
   selection,
-  onSelectVerse,
-  onExtendSelection,
+  onTapVerse,
+  onDragSelection,
   highlightByVerse,
 }: {
   primary: ChapterPayload | null;
@@ -287,11 +279,11 @@ function CompareChapterPane({
   lineHeight: number;
   fontFamily: string;
   selection: VerseRange | null;
-  onSelectVerse: (verse: number) => void;
-  onExtendSelection: (verse: number) => void;
+  onTapVerse: (verse: number) => void;
+  onDragSelection: (anchor: number, verse: number) => void;
   highlightByVerse?: Record<number, string>;
 }) {
-  const press = useVerseLongPress({ onSelectVerse, onExtendSelection });
+  const press = useVerseGesture({ onTapVerse, onDragSelection });
   if (!primary || "external" in primary) {
     return <p className="muted">…</p>;
   }
@@ -315,13 +307,10 @@ function CompareChapterPane({
             role="button"
             tabIndex={0}
             onPointerDown={(e) => press.onPointerDown(v.verse, e)}
-            onPointerMove={(e) => press.onPointerMove(v.verse, e)}
-            onPointerUp={() => press.onPointerUp()}
-            onPointerCancel={() => press.onPointerUp()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                onSelectVerse(v.verse);
+                onTapVerse(v.verse);
               }
             }}
           >
@@ -354,8 +343,8 @@ function ChapterPane({
   locale,
   t,
   selection,
-  onSelectVerse,
-  onExtendSelection,
+  onTapVerse,
+  onDragSelection,
   highlightByVerse,
 }: {
   chapter: ChapterPayload | null;
@@ -366,11 +355,11 @@ function ChapterPane({
   locale: "zh-CN" | "en" | "ja";
   t: (key: string) => string;
   selection: VerseRange | null;
-  onSelectVerse: (verse: number) => void;
-  onExtendSelection: (verse: number) => void;
+  onTapVerse: (verse: number) => void;
+  onDragSelection: (anchor: number, verse: number) => void;
   highlightByVerse?: Record<number, string>;
 }) {
-  const press = useVerseLongPress({ onSelectVerse, onExtendSelection });
+  const press = useVerseGesture({ onTapVerse, onDragSelection });
   const headingLocale = locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : "en";
 
   if (!chapter) return <p className="muted">…</p>;
@@ -433,11 +422,11 @@ function ChapterPane({
                 className={`verse-inline${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
                 style={hl ? { backgroundColor: hl } : undefined}
                 onPointerDown={(e) => press.onPointerDown(v.verse, e)}
-                onPointerMove={(e) => press.onPointerMove(v.verse, e)}
-                onPointerUp={() => press.onPointerUp()}
-                onPointerCancel={() => press.onPointerUp()}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") onSelectVerse(v.verse);
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onTapVerse(v.verse);
+                  }
                 }}
                 role="button"
                 tabIndex={0}
@@ -502,6 +491,9 @@ export function BibleReader() {
     if (typeof localStorage === "undefined") return false;
     return localStorage.getItem("lh.readerDockCollapsed") === "1";
   });
+  const [dockToolsOpen, setDockToolsOpen] = useState(false);
+  const dragAnchor = useRef<number | null>(null);
+  const verseSelectingRef = useRef(false);
   const [chapterBookmarkId, setChapterBookmarkId] = useState<string | null>(null);
   const [panshiError, setPanshiError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -545,7 +537,7 @@ export function BibleReader() {
       setChapter(null);
       setSecondChapter(null);
       setSelection(null);
-      setHighlightPaletteOpen(false);
+      dragAnchor.current = null;
       setChapterBookmarkId(null);
       if (audioRef.current) {
         audioRef.current.pause();
@@ -640,8 +632,7 @@ export function BibleReader() {
 
   function toggleDock(panel: Exclude<DockPanel, null>) {
     setDockPanel((cur) => (cur === panel ? null : panel));
-    setHighlightPaletteOpen(false);
-    if ((panel === "note" || panel === "study") && !selection) setSelection({ start: 1, end: 1 });
+    setDockToolsOpen(false);
   }
 
   function stopSpeech() {
@@ -714,7 +705,6 @@ export function BibleReader() {
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
   const [selection, setSelection] = useState<VerseRange | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const dragAnchor = useMemo(() => ({ current: null as number | null }), []);
   const [error, setError] = useState<string | null>(null);
   const [noteMsg, setNoteMsg] = useState<string | null>(null);
   const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
@@ -733,7 +723,6 @@ export function BibleReader() {
   const folioRef = useRef<HTMLDivElement | null>(null);
   const swipeStart = useRef<{ x: number; y: number; t: number } | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
-  const [highlightPaletteOpen, setHighlightPaletteOpen] = useState(false);
   const [copyFlash, setCopyFlash] = useState<string | null>(null);
   const [focusVerse, setFocusVerse] = useState<number | null>(null);
   const [installedByTid, setInstalledByTid] = useState<
@@ -1203,45 +1192,48 @@ export function BibleReader() {
     }
   }
 
-  function selectVerse(verse: number) {
-    dragAnchor.current = verse;
-    setSelection({ start: verse, end: verse });
-    setHighlightPaletteOpen(true);
-    setDockCollapsed(false);
-    // Keep 研读/搜索/朗读 open so verse picks refresh study tools; close only chrome overlays.
-    setDockPanel((cur) => (cur === "note" ? null : cur));
+  function tapVerse(verse: number) {
+    setDockToolsOpen(false);
+    setSelection((cur) => {
+      const next = applyVerseTap(cur, dragAnchor.current, verse);
+      dragAnchor.current = next.anchor;
+      return next.selection;
+    });
   }
 
-  function extendSelection(verse: number) {
-    const anchor = dragAnchor.current ?? verse;
-    setSelection(normalizeRange(anchor, verse));
+  function dragSelection(anchor: number, verse: number) {
+    verseSelectingRef.current = true;
+    dragAnchor.current = anchor;
+    setDockToolsOpen(false);
+    setSelection(normalizeVerseRange(anchor, verse));
   }
 
-  useEffect(() => {
-    const clear = () => {
-      dragAnchor.current = null;
-    };
-    window.addEventListener("pointerup", clear);
-    return () => window.removeEventListener("pointerup", clear);
-  }, [dragAnchor]);
-
-  async function removeHighlightAt(verse: number) {
-    const id = highlightIdByVerse[verse];
-    if (!id) return;
+  async function clearSelectionHighlights() {
+    if (!selection) return;
     if (!getToken()) {
       setError("login_required");
       return;
     }
+    const ids = highlightIdsInRange(highlightIdByVerse, selection);
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
     try {
-      await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
+      for (const id of ids) {
+        await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
+      }
       setHighlightByVerse((prev) => {
         const next = { ...prev };
-        delete next[verse];
+        for (const [verse, id] of Object.entries(highlightIdByVerse)) {
+          if (id && idSet.has(id)) delete next[Number(verse)];
+        }
+        for (let v = selection.start; v <= selection.end; v += 1) delete next[v];
         return next;
       });
       setHighlightIdByVerse((prev) => {
         const next = { ...prev };
-        delete next[verse];
+        for (const [verse, id] of Object.entries(next)) {
+          if (idSet.has(id)) delete next[Number(verse)];
+        }
         return next;
       });
       await refreshNotes();
@@ -1363,7 +1355,8 @@ export function BibleReader() {
       setError("login_required");
       return;
     }
-    const range = selection ?? { start: 1, end: 1 };
+    if (!selection) return;
+    const range = selection;
     const colorMap: Record<string, string> = {
       amber: "#f5d76e",
       mint: "#a8e6cf",
@@ -1397,8 +1390,6 @@ export function BibleReader() {
       }
       return next;
     });
-    setHighlightPaletteOpen(false);
-    setSelection(null);
     await refreshNotes();
   }
 
@@ -1515,11 +1506,8 @@ export function BibleReader() {
         ? `${passageTitle}:${selection.start}`
         : `${passageTitle}:${selection.start}–${selection.end}`;
 
-  const selectionAlreadyHighlighted =
-    selection != null &&
-    Array.from({ length: selection.end - selection.start + 1 }, (_, i) => selection.start + i).every(
-      (v) => Boolean(highlightIdByVerse[v]),
-    );
+  const selectionHasHighlight =
+    selection != null && highlightIdsInRange(highlightIdByVerse, selection).length > 0;
 
   async function copySelection() {
     const text = selectionPlainText().trim();
@@ -1581,6 +1569,10 @@ export function BibleReader() {
       swipeStart.current = null;
       const touch = e.changedTouches[0];
       if (!start || !touch) return;
+      if (verseSelectingRef.current) {
+        verseSelectingRef.current = false;
+        return;
+      }
       const dx = touch.clientX - start.x;
       const dy = touch.clientY - start.y;
       if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
@@ -1598,6 +1590,23 @@ export function BibleReader() {
       el.removeEventListener("touchend", onEnd);
     };
   }, [goToPassage, nextCursor, prevCursor, translationId]);
+
+  useEffect(() => {
+    let timer = 0;
+    const release = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        verseSelectingRef.current = false;
+      }, 80);
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+  }, []);
 
   return (
     <section className="bible-reader" data-testid="bible-reader">
@@ -2001,8 +2010,8 @@ export function BibleReader() {
             lineHeight={lineHeight}
             fontFamily={readerFont}
             selection={selection}
-            onSelectVerse={selectVerse}
-            onExtendSelection={extendSelection}
+            onTapVerse={tapVerse}
+            onDragSelection={dragSelection}
             highlightByVerse={highlightByVerse}
           />
         ) : (
@@ -2015,8 +2024,8 @@ export function BibleReader() {
             locale={locale}
             t={t}
             selection={selection}
-            onSelectVerse={selectVerse}
-            onExtendSelection={extendSelection}
+            onTapVerse={tapVerse}
+            onDragSelection={dragSelection}
             highlightByVerse={highlightByVerse}
           />
         )}
@@ -2025,12 +2034,73 @@ export function BibleReader() {
       {renderChapterNav("reader-bottom", "bottom")}
 
       <div
-        className={`bible-reading-dock${dockCollapsed ? " is-collapsed" : ""}`}
+        className={`bible-reading-dock${dockCollapsed && !selection ? " is-collapsed" : ""}${selection ? " is-selecting" : ""}`}
         data-testid="reader-dock"
         role="toolbar"
-        aria-label={t("reader.moreTools")}
+        aria-label={selection ? t("reader.selectionHighlight") : t("reader.moreTools")}
       >
-        {dockCollapsed ? (
+        {selection ? (
+          <div className="bible-dock-highlight-tray" data-testid="reader-selection-bar">
+            <span className="bible-hint" data-testid="reader-selection-label">
+              {selectionLabel}
+            </span>
+            <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="bible-swatch"
+                  style={{ background: c.value }}
+                  aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
+                  data-testid={`reader-highlight-${c.id}`}
+                  onClick={() => void addHighlight(c.id)}
+                />
+              ))}
+            </div>
+            {selectionHasHighlight && (
+              <button
+                type="button"
+                className="bible-dock-btn bible-dock-btn--danger"
+                data-testid="reader-unhighlight"
+                onClick={() => void clearSelectionHighlights()}
+              >
+                {t("reader.clearHighlight")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="bible-dock-btn"
+              data-testid="reader-copy-selection"
+              onClick={() => void copySelection()}
+            >
+              {t("reader.copy")}
+            </button>
+            <button
+              type="button"
+              className={`bible-dock-btn${dockPanel === "note" ? " is-on" : ""}`}
+              data-testid="reader-dock-note"
+              onClick={() => setDockPanel("note")}
+            >
+              {t("reader.note")}
+            </button>
+            <button
+              type="button"
+              className="bible-dock-btn"
+              data-testid="reader-clear-selection"
+              onClick={() => {
+                setSelection(null);
+                dragAnchor.current = null;
+              }}
+            >
+              {t("reader.clearSelection")}
+            </button>
+            {copyFlash && (
+              <span className="bible-hint" data-testid="reader-copy-flash">
+                {copyFlash}
+              </span>
+            )}
+          </div>
+        ) : dockCollapsed ? (
           <button
             type="button"
             className="bible-dock-edge-tab"
@@ -2066,44 +2136,11 @@ export function BibleReader() {
             <span className="bible-dock-sep" aria-hidden="true" />
             <button
               type="button"
-              className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
-              data-testid="reader-dock-search"
-              onClick={() => toggleDock("search")}
-            >
-              {t("reader.search")}
-            </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
-            <button
-              type="button"
               className={`bible-dock-btn${dockPanel === "speak" ? " is-on" : ""}`}
               data-testid="reader-dock-speak"
               onClick={() => toggleDock("speak")}
             >
               {t("reader.speak")}
-            </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
-            <button
-              type="button"
-              className={`bible-dock-btn${highlightPaletteOpen || Boolean(selection) ? " is-on" : ""}`}
-              data-testid="reader-highlight-toggle"
-              onClick={() => {
-                setHighlightPaletteOpen((v) => !v);
-                setDockPanel(null);
-              }}
-            >
-              {t("reader.highlight")}
-            </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
-            <button
-              type="button"
-              className={`bible-dock-btn${dockPanel === "settings" || layoutOpen ? " is-on" : ""}`}
-              data-testid="reader-layout-btn"
-              onClick={() => {
-                setLayoutOpen(false);
-                toggleDock("settings");
-              }}
-            >
-              {t("reader.settings")}
             </button>
             <span className="bible-dock-sep" aria-hidden="true" />
             <button
@@ -2119,82 +2156,50 @@ export function BibleReader() {
             <span className="bible-dock-sep" aria-hidden="true" />
             <button
               type="button"
+              className={`bible-dock-btn${dockToolsOpen ? " is-on" : ""}`}
+              data-testid="reader-dock-more"
+              aria-expanded={dockToolsOpen}
+              onClick={() => setDockToolsOpen((open) => !open)}
+            >
+              {t("reader.dockMore")}
+            </button>
+            <span className="bible-dock-sep" aria-hidden="true" />
+            <button
+              type="button"
               className="bible-dock-btn"
               data-testid="reader-dock-collapse"
               aria-label={t("reader.dockCollapse")}
               onClick={() => {
                 setDockCollapsed(true);
-                setHighlightPaletteOpen(false);
+                setDockToolsOpen(false);
               }}
             >
               ▾
             </button>
-          </>
-        )}
-        {!dockCollapsed && highlightPaletteOpen && (
-          <div className="bible-dock-highlight-tray" data-testid="reader-selection-bar">
-            {selection && <span className="bible-hint">{selectionLabel}</span>}
-            {selectionAlreadyHighlighted ? (
-              <button
-                type="button"
-                className="bible-dock-btn bible-dock-btn--danger"
-                data-testid="reader-unhighlight"
-                onClick={() => {
-                  if (selection) {
-                    for (let v = selection.start; v <= selection.end; v += 1) {
-                      void removeHighlightAt(v);
-                    }
-                    setSelection(null);
-                    setHighlightPaletteOpen(false);
-                  }
-                }}
-              >
-                {t("reader.clearHighlight")}
-              </button>
-            ) : (
-              <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
-                {HIGHLIGHT_COLORS.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className="bible-swatch"
-                    style={{ background: c.value }}
-                    aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
-                    data-testid={`reader-highlight-${c.id}`}
-                    onClick={() => void addHighlight(c.id)}
-                  />
-                ))}
-              </div>
-            )}
-            {selection && (
-              <>
+            {dockToolsOpen && (
+              <div className="bible-dock-highlight-tray" data-testid="reader-dock-tools">
                 <button
                   type="button"
-                  className="bible-dock-btn"
-                  data-testid="reader-copy-selection"
-                  onClick={() => void copySelection()}
+                  className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
+                  data-testid="reader-dock-search"
+                  onClick={() => toggleDock("search")}
                 >
-                  {t("reader.copy")}
+                  {t("reader.search")}
                 </button>
                 <button
                   type="button"
-                  className="bible-dock-btn"
-                  data-testid="reader-clear-selection"
+                  className={`bible-dock-btn${dockPanel === "settings" || layoutOpen ? " is-on" : ""}`}
+                  data-testid="reader-layout-btn"
                   onClick={() => {
-                    setSelection(null);
-                    setHighlightPaletteOpen(false);
+                    setLayoutOpen(false);
+                    toggleDock("settings");
                   }}
                 >
-                  {t("reader.clearSelection")}
+                  {t("reader.settings")}
                 </button>
-              </>
+              </div>
             )}
-            {copyFlash && (
-              <span className="bible-hint" data-testid="reader-copy-flash">
-                {copyFlash}
-              </span>
-            )}
-          </div>
+          </>
         )}
       </div>
       {dockPanel === "note" && (
@@ -2213,6 +2218,7 @@ export function BibleReader() {
             {t("reader.note")}
             {selectionLabel ? ` · ${selectionLabel}` : ""}
           </h2>
+          {!selection && <p className="bible-hint">{t("reader.selectHint")}</p>}
           <textarea
             rows={2}
             value={noteText}
