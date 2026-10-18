@@ -1,6 +1,6 @@
 {
   "name": "logoshome-desktop",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "description": "Electron shell packaging the LogosHome web build for Linux / macOS / Windows",
   "author": "LogosHome <dev@logoshome.app>",
