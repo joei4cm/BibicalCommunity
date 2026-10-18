@@ -1,7 +1,7 @@
 {
   "name": "logoshome",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "\u5723\u8a00\u5bb6 LogosHome \u2014 Bible reading, devotion, and secure church community",
   "packageManager": "pnpm@10.33.3",
   "scripts": {

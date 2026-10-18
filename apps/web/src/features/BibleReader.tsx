@@ -72,62 +72,11 @@ import {
   bibleLocalDb,
   cacheNetworkChapter,
   densifyChapterVerses,
-  ensureBootCorpusSeeded,
   installDownloadedPack,
   peekLocalChapter,
   readLocalChapter,
 } from "../lib/bible-local-db";
-
-type CorpusDownloadPage = {
-  chapters: { book: string; chapter: number; verses: { verse: number; text: string }[] }[];
-  source?: string;
-  done?: boolean;
-  nextAfter?: string | null;
-  totalChapterKeys?: number;
-};
-
-/** Paged whole-Bible download — avoids one giant payload that stalls first paint. */
-async function fetchCorpusPackPaged(tid: string): Promise<CorpusDownloadPage | null> {
-  let after: string | null = null;
-  const chapters: CorpusDownloadPage["chapters"] = [];
-  let source: string | undefined;
-  for (let page = 0; page < 32; page += 1) {
-    const qs = new URLSearchParams({ scope: "full", limit: "100" });
-    if (after) qs.set("after", after);
-    const pack = await api<CorpusDownloadPage>(
-      `/v1/bible/corpus-download/${encodeURIComponent(tid)}?${qs.toString()}`,
-    );
-    if (pack.source) source = pack.source;
-    if (pack.chapters?.length) chapters.push(...pack.chapters);
-    if (pack.done !== false || !pack.nextAfter) {
-      return chapters.length ? { chapters, source } : null;
-    }
-    after = pack.nextAfter;
-  }
-  return chapters.length ? { chapters, source } : null;
-}
-
-async function warmPdBooksInParallel(
-  translationId: string,
-  concurrency = 6,
-): Promise<void> {
-  const bookNrs = Array.from({ length: 66 }, (_, i) => i + 1);
-  let cursor = 0;
-  async function worker() {
-    while (cursor < bookNrs.length) {
-      const bookNr = bookNrs[cursor];
-      cursor += 1;
-      try {
-        await api(`/v1/bible/corpus-warm/${encodeURIComponent(translationId)}?bookNr=${bookNr}`, {
-          method: "POST",
-        });
-      } catch {
-        /* continue other books */
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: concurrency }, () => worker()));
-}
+import { scheduleBiblePreload } from "../lib/bible-preload";
 
 type DockPanel = "note" | "study" | "search" | "speak" | "settings" | null;
 type StudyTab = "commentary" | "dict" | "crossrefs";
@@ -915,54 +864,7 @@ export function BibleReader() {
   const [bootTick, setBootTick] = useState(0);
 
   useEffect(() => {
-    void ensureBootCorpusSeeded(async (tid) => {
-      try {
-        return await fetchCorpusPackPaged(tid);
-      } catch {
-        return null;
-      }
-    }).then(() => setBootTick((n) => n + 1));
-  }, []);
-
-  /**
-   * After login: warm public-domain 和合本 into R2 (parallel books), then pull
-   * cuvs (and optional PD peers) into IndexedDB so incomplete demo boot is replaced.
-   */
-  useEffect(() => {
-    if (!getToken()) return;
-    const warmKey = "lh.bible.cuvsWarm.v3";
-    if (localStorage.getItem(warmKey) === "1") return;
-    if ((window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm) return;
-    (window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm = true;
-    void (async () => {
-      try {
-        await warmPdBooksInParallel("cuvs", 6);
-        for (const tid of ["cuvs", "web", "kjv", "asv"] as const) {
-          try {
-            const pack = await fetchCorpusPackPaged(tid);
-            if (pack?.chapters?.length && pack.source !== "demo") {
-              await installDownloadedPack(tid, pack.chapters);
-              try {
-                await api("/v1/bible/entitlements", {
-                  method: "POST",
-                  body: JSON.stringify({ translationId: tid }),
-                });
-              } catch {
-                /* PD / already granted */
-              }
-            }
-          } catch {
-            /* keep reading via per-chapter API */
-          }
-        }
-        localStorage.setItem(warmKey, "1");
-        setBootTick((n) => n + 1);
-      } catch {
-        /* chapter route still lazy-fills per book */
-      } finally {
-        (window as unknown as { __lhCuvsWarm?: boolean }).__lhCuvsWarm = false;
-      }
-    })();
+    void scheduleBiblePreload().then(() => setBootTick((n) => n + 1));
   }, []);
 
   useEffect(() => {
