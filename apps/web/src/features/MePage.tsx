@@ -175,10 +175,11 @@ export function MePage() {
   async function checkPendingWipe() {
     if (!getToken()) return;
     try {
-      const res = await api<{ commands: PendingWipe[] }>("/v1/admin/wipe/pending");
-      setPendingWipes(res.commands);
-      if (res.commands.length > 0) {
-        await applyRemoteWipe(res.commands);
+      const res = await api<{ commands?: PendingWipe[] }>("/v1/admin/wipe/pending");
+      const commands = Array.isArray(res.commands) ? res.commands : [];
+      setPendingWipes(commands);
+      if (commands.length > 0) {
+        await applyRemoteWipe(commands);
       }
     } catch {
       /* not logged in or network */
@@ -731,24 +732,6 @@ export function MePage() {
                 onChange={(e) => setPrivacy((p) => ({ ...p, shareReadReceipts: e.target.checked }))}
               />
               {t("me.shareReadReceipts")}
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={privacy.shareTypingIndicators}
-                onChange={(e) =>
-                  setPrivacy((p) => ({ ...p, shareTypingIndicators: e.target.checked }))
-                }
-              />
-              {t("me.shareTypingIndicators")}
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={privacy.shareLastActive}
-                onChange={(e) => setPrivacy((p) => ({ ...p, shareLastActive: e.target.checked }))}
-              />
-              {t("me.shareLastActive")}
             </label>
             <button type="button" className="btn" onClick={() => void saveProfile()}>
               {t("me.save")}

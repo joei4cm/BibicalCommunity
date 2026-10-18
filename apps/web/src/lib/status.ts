@@ -50,6 +50,7 @@ export function humanizeStatus(
     already_friends: "comms.friendBadge",
     request_pending: "comms.incomingRequests",
     cannot_friend_self: "comms.addFriend",
+    message_requests_closed: "comms.messageRequestsClosed",
     "home.postedOk": "home.postedOk",
     "home.exportOk": "home.exportOk",
     readonly: "home.readonly",

@@ -6,13 +6,13 @@ import {
   parseRolesJson,
   primaryChurchRole,
   profileUpdateSchema,
-  type PrivacySettings,
 } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { openField, sealField } from "../services/field-crypto";
 import { hmacHex } from "../services/crypto";
+import { discoveryAllowed, readPrivacy } from "../services/privacy-policy";
 
 export const meRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
@@ -71,16 +71,18 @@ meRoutes.get("/", async (c) => {
 
 /**
  * Privacy-scoped discovery. UID lookup respects discoverableByUid.
- * Handle lookup uses HANDLE_PEPPER HMAC (plaintext handle is never stored).
+ * Handle lookup uses HANDLE_PEPPER HMAC and respects discoverableByHandle.
  */
 meRoutes.get("/search", async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   if (!q) return c.json({ results: [] });
 
   const db = drizzle(c.env.DB, { schema });
+  let via: "uid" | "handle" | null = null;
   let candidate = (
     await db.select().from(schema.users).where(eq(schema.users.uid, q.toUpperCase())).limit(1)
   )[0];
+  if (candidate) via = "uid";
 
   if (!candidate) {
     const pepper = c.env.HANDLE_PEPPER ?? "dev-handle-pepper";
@@ -88,21 +90,15 @@ meRoutes.get("/search", async (c) => {
     candidate = (
       await db.select().from(schema.users).where(eq(schema.users.handleHash, handleHash)).limit(1)
     )[0];
+    if (candidate) via = "handle";
   }
 
-  if (!candidate || candidate.tombstoned) {
+  if (!candidate || candidate.tombstoned || !via) {
     return c.json({ results: [] });
   }
 
-  let privacy: PrivacySettings;
-  try {
-    privacy = JSON.parse(candidate.privacyJson) as PrivacySettings;
-  } catch {
-    return c.json({ results: [] });
-  }
-
-  // UID discovery gate; handle matches are allowed when discoverableByUid is on (same surface).
-  if (!privacy.discoverableByUid) {
+  const privacy = readPrivacy(candidate.privacyJson);
+  if (!privacy || !discoveryAllowed(privacy, via)) {
     return c.json({ results: [] });
   }
 

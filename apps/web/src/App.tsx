@@ -10,6 +10,12 @@ import { MePage } from "./features/MePage";
 import { AdminConsole } from "./features/AdminConsole";
 import { LandingPage } from "./features/LandingPage";
 import { LoginPage } from "./features/LoginPage";
+import { readerHomePath } from "./lib/reader-place";
+
+function ReaderEntry() {
+  const path = readerHomePath().replace(/^\/app\//, "");
+  return <Navigate to={path} replace />;
+}
 
 /** Consumer app: Bible / Plans / Chat / Community / Me + bottom tabs. */
 function AppShell() {
@@ -19,11 +25,11 @@ function AppShell() {
         <div className="app-shell">
           <main className="app-main">
             <Routes>
-              <Route index element={<Navigate to="bible/cuvs/john/1" replace />} />
+              <Route index element={<ReaderEntry />} />
               <Route path="bible/:tid/:bookSlug/:chapter" element={<BibleReader />} />
               <Route path="bible/:tid/:bookSlug" element={<BibleReader />} />
               <Route path="bible/:tid" element={<BibleReader />} />
-              <Route path="bible" element={<Navigate to="bible/cuvs/john/1" replace />} />
+              <Route path="bible" element={<ReaderEntry />} />
               <Route path="plans" element={<PlansPage />} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="home" element={<HomePage />} />
