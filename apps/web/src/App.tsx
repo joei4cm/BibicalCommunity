@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthGate } from "./components/AuthGate";
 import { TabBar } from "./components/TabBar";
@@ -10,15 +11,20 @@ import { MePage } from "./features/MePage";
 import { AdminConsole } from "./features/AdminConsole";
 import { LandingPage } from "./features/LandingPage";
 import { LoginPage } from "./features/LoginPage";
+import { scheduleBiblePreload } from "./lib/bible-preload";
+import { scheduleChatLocalDecrypt } from "./lib/chat-preload";
 import { readerHomePath } from "./lib/reader-place";
 
 function ReaderEntry() {
-  const path = readerHomePath().replace(/^\/app\//, "");
-  return <Navigate to={path} replace />;
+  return <Navigate to={readerHomePath()} replace />;
 }
 
 /** Consumer app: Bible / Plans / Chat / Community / Me + bottom tabs. */
 function AppShell() {
+  useEffect(() => {
+    void scheduleBiblePreload();
+    scheduleChatLocalDecrypt();
+  }, []);
   return (
     <AuthGate>
       <CallProvider>
@@ -34,7 +40,7 @@ function AppShell() {
               <Route path="chat" element={<ChatPage />} />
               <Route path="home" element={<HomePage />} />
               <Route path="me" element={<MePage />} />
-              <Route path="*" element={<Navigate to="/app/bible/cuvs/john/1" replace />} />
+              <Route path="*" element={<ReaderEntry />} />
             </Routes>
           </main>
           <TabBar />

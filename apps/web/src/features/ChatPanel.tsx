@@ -3,17 +3,21 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   deriveSessionKey,
-  decryptSessionPayload,
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
 import { api, apiUrl, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
+import { decodeStoredChatMessage } from "../lib/chat-decode";
 import {
-  decryptGroupFanout,
-  encryptGroupFanout,
-  isGroupFanoutHeader,
-} from "../lib/group-fanout";
+  readChatPreviews,
+  readPlainSync,
+  readThread,
+  writeChatPreview,
+  writePlainSync,
+  writeThread,
+} from "../lib/chat-local";
+import { encryptGroupFanout } from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
 import { peerHasProductKeys } from "../lib/product-signal-chat";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
@@ -136,6 +140,7 @@ export function ChatPanel({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [listQuery, setListQuery] = useState("");
+  const [previews, setPreviews] = useState(readChatPreviews);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   /** False until /v1/friends resolves — don't lock the composer on an empty set. */
   const [friendsReady, setFriendsReady] = useState(false);
@@ -542,7 +547,6 @@ export function ChatPanel({
         return next;
       });
       if (hadUnread) onBadgesRef.current?.();
-      const key = await sessionKeyFor(conversationId);
       const convo = conversationsRef.current.find((c) => c.id === conversationId);
       const peer = (convo?.peerUserIds ?? []).find(Boolean) ?? null;
       const me = selfUserIdRef.current;
@@ -550,35 +554,27 @@ export function ChatPanel({
       const toDecode = after > 0 ? fresh : live;
       const decoded: Record<string, string> = {};
       for (const m of toDecode) {
-        const cached = prevPt[m.id];
-        if (cached && cached !== "[ciphertext]") {
+        const cached = prevPt[m.id] && prevPt[m.id] !== "[ciphertext]" ? prevPt[m.id] : readPlainSync(m.id);
+        if (cached) {
           decoded[m.id] = cached;
           continue;
         }
-        try {
-          if (isGroupFanoutHeader(m.ratchetHeader) && me) {
-            decoded[m.id] = await decryptGroupFanout({
-              conversationId,
-              ratchetHeader: m.ratchetHeader,
-              ciphertext: m.ciphertext,
-              selfUserId: me,
-            });
-          } else {
-            decoded[m.id] = await decryptChatMessage(
-              conversationId,
-              m.ratchetHeader,
-              m.ciphertext,
-              peer,
-              me,
-            );
-          }
-        } catch {
-          try {
-            decoded[m.id] = await decryptSessionPayload(key, m.ratchetHeader, m.ciphertext);
-          } catch {
-            decoded[m.id] = localStorage.getItem(`lh.msg.${m.id}`) ?? "[ciphertext]";
-          }
-        }
+        decoded[m.id] = await decodeStoredChatMessage({
+          conversationId,
+          messageId: m.id,
+          ratchetHeader: m.ratchetHeader,
+          ciphertext: m.ciphertext,
+          peerUserId: peer,
+          selfUserId: me,
+        });
+      }
+      for (const [id, text] of Object.entries(decoded)) writePlainSync(id, text);
+      void writeThread(conversationId, peer, live).catch(() => {});
+      const last = live[live.length - 1];
+      const lastText = last ? decoded[last.id] ?? readPlainSync(last.id) : null;
+      if (last && lastText && lastText !== "[ciphertext]") {
+        writeChatPreview(conversationId, payloadPreview(lastText, lastText), last.createdAt);
+        window.dispatchEvent(new Event("lh:chat-previews"));
       }
       if (after > 0) {
         if (Object.keys(decoded).length === 0) return;
@@ -636,6 +632,12 @@ export function ChatPanel({
   }, [refreshConversations, loadFavorites]);
 
   useEffect(() => {
+    const onPreviews = () => setPreviews(readChatPreviews());
+    window.addEventListener("lh:chat-previews", onPreviews);
+    return () => window.removeEventListener("lh:chat-previews", onPreviews);
+  }, []);
+
+  useEffect(() => {
     selectedIdRef.current = selectedId;
     loadedThreadRef.current = null;
     setMessages([]);
@@ -643,6 +645,19 @@ export function ChatPanel({
     prevMsgSigRef.current = "";
     if (!selectedId) return;
     stickToBottomRef.current = true;
+    const id = selectedId;
+    void readThread(id)
+      .then((cached) => {
+        if (!cached || selectedIdRef.current !== id || loadedThreadRef.current === id) return;
+        const plains: Record<string, string> = {};
+        for (const message of cached.messages) {
+          const text = readPlainSync(message.id);
+          if (text) plains[message.id] = text;
+        }
+        setMessages(cached.messages);
+        if (Object.keys(plains).length > 0) setPlaintexts(plains);
+      })
+      .catch(() => {});
     void loadMessages(selectedId, "full").catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
@@ -1383,6 +1398,7 @@ export function ChatPanel({
             {visibleConversations.map((c) => {
               const label = convoLabel(c);
               const unread = c.unreadCount ?? 0;
+              const preview = previews[c.id]?.text;
               return (
                 <li key={c.id}>
                   <button
@@ -1396,11 +1412,13 @@ export function ChatPanel({
                     <span className="convo-row-main">
                       <strong>{label}</strong>
                       <span className="muted convo-row-preview">
-                        {listTab === "archived"
-                          ? t("chat.archived")
-                          : c.kind !== "dm"
-                            ? kindLabel(c.kind)
-                            : t("chat.tapToOpen")}
+                        {preview
+                          ? preview
+                          : listTab === "archived"
+                            ? t("chat.archived")
+                            : c.kind !== "dm"
+                              ? kindLabel(c.kind)
+                              : t("chat.tapToOpen")}
                       </span>
                     </span>
                     <span className="convo-row-meta">
