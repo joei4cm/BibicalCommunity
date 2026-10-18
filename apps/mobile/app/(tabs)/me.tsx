@@ -626,22 +626,6 @@ export default function MeScreen() {
               trackColor={{ true: palette.accent }}
             />
           </View>
-          <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>{t(locale, "me.shareTypingIndicators")}</Text>
-            <Switch
-              value={privacy.shareTypingIndicators}
-              onValueChange={(v) => setPrivacy((p) => ({ ...p, shareTypingIndicators: v }))}
-              trackColor={{ true: palette.accent }}
-            />
-          </View>
-          <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>{t(locale, "me.shareLastActive")}</Text>
-            <Switch
-              value={privacy.shareLastActive}
-              onValueChange={(v) => setPrivacy((p) => ({ ...p, shareLastActive: v }))}
-              trackColor={{ true: palette.accent }}
-            />
-          </View>
           <Pressable
             style={[styles.btn, { marginTop: 12 }, busy && styles.btnDisabled]}
             disabled={busy}

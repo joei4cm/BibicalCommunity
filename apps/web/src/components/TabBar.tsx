@@ -2,6 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCommsBadges } from "../hooks/useCommsBadges";
 import { formatBadgeCount } from "../lib/comms-badges";
+import { readerHomePath } from "../lib/reader-place";
 
 /** Primary consumer tabs only — ops console lives at /app/admin (no TabBar). */
 export function TabBar() {
@@ -11,7 +12,7 @@ export function TabBar() {
   const chatBadge = formatBadgeCount(badges.total);
 
   const tabs = [
-    { to: "/app/bible/cuvs/john/1", label: t("nav.bible"), end: false, badge: "" },
+    { to: readerHomePath(), label: t("nav.bible"), end: false, badge: "" },
     { to: "/app/plans", label: t("nav.plans"), badge: "" },
     { to: "/app/chat", label: t("nav.chat"), end: false, badge: chatBadge },
     { to: "/app/home", label: t("nav.community"), badge: "" },

@@ -159,7 +159,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }>("/v1/friends"),
     ]);
     if (convoRes.status === "fulfilled") {
-      const list = convoRes.value.conversations;
+      const list = Array.isArray(convoRes.value.conversations) ? convoRes.value.conversations : [];
       setConversations(list);
       const fromPeers: Record<string, string> = {};
       for (const c of list) {
@@ -173,7 +173,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
     if (friendsRes.status === "fulfilled") {
       const next: Record<string, string> = {};
-      for (const f of friendsRes.value.friends) {
+      for (const f of friendsRes.value.friends ?? []) {
         next[f.user.id] = f.user.nickname || f.user.uid || f.user.id.slice(0, 10);
       }
       setPeerLabels((prev) => mergePeerLabels(prev, next));

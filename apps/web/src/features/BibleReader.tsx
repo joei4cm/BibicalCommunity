@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { saveReaderPlace } from "../lib/reader-place";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -605,6 +606,7 @@ export function BibleReader() {
       setTranslationId(tid);
       setBookId(nextBookId);
       setChapterNum(capped);
+      saveReaderPlace({ tid, bookSlug: bookSlug(nextBookId), chapter: capped });
       // Verse focus is applied via routeVerse → focusVerse after prose mounts.
     },
     [navigate],
@@ -621,6 +623,9 @@ export function BibleReader() {
       setTranslationId(routeTid);
       setBookId(routeBookId);
       setChapterNum(capped);
+    }
+    if (params.tid && params.bookSlug && params.chapter) {
+      saveReaderPlace({ tid: routeTid, bookSlug: bookSlug(routeBookId), chapter: capped });
     }
     // Normalize incomplete URLs once.
     if (!params.tid || !params.bookSlug || !params.chapter || capped !== routeChapter) {

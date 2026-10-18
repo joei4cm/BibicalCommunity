@@ -109,7 +109,7 @@ export function ChatPanel({
   onBadgesMaybeChanged?: () => void;
 } = {}) {
   const { t } = useTranslation();
-  const { startOutboundCall, shareScreen, endScreen, screenShareReady } = useCall();
+  const { startOutboundCall, shareScreen, endScreen, screenShareReady, callSessionActive } = useCall();
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -117,7 +117,7 @@ export function ChatPanel({
   const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
   const [kind, setKind] = useState<ConversationKind>("dm");
   const [title, setTitle] = useState("");
-  const [memberIds, setMemberIds] = useState("");
+  const [groupPick, setGroupPick] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -705,19 +705,15 @@ export function ChatPanel({
     return t("chat.callRecordCanceled", { type: video });
   }
 
-  async function createConversation(explicitIds?: string[], explicitKind?: ConversationKind) {
+  async function createConversation(explicitIds: string[], explicitKind: ConversationKind) {
     if (!getToken()) {
       setNote("login_required");
       return;
     }
     setBusy(true);
     try {
-      const useKind = explicitKind ?? kind;
-      const ids = (explicitIds ??
-        memberIds
-          .split(/[\s,]+/)
-          .map((s) => s.trim())
-          .filter(Boolean));
+      const useKind = explicitKind;
+      const ids = explicitIds.map((s) => s.trim()).filter(Boolean);
       if (ids.length === 0) {
         setNote("members_required");
         return;
@@ -730,7 +726,7 @@ export function ChatPanel({
           memberIds: ids,
         }),
       });
-      setMemberIds("");
+      setGroupPick([]);
       setTitle("");
       setSheet("none");
       await refreshConversations();
@@ -1125,22 +1121,26 @@ export function ChatPanel({
                     ))}
                   </select>
                 </div>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={busy || !screenShareReady}
-                  onClick={() => void shareScreen(selectedId)}
-                >
-                  {t("chat.screenShare")}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={busy}
-                  onClick={() => void endScreen()}
-                >
-                  {t("chat.stopShare")}
-                </button>
+                {callSessionActive && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={busy || !screenShareReady}
+                      onClick={() => void shareScreen(selectedId)}
+                    >
+                      {t("chat.screenShare")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={busy}
+                      onClick={() => void endScreen()}
+                    >
+                      {t("chat.stopShare")}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="btn ghost"
@@ -1555,19 +1555,43 @@ export function ChatPanel({
                     </div>
                     <div className="field">
                       <label>{t("chat.members")}</label>
-                      <input
-                        value={memberIds}
-                        onChange={(e) => setMemberIds(e.target.value)}
-                        placeholder={t("chat.selfNote")}
-                        data-testid="chat-compose-members"
-                      />
+                      <p className="muted" style={{ marginTop: 0 }}>
+                        {t("chat.pickMembers")}
+                      </p>
+                      <ul className="list" data-testid="chat-compose-members">
+                        {directory.length === 0 && (
+                          <li className="muted">{t("chat.discoverEmpty")}</li>
+                        )}
+                        {directory.map((c) => {
+                          const checked = groupPick.includes(c.userId);
+                          return (
+                            <li key={c.userId}>
+                              <label className="check-row">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  data-testid={`chat-compose-member-${c.uid || c.userId}`}
+                                  onChange={() =>
+                                    setGroupPick((prev) =>
+                                      checked
+                                        ? prev.filter((id) => id !== c.userId)
+                                        : [...prev, c.userId],
+                                    )
+                                  }
+                                />
+                                {c.nickname || c.uid || c.userId.slice(0, 10)}
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
                     <button
                       type="button"
                       className="btn"
-                      disabled={busy}
+                      disabled={busy || groupPick.length === 0}
                       data-testid="chat-compose-create"
-                      onClick={() => void createConversation()}
+                      onClick={() => void createConversation(groupPick, "group")}
                     >
                       {t("chat.create")}
                     </button>

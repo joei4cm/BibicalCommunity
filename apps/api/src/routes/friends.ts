@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
-import { createId } from "@logoshome/shared";
+import { createId, isChurchAdminRoles, parseRolesJson } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { hmacHex } from "../services/crypto";
 import { openField } from "../services/field-crypto";
 import { buildOrgTree } from "../services/church-access";
+import { messageRequestAllowed, readPrivacy } from "../services/privacy-policy";
 
 export const friendsRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 friendsRoutes.use("*", requireAuth);
@@ -262,6 +263,29 @@ friendsRoutes.post("/request", async (c) => {
   if (!target || target.tombstoned) return c.json({ error: "user_not_found" }, 404);
   if (target.id === fromUserId) return c.json({ error: "cannot_friend_self" }, 400);
 
+  const targetPrivacy = readPrivacy(target.privacyJson);
+  if (!targetPrivacy) return c.json({ error: "message_requests_closed" }, 403);
+  const [fromMemberships, targetMemberships, requesterRows] = await Promise.all([
+    db.select().from(schema.churchMembers).where(eq(schema.churchMembers.userId, fromUserId)),
+    db.select().from(schema.churchMembers).where(eq(schema.churchMembers.userId, target.id)),
+    db.select().from(schema.users).where(eq(schema.users.id, fromUserId)).limit(1),
+  ]);
+  const requester = requesterRows[0];
+  const targetChurches = new Set(targetMemberships.map((m) => m.churchId));
+  const shared = fromMemberships.filter((m) => targetChurches.has(m.churchId));
+  const requesterIsAdmin =
+    requester?.platformRole === "platform_admin" ||
+    shared.some((m) => isChurchAdminRoles(parseRolesJson(m.rolesJson, m.role)));
+  if (
+    !messageRequestAllowed({
+      privacy: targetPrivacy,
+      sharesChurch: shared.length > 0,
+      requesterIsAdmin,
+    })
+  ) {
+    return c.json({ error: "message_requests_closed" }, 403);
+  }
+
   const [a, b] = orderedPair(fromUserId, target.id);
   const existingFriend = (
     await db
@@ -308,13 +332,10 @@ friendsRoutes.post("/request", async (c) => {
     createdAt: now,
   });
 
-  const fromUser = (
-    await db.select().from(schema.users).where(eq(schema.users.id, fromUserId)).limit(1)
-  )[0];
   const fromLabel =
-    (fromUser
-      ? await openField(c.env, fromUserId, "nickname", fromUser.nicknameCt)
-      : null) || fromUser?.uid || fromUserId;
+    (requester
+      ? await openField(c.env, fromUserId, "nickname", requester.nicknameCt)
+      : null) || requester?.uid || fromUserId;
 
   await pushInbox(db, {
     userId: target.id,

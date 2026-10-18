@@ -23,6 +23,7 @@ import {
 } from "@logoshome/shared";
 import type { Env } from "../env";
 import { openField } from "./field-crypto";
+import { readPrivacy } from "./privacy-policy";
 import * as schema from "../db/schema";
 
 type Db = DrizzleD1Database<typeof schema>;
@@ -321,7 +322,12 @@ export async function buildOrgTree(
       groupAncestorIds: ancestorMap,
     });
     if (ok || m.userId === viewerUserId) {
-      visiblePeople.set(m.userId, await toPerson(m));
+      const privacy = readPrivacy(usersById.get(m.userId)?.privacyJson);
+      const listed = privacy?.showInChurchDirectory === true;
+      // Opt-out hides the person from the member directory. They still see themselves.
+      if (m.userId === viewerUserId || listed) {
+        visiblePeople.set(m.userId, await toPerson(m));
+      }
     }
   }
 
