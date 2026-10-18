@@ -27,6 +27,18 @@ export function isPackagedShell(): boolean {
   return false;
 }
 
+/** Join an API path (or absolute URL) with the resolved API base. */
+export function resolveApiUrl(base: string, pathOrUrl: string): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const path = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+  const b = base.trim().replace(/\/$/, "");
+  return b ? `${b}${path}` : path;
+}
+
+export function apiUrl(pathOrUrl: string): string {
+  return resolveApiUrl(getApiBase(), pathOrUrl);
+}
+
 export function getApiBase(): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)?.trim().replace(/\/$/, "");

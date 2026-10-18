@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ForumPostKind } from "@logoshome/shared";
-import { api, getToken } from "../lib/api";
+import { api, apiUrl, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { ExternalMedia } from "./media";
 import { SheetPortal } from "../components/SheetPortal";
@@ -122,7 +122,7 @@ export function DadaoPanel({
 
   async function openAttachment(key: string) {
     try {
-      const res = await fetch(`/v1/media/${encodeURIComponent(key)}`, {
+      const res = await fetch(apiUrl(`/v1/media/${encodeURIComponent(key)}`), {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error("media_fetch_failed");
@@ -141,7 +141,7 @@ export function DadaoPanel({
       const minted = await api<{ key: string; putUrl: string }>("/v1/media/upload-url", {
         method: "POST",
       });
-      const putRes = await fetch(minted.putUrl, {
+      const putRes = await fetch(apiUrl(minted.putUrl), {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${getToken()}`,

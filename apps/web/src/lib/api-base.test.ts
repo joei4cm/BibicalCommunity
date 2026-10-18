@@ -19,6 +19,33 @@ function resolveApiBase(opts: {
   return "";
 }
 
+function resolveApiUrl(base: string, pathOrUrl: string): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const path = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+  const b = base.trim().replace(/\/$/, "");
+  return b ? `${b}${path}` : path;
+}
+
+describe("api url join", () => {
+  it("keeps absolute urls", () => {
+    assert.equal(
+      resolveApiUrl("https://api.example", "https://cdn.example/a"),
+      "https://cdn.example/a",
+    );
+  });
+
+  it("prefixes relative media paths with the API base", () => {
+    assert.equal(
+      resolveApiUrl("https://logoshome-api.joei4cm.workers.dev", "/v1/media/put/media/u/1"),
+      "https://logoshome-api.joei4cm.workers.dev/v1/media/put/media/u/1",
+    );
+  });
+
+  it("stays same-origin when base is empty", () => {
+    assert.equal(resolveApiUrl("", "/v1/media/x"), "/v1/media/x");
+  });
+});
+
 describe("api base resolution", () => {
   const prod = "https://logoshome-api.joei4cm.workers.dev";
 
