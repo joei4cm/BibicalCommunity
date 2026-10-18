@@ -7,7 +7,7 @@ import {
   encryptSessionPayload,
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
-import { api, getToken } from "../lib/api";
+import { api, apiUrl, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import {
   decryptGroupFanout,
@@ -68,6 +68,8 @@ type Conversation = {
   /** Server-enriched peer labels (avoids UID flash while friends load). */
   peers?: { userId: string; uid: string; nickname: string | null }[];
   unreadCount?: number;
+  /** Latest non-tombstoned message time (falls back to createdAt). */
+  lastMessageAt?: number;
   /** Latest peer lastReadAt when they share read receipts (WhatsApp-style ticks). */
   peerLastReadAt?: number | null;
   membership: { id: string; role: string; archived: boolean; lastReadAt?: number | null };
@@ -135,7 +137,15 @@ export function ChatPanel({
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [listQuery, setListQuery] = useState("");
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
+  /** False until /v1/friends resolves — don't lock the composer on an empty set. */
+  const [friendsReady, setFriendsReady] = useState(false);
   const conversationsRef = useRef<Conversation[]>([]);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const selfUserIdRef = useRef<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const onBadgesRef = useRef(onBadgesMaybeChanged);
+  onBadgesRef.current = onBadgesMaybeChanged;
+  const loadedThreadRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -277,9 +287,9 @@ export function ChatPanel({
     return activeConversations.filter((c) => c.kind === listTab);
   }, [activeConversations, listTab]);
 
-  const refreshConversations = useCallback(async () => {
+  const refreshConversations = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!getToken()) {
-      setNote("login_required");
+      if (!opts?.quiet) setNote("login_required");
       return;
     }
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
@@ -294,7 +304,7 @@ export function ChatPanel({
     if (Object.keys(fromPeers).length > 0) {
       setPeerLabels((prev) => mergePeerLabels(prev, fromPeers));
     }
-    setNote(null);
+    if (!opts?.quiet) setNote(null);
   }, []);
 
   useEffect(() => {
@@ -320,9 +330,11 @@ export function ChatPanel({
         }
         setPeerLabels((prev) => mergePeerLabels(prev, map));
         setFriendIds(ids);
+        setFriendsReady(true);
       })
       .catch(() => {
-        /* optional */
+        // Leave the composer usable; the server still enforces friends_required.
+        setFriendsReady(false);
       });
   }, []);
 
@@ -455,26 +467,54 @@ export function ChatPanel({
     [conversations],
   );
 
-  const peerFor = useCallback(
-    (conversationId: string | null) => peersFor(conversationId)[0] ?? null,
-    [peersFor],
-  );
-
   const plaintextsRef = useRef<Record<string, string>>({});
   useEffect(() => {
     plaintextsRef.current = plaintexts;
   }, [plaintexts]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  useEffect(() => {
+    selfUserIdRef.current = selfUserId;
+  }, [selfUserId]);
 
   const loadMessages = useCallback(
-    async (conversationId: string) => {
+    async (conversationId: string, mode: "full" | "incremental" = "full") => {
       const hadUnread =
         (conversationsRef.current.find((c) => c.id === conversationId)?.unreadCount ?? 0) > 0;
+      const known = mode === "incremental" ? messagesRef.current : [];
+      const after =
+        known.length > 0 ? known.reduce((max, m) => Math.max(max, m.createdAt), 0) : 0;
+      const qs = after > 0 ? `?after=${after}` : "";
       const res = await api<{
         messages: ChatMessage[];
         peerLastReadAt?: number | null;
-      }>(`/v1/chat/conversations/${conversationId}/messages`);
+      }>(`/v1/chat/conversations/${conversationId}/messages${qs}`);
+      if (selectedIdRef.current !== conversationId) return;
       const now = Date.now();
-      const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+      const incoming = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+      const knownIds = new Set(known.map((m) => m.id));
+      const fresh = after > 0 ? incoming.filter((m) => !knownIds.has(m.id)) : incoming;
+      if (after > 0 && fresh.length === 0) {
+        if (res.peerLastReadAt !== undefined) {
+          setConversations((prev) => {
+            const cur = prev.find((c) => c.id === conversationId);
+            if (cur && cur.peerLastReadAt === res.peerLastReadAt) return prev;
+            const next = prev.map((c) =>
+              c.id === conversationId ? { ...c, peerLastReadAt: res.peerLastReadAt } : c,
+            );
+            conversationsRef.current = next;
+            return next;
+          });
+        }
+        return;
+      }
+      const live =
+        after > 0
+          ? [...known.filter((m) => m.expiresAt == null || m.expiresAt > now), ...fresh].sort(
+              (a, b) => a.createdAt - b.createdAt,
+            )
+          : incoming;
       setMessages((prev) => {
         if (
           prev.length === live.length &&
@@ -484,8 +524,7 @@ export function ChatPanel({
         }
         return live;
       });
-      // GET messages marks the thread read server-side — clear local unread chip.
-      // Also refresh peerLastReadAt for ✓✓ ticks while the thread is open.
+      // GET messages marks the thread read when something new arrived.
       setConversations((prev) => {
         const next = prev.map((c) =>
           c.id === conversationId
@@ -495,30 +534,34 @@ export function ChatPanel({
                 peerLastReadAt:
                   res.peerLastReadAt !== undefined ? res.peerLastReadAt : c.peerLastReadAt,
                 membership: { ...c.membership, lastReadAt: now },
+                lastMessageAt: live[live.length - 1]?.createdAt ?? c.lastMessageAt,
               }
             : c,
         );
         conversationsRef.current = next;
         return next;
       });
-      if (hadUnread) onBadgesMaybeChanged?.();
+      if (hadUnread) onBadgesRef.current?.();
       const key = await sessionKeyFor(conversationId);
-      const peer = peerFor(conversationId);
+      const convo = conversationsRef.current.find((c) => c.id === conversationId);
+      const peer = (convo?.peerUserIds ?? []).find(Boolean) ?? null;
+      const me = selfUserIdRef.current;
       const prevPt = plaintextsRef.current;
+      const toDecode = after > 0 ? fresh : live;
       const decoded: Record<string, string> = {};
-      for (const m of live) {
+      for (const m of toDecode) {
         const cached = prevPt[m.id];
         if (cached && cached !== "[ciphertext]") {
           decoded[m.id] = cached;
           continue;
         }
         try {
-          if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
+          if (isGroupFanoutHeader(m.ratchetHeader) && me) {
             decoded[m.id] = await decryptGroupFanout({
               conversationId,
               ratchetHeader: m.ratchetHeader,
               ciphertext: m.ciphertext,
-              selfUserId,
+              selfUserId: me,
             });
           } else {
             decoded[m.id] = await decryptChatMessage(
@@ -526,7 +569,7 @@ export function ChatPanel({
               m.ratchetHeader,
               m.ciphertext,
               peer,
-              selfUserId,
+              me,
             );
           }
         } catch {
@@ -537,9 +580,25 @@ export function ChatPanel({
           }
         }
       }
-      setPlaintexts(decoded);
+      if (after > 0) {
+        if (Object.keys(decoded).length === 0) return;
+        setPlaintexts((prev) => ({ ...prev, ...decoded }));
+      } else {
+        loadedThreadRef.current = conversationId;
+        setPlaintexts((prev) => {
+          const prevKeys = Object.keys(prev);
+          const nextKeys = Object.keys(decoded);
+          if (
+            prevKeys.length === nextKeys.length &&
+            nextKeys.every((k) => prev[k] === decoded[k])
+          ) {
+            return prev;
+          }
+          return decoded;
+        });
+      }
     },
-    [onBadgesMaybeChanged, peerFor, selfUserId],
+    [],
   );
 
   const loadFavorites = useCallback(async () => {
@@ -555,12 +614,17 @@ export function ChatPanel({
   useEffect(() => {
     void refreshConversations().catch((e) => setNote(e instanceof Error ? e.message : "error"));
     void loadFavorites();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void refreshConversations({ quiet: true }).catch(() => {});
+    }, 15_000);
+    return () => window.clearInterval(timer);
   }, [refreshConversations, loadFavorites]);
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState !== "visible") return;
-      void refreshConversations().catch(() => {});
+      void refreshConversations({ quiet: true }).catch(() => {});
       void loadFavorites();
     };
     document.addEventListener("visibilitychange", onVis);
@@ -572,14 +636,14 @@ export function ChatPanel({
   }, [refreshConversations, loadFavorites]);
 
   useEffect(() => {
-    if (!selectedId) {
-      setMessages([]);
-      prevMsgSigRef.current = "";
-      return;
-    }
-    stickToBottomRef.current = true;
+    selectedIdRef.current = selectedId;
+    loadedThreadRef.current = null;
+    setMessages([]);
+    setPlaintexts({});
     prevMsgSigRef.current = "";
-    void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    if (!selectedId) return;
+    stickToBottomRef.current = true;
+    void loadMessages(selectedId, "full").catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
   // Stick to bottom when the thread grows (send or receive), unless user scrolled up.
@@ -595,13 +659,17 @@ export function ChatPanel({
     });
   }, [messages, plaintexts, selectedId]);
 
-  /** Soft realtime: poll open thread + refresh on tab focus (no message WS yet). */
+  /** Soft realtime: incremental poll of the open thread (full resync every ~30s). */
   useEffect(() => {
     if (!selectedId) return;
     const POLL_MS = 5_000;
+    let ticks = 0;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
-      void loadMessages(selectedId).catch(() => {
+      ticks += 1;
+      const ready = loadedThreadRef.current === selectedId;
+      const mode = ready && ticks % 6 !== 0 ? "incremental" : "full";
+      void loadMessages(selectedId, mode).catch(() => {
         /* keep last good snapshot while offline */
       });
     };
@@ -729,7 +797,8 @@ export function ChatPanel({
     let ciphertext: string;
     let mode: string;
 
-    if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
+    const groupLike = selected?.kind === "group" || selected?.kind === "seminar";
+    if (groupLike && peers.length >= 1 && selfUserId) {
       const fanout = await encryptGroupFanout({
         conversationId: selectedId,
         plaintext,
@@ -781,15 +850,16 @@ export function ChatPanel({
       setNote("friends_required");
       return;
     }
+    const text = draft.trim();
     setBusy(true);
+    setDraft("");
+    setEmojiOpen(false);
     try {
-      const text = draft.trim();
-      setDraft("");
-      setEmojiOpen(false);
       stickToBottomRef.current = true;
       await sendEncryptedPayload({ v: 1, kind: "text", text });
       requestAnimationFrame(() => scrollMessagesToBottom(true));
     } catch (e) {
+      setDraft((cur) => (cur.trim() ? cur : text));
       setNote(e instanceof Error ? e.message : "error");
     } finally {
       setBusy(false);
@@ -799,11 +869,13 @@ export function ChatPanel({
   async function sendAttachment(file: File) {
     if (!selectedId || !getToken()) return;
     setBusy(true);
+    let caption = "";
+    let clearedDraft = false;
     try {
       const minted = await api<{ key: string; putUrl: string }>("/v1/media/upload-url", {
         method: "POST",
       });
-      const putRes = await fetch(minted.putUrl, {
+      const putRes = await fetch(apiUrl(minted.putUrl), {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${getToken()}`,
@@ -812,8 +884,9 @@ export function ChatPanel({
         body: file,
       });
       if (!putRes.ok) throw new Error("media_upload_failed");
-      const caption = draft.trim();
+      caption = draft.trim();
       setDraft("");
+      clearedDraft = true;
       setEmojiOpen(false);
       stickToBottomRef.current = true;
       await sendEncryptedPayload({
@@ -826,6 +899,7 @@ export function ChatPanel({
       });
       requestAnimationFrame(() => scrollMessagesToBottom(true));
     } catch (e) {
+      if (clearedDraft) setDraft((cur) => (cur.trim() ? cur : caption));
       setNote(e instanceof Error ? e.message : "error");
     } finally {
       setBusy(false);
@@ -880,7 +954,7 @@ export function ChatPanel({
       for (const key of keys) {
         mediaLoadedRef.current.add(key);
         try {
-          const res = await fetch(`/v1/media/${encodeURIComponent(key)}`, {
+          const res = await fetch(apiUrl(`/v1/media/${encodeURIComponent(key)}`), {
             headers: { Authorization: `Bearer ${getToken()}` },
           });
           if (!res.ok || cancelled) continue;
@@ -957,6 +1031,15 @@ export function ChatPanel({
     return kindLabel(c.kind);
   }
 
+  function formatConvoWhen(ts: number): string {
+    const d = new Date(ts);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString();
+  }
+
   function avatarLetter(label: string) {
     const s = label.trim();
     return s ? s.slice(0, 1).toUpperCase() : "?";
@@ -973,6 +1056,7 @@ export function ChatPanel({
   }, [archivedConversations, filteredActive, listQuery, listTab, peerLabels, t]);
 
   const dmPeerBlocked =
+    friendsReady &&
     selected?.kind === "dm" &&
     Boolean(selected.peerUserIds?.[0]) &&
     !friendIds.has(selected.peerUserIds![0]!);
@@ -1326,7 +1410,7 @@ export function ChatPanel({
                         </span>
                       ) : null}
                       <span className="muted convo-row-time">
-                        {new Date(c.createdAt).toLocaleDateString()}
+                        {formatConvoWhen(c.lastMessageAt ?? c.createdAt)}
                       </span>
                     </span>
                   </button>

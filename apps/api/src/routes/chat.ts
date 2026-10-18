@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { createId, privacySettingsSchema } from "@logoshome/shared";
 import type { Env } from "../env";
@@ -144,6 +144,22 @@ chatRoutes.get("/conversations", async (c) => {
     unreadByConvo.set(row.conversationId, Number(row.n ?? 0));
   }
 
+  const lastRows = await c.env.DB.prepare(
+    `SELECT conversation_id AS conversationId, MAX(created_at) AS lastAt
+     FROM messages
+     WHERE IFNULL(tombstoned, 0) = 0
+       AND conversation_id IN (
+         SELECT conversation_id FROM conversation_members WHERE user_id = ?
+       )
+     GROUP BY conversation_id`,
+  )
+    .bind(userId)
+    .all<{ conversationId: string; lastAt: number }>();
+  const lastAtByConvo = new Map<string, number>();
+  for (const row of lastRows.results ?? []) {
+    lastAtByConvo.set(row.conversationId, Number(row.lastAt ?? 0));
+  }
+
   const convoIds = memberships.map((m) => m.conversationId);
   const membershipByConvo = new Map(memberships.map((m) => [m.conversationId, m]));
 
@@ -236,6 +252,7 @@ chatRoutes.get("/conversations", async (c) => {
         .map((id) => peerLabelById.get(id))
         .filter((p): p is { userId: string; uid: string; nickname: string | null } => Boolean(p)),
       unreadCount: unreadByConvo.get(convo.id) ?? 0,
+      lastMessageAt: lastAtByConvo.get(convo.id) ?? convo.createdAt,
       peerLastReadAt: peerLastReadFast(members),
       membership: {
         id: m.id,
@@ -407,10 +424,17 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
   if (!member) return c.json({ error: "forbidden" }, 403);
 
   const now = Date.now();
+  const afterRaw = Number(c.req.query("after") ?? "0");
+  const after = Number.isFinite(afterRaw) && afterRaw > 0 ? Math.floor(afterRaw) : 0;
+  const filters = [
+    eq(schema.messages.conversationId, conversationId),
+    eq(schema.messages.tombstoned, false),
+  ];
+  if (after > 0) filters.push(gt(schema.messages.createdAt, after));
   const rows = await db
     .select()
     .from(schema.messages)
-    .where(and(eq(schema.messages.conversationId, conversationId), eq(schema.messages.tombstoned, false)));
+    .where(and(...filters));
 
   // Resolve sender user ids so clients can mark "mine" across devices.
   const senderDeviceIds = Array.from(new Set(rows.map((m) => m.senderDeviceId)));
@@ -445,11 +469,17 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
     });
   }
 
-  // Opening the thread marks it read for badge purposes.
-  await db
-    .update(schema.conversationMembers)
-    .set({ lastReadAt: now })
-    .where(eq(schema.conversationMembers.id, member.id));
+  // Mark read only when something newer than the stored cursor arrived.
+  // Idle polls used to write last_read_at every few seconds.
+  const newest = live.reduce((max, m) => Math.max(max, m.createdAt), 0);
+  let lastReadAt = member.lastReadAt ?? 0;
+  if (newest > lastReadAt) {
+    lastReadAt = now;
+    await db
+      .update(schema.conversationMembers)
+      .set({ lastReadAt: now })
+      .where(eq(schema.conversationMembers.id, member.id));
+  }
 
   const members = await db
     .select()
@@ -457,7 +487,7 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
     .where(eq(schema.conversationMembers.conversationId, conversationId));
   const peerLastReadAt = await sharedPeerLastReadAt(db, members, c.get("userId"));
 
-  return c.json({ messages: live, lastReadAt: now, peerLastReadAt });
+  return c.json({ messages: live, lastReadAt, peerLastReadAt });
 });
 
 const favoriteSchema = z.object({
