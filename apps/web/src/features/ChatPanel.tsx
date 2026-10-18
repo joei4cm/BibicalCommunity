@@ -140,7 +140,7 @@ export function ChatPanel({
   /** False until /v1/friends resolves — don't lock the composer on an empty set. */
   const [friendsReady, setFriendsReady] = useState(false);
   const conversationsRef = useRef<Conversation[]>([]);
-  const messagesRef = useRef<ChatMessage[]>([]);
+  const messageRowsRef = useRef<ChatMessage[]>([]);
   const selfUserIdRef = useRef<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
   const onBadgesRef = useRef(onBadgesMaybeChanged);
@@ -472,7 +472,7 @@ export function ChatPanel({
     plaintextsRef.current = plaintexts;
   }, [plaintexts]);
   useEffect(() => {
-    messagesRef.current = messages;
+    messageRowsRef.current = messages;
   }, [messages]);
   useEffect(() => {
     selfUserIdRef.current = selfUserId;
@@ -482,7 +482,7 @@ export function ChatPanel({
     async (conversationId: string, mode: "full" | "incremental" = "full") => {
       const hadUnread =
         (conversationsRef.current.find((c) => c.id === conversationId)?.unreadCount ?? 0) > 0;
-      const known = mode === "incremental" ? messagesRef.current : [];
+      const known = mode === "incremental" ? messageRowsRef.current : [];
       const after =
         known.length > 0 ? known.reduce((max, m) => Math.max(max, m.createdAt), 0) : 0;
       const qs = after > 0 ? `?after=${after}` : "";
