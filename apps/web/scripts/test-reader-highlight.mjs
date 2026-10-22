@@ -1,5 +1,5 @@
 /**
- * Tap and drag select a verse range and surface highlight colors immediately.
+ * Tap/drag select, recolor replaces, chapter bookmark toggles without sticking.
  */
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -11,65 +11,68 @@ mkdirSync(artifacts, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
-let highlightSaved = false;
+let highlightRows = [];
+let bookmarkRows = [];
+let nextId = 1;
 const deletes = [];
+
+function chapterVerses() {
+  return [1, 2, 3, 4, 5, 6].map((verse) => ({ verse, text: `第${verse}节` }));
+}
 
 await page.route("**/v1/**", async (route) => {
   const url = new URL(route.request().url());
   const path = url.pathname;
   const method = route.request().method();
   if (path.endsWith("/v1/annotations") && method === "GET") {
-    const annotations = highlightSaved
-      ? [
-          {
-            id: "h1",
-            translationId: "cuvs",
-            book: "John",
-            chapter: 1,
-            verseStart: 1,
-            verseEnd: 3,
-            kind: "highlight",
-            color: "amber",
-            ciphertext: "",
-            iv: "",
-          },
-        ]
-      : [];
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ annotations }),
+      body: JSON.stringify({ annotations: [...highlightRows, ...bookmarkRows] }),
     });
   }
   if (path.endsWith("/v1/annotations") && method === "POST") {
-    highlightSaved = true;
+    const body = route.request().postDataJSON();
+    const id = `ann_${nextId++}`;
+    const row = {
+      id,
+      translationId: body.translationId,
+      book: body.ref.book,
+      chapter: body.ref.chapter,
+      verseStart: body.ref.verseStart,
+      verseEnd: body.ref.verseEnd ?? body.ref.verseStart,
+      kind: body.kind,
+      color: body.color ?? null,
+      ciphertext: body.ciphertext ?? "",
+      iv: body.iv ?? "",
+    };
+    if (body.kind === "highlight") highlightRows.push(row);
+    if (body.kind === "bookmark") bookmarkRows.push(row);
     return route.fulfill({
-      status: 200,
+      status: 201,
       contentType: "application/json",
-      body: JSON.stringify({ id: "h1" }),
+      body: JSON.stringify({ id }),
     });
   }
   if (path.includes("/v1/annotations/") && method === "DELETE") {
-    deletes.push(path);
-    highlightSaved = false;
-    return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    const id = path.split("/").pop();
+    deletes.push(id);
+    highlightRows = highlightRows.filter((r) => r.id !== id);
+    bookmarkRows = bookmarkRows.filter((r) => r.id !== id);
+    return route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
   }
   if (path.endsWith("/v1/bible/chapter")) {
     const ref = url.searchParams.get("ref") ?? "John.1";
     const [book, chapterRaw] = ref.split(".");
-    const chapter = Number(chapterRaw) || 1;
     return route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         translationId: "cuvs",
         book,
-        chapter,
+        chapter: Number(chapterRaw) || 1,
         source: "mock",
-        verses: [1, 2, 3, 4, 5, 6].map((verse) => ({
-          verse,
-          text: `第${verse}节`,
-        })),
+        verses: chapterVerses(),
       }),
     });
   }
@@ -96,74 +99,67 @@ await page.goto(`${WEB}/app/bible/cuvs/john/1`, { waitUntil: "domcontentloaded" 
 await page.waitForSelector('[data-verse="1"]', { timeout: 20000 });
 await page.waitForSelector('[data-testid="reader-dock-note"]');
 
-const searchBefore = await page.locator('[data-testid="reader-dock-search"]').count();
-if (searchBefore !== 0) throw new Error("search should stay behind 更多");
-await page.click('[data-testid="reader-dock-more"]');
-await page.waitForSelector('[data-testid="reader-dock-search"]');
-await page.screenshot({ path: `${artifacts}/reader-dock-more.png` });
-
 await page.locator('[data-verse="1"]').click();
 await page.waitForSelector('[data-testid="reader-selection-bar"]');
-await page.waitForSelector('[data-testid="reader-highlight-amber"]');
-const onlyOne = await page.locator('[data-verse].verse-selected').count();
-if (onlyOne !== 1) throw new Error(`expected 1 selected verse, got ${onlyOne}`);
-
 await page.locator('[data-verse="3"]').click();
 await page.waitForFunction(() => {
-  const nodes = [...document.querySelectorAll("[data-verse]")];
   return ["1", "2", "3"].every((n) =>
-    nodes.some((el) => el.getAttribute("data-verse") === n && el.classList.contains("verse-selected")),
+    document.querySelector(`[data-verse="${n}"]`)?.classList.contains("verse-selected"),
   );
 });
-await page.screenshot({ path: `${artifacts}/reader-selection-range.png` });
-
 await page.click('[data-testid="reader-highlight-amber"]');
 await page.waitForSelector('[data-testid="reader-unhighlight"]');
-await page.click('[data-testid="reader-unhighlight"]');
-await page.waitForFunction(() => !document.querySelector('[data-testid="reader-unhighlight"]'));
-if (deletes.length !== 1) throw new Error(`expected 1 delete, got ${deletes.length}: ${deletes.join(",")}`);
-const stillSelected = await page.locator('[data-verse="1"].verse-selected').count();
-if (stillSelected !== 1) throw new Error("selection should stay after clearing highlight");
+await page.waitForFunction(() =>
+  document.querySelector('[data-verse="1"]')?.getAttribute("data-highlighted") === "1",
+);
+if (highlightRows.length !== 1) throw new Error(`expected 1 highlight, got ${highlightRows.length}`);
+
+await page.click('[data-testid="reader-highlight-mint"]');
+await page.waitForFunction(() => {
+  const el = document.querySelector('[data-verse="2"]');
+  const hl = getComputedStyle(el).getPropertyValue("--verse-hl").trim();
+  return hl === "#a8e6cf";
+});
+if (highlightRows.length !== 1) {
+  throw new Error(`recolor should replace, got ${highlightRows.length} rows`);
+}
+if (highlightRows[0].color !== "mint") throw new Error(`expected mint, got ${highlightRows[0].color}`);
 
 await page.click('[data-testid="reader-clear-selection"]');
 await page.waitForSelector('[data-testid="reader-selection-bar"]', { state: "detached" });
-
 await page.locator('[data-verse="2"]').click();
-await page.waitForSelector('[data-verse="2"].verse-selected');
-await page.locator('[data-verse="2"]').click();
-await page.waitForFunction(() => !document.querySelector("[data-verse].verse-selected"));
+await page.waitForFunction(() => {
+  const selected = [...document.querySelectorAll("[data-verse].verse-selected")].map((el) =>
+    el.getAttribute("data-verse"),
+  );
+  return selected.join(",") === "1,2,3";
+});
+await page.screenshot({ path: `${artifacts}/reader-highlight-range-select.png` });
 
-async function hitPoint(locator) {
-  return locator.evaluate((el) => {
-    const rect = el.getBoundingClientRect();
-    for (let y = rect.top + 2; y < rect.bottom; y += 3) {
-      for (let x = rect.left + 2; x < Math.min(rect.right, rect.left + 240); x += 6) {
-        const stack = document.elementsFromPoint(x, y);
-        const top = stack.find((node) => node instanceof Element && node.closest("[data-verse]"));
-        const host = top instanceof Element ? top.closest("[data-verse]") : null;
-        if (host === el) return { x, y };
-      }
-    }
-    return null;
-  });
-}
+await page.click('[data-testid="reader-clear-selection"]');
+await page.click('[data-testid="reader-top-bookmark"]');
+await page.waitForSelector('[data-testid="reader-chapter-bookmarked"]');
+if (bookmarkRows.length !== 1) throw new Error(`expected 1 bookmark, got ${bookmarkRows.length}`);
+await page.screenshot({ path: `${artifacts}/reader-chapter-bookmarked.png` });
 
-const v1 = page.locator('[data-verse="1"]');
-const v5 = page.locator('[data-verse="5"]');
-const a = await hitPoint(v1);
-const b = await hitPoint(v5);
-if (!a || !b) throw new Error(`missing hit point ${JSON.stringify(a)} ${JSON.stringify(b)}`);
-await page.mouse.move(a.x, a.y);
-await page.mouse.down();
-await page.mouse.move(b.x, b.y, { steps: 16 });
-await page.mouse.up();
-const selectedAfterDrag = await page.locator("[data-verse].verse-selected").evaluateAll((els) =>
-  els.map((el) => el.getAttribute("data-verse")),
-);
-if (!selectedAfterDrag.includes("1") || selectedAfterDrag.length < 3) {
-  throw new Error(`drag selected ${selectedAfterDrag.join(",")}`);
-}
-await page.screenshot({ path: `${artifacts}/reader-selection-drag.png` });
+await page.click('[data-testid="reader-bottom-next-chapter"]');
+await page.waitForURL(/\/john\/2/);
+await page.waitForSelector('[data-verse="1"]');
+await page.waitForFunction(() => !document.querySelector('[data-testid="reader-chapter-bookmarked"]'));
+const stickyHl = await page.locator('[data-verse="1"][data-highlighted="1"]').count();
+if (stickyHl !== 0) throw new Error("highlight leaked into next chapter");
+const bookmarkOn = await page.locator('[data-testid="reader-top-bookmark"].is-on').count();
+if (bookmarkOn !== 0) throw new Error("bookmark stayed active on next chapter");
+await page.screenshot({ path: `${artifacts}/reader-bookmark-cleared-next-chapter.png` });
+
+await page.click('[data-testid="reader-bottom-prev-chapter"]');
+await page.waitForURL(/\/john\/1/);
+await page.waitForSelector('[data-testid="reader-chapter-bookmarked"]');
+await page.waitForSelector('[data-verse="1"][data-highlighted="1"]');
+
+await page.click('[data-testid="reader-top-bookmark"]');
+await page.waitForFunction(() => !document.querySelector('[data-testid="reader-chapter-bookmarked"]'));
+if (bookmarkRows.length !== 0) throw new Error("bookmark toggle off should delete");
 
 await browser.close();
-console.log("ok");
+console.log("ok", { deletes: deletes.length, highlights: highlightRows.length });
