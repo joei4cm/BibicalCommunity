@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { saveReaderPlace } from "../lib/reader-place";
 import {
   applyVerseTap,
   highlightIdsInRange,
   normalizeVerseRange,
+  rangeForHighlightAt,
   type VerseRange,
 } from "../lib/reader-selection";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -302,7 +311,8 @@ function CompareChapterPane({
           <div
             key={v.verse}
             className={`compare-verse${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
-            style={hl ? { background: hl } : undefined}
+            style={hl ? ({ ["--verse-hl" as string]: hl } as CSSProperties) : undefined}
+            data-highlighted={hl ? "1" : "0"}
             data-verse={v.verse}
             role="button"
             tabIndex={0}
@@ -420,7 +430,7 @@ function ChapterPane({
               ) : null}
               <span
                 className={`verse-inline${selected ? " verse-selected" : ""}${hl ? " verse-highlighted" : ""}`}
-                style={hl ? { backgroundColor: hl } : undefined}
+                style={hl ? ({ ["--verse-hl" as string]: hl } as CSSProperties) : undefined}
                 onPointerDown={(e) => press.onPointerDown(v.verse, e)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -432,6 +442,7 @@ function ChapterPane({
                 tabIndex={0}
                 data-verse={v.verse}
                 data-selected={selected ? "1" : "0"}
+                data-highlighted={hl ? "1" : "0"}
                 title={t("reader.longPressSelect")}
               >
                 <sup className="verse-num">{v.verse}</sup>
@@ -539,6 +550,8 @@ export function BibleReader() {
       setSelection(null);
       dragAnchor.current = null;
       setChapterBookmarkId(null);
+      setHighlightByVerse({});
+      setHighlightIdByVerse({});
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.removeAttribute("src");
@@ -710,7 +723,9 @@ export function BibleReader() {
   const [decryptedNotes, setDecryptedNotes] = useState<DecryptedNote[]>([]);
   const [highlightByVerse, setHighlightByVerse] = useState<Record<number, string>>({});
   const [highlightIdByVerse, setHighlightIdByVerse] = useState<Record<number, string>>({});
-  const [bookmarks, setBookmarks] = useState<{ id: string; label: string }[]>([]);
+  const [bookmarks, setBookmarks] = useState<
+    { id: string; label: string; book: string; chapter: number; verse: number }[]
+  >([]);
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
   const [passagePickerOpen, setPassagePickerOpen] = useState(false);
@@ -1036,22 +1051,33 @@ export function BibleReader() {
     };
   }, [dualPane, secondTranslationId, ref, bookId, chapterNum]);
 
+  const annotationsEpoch = useRef(0);
+
   const refreshNotes = useCallback(async () => {
+    const epoch = ++annotationsEpoch.current;
+    const tid = translationId;
+    const book = bookId;
+    const chapter = chapterNum;
     if (!getToken()) {
+      if (epoch !== annotationsEpoch.current) return;
       setDecryptedNotes([]);
       setHighlightByVerse({});
+      setHighlightIdByVerse({});
       setBookmarks([]);
+      setChapterBookmarkId(null);
       return;
     }
     try {
       const res = await api<{ annotations: AnnotationRow[] }>(
-        `/v1/annotations?translation=${encodeURIComponent(translationId)}`,
+        `/v1/annotations?translation=${encodeURIComponent(tid)}`,
       );
+      if (epoch !== annotationsEpoch.current) return;
       const notes: DecryptedNote[] = [];
       const highlights: Record<number, string> = {};
       const highlightIds: Record<number, string> = {};
-      const marks: { id: string; label: string }[] = [];
-      let chapterBm: string | null = null;
+      const marks: { id: string; label: string; book: string; chapter: number; verse: number }[] =
+        [];
+      const chapterBookmarkIds: string[] = [];
       const colorMap: Record<string, string> = {
         amber: "#f5d76e",
         mint: "#a8e6cf",
@@ -1059,7 +1085,7 @@ export function BibleReader() {
         sky: "#a8d8ea",
       };
       for (const row of res.annotations) {
-        const sameChapter = row.book === bookId && row.chapter === chapterNum;
+        const sameChapter = row.book === book && row.chapter === chapter;
         if (row.kind === "note") {
           try {
             const payload = await decryptJson<{ text?: string }>(row.ciphertext, row.iv, "note");
@@ -1087,20 +1113,33 @@ export function BibleReader() {
           marks.push({
             id: row.id,
             label: `${row.book} ${row.chapter}:${row.verseStart ?? 1}`,
+            book: row.book,
+            chapter: row.chapter,
+            verse: row.verseStart ?? 1,
           });
-          if (sameChapter && !chapterBm) {
-            chapterBm = row.id;
-          }
+          if (sameChapter) chapterBookmarkIds.push(row.id);
         }
       }
+      if (epoch !== annotationsEpoch.current) return;
       setDecryptedNotes(notes);
       setHighlightByVerse(highlights);
       setHighlightIdByVerse(highlightIds);
       setBookmarks(marks);
-      setChapterBookmarkId(chapterBm);
+      // One chapter bookmark in the UI; keep the oldest and drop extras on toggle.
+      setChapterBookmarkId(chapterBookmarkIds[0] ?? null);
     } catch {
       /* listing is optional when offline / unauthenticated */
     }
+  }, [translationId, bookId, chapterNum]);
+
+  // Chapter links bypass goToPassage — drop previous chapter paint immediately.
+  useEffect(() => {
+    annotationsEpoch.current += 1;
+    setHighlightByVerse({});
+    setHighlightIdByVerse({});
+    setChapterBookmarkId(null);
+    setSelection(null);
+    dragAnchor.current = null;
   }, [translationId, bookId, chapterNum]);
 
   useEffect(() => {
@@ -1195,7 +1234,9 @@ export function BibleReader() {
   function tapVerse(verse: number) {
     setDockToolsOpen(false);
     setSelection((cur) => {
-      const next = applyVerseTap(cur, dragAnchor.current, verse);
+      const painted =
+        cur == null ? rangeForHighlightAt(highlightIdByVerse, verse) : null;
+      const next = applyVerseTap(cur, dragAnchor.current, verse, painted);
       dragAnchor.current = next.anchor;
       return next.selection;
     });
@@ -1217,25 +1258,28 @@ export function BibleReader() {
     const ids = highlightIdsInRange(highlightIdByVerse, selection);
     if (ids.length === 0) return;
     const idSet = new Set(ids);
+    const range = selection;
+    setHighlightByVerse((prev) => {
+      const next = { ...prev };
+      for (const [verse, id] of Object.entries(highlightIdByVerse)) {
+        if (id && idSet.has(id)) delete next[Number(verse)];
+      }
+      for (let v = range.start; v <= range.end; v += 1) delete next[v];
+      return next;
+    });
+    setHighlightIdByVerse((prev) => {
+      const next = { ...prev };
+      for (const [verse, id] of Object.entries(next)) {
+        if (idSet.has(id)) delete next[Number(verse)];
+      }
+      return next;
+    });
+    setError(null);
     try {
       for (const id of ids) {
+        if (id.startsWith("local-hl-")) continue;
         await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
       }
-      setHighlightByVerse((prev) => {
-        const next = { ...prev };
-        for (const [verse, id] of Object.entries(highlightIdByVerse)) {
-          if (id && idSet.has(id)) delete next[Number(verse)];
-        }
-        for (let v = selection.start; v <= selection.end; v += 1) delete next[v];
-        return next;
-      });
-      setHighlightIdByVerse((prev) => {
-        const next = { ...prev };
-        for (const [verse, id] of Object.entries(next)) {
-          if (idSet.has(id)) delete next[Number(verse)];
-        }
-        return next;
-      });
       await refreshNotes();
     } catch (e) {
       setError(e instanceof Error ? e.message : "error");
@@ -1284,27 +1328,6 @@ export function BibleReader() {
     return Array.from({ length: 50 }, (_, i) => i + 1);
   }, [pickerBookId, pickerChapter, bookId, chapterNum, chapter]);
 
-  async function addBookmark(verseOverride?: number) {
-    if (!getToken()) {
-      setError("login_required");
-      return;
-    }
-    const verse = verseOverride ?? selection?.start ?? 1;
-    const { ciphertext, iv } = await encryptJson({ kind: "bookmark" }, "bookmark");
-    await api("/v1/annotations", {
-      method: "POST",
-      body: JSON.stringify({
-        translationId,
-        ref: { book: bookId, chapter: chapterNum, verseStart: verse },
-        kind: "bookmark",
-        ciphertext,
-        iv,
-      }),
-    });
-    setNoteMsg("bookmark_ok");
-    await refreshNotes();
-  }
-
   async function removeBookmark(id: string) {
     if (!getToken()) return;
     try {
@@ -1312,16 +1335,70 @@ export function BibleReader() {
     } catch {
       /* ignore */
     }
-    setChapterBookmarkId(null);
+    if (chapterBookmarkId === id) setChapterBookmarkId(null);
+    setBookmarks((prev) => prev.filter((b) => b.id !== id));
     await refreshNotes();
   }
 
+  /** Chapter bookmark: at most one per chapter; toggles on/off. */
   async function toggleChapterBookmark() {
-    if (chapterBookmarkId) {
-      await removeBookmark(chapterBookmarkId);
+    if (!getToken()) {
+      setError("login_required");
       return;
     }
-    await addBookmark(selection?.start ?? 1);
+    const existing = bookmarks.filter((b) => b.book === bookId && b.chapter === chapterNum);
+    if (existing.length > 0 || chapterBookmarkId) {
+      const ids = new Set(existing.map((b) => b.id));
+      if (chapterBookmarkId) ids.add(chapterBookmarkId);
+      setChapterBookmarkId(null);
+      setBookmarks((prev) => prev.filter((b) => !(b.book === bookId && b.chapter === chapterNum)));
+      setError(null);
+      for (const id of ids) {
+        if (id.startsWith("local-bm-")) continue;
+        try {
+          await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
+        } catch {
+          /* ignore */
+        }
+      }
+      await refreshNotes();
+      return;
+    }
+    const verse = selection?.start ?? 1;
+    const tempId = `local-bm-${bookId}-${chapterNum}`;
+    setChapterBookmarkId(tempId);
+    setBookmarks((prev) => [
+      ...prev.filter((b) => !(b.book === bookId && b.chapter === chapterNum)),
+      {
+        id: tempId,
+        label: `${bookId} ${chapterNum}:${verse}`,
+        book: bookId,
+        chapter: chapterNum,
+        verse,
+      },
+    ]);
+    setError(null);
+    try {
+      const { ciphertext, iv } = await encryptJson({ kind: "bookmark" }, "bookmark");
+      const res = await api<{ id: string }>("/v1/annotations", {
+        method: "POST",
+        body: JSON.stringify({
+          translationId,
+          ref: { book: bookId, chapter: chapterNum, verseStart: verse },
+          kind: "bookmark",
+          ciphertext,
+          iv,
+        }),
+      });
+      setChapterBookmarkId(res.id);
+      setBookmarks((prev) =>
+        prev.map((b) => (b.id === tempId ? { ...b, id: res.id } : b)),
+      );
+      setNoteMsg("bookmark_ok");
+      await refreshNotes();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "error");
+    }
   }
 
   function panshiAudioSrc(): string {
@@ -1363,34 +1440,69 @@ export function BibleReader() {
       rose: "#f8b4c4",
       sky: "#a8d8ea",
     };
-    const { ciphertext, iv } = await encryptJson(
-      { kind: "highlight", color, verseStart: range.start, verseEnd: range.end },
-      "highlight",
-    );
-    await api("/v1/annotations", {
-      method: "POST",
-      body: JSON.stringify({
-        translationId,
-        ref: {
-          book: bookId,
-          chapter: chapterNum,
-          verseStart: range.start,
-          verseEnd: range.end,
-        },
-        kind: "highlight",
-        color,
-        ciphertext,
-        iv,
-      }),
-    });
+    const paint = colorMap[color] ?? color;
+    // Recolor replaces overlapping annotations so verses don't keep stale ids.
+    const overlapping = highlightIdsInRange(highlightIdByVerse, range);
+    const overlapSet = new Set(overlapping);
+    const tempId = `local-hl-${range.start}-${range.end}-${color}`;
+    // Paint immediately so the fill is visible even while the network syncs.
     setHighlightByVerse((prev) => {
       const next = { ...prev };
-      for (let v = range.start; v <= range.end; v += 1) {
-        next[v] = colorMap[color] ?? color;
+      for (const [verse, id] of Object.entries(highlightIdByVerse)) {
+        if (id && overlapSet.has(id)) delete next[Number(verse)];
       }
+      for (let v = range.start; v <= range.end; v += 1) next[v] = paint;
       return next;
     });
-    await refreshNotes();
+    setHighlightIdByVerse((prev) => {
+      const next = { ...prev };
+      for (const [verse, id] of Object.entries(next)) {
+        if (overlapSet.has(id)) delete next[Number(verse)];
+      }
+      for (let v = range.start; v <= range.end; v += 1) next[v] = tempId;
+      return next;
+    });
+    setError(null);
+    try {
+      for (const id of overlapping) {
+        if (id.startsWith("local-hl-")) continue;
+        try {
+          await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
+        } catch {
+          /* ignore missing */
+        }
+      }
+      const { ciphertext, iv } = await encryptJson(
+        { kind: "highlight", color, verseStart: range.start, verseEnd: range.end },
+        "highlight",
+      );
+      const created = await api<{ id: string }>("/v1/annotations", {
+        method: "POST",
+        body: JSON.stringify({
+          translationId,
+          ref: {
+            book: bookId,
+            chapter: chapterNum,
+            verseStart: range.start,
+            verseEnd: range.end,
+          },
+          kind: "highlight",
+          color,
+          ciphertext,
+          iv,
+        }),
+      });
+      setHighlightIdByVerse((prev) => {
+        const next = { ...prev };
+        for (let v = range.start; v <= range.end; v += 1) {
+          if (next[v] === tempId) next[v] = created.id;
+        }
+        return next;
+      });
+      await refreshNotes();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "error");
+    }
   }
 
   async function saveNote() {
@@ -1620,6 +1732,14 @@ export function BibleReader() {
             aria-label={`${t("reader.book")} ${t("reader.chapter")}`}
           >
             <span className="bible-reader-title">{passageTitle}</span>
+            {chapterBookmarkId ? (
+              <span
+                className="bible-chapter-bookmark-mark"
+                data-testid="reader-chapter-bookmarked"
+                title={t("reader.bookmarkOn")}
+                aria-hidden="true"
+              />
+            ) : null}
             <span className="bible-passage-chevron" aria-hidden="true">
               ▾
             </span>
@@ -2045,17 +2165,25 @@ export function BibleReader() {
               {selectionLabel}
             </span>
             <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
-              {HIGHLIGHT_COLORS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="bible-swatch"
-                  style={{ background: c.value }}
-                  aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
-                  data-testid={`reader-highlight-${c.id}`}
-                  onClick={() => void addHighlight(c.id)}
-                />
-              ))}
+              {HIGHLIGHT_COLORS.map((c) => {
+                const active =
+                  selection != null &&
+                  Array.from({ length: selection.end - selection.start + 1 }, (_, i) => selection.start + i).every(
+                    (v) => highlightByVerse[v] === c.value,
+                  );
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`bible-swatch${active ? " is-on" : ""}`}
+                    style={{ background: c.value }}
+                    aria-label={`${t("reader.selectionHighlight")} ${c.id}`}
+                    aria-pressed={active}
+                    data-testid={`reader-highlight-${c.id}`}
+                    onClick={() => void addHighlight(c.id)}
+                  />
+                );
+              })}
             </div>
             {selectionHasHighlight && (
               <button
@@ -2082,6 +2210,15 @@ export function BibleReader() {
               onClick={() => setDockPanel("note")}
             >
               {t("reader.note")}
+            </button>
+            <button
+              type="button"
+              className={`bible-dock-btn${chapterBookmarkId ? " is-on" : ""}`}
+              data-testid="reader-selection-bookmark"
+              aria-pressed={Boolean(chapterBookmarkId)}
+              onClick={() => void toggleChapterBookmark()}
+            >
+              {t("reader.bookmarkChapter")}
             </button>
             <button
               type="button"
@@ -2149,9 +2286,10 @@ export function BibleReader() {
               data-testid="reader-top-bookmark"
               aria-label={chapterBookmarkId ? t("reader.bookmarkOn") : t("reader.bookmarkOff")}
               aria-pressed={Boolean(chapterBookmarkId)}
+              title={t("reader.bookmarkToggle")}
               onClick={() => void toggleChapterBookmark()}
             >
-              {t("reader.bookmark")}
+              {t("reader.bookmarkChapter")}
             </button>
             <span className="bible-dock-sep" aria-hidden="true" />
             <button
@@ -2643,32 +2781,54 @@ export function BibleReader() {
         </div>
       )}
 
-      {(bookmarks.some((b) => b.label.startsWith(`${bookId} ${chapterNum}:`)) ||
+      {(bookmarks.some((b) => b.book === bookId && b.chapter === chapterNum) ||
         decryptedNotes.some((n) => n.label.startsWith(`${bookId} ${chapterNum}:`))) && (
         <div className="bible-more-body" style={{ marginTop: "1.25rem" }}>
-          <div className="bible-side-block">
-            <h2>{t("reader.bookmark")}</h2>
-            <ul>
-              {bookmarks
-                .filter((b) => b.label.startsWith(`${bookId} ${chapterNum}:`))
-                .map((b) => (
-                  <li key={b.id}>{b.label}</li>
-                ))}
-            </ul>
-          </div>
-          <div className="bible-side-block">
-            <h2>{t("reader.notesPanel")}</h2>
-            <ul>
-              {decryptedNotes
-                .filter((n) => n.label.startsWith(`${bookId} ${chapterNum}:`))
-                .map((n) => (
-                <li key={n.id}>
-                  <strong>{n.label}</strong>
-                  <p>{n.text}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {bookmarks.some((b) => b.book === bookId && b.chapter === chapterNum) && (
+            <div className="bible-side-block" data-testid="reader-bookmark-list">
+              <h2>{t("reader.bookmarkChapter")}</h2>
+              <ul>
+                {bookmarks
+                  .filter((b) => b.book === bookId && b.chapter === chapterNum)
+                  .map((b) => (
+                    <li key={b.id} className="bible-bookmark-row">
+                      <button
+                        type="button"
+                        className="bible-text-btn"
+                        onClick={() =>
+                          goToPassage(translationId, b.book, b.chapter, { verse: b.verse })
+                        }
+                      >
+                        {passageTitle}:{b.verse}
+                      </button>
+                      <button
+                        type="button"
+                        className="bible-text-btn"
+                        data-testid={`reader-bookmark-remove-${b.id}`}
+                        onClick={() => void removeBookmark(b.id)}
+                      >
+                        {t("reader.removeBookmark")}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          {decryptedNotes.some((n) => n.label.startsWith(`${bookId} ${chapterNum}:`)) && (
+            <div className="bible-side-block">
+              <h2>{t("reader.notesPanel")}</h2>
+              <ul>
+                {decryptedNotes
+                  .filter((n) => n.label.startsWith(`${bookId} ${chapterNum}:`))
+                  .map((n) => (
+                    <li key={n.id}>
+                      <strong>{n.label}</strong>
+                      <p>{n.text}</p>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </section>

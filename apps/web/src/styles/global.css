@@ -3007,18 +3007,24 @@ body:has(.bible-reader) .tab-bar a.active::after {
   touch-action: manipulation;
 }
 
-.verse-inline:hover {
+.verse-inline:hover:not(.verse-highlighted) {
   background: var(--br-accent-soft);
 }
 
+.verse-inline.verse-highlighted {
+  background-color: var(--verse-hl, transparent);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .verse-inline.verse-selected {
-  background: color-mix(in srgb, var(--br-accent) 14%, transparent);
-  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--br-accent) 40%, transparent);
+  box-shadow: inset 0 -2.5px 0 color-mix(in srgb, var(--br-accent) 55%, transparent);
   outline: none;
 }
 
-.verse-inline.verse-highlighted {
-  border-radius: 1px;
+.verse-inline.verse-selected:not(.verse-highlighted) {
+  background: color-mix(in srgb, var(--br-accent) 14%, transparent);
 }
 
 .bible-prose .verse-num {
@@ -3334,6 +3340,11 @@ body:has(.bible-reader) .tab-bar a.active::after {
   cursor: pointer;
 }
 
+.bible-swatch.is-on {
+  outline: 2px solid var(--br-ink, #222);
+  outline-offset: 2px;
+}
+
 .bible-note-compose {
   display: grid;
   gap: 0.55rem;
@@ -3632,17 +3643,37 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 }
 
-.verse-selected {
-  background: color-mix(in srgb, var(--lh-accent-soft) 80%, transparent);
-  border-radius: 6px;
+.compare-verse.verse-selected {
   outline: 1px solid var(--lh-border);
-  padding-inline: 0.2rem;
   cursor: pointer;
 }
 
-.verse-highlighted {
+.compare-verse.verse-highlighted {
+  background-color: var(--verse-hl, transparent);
   border-radius: 6px;
   padding-inline: 0.2rem;
+}
+
+.compare-verse.verse-selected:not(.verse-highlighted) {
+  background: color-mix(in srgb, var(--lh-accent-soft) 80%, transparent);
+}
+
+.bible-chapter-bookmark-mark {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.35rem;
+  margin-bottom: 0.2rem;
+  border-radius: 1px;
+  background: var(--br-accent, var(--lh-accent));
+  vertical-align: middle;
+}
+
+.bible-bookmark-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
 }
 
 .verse[role="button"] {

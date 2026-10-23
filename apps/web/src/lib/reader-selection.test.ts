@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { applyVerseTap, highlightIdsInRange, normalizeVerseRange } from "./reader-selection.ts";
+import {
+  applyVerseTap,
+  highlightIdsInRange,
+  normalizeVerseRange,
+  rangeForHighlightAt,
+} from "./reader-selection.ts";
 
 describe("verse selection", () => {
   it("selects one verse, then a range, then clears on the same verse", () => {
@@ -14,6 +19,11 @@ describe("verse selection", () => {
     assert.deepEqual(cleared, { selection: null, anchor: null });
   });
 
+  it("selects a whole highlight when tapping while idle", () => {
+    const next = applyVerseTap(null, null, 2, { start: 1, end: 4 });
+    assert.deepEqual(next, { selection: { start: 1, end: 4 }, anchor: 1 });
+  });
+
   it("normalizes a backward range", () => {
     assert.deepEqual(normalizeVerseRange(8, 2), { start: 2, end: 8 });
   });
@@ -21,5 +31,13 @@ describe("verse selection", () => {
   it("returns each highlight id once for a shared range", () => {
     const ids = highlightIdsInRange({ 1: "h1", 2: "h1", 3: "h2", 4: "h2" }, { start: 2, end: 4 });
     assert.deepEqual(ids, ["h1", "h2"]);
+  });
+
+  it("finds the full annotation span for a verse", () => {
+    assert.deepEqual(rangeForHighlightAt({ 1: "h1", 2: "h1", 3: "h1", 5: "h2" }, 2), {
+      start: 1,
+      end: 3,
+    });
+    assert.equal(rangeForHighlightAt({ 1: "h1" }, 9), null);
   });
 });
