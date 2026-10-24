@@ -75,6 +75,10 @@ await page.waitForSelector('[data-testid="reader-dock-expand"]', { timeout: 1500
 await page.screenshot({ path: `${artifacts}/reader-dock-edge-collapsed.png`, fullPage: false });
 await page.click('[data-testid="reader-dock-expand"]');
 await page.waitForSelector('[data-testid="reader-dock-collapse"]');
+await page.waitForSelector('[data-testid="reader-dock-search"]');
+await page.waitForSelector('[data-testid="reader-top-bookmark"]');
+const bookmarkLabel = await page.locator('[data-testid="reader-top-bookmark"]').innerText();
+if (bookmarkLabel.includes("本章")) throw new Error(`bookmark label still odd: ${bookmarkLabel}`);
 await page.screenshot({ path: `${artifacts}/reader-dock-expanded.png`, fullPage: false });
 
 await page.goto(`${WEB}/app/plans`, { waitUntil: "networkidle" });

@@ -97,7 +97,8 @@ await page.addInitScript(() => {
 
 await page.goto(`${WEB}/app/bible/cuvs/john/1`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector('[data-verse="1"]', { timeout: 20000 });
-await page.waitForSelector('[data-testid="reader-dock-note"]');
+await page.waitForSelector('[data-testid="reader-dock-expand"]');
+await page.waitForSelector('[data-testid="reader-top-bookmark"]');
 
 await page.locator('[data-verse="1"]').click();
 await page.waitForSelector('[data-testid="reader-selection-bar"]');
