@@ -84,6 +84,11 @@ import {
   type ReaderFontSizePt,
 } from "../lib/reader-fonts";
 import {
+  loadBookPickerMode,
+  saveBookPickerMode,
+  type BookPickerMode,
+} from "../lib/reader-book-picker";
+import {
   bibleLocalDb,
   cacheNetworkChapter,
   densifyChapterVerses,
@@ -493,6 +498,7 @@ export function BibleReader() {
   const [fontByLang, setFontByLang] = useState<FontByLang>(() => loadFontByLang());
   const [preset, setPreset] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [readerSkin, setReaderSkin] = useState<ReaderSkinId>(() => loadReaderSkin());
+  const [bookPickerMode, setBookPickerMode] = useState<BookPickerMode>(() => loadBookPickerMode());
   const [appTheme, setAppTheme] = useState(() =>
     typeof localStorage !== "undefined" ? localStorage.getItem("lh.theme") ?? "day" : "day",
   );
@@ -1662,10 +1668,23 @@ export function BibleReader() {
       .filter((g) => g.items.length > 0);
   }, [translations, t]);
 
-  const pickerBooks = useMemo(
-    () => listBooks({ testament: pickerTestament }),
-    [pickerTestament],
-  );
+  const pickerBooks = useMemo(() => {
+    if (bookPickerMode === "abbr") return listBooks();
+    return listBooks({ testament: pickerTestament });
+  }, [bookPickerMode, pickerTestament]);
+
+  const pickerBookSections = useMemo(() => {
+    if (bookPickerMode !== "abbr") return null;
+    return [
+      { key: "ot" as const, label: t("reader.testamentOt"), books: listBooks({ testament: "ot" }) },
+      { key: "nt" as const, label: t("reader.testamentNt"), books: listBooks({ testament: "nt" }) },
+    ];
+  }, [bookPickerMode, t]);
+
+  function pickBookPickerMode(mode: BookPickerMode) {
+    setBookPickerMode(mode);
+    saveBookPickerMode(mode);
+  }
 
   /** Mobile UA: horizontal swipe turns chapter (vertical scroll preserved). */
   useEffect(() => {
@@ -1864,46 +1883,79 @@ export function BibleReader() {
           </div>
           {pickerStep === "book" && (
             <>
-              <div className="bible-picker-testament" role="tablist" data-testid="reader-picker-testament">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={pickerTestament === "ot"}
-                  className={`bible-text-btn${pickerTestament === "ot" ? " is-on" : ""}`}
-                  onClick={() => setPickerTestament("ot")}
+              {bookPickerMode === "full" && (
+                <div className="bible-picker-testament" role="tablist" data-testid="reader-picker-testament">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={pickerTestament === "ot"}
+                    className={`bible-text-btn${pickerTestament === "ot" ? " is-on" : ""}`}
+                    onClick={() => setPickerTestament("ot")}
+                  >
+                    {t("reader.testamentOt")}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={pickerTestament === "nt"}
+                    className={`bible-text-btn${pickerTestament === "nt" ? " is-on" : ""}`}
+                    onClick={() => setPickerTestament("nt")}
+                  >
+                    {t("reader.testamentNt")}
+                  </button>
+                </div>
+              )}
+              {bookPickerMode === "abbr" && pickerBookSections ? (
+                <div className="bible-picker-grouped" data-testid="reader-picker-books">
+                  {pickerBookSections.map((section) => (
+                    <div key={section.key} className="bible-picker-group">
+                      <p className="bible-picker-group-label">{section.label}</p>
+                      <ul className="bible-picker-grid bible-picker-books">
+                        {section.books.map((b) => (
+                          <li key={b.id}>
+                            <button
+                              type="button"
+                              className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
+                              title={b.name[bookNameLocale]}
+                              aria-label={b.name[bookNameLocale]}
+                              data-testid={`reader-picker-book-${b.id}`}
+                              onClick={() => {
+                                setPickerBookId(b.id);
+                                setPickerChapter(1);
+                                setPickerStep("chapter");
+                              }}
+                            >
+                              {bookAbbr(b.id, bookNameLocale)}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul
+                  className="bible-picker-list bible-picker-books-full"
+                  data-testid="reader-picker-books"
                 >
-                  {t("reader.testamentOt")}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={pickerTestament === "nt"}
-                  className={`bible-text-btn${pickerTestament === "nt" ? " is-on" : ""}`}
-                  onClick={() => setPickerTestament("nt")}
-                >
-                  {t("reader.testamentNt")}
-                </button>
-              </div>
-              <ul className="bible-picker-grid bible-picker-books" data-testid="reader-picker-books">
-                {pickerBooks.map((b) => (
-                  <li key={b.id}>
-                    <button
-                      type="button"
-                      className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
-                      title={b.name[bookNameLocale]}
-                      aria-label={b.name[bookNameLocale]}
-                      data-testid={`reader-picker-book-${b.id}`}
-                      onClick={() => {
-                        setPickerBookId(b.id);
-                        setPickerChapter(1);
-                        setPickerStep("chapter");
-                      }}
-                    >
-                      {bookAbbr(b.id, bookNameLocale)}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                  {pickerBooks.map((b) => (
+                    <li key={b.id}>
+                      <button
+                        type="button"
+                        className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
+                        data-testid={`reader-picker-book-${b.id}`}
+                        onClick={() => {
+                          setPickerBookId(b.id);
+                          setPickerChapter(1);
+                          setPickerStep("chapter");
+                        }}
+                      >
+                        {b.name[bookNameLocale]}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
           {pickerStep === "chapter" && (
@@ -2071,6 +2123,27 @@ export function BibleReader() {
                   {t(key)}
                 </button>
               ))}
+            </div>
+          </div>
+          <div className="bible-settings-row">
+            <span>{t("reader.bookPickerMode")}</span>
+            <div className="bible-more-actions" data-testid="reader-book-picker-mode">
+              <button
+                type="button"
+                className={`bible-text-btn${bookPickerMode === "abbr" ? " is-on" : ""}`}
+                data-testid="reader-book-picker-abbr"
+                onClick={() => pickBookPickerMode("abbr")}
+              >
+                {t("reader.bookPickerAbbr")}
+              </button>
+              <button
+                type="button"
+                className={`bible-text-btn${bookPickerMode === "full" ? " is-on" : ""}`}
+                data-testid="reader-book-picker-full"
+                onClick={() => pickBookPickerMode("full")}
+              >
+                {t("reader.bookPickerFull")}
+              </button>
             </div>
           </div>
           <div className="bible-settings-row">
