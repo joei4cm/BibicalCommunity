@@ -1912,6 +1912,13 @@ body:has(.bible-reader) .tab-bar a.active::after {
   grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
 }
 
+/* Dense abbreviated book grid — scan OT/NT quickly */
+.bible-picker-books {
+  grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
 .bible-picker-item {
   appearance: none;
   width: 100%;
@@ -1930,6 +1937,24 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border: 1px solid var(--lh-glass-border);
   border-radius: 8px;
   background: var(--lh-glass);
+}
+
+.bible-picker-books .bible-picker-item {
+  min-height: 2.55rem;
+  padding: 0.4rem 0.2rem;
+  font-family: var(--br-font-ui, inherit);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+}
+
+.bible-picker-grid .bible-picker-item.is-on,
+.bible-picker-grid .bible-picker-item:hover {
+  color: var(--br-accent);
+  border-color: color-mix(in srgb, var(--br-accent) 45%, var(--lh-glass-border));
+  background: color-mix(in srgb, var(--br-accent) 10%, var(--lh-glass));
+  border-bottom-color: color-mix(in srgb, var(--br-accent) 45%, var(--lh-glass-border));
 }
 
 .bible-picker-item.is-on,

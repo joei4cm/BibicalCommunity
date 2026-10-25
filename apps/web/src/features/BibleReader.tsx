@@ -24,8 +24,8 @@ import {
   buildPartnerAuthUrl,
   getBook,
   isPartnerId,
+  bookAbbr,
   listBooks,
-  listBooksGrouped,
   listDownloadableCorpusCatalog,
   listStudyMaterials,
   listTranslations,
@@ -1662,8 +1662,8 @@ export function BibleReader() {
       .filter((g) => g.items.length > 0);
   }, [translations, t]);
 
-  const groupedBooks = useMemo(
-    () => listBooksGrouped({ testament: pickerTestament }),
+  const pickerBooks = useMemo(
+    () => listBooks({ testament: pickerTestament }),
     [pickerTestament],
   );
 
@@ -1884,30 +1884,26 @@ export function BibleReader() {
                   {t("reader.testamentNt")}
                 </button>
               </div>
-              <div className="bible-picker-grouped" data-testid="reader-picker-books">
-                {groupedBooks.map(({ group, books: groupBooks }) => (
-                  <div key={group.id} className="bible-picker-group">
-                    <p className="bible-picker-group-label">{group.name[bookNameLocale]}</p>
-                    <ul className="bible-picker-list">
-                      {groupBooks.map((b) => (
-                        <li key={b.id}>
-                          <button
-                            type="button"
-                            className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
-                            onClick={() => {
-                              setPickerBookId(b.id);
-                              setPickerChapter(1);
-                              setPickerStep("chapter");
-                            }}
-                          >
-                            {b.name[bookNameLocale]}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              <ul className="bible-picker-grid bible-picker-books" data-testid="reader-picker-books">
+                {pickerBooks.map((b) => (
+                  <li key={b.id}>
+                    <button
+                      type="button"
+                      className={`bible-picker-item${pickerBookId === b.id ? " is-on" : ""}`}
+                      title={b.name[bookNameLocale]}
+                      aria-label={b.name[bookNameLocale]}
+                      data-testid={`reader-picker-book-${b.id}`}
+                      onClick={() => {
+                        setPickerBookId(b.id);
+                        setPickerChapter(1);
+                        setPickerStep("chapter");
+                      }}
+                    >
+                      {bookAbbr(b.id, bookNameLocale)}
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </>
           )}
           {pickerStep === "chapter" && (
