@@ -1912,6 +1912,39 @@ body:has(.bible-reader) .tab-bar a.active::after {
   grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
 }
 
+/* Dense abbreviated book grid — OT+NT on one page */
+.bible-picker-books {
+  grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.bible-picker-grouped .bible-picker-group + .bible-picker-group {
+  margin-top: 0.15rem;
+}
+
+/* Full book names — one column per testament tab */
+.bible-picker-books-full {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.15rem;
+}
+
+.bible-picker-books-full .bible-picker-item {
+  text-align: left;
+  padding: 0.5rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.bible-picker-books-full .bible-picker-item.is-on,
+.bible-picker-books-full .bible-picker-item:hover {
+  color: var(--br-accent);
+  border-color: color-mix(in srgb, var(--br-accent) 35%, var(--lh-glass-border));
+  background: color-mix(in srgb, var(--br-accent) 8%, var(--lh-glass));
+}
+
 .bible-picker-item {
   appearance: none;
   width: 100%;
@@ -1930,6 +1963,24 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border: 1px solid var(--lh-glass-border);
   border-radius: 8px;
   background: var(--lh-glass);
+}
+
+.bible-picker-books .bible-picker-item {
+  min-height: 2.55rem;
+  padding: 0.4rem 0.2rem;
+  font-family: var(--br-font-ui, inherit);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+}
+
+.bible-picker-grid .bible-picker-item.is-on,
+.bible-picker-grid .bible-picker-item:hover {
+  color: var(--br-accent);
+  border-color: color-mix(in srgb, var(--br-accent) 45%, var(--lh-glass-border));
+  background: color-mix(in srgb, var(--br-accent) 10%, var(--lh-glass));
+  border-bottom-color: color-mix(in srgb, var(--br-accent) 45%, var(--lh-glass-border));
 }
 
 .bible-picker-item.is-on,
