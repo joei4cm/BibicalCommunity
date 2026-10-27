@@ -13,18 +13,22 @@ type CorpusPage = {
   source?: string;
   done?: boolean;
   nextAfter?: string | null;
+  totalChapterKeys?: number;
 };
 
-const WARM_KEY = "lh.bible.cuvsWarm.v3";
-const PRELOAD_TIDS = ["cuvs", "web", "kjv", "asv"] as const;
+const WARM_KEY = "lh.bible.cuvsWarm.v4";
+/** Only fill gaps when R2 looks empty — never storm a healthy corpus. */
+const WARM_MIN_KEYS_HINT = 50;
+/** Peer tids are opt-in / settings — boot only needs 和合本. */
+const BOOT_PRELOAD_TID = "cuvs";
 
-/** Paged whole-Bible download — avoids one giant payload that stalls first paint. */
+/** Paged whole-Bible download — larger pages now that the Worker fans out R2 gets. */
 export async function fetchCorpusPackPaged(tid: string): Promise<CorpusPage | null> {
   let after: string | null = null;
   const chapters: CorpusPage["chapters"] = [];
   let source: string | undefined;
   for (let page = 0; page < 32; page += 1) {
-    const qs = new URLSearchParams({ scope: "full", limit: "100" });
+    const qs = new URLSearchParams({ scope: "full", limit: "200" });
     if (after) qs.set("after", after);
     const pack = await api<CorpusPage>(
       `/v1/bible/corpus-download/${encodeURIComponent(tid)}?${qs.toString()}`,
@@ -32,14 +36,14 @@ export async function fetchCorpusPackPaged(tid: string): Promise<CorpusPage | nu
     if (pack.source) source = pack.source;
     if (pack.chapters?.length) chapters.push(...pack.chapters);
     if (pack.done !== false || !pack.nextAfter) {
-      return chapters.length ? { chapters, source } : null;
+      return chapters.length ? { chapters, source, totalChapterKeys: pack.totalChapterKeys } : null;
     }
     after = pack.nextAfter;
   }
   return chapters.length ? { chapters, source } : null;
 }
 
-async function warmPdBooksInParallel(translationId: string, concurrency = 6): Promise<void> {
+async function warmPdBooksInParallel(translationId: string, concurrency = 2): Promise<void> {
   const bookNrs = Array.from({ length: 66 }, (_, i) => i + 1);
   let cursor = 0;
   async function worker() {
@@ -81,35 +85,58 @@ async function prefetchReaderPlace(): Promise<void> {
   }
 }
 
-async function warmInstalledCorpus(): Promise<void> {
+/**
+ * Probe whether R2 already has a usable corpus. If yes, skip getbible warm.
+ * Only warm + re-download boot tid when the first page looks empty/demo.
+ */
+async function maybeWarmBootCorpus(): Promise<void> {
   if (!getToken()) return;
   if (typeof localStorage !== "undefined" && localStorage.getItem(WARM_KEY) === "1") return;
-  await warmPdBooksInParallel("cuvs", 6);
-  for (const tid of PRELOAD_TIDS) {
+
+  let needsWarm = false;
+  try {
+    const probe = await api<CorpusPage>(
+      `/v1/bible/corpus-download/${BOOT_PRELOAD_TID}?scope=full&limit=20`,
+    );
+    const n = probe.chapters?.length ?? 0;
+    needsWarm = probe.source === "demo" || n < WARM_MIN_KEYS_HINT;
+  } catch {
+    needsWarm = true;
+  }
+
+  if (needsWarm) {
+    await warmPdBooksInParallel(BOOT_PRELOAD_TID, 2);
     try {
-      const pack = await fetchCorpusPackPaged(tid);
+      const pack = await fetchCorpusPackPaged(BOOT_PRELOAD_TID);
       if (pack?.chapters?.length && pack.source !== "demo") {
-        await installDownloadedPack(tid, pack.chapters);
-        try {
-          await api("/v1/bible/entitlements", {
-            method: "POST",
-            body: JSON.stringify({ translationId: tid }),
-          });
-        } catch {
-          /* public-domain or already granted */
-        }
+        await installDownloadedPack(BOOT_PRELOAD_TID, pack.chapters);
       }
     } catch {
-      /* keep reading via per-chapter API */
+      /* per-chapter API still works */
     }
   }
+
   if (typeof localStorage !== "undefined") localStorage.setItem(WARM_KEY, "1");
 }
 
 async function runBiblePreload(): Promise<void> {
+  // Critical path: boot seed + current place. Do not compete with reading.
   await ensureBootCorpusSeeded((tid) => fetchCorpusPackPaged(tid));
   await prefetchReaderPlace();
-  await warmInstalledCorpus();
+}
+
+/** Heavy warm only after the reader has had time to settle. */
+function scheduleDeferredWarm(): void {
+  if (typeof window === "undefined") return;
+  const start = () => {
+    void maybeWarmBootCorpus();
+  };
+  const idle = window.requestIdleCallback;
+  if (typeof idle === "function") {
+    window.setTimeout(() => idle(start, { timeout: 30_000 }), 45_000);
+  } else {
+    window.setTimeout(start, 60_000);
+  }
 }
 
 let task: Promise<void> | null = null;
@@ -126,7 +153,12 @@ export function scheduleBiblePreload(): Promise<void> {
   }
   task = new Promise((resolve) => {
     const start = () => {
-      void runBiblePreload().finally(resolve);
+      void runBiblePreload()
+        .catch(() => undefined)
+        .finally(() => {
+          scheduleDeferredWarm();
+          resolve();
+        });
     };
     const idle = window.requestIdleCallback;
     if (typeof idle === "function") idle(start, { timeout: 1500 });

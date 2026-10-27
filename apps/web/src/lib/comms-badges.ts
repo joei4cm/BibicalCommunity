@@ -15,8 +15,8 @@ let cachedAt = 0;
 let inflight: Promise<CommsBadges> | null = null;
 let pollTimer: number | null = null;
 
-const CACHE_MS = 8_000;
-const POLL_MS = 30_000;
+const CACHE_MS = 20_000;
+const POLL_MS = 60_000;
 
 /** Notify TabBar / ChatPage to refetch badge counts after read/accept actions. */
 export function notifyCommsBadgesChanged() {

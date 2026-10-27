@@ -152,16 +152,23 @@ class IndexedDbCorpusStore implements LocalCorpusStore {
   }
 
   async putChapter(record: LocalChapterRecord): Promise<void> {
-    if (typeof indexedDB === "undefined") return;
+    await this.putChapters([record]);
+  }
+
+  async putChapters(records: LocalChapterRecord[]): Promise<void> {
+    if (typeof indexedDB === "undefined" || records.length === 0) return;
     const db = await openDb();
     try {
-      const row: IdbChapterRow = {
-        id: rowId(record.translationId, record.book, record.chapter),
-        ...record,
-      };
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).put(row);
+        const os = tx.objectStore(STORE);
+        for (const record of records) {
+          const row: IdbChapterRow = {
+            id: rowId(record.translationId, record.book, record.chapter),
+            ...record,
+          };
+          os.put(row);
+        }
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error ?? new Error("bible_idb_put_failed"));
       });

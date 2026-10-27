@@ -83,27 +83,44 @@ export async function listD1CorpusChaptersPage(
   done: boolean;
   nextAfter: string | null;
 }> {
-  const keys = await listD1CorpusChapterKeys(db, translationId);
+  // One SELECT for the whole translation (preview Workers only; ~1k rows).
+  // Avoids N+1 getD1CorpusChapter round-trips per page.
+  const rows = await db
+    .select({
+      book: schema.corpusChapters.book,
+      chapter: schema.corpusChapters.chapter,
+      bodyJson: schema.corpusChapters.bodyJson,
+    })
+    .from(schema.corpusChapters)
+    .where(eq(schema.corpusChapters.translationId, translationId))
+    .orderBy(asc(schema.corpusChapters.book), asc(schema.corpusChapters.chapter));
+
+  const keyed = rows.map((r) => ({
+    key: r2ChapterObjectKey(translationId, r.book, r.chapter),
+    row: r,
+  }));
   let start = 0;
   if (opts.afterKey) {
-    const idx = keys.findIndex((k) => k > opts.afterKey!);
-    start = idx === -1 ? keys.length : idx;
+    const idx = keyed.findIndex((k) => k.key > opts.afterKey!);
+    start = idx === -1 ? keyed.length : idx;
   }
-  const limit = opts.limit && opts.limit > 0 ? opts.limit : keys.length;
-  const pageKeys = keys.slice(start, start + limit);
+  const limit = opts.limit && opts.limit > 0 ? opts.limit : keyed.length;
+  const page = keyed.slice(start, start + limit);
   const chapters: D1Chapter[] = [];
-  for (const key of pageKeys) {
-    // key = bible/{tid}/{Book}.{n}.json
-    const m = /^bible\/[^/]+\/([^.]+)\.(\d+)\.json$/.exec(key);
-    if (!m) continue;
-    const ch = await getD1CorpusChapter(db, translationId, m[1]!, Number(m[2]));
-    if (ch) chapters.push(ch);
+  const pageKeys: string[] = [];
+  for (const item of page) {
+    pageKeys.push(item.key);
+    try {
+      chapters.push(parseR2ChapterJson(item.row.bodyJson));
+    } catch {
+      /* skip invalid */
+    }
   }
-  const done = start + pageKeys.length >= keys.length;
+  const done = start + page.length >= keyed.length;
   return {
     chapters,
     keys: pageKeys,
-    totalKeys: keys.length,
+    totalKeys: keyed.length,
     done,
     nextAfter: done || !pageKeys.length ? null : pageKeys[pageKeys.length - 1]!,
   };

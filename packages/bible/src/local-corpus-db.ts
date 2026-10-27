@@ -54,6 +54,8 @@ export interface LocalCorpusStore {
     chapter: number,
   ): Promise<LocalChapterRecord | null>;
   putChapter(record: LocalChapterRecord): Promise<void>;
+  /** Optional batch write — one transaction when the store supports it. */
+  putChapters?(records: LocalChapterRecord[]): Promise<void>;
   deleteTranslation(translationId: string): Promise<void>;
   listChapterKeys(translationId?: string): Promise<
     Array<{ translationId: string; book: string; chapter: number; installedAt: string }>
@@ -79,6 +81,12 @@ export class MemoryLocalCorpusStore implements LocalCorpusStore {
 
   async putChapter(record: LocalChapterRecord): Promise<void> {
     this.map.set(chapterKey(record.translationId, record.book, record.chapter), record);
+  }
+
+  async putChapters(records: LocalChapterRecord[]): Promise<void> {
+    for (const record of records) {
+      await this.putChapter(record);
+    }
   }
 
   async deleteTranslation(translationId: string): Promise<void> {
@@ -148,12 +156,25 @@ export class LocalCorpusDb {
     chapters: R2ChapterJson[],
     installedAt = new Date().toISOString(),
   ): Promise<{ translationId: string; installed: number }> {
-    let installed = 0;
-    for (const ch of chapters) {
-      await this.installChapter(translationId, ch, installedAt);
-      installed += 1;
+    const records: LocalChapterRecord[] = chapters.map((ch) => ({
+      translationId,
+      book: ch.book,
+      chapter: ch.chapter,
+      verses: ch.verses.map((v) => ({ verse: v.verse, text: v.text })),
+      installedAt,
+    }));
+    if (this.store.putChapters) {
+      // Chunk large packs so a single IDB transaction stays responsive.
+      const chunkSize = 200;
+      for (let i = 0; i < records.length; i += chunkSize) {
+        await this.store.putChapters(records.slice(i, i + chunkSize));
+      }
+    } else {
+      for (const record of records) {
+        await this.store.putChapter(record);
+      }
     }
-    return { translationId, installed };
+    return { translationId, installed: records.length };
   }
 
   async removeTranslation(translationId: string): Promise<void> {
