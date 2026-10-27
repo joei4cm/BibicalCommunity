@@ -166,6 +166,52 @@ bibleRoutes.get("/corpus-catalog", async (c) => {
 });
 
 /**
+ * Cheap corpus change signal for clients that keep verses on-device.
+ * Prefer R2 `bible/{tid}/_revision.json` when present; otherwise catalog version.
+ * Bump that object (or catalog version) only when the text corpus actually changes.
+ */
+bibleRoutes.get("/corpus-revision/:translationId", async (c) => {
+  const translationId = c.req.param("translationId");
+  const meta = getTranslation(translationId);
+  if (!meta) return c.json({ error: "unknown_translation" }, 404);
+
+  const media = c.env.MEDIA;
+  if (media) {
+    const obj = await media.get(`bible/${translationId}/_revision.json`);
+    if (obj) {
+      try {
+        const data = JSON.parse(await obj.text()) as { revision?: string };
+        if (typeof data.revision === "string" && data.revision.trim()) {
+          return c.json(
+            {
+              translationId,
+              revision: data.revision.trim(),
+              source: "r2" as const,
+            },
+            200,
+            publicCorpusCacheHeaders(meta.license),
+          );
+        }
+      } catch {
+        /* fall through to catalog */
+      }
+    }
+  }
+
+  const pack = listDownloadableCorpusCatalog().find((p) => p.translationId === translationId);
+  const revision = `catalog:${translationId}:${pack?.version ?? 1}`;
+  return c.json(
+    {
+      translationId,
+      revision,
+      source: "catalog" as const,
+    },
+    200,
+    publicCorpusCacheHeaders(meta.license),
+  );
+});
+
+/**
  * Download a translation pack as JSON for install into the client local DB.
  *
  * Product install unit is always the **whole Bible** (not per-chapter).
@@ -459,6 +505,10 @@ bibleRoutes.get("/chapter", async (c) => {
         } catch {
           return c.json({ error: "invalid_r2_chapter_json", key }, 500);
         }
+        const revision =
+          (typeof obj.httpEtag === "string" && obj.httpEtag) ||
+          (typeof obj.etag === "string" && obj.etag) ||
+          undefined;
 
         return c.json(
           {
@@ -467,6 +517,7 @@ bibleRoutes.get("/chapter", async (c) => {
             chapter: parsed.chapter,
             verses: parsed.verses,
             source: "r2" as const,
+            ...(revision ? { revision } : {}),
           },
           200,
           publicCorpusCacheHeaders(meta.license),

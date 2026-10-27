@@ -97,6 +97,7 @@ import {
   readLocalChapter,
 } from "../lib/bible-local-db";
 import { scheduleBiblePreload } from "../lib/bible-preload";
+import { scheduleAdjacentPrefetch } from "../lib/bible-chapter-cache";
 
 type DockPanel = "note" | "study" | "search" | "speak" | "settings" | null;
 type StudyTab = "commentary" | "dict" | "crossrefs";
@@ -883,6 +884,8 @@ export function BibleReader() {
       try {
         setError(null);
         // Prefer complete local chapters; paint incomplete/demo briefly while refetching.
+        // Local-first: complete chapters stay on-device; network only on miss.
+        // Corpus revision flips (weekly check) refresh packs in the background.
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local && !cancelled) {
           const verses = densifyChapterVerses(
@@ -898,6 +901,7 @@ export function BibleReader() {
             verses,
             source: "local-db",
           });
+          scheduleAdjacentPrefetch(translationId, bookId, chapterNum);
           return;
         }
         const stale = await peekLocalChapter(translationId, bookId, chapterNum);
@@ -911,7 +915,7 @@ export function BibleReader() {
           });
         }
         try {
-          const data = await api<ChapterPayload>(
+          const data = await api<ChapterPayload & { revision?: string }>(
             `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
           );
           if (cancelled) return;
@@ -927,7 +931,10 @@ export function BibleReader() {
               chapterNum,
               data.verses,
               typeof data.source === "string" ? data.source : undefined,
-            );
+              typeof data.revision === "string" ? data.revision : undefined,
+            ).then(() => {
+              scheduleAdjacentPrefetch(translationId, bookId, chapterNum);
+            });
           } else {
             setChapter(data);
           }
@@ -1027,7 +1034,7 @@ export function BibleReader() {
             source: "local",
           });
         }
-        const data = await api<ChapterPayload>(
+        const data = await api<ChapterPayload & { revision?: string }>(
           `/v1/bible/chapter?translation=${encodeURIComponent(secondTranslationId)}&ref=${encodeURIComponent(ref)}`,
         );
         if (cancelled) return;
@@ -1046,6 +1053,7 @@ export function BibleReader() {
             chapterNum,
             data.verses,
             typeof data.source === "string" ? data.source : undefined,
+            typeof data.revision === "string" ? data.revision : undefined,
           );
         }
       } catch {
