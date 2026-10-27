@@ -94,7 +94,6 @@ import {
   chapterHasPlaceholderVerses,
   densifyChapterVerses,
   installDownloadedPack,
-  peekLocalChapter,
   readLocalChapter,
 } from "../lib/bible-local-db";
 import { scheduleBiblePreload } from "../lib/bible-preload";
