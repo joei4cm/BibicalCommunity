@@ -875,7 +875,10 @@ export function BibleReader() {
   const [bootTick, setBootTick] = useState(0);
 
   useEffect(() => {
-    void scheduleBiblePreload().then(() => setBootTick((n) => n + 1));
+    void scheduleBiblePreload().then((result) => {
+      // Only remount chapter load when boot actually wrote new corpus rows.
+      if (result?.refreshed) setBootTick((n) => n + 1);
+    });
   }, []);
 
   useEffect(() => {
@@ -1067,13 +1070,19 @@ export function BibleReader() {
 
   const annotationsEpoch = useRef(0);
 
-  const refreshNotes = useCallback(async () => {
+  const annotationsByTid = useRef<{
+    tid: string;
+    rows: AnnotationRow[];
+  } | null>(null);
+
+  const refreshNotes = useCallback(async (opts?: { force?: boolean }) => {
     const epoch = ++annotationsEpoch.current;
     const tid = translationId;
     const book = bookId;
     const chapter = chapterNum;
     if (!getToken()) {
       if (epoch !== annotationsEpoch.current) return;
+      annotationsByTid.current = null;
       setDecryptedNotes([]);
       setHighlightByVerse({});
       setHighlightIdByVerse({});
@@ -1082,11 +1091,16 @@ export function BibleReader() {
       return;
     }
     try {
-      const res = await api<{ annotations: AnnotationRow[] }>(
-        `/v1/annotations?translation=${encodeURIComponent(tid)}`,
-      );
+      let rows = annotationsByTid.current?.tid === tid ? annotationsByTid.current.rows : null;
+      if (!rows || opts?.force) {
+        const res = await api<{ annotations: AnnotationRow[] }>(
+          `/v1/annotations?translation=${encodeURIComponent(tid)}`,
+        );
+        if (epoch !== annotationsEpoch.current) return;
+        rows = res.annotations ?? [];
+        annotationsByTid.current = { tid, rows };
+      }
       if (epoch !== annotationsEpoch.current) return;
-      const notes: DecryptedNote[] = [];
       const highlights: Record<number, string> = {};
       const highlightIds: Record<number, string> = {};
       const marks: { id: string; label: string; book: string; chapter: number; verse: number }[] =
@@ -1098,24 +1112,30 @@ export function BibleReader() {
         rose: "#f8b4c4",
         sky: "#a8d8ea",
       };
-      for (const row of res.annotations) {
-        const sameChapter = row.book === book && row.chapter === chapter;
-        if (row.kind === "note") {
+      const noteRows = rows.filter(
+        (row) => row.kind === "note" && row.book === book && row.chapter === chapter,
+      );
+      const notes = await Promise.all(
+        noteRows.map(async (row) => {
           try {
             const payload = await decryptJson<{ text?: string }>(row.ciphertext, row.iv, "note");
-            notes.push({
+            return {
               id: row.id,
               label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
               text: payload.text ?? "",
-            });
+            } satisfies DecryptedNote;
           } catch {
-            notes.push({
+            return {
               id: row.id,
               label: `${row.book} ${row.chapter}:${row.verseStart ?? "?"}`,
               text: "(无法解密)",
-            });
+            } satisfies DecryptedNote;
           }
-        } else if (row.kind === "highlight" && sameChapter && row.verseStart != null) {
+        }),
+      );
+      for (const row of rows) {
+        const sameChapter = row.book === book && row.chapter === chapter;
+        if (row.kind === "highlight" && sameChapter && row.verseStart != null) {
           const raw = row.color ?? "amber";
           const color = colorMap[raw] ?? (raw.startsWith("#") ? raw : "#f5d76e");
           const end = row.verseEnd ?? row.verseStart;
@@ -1294,7 +1314,7 @@ export function BibleReader() {
         if (id.startsWith("local-hl-")) continue;
         await api(`/v1/annotations/${encodeURIComponent(id)}`, { method: "DELETE" });
       }
-      await refreshNotes();
+      await refreshNotes({ force: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "error");
     }
@@ -1351,7 +1371,7 @@ export function BibleReader() {
     }
     if (chapterBookmarkId === id) setChapterBookmarkId(null);
     setBookmarks((prev) => prev.filter((b) => b.id !== id));
-    await refreshNotes();
+    await refreshNotes({ force: true });
   }
 
   /** Chapter bookmark: at most one per chapter; toggles on/off. */
@@ -1375,7 +1395,7 @@ export function BibleReader() {
           /* ignore */
         }
       }
-      await refreshNotes();
+      await refreshNotes({ force: true });
       return;
     }
     const verse = selection?.start ?? 1;
@@ -1409,7 +1429,7 @@ export function BibleReader() {
         prev.map((b) => (b.id === tempId ? { ...b, id: res.id } : b)),
       );
       setNoteMsg("bookmark_ok");
-      await refreshNotes();
+      await refreshNotes({ force: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "error");
     }
@@ -1513,7 +1533,7 @@ export function BibleReader() {
         }
         return next;
       });
-      await refreshNotes();
+      await refreshNotes({ force: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "error");
     }
@@ -1544,7 +1564,7 @@ export function BibleReader() {
     });
     setNoteMsg("saved");
     setNoteText("");
-    await refreshNotes();
+    await refreshNotes({ force: true });
   }
 
   const activeTranslation = translations.find((tr) => tr.id === translationId);
