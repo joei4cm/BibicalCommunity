@@ -468,8 +468,13 @@ bibleRoutes.get("/chapter", async (c) => {
   if (!meta) return c.json({ error: "unknown_translation" }, 404);
 
   if (meta.provider === "r2") {
-    const userId = await resolveOptionalUserId(c);
-    const entitled = userId ? await hasEntitlement(c.env, userId, translationId) : false;
+    // Public-domain / non-licensed: skip session+entitlement D1 on the hot path.
+    let userId: string | null = null;
+    let entitled = false;
+    if (meta.license === "licensed") {
+      userId = await resolveOptionalUserId(c);
+      entitled = userId ? await hasEntitlement(c.env, userId, translationId) : false;
+    }
     const bootDefault = (BOOT_DEFAULT_TRANSLATION_IDS as readonly string[]).includes(
       translationId,
     );

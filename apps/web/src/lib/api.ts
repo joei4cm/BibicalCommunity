@@ -8,6 +8,8 @@
  * 4. "" → same-origin relative (Vite proxy / Pages+Worker proxy setups)
  */
 
+import { isPublicBibleGetPath } from "./api-public-path";
+
 const ENV_API_BASE = String(import.meta.env.VITE_API_BASE ?? "")
   .trim()
   .replace(/\/$/, "");
@@ -91,6 +93,11 @@ export function setToken(token: string | null) {
   else localStorage.removeItem("lh.token");
 }
 
+export type ApiInit = RequestInit & {
+  /** Override auth. Default: attach Bearer except for public bible GETs. */
+  auth?: boolean;
+};
+
 async function readJsonBody(res: Response): Promise<unknown> {
   const text = await res.text();
   if (!text) return {};
@@ -105,15 +112,25 @@ async function readJsonBody(res: Response): Promise<unknown> {
   }
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
+function shouldAttachAuth(path: string, init: ApiInit): boolean {
+  if (init.auth === true) return true;
+  if (init.auth === false) return false;
+  const method = String(init.method ?? "GET").toUpperCase();
+  return !isPublicBibleGetPath(path, method);
+}
+
+export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
+  const { auth: _auth, ...rest } = init;
+  const headers = new Headers(rest.headers);
+  if (!headers.has("Content-Type") && rest.body && !(rest.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   const token = getToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token && shouldAttachAuth(path, init)) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   const base = getApiBase();
-  const res = await fetch(`${base}${path}`, { ...init, headers });
+  const res = await fetch(`${base}${path}`, { ...rest, headers });
   const body = await readJsonBody(res);
   if (!res.ok) {
     const err = (body as { error?: string } | null)?.error;
@@ -123,12 +140,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /** GET helper that returns null on 404 instead of throwing. */
-export async function apiOptional<T>(path: string): Promise<T | null> {
-  const headers = new Headers();
+export async function apiOptional<T>(path: string, init: ApiInit = {}): Promise<T | null> {
+  const headers = new Headers(init.headers);
   const token = getToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token && shouldAttachAuth(path, { ...init, method: init.method ?? "GET" })) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   const base = getApiBase();
-  const res = await fetch(`${base}${path}`, { headers });
+  const res = await fetch(`${base}${path}`, { ...init, headers });
   if (res.status === 404) return null;
   const body = await readJsonBody(res);
   if (!res.ok) {

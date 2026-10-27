@@ -120,10 +120,11 @@ async function maybeWarmBootCorpus(): Promise<void> {
   if (typeof localStorage !== "undefined") localStorage.setItem(WARM_KEY, "1");
 }
 
-async function runBiblePreload(): Promise<void> {
+async function runBiblePreload(): Promise<{ refreshed: boolean }> {
   // Critical path: boot seed + current place. Do not compete with reading.
-  await ensureBootCorpusSeeded((tid) => fetchCorpusPackPaged(tid));
+  const seed = await ensureBootCorpusSeeded((tid) => fetchCorpusPackPaged(tid));
   await prefetchReaderPlace();
+  return { refreshed: Boolean(seed.seeded) };
 }
 
 async function refreshPackForRevision(tid: string): Promise<void> {
@@ -149,25 +150,25 @@ function scheduleDeferredWarm(): void {
   void scheduleCorpusRevisionCheck(BOOT_PRELOAD_TID, refreshPackForRevision);
 }
 
-let task: Promise<void> | null = null;
-
 /**
  * Start corpus seeding off the first paint. Safe to call from the app shell
  * and the reader; both share one in-flight job.
  */
-export function scheduleBiblePreload(): Promise<void> {
+let task: Promise<{ refreshed: boolean }> | null = null;
+
+export function scheduleBiblePreload(): Promise<{ refreshed: boolean }> {
   if (task) return task;
   if (typeof window === "undefined") {
-    task = Promise.resolve();
+    task = Promise.resolve({ refreshed: false });
     return task;
   }
   task = new Promise((resolve) => {
     const start = () => {
       void runBiblePreload()
-        .catch(() => undefined)
-        .finally(() => {
+        .catch(() => ({ refreshed: false }))
+        .then((result) => {
           scheduleDeferredWarm();
-          resolve();
+          resolve(result ?? { refreshed: false });
         });
     };
     const idle = window.requestIdleCallback;

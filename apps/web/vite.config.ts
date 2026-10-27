@@ -106,6 +106,24 @@ export default defineConfig({
       workbox: {
         navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        runtimeCaching: [
+          {
+            // Public bible JSON (Workers or same-origin proxy) — keep on device.
+            urlPattern: ({ url }: { url: URL }) =>
+              /\/v1\/bible\/(chapter|corpus-revision\/|translations|corpus-catalog)/.test(
+                url.pathname,
+              ),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "lh-bible-pd",
+              expiration: {
+                maxEntries: 800,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],
