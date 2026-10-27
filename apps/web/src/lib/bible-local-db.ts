@@ -380,11 +380,17 @@ export async function cacheNetworkChapter(
   chapter: number,
   verses: { verse: number; text: string }[],
   source?: string,
+  revision?: string,
 ): Promise<void> {
   if (!verses?.length) return;
   if (source === "demo" || source === "local-demo") return;
   if (isIncompleteLocalChapter({ verses })) return;
-  await bibleLocalDb.installChapter(translationId, { book, chapter, verses });
+  await bibleLocalDb.installChapter(translationId, {
+    book,
+    chapter,
+    verses,
+    ...(revision ? { revision } : {}),
+  });
 }
 
 export async function readLocalChapter(

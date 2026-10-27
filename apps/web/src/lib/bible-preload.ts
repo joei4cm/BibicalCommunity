@@ -6,6 +6,7 @@ import {
   installDownloadedPack,
   readLocalChapter,
 } from "./bible-local-db";
+import { scheduleCorpusRevisionCheck } from "./bible-corpus-revision";
 import { loadReaderPlace } from "./reader-place";
 
 type CorpusPage = {
@@ -125,6 +126,13 @@ async function runBiblePreload(): Promise<void> {
   await prefetchReaderPlace();
 }
 
+async function refreshPackForRevision(tid: string): Promise<void> {
+  const pack = await fetchCorpusPackPaged(tid);
+  if (pack?.chapters?.length && pack.source !== "demo") {
+    await installDownloadedPack(tid, pack.chapters);
+  }
+}
+
 /** Heavy warm only after the reader has had time to settle. */
 function scheduleDeferredWarm(): void {
   if (typeof window === "undefined") return;
@@ -137,6 +145,8 @@ function scheduleDeferredWarm(): void {
   } else {
     window.setTimeout(start, 60_000);
   }
+  // Weekly: only re-download 和合本 when server revision actually changes.
+  void scheduleCorpusRevisionCheck(BOOT_PRELOAD_TID, refreshPackForRevision);
 }
 
 let task: Promise<void> | null = null;

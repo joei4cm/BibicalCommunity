@@ -15,6 +15,8 @@ export type LocalChapterRecord = R2ChapterJson & {
   translationId: string;
   /** ISO time when this chapter was installed into the local DB. */
   installedAt: string;
+  /** Server corpus/chapter revision when known — used to skip re-download. */
+  revision?: string;
 };
 
 export type InstalledTranslationSummary = {
@@ -136,7 +138,7 @@ export class LocalCorpusDb {
 
   async installChapter(
     translationId: string,
-    chapter: R2ChapterJson,
+    chapter: R2ChapterJson & { revision?: string },
     installedAt = new Date().toISOString(),
   ): Promise<LocalChapterRecord> {
     const record: LocalChapterRecord = {
@@ -145,6 +147,7 @@ export class LocalCorpusDb {
       chapter: chapter.chapter,
       verses: chapter.verses.map((v) => ({ verse: v.verse, text: v.text })),
       installedAt,
+      ...(chapter.revision ? { revision: chapter.revision } : {}),
     };
     await this.store.putChapter(record);
     return record;
