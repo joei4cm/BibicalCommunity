@@ -16,14 +16,16 @@ const DB_NAME = "lh-bible";
 const STORE = "chapters";
 const DB_VERSION = 1;
 /** Bump when boot quality rules change (reject sticky demo / incomplete chapters). */
-const BOOT_FLAG = "lh.bible.bootSeeded.v11";
+const BOOT_FLAG = "lh.bible.bootSeeded.v12";
 /** Re-seed even if flag is set when installed chapters look truncated. */
 const BOOT_MIN_CHAPTERS = 1000;
 /** Only seal boot when every default tid came from R2/D1 (not demo placeholders). */
-const BOOT_QUALITY_KEY = "lh.bible.bootQuality.v11";
+const BOOT_QUALITY_KEY = "lh.bible.bootQuality.v12";
 /** Throttle network refill while quality is still demo (ms). */
-const BOOT_RETRY_AT_KEY = "lh.bible.bootRetryAt.v11";
+const BOOT_RETRY_AT_KEY = "lh.bible.bootRetryAt.v12";
 const BOOT_RETRY_MIN_MS = 15 * 60 * 1000;
+/** One-shot purge of sticky preview placeholders written by older clients. */
+const PLACEHOLDER_PURGE_KEY = "lh.bible.placeholderPurge.v1";
 
 /** Preview/demo placeholder lines — treat as not installed for network refill. */
 export function isPlaceholderVerseText(text: string): boolean {
@@ -61,45 +63,54 @@ export function isIncompleteLocalChapter(
   return false;
 }
 
-/** Prefer denser demo prose when a downloaded teaching chapter is still a thin scaffold. */
+export function chapterHasPlaceholderVerses(
+  verses: { verse: number; text: string }[] | undefined,
+): boolean {
+  return (verses ?? []).some((v) => isPlaceholderVerseText(v.text ?? ""));
+}
+
+/** Drop preview placeholders — never densify real corpus into stub copy. */
 function enrichSparseChaptersFromDemo(
   translationId: string,
   chapters: R2ChapterJson[],
 ): R2ChapterJson[] {
   const demoByKey = new Map<string, R2ChapterJson>();
   for (const c of buildDemoDownloadPack(translationId).chapters) {
+    if (isIncompleteLocalChapter(c)) continue;
     demoByKey.set(`${c.book}.${c.chapter}`, c);
   }
-  const seen = new Set<string>();
-  const merged = chapters.map((ch) => {
-    const key = `${ch.book}.${ch.chapter}`;
-    seen.add(key);
-    const demo = demoByKey.get(key);
-    if (demo && demo.verses.length > (ch.verses?.length ?? 0)) {
-      return demo;
-    }
-    return ch;
-  });
-  for (const [key, demo] of demoByKey) {
-    if (!seen.has(key)) merged.push(demo);
-  }
-  return merged;
+  return chapters
+    .filter((ch) => !isIncompleteLocalChapter(ch))
+    .map((ch) => {
+      const demo = demoByKey.get(`${ch.book}.${ch.chapter}`);
+      if (demo && demo.verses.length > (ch.verses?.length ?? 0)) {
+        return demo;
+      }
+      return ch;
+    });
 }
 
-/** Single-chapter densify for live reader (R2/API scaffolds vs demo teaching prose). */
+/**
+ * Prefer richer teaching samples over thin scaffolds.
+ * Never replace real verses with preview placeholders.
+ */
 export function densifyChapterVerses(
   translationId: string,
   book: string,
   chapter: number,
   verses: { verse: number; text: string }[],
 ): { verse: number; text: string }[] {
+  if (verses?.length && !chapterHasPlaceholderVerses(verses)) {
+    return verses;
+  }
   const demo = buildDemoDownloadPack(translationId).chapters.find(
     (c) => c.book === book && c.chapter === chapter,
   );
-  if (demo && demo.verses.length > (verses?.length ?? 0)) {
+  if (demo && !isIncompleteLocalChapter(demo) && demo.verses.length > (verses?.length ?? 0)) {
     return demo.verses;
   }
-  return verses;
+  // Keep caller verses (may be empty) — do not invent placeholder text for paint.
+  return verses ?? [];
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -259,11 +270,46 @@ function bootQualityOk(sources: Record<string, string>): boolean {
   });
 }
 
+/** Remove sticky preview placeholder chapters left by older boot seeds. */
+export async function purgePlaceholderChapters(): Promise<number> {
+  if (typeof indexedDB === "undefined") return 0;
+  if (typeof localStorage !== "undefined" && localStorage.getItem(PLACEHOLDER_PURGE_KEY) === "1") {
+    return 0;
+  }
+  const db = await openDb();
+  let removed = 0;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const req = tx.objectStore(STORE).openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return;
+        const row = cursor.value as IdbChapterRow;
+        if (isIncompleteLocalChapter(row)) {
+          cursor.delete();
+          removed += 1;
+        }
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("bible_idb_purge_failed"));
+    });
+  } finally {
+    db.close();
+  }
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(PLACEHOLDER_PURGE_KEY, "1");
+    // Force boot quality re-check after purge.
+    localStorage.removeItem(BOOT_QUALITY_KEY);
+  }
+  return removed;
+}
+
 /**
  * First launch: seed only boot-default translations into IndexedDB.
- * Prefer `/v1/bible/corpus-download/:tid` (R2/fixture JSON) over inline demo packs.
- * Demo packs are installed for offline navigation but do NOT seal the boot flag,
- * so the next visit can still pull real R2/D1 corpora.
+ * Prefer `/v1/bible/corpus-download/:tid` (R2/fixture JSON).
+ * Never persist demo placeholder packs — they poison local-first reads.
  */
 export async function ensureBootCorpusSeeded(
   fetchPack?: BootSeedFetch,
@@ -271,6 +317,12 @@ export async function ensureBootCorpusSeeded(
   const sources: Record<string, string> = {};
   if (typeof indexedDB === "undefined") {
     return { seeded: false, tids: [], sources };
+  }
+
+  try {
+    await purgePlaceholderChapters();
+  } catch {
+    /* continue */
   }
 
   const flagSet = localStorage.getItem(BOOT_FLAG) === "1";
@@ -291,8 +343,7 @@ export async function ensureBootCorpusSeeded(
     }
   }
 
-  // Flag set but quality not sealed (demo leftover): try network refill only —
-  // never wipe a prior install with another demo pack on every reload.
+  // Flag set but quality not sealed: try network refill only.
   if (flagSet && !qualityOk && fetchPack) {
     const lastRetry = Number(localStorage.getItem(BOOT_RETRY_AT_KEY) || "0");
     if (Number.isFinite(lastRetry) && Date.now() - lastRetry < BOOT_RETRY_MIN_MS) {
@@ -310,6 +361,10 @@ export async function ensureBootCorpusSeeded(
             return;
           }
           const chapters = enrichSparseChaptersFromDemo(tid, pack.chapters);
+          if (!chapters.length) {
+            sources[tid] = "demo";
+            return;
+          }
           await bibleLocalDb.installPack(tid, chapters);
           sources[tid] = source;
         } catch {
@@ -328,7 +383,6 @@ export async function ensureBootCorpusSeeded(
     };
   }
 
-  // Parallel pack fetch for boot defaults (paged fetch lives in the caller).
   await Promise.all(
     BOOT_DEFAULT_TRANSLATION_IDS.map(async (tid) => {
       let chapters: R2ChapterJson[] | null = null;
@@ -336,41 +390,43 @@ export async function ensureBootCorpusSeeded(
       if (fetchPack) {
         try {
           const pack = await fetchPack(tid);
-          if (pack?.chapters?.length) {
+          if (pack?.chapters?.length && pack.source !== "demo") {
             chapters = enrichSparseChaptersFromDemo(tid, pack.chapters);
             source = pack.source ?? "download";
           }
         } catch {
-          /* fall through to demo */
+          /* leave empty — per-chapter API fills as the user reads */
         }
       }
-      if (!chapters) {
-        chapters = buildDemoDownloadPack(tid).chapters;
-        source = "demo";
-      } else if (source !== "demo") {
-        chapters = enrichSparseChaptersFromDemo(tid, chapters);
+      if (!chapters?.length) {
+        sources[tid] = "demo";
+        return;
       }
       await bibleLocalDb.installPack(tid, chapters);
       sources[tid] = source;
     }),
   );
 
-  // Mark seeded so we do not reinstall demo packs every reload,
-  // but only seal quality when real corpora landed.
   localStorage.setItem(BOOT_FLAG, "1");
   if (bootQualityOk(sources)) {
     localStorage.setItem(BOOT_QUALITY_KEY, "1");
   } else {
     localStorage.removeItem(BOOT_QUALITY_KEY);
   }
-  return { seeded: true, tids: [...BOOT_DEFAULT_TRANSLATION_IDS], sources };
+  return {
+    seeded: Object.values(sources).some((s) => s !== "demo"),
+    tids: [...BOOT_DEFAULT_TRANSLATION_IDS],
+    sources,
+  };
 }
 
 export async function installDownloadedPack(
   translationId: string,
   chapters: R2ChapterJson[],
 ): Promise<{ installed: number }> {
-  return bibleLocalDb.installPack(translationId, chapters);
+  const clean = chapters.filter((ch) => !isIncompleteLocalChapter(ch));
+  if (!clean.length) return { installed: 0 };
+  return bibleLocalDb.installPack(translationId, clean);
 }
 
 /** Cache a network chapter into IndexedDB when it looks like real corpus text. */

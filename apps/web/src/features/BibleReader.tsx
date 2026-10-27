@@ -91,9 +91,9 @@ import {
 import {
   bibleLocalDb,
   cacheNetworkChapter,
+  chapterHasPlaceholderVerses,
   densifyChapterVerses,
   installDownloadedPack,
-  peekLocalChapter,
   readLocalChapter,
 } from "../lib/bible-local-db";
 import { scheduleBiblePreload } from "../lib/bible-preload";
@@ -873,6 +873,7 @@ export function BibleReader() {
   }, [showCatalog, refreshInstalledCorpus]);
 
   const [bootTick, setBootTick] = useState(0);
+  const [chapterLoading, setChapterLoading] = useState(false);
 
   useEffect(() => {
     void scheduleBiblePreload().then((result) => {
@@ -886,9 +887,7 @@ export function BibleReader() {
     (async () => {
       try {
         setError(null);
-        // Prefer complete local chapters; paint incomplete/demo briefly while refetching.
-        // Local-first: complete chapters stay on-device; network only on miss.
-        // Corpus revision flips (weekly check) refresh packs in the background.
+        // Local-first only for complete real corpus — never settle on preview stubs.
         const local = await readLocalChapter(translationId, bookId, chapterNum);
         if (local && !cancelled) {
           const verses = densifyChapterVerses(
@@ -897,74 +896,86 @@ export function BibleReader() {
             local.chapter,
             local.verses,
           );
+          if (!chapterHasPlaceholderVerses(verses)) {
+            setChapter({
+              translationId,
+              book: local.book,
+              chapter: local.chapter,
+              verses,
+              source: "local-db",
+            });
+            setChapterLoading(false);
+            scheduleAdjacentPrefetch(translationId, bookId, chapterNum);
+            return;
+          }
+        }
+
+        // Incomplete / missing: show loading (not sticky “全文尚未载入” copy).
+        if (!cancelled) {
+          setChapterLoading(true);
+          setChapter(null);
+        }
+
+        let lastErr: unknown = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            const data = await api<ChapterPayload & { revision?: string }>(
+              `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
+            );
+            if (cancelled) return;
+            if (data && "verses" in data && Array.isArray(data.verses)) {
+              const verses = densifyChapterVerses(translationId, bookId, chapterNum, data.verses);
+              if (chapterHasPlaceholderVerses(verses) || !verses.length) {
+                lastErr = new Error("placeholder_chapter");
+                continue;
+              }
+              setChapter({
+                ...data,
+                verses,
+              });
+              setChapterLoading(false);
+              void cacheNetworkChapter(
+                translationId,
+                bookId,
+                chapterNum,
+                data.verses,
+                typeof data.source === "string" ? data.source : undefined,
+                typeof data.revision === "string" ? data.revision : undefined,
+              ).then(() => {
+                scheduleAdjacentPrefetch(translationId, bookId, chapterNum);
+              });
+              return;
+            }
+            lastErr = new Error("empty_chapter");
+          } catch (netErr) {
+            lastErr = netErr;
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+            }
+          }
+        }
+        if (cancelled) return;
+        setChapterLoading(false);
+        // Last resort: rich local teaching samples only (never preview placeholders).
+        const demo = densifyChapterVerses(translationId, bookId, chapterNum, []);
+        if (demo.length > 0 && !chapterHasPlaceholderVerses(demo)) {
           setChapter({
             translationId,
-            book: local.book,
-            chapter: local.chapter,
-            verses,
-            source: "local-db",
+            book: bookId,
+            chapter: chapterNum,
+            verses: demo,
+            source: "local-demo",
           });
-          scheduleAdjacentPrefetch(translationId, bookId, chapterNum);
+          setError(null);
           return;
         }
-        const stale = await peekLocalChapter(translationId, bookId, chapterNum);
-        if (stale && !cancelled) {
-          setChapter({
-            translationId,
-            book: stale.book,
-            chapter: stale.chapter,
-            verses: densifyChapterVerses(translationId, stale.book, stale.chapter, stale.verses),
-            source: "local-db",
-          });
-        }
-        try {
-          const data = await api<ChapterPayload & { revision?: string }>(
-            `/v1/bible/chapter?translation=${encodeURIComponent(translationId)}&ref=${encodeURIComponent(ref)}`,
-          );
-          if (cancelled) return;
-          if (data && "verses" in data && Array.isArray(data.verses)) {
-            const verses = densifyChapterVerses(translationId, bookId, chapterNum, data.verses);
-            setChapter({
-              ...data,
-              verses,
-            });
-            void cacheNetworkChapter(
-              translationId,
-              bookId,
-              chapterNum,
-              data.verses,
-              typeof data.source === "string" ? data.source : undefined,
-              typeof data.revision === "string" ? data.revision : undefined,
-            ).then(() => {
-              scheduleAdjacentPrefetch(translationId, bookId, chapterNum);
-            });
-          } else {
-            setChapter(data);
-          }
-        } catch (netErr) {
-          // Licensed R2 / missing corpus must not block book/chapter navigation.
-          if (stale) {
-            if (!cancelled) setError(null);
-            return;
-          }
-          const demo = densifyChapterVerses(translationId, bookId, chapterNum, []);
-          if (demo.length > 0) {
-            if (!cancelled) {
-              setChapter({
-                translationId,
-                book: bookId,
-                chapter: chapterNum,
-                verses: demo,
-                source: "local-demo",
-              });
-              setError(null);
-            }
-            return;
-          }
-          throw netErr;
-        }
+        setChapter(null);
+        setError(lastErr instanceof Error ? lastErr.message : "chapter_load_failed");
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "error");
+        if (!cancelled) {
+          setChapterLoading(false);
+          setError(e instanceof Error ? e.message : "error");
+        }
       }
     })();
     return () => {
@@ -1016,26 +1027,24 @@ export function BibleReader() {
       try {
         const local = await readLocalChapter(secondTranslationId, bookId, chapterNum);
         if (local && local.verses.length > 0) {
-          if (!cancelled) {
-            setSecondChapter({
-              translationId: secondTranslationId,
-              book: bookId,
-              chapter: chapterNum,
-              verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, local.verses),
-              source: "local",
-            });
+          const verses = densifyChapterVerses(
+            secondTranslationId,
+            bookId,
+            chapterNum,
+            local.verses,
+          );
+          if (!chapterHasPlaceholderVerses(verses)) {
+            if (!cancelled) {
+              setSecondChapter({
+                translationId: secondTranslationId,
+                book: bookId,
+                chapter: chapterNum,
+                verses,
+                source: "local",
+              });
+            }
+            return;
           }
-          return;
-        }
-        const stale = await peekLocalChapter(secondTranslationId, bookId, chapterNum);
-        if (stale && !cancelled) {
-          setSecondChapter({
-            translationId: secondTranslationId,
-            book: bookId,
-            chapter: chapterNum,
-            verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, stale.verses),
-            source: "local",
-          });
         }
         const data = await api<ChapterPayload & { revision?: string }>(
           `/v1/bible/chapter?translation=${encodeURIComponent(secondTranslationId)}&ref=${encodeURIComponent(ref)}`,
@@ -1045,9 +1054,19 @@ export function BibleReader() {
           setSecondChapter(null);
           return;
         }
+        const verses = densifyChapterVerses(
+          secondTranslationId,
+          bookId,
+          chapterNum,
+          data.verses,
+        );
+        if (chapterHasPlaceholderVerses(verses) || !verses.length) {
+          setSecondChapter(null);
+          return;
+        }
         setSecondChapter({
           ...data,
-          verses: densifyChapterVerses(secondTranslationId, bookId, chapterNum, data.verses),
+          verses,
         });
         if ("verses" in data && Array.isArray(data.verses)) {
           void cacheNetworkChapter(
@@ -2217,6 +2236,23 @@ export function BibleReader() {
       )}
 
       <div className="bible-folio" data-testid="reader-folio" ref={folioRef}>
+        {chapterLoading && !chapter ? (
+          <p className="bible-hint" data-testid="reader-chapter-loading">
+            {t("common.loading")}
+          </p>
+        ) : null}
+        {error && !chapter ? (
+          <div className="bible-hint" data-testid="reader-chapter-load-failed">
+            <p>{t("reader.chapterLoadFailed")}</p>
+            <button
+              type="button"
+              className="bible-text-btn"
+              onClick={() => setBootTick((n) => n + 1)}
+            >
+              {t("reader.retry")}
+            </button>
+          </div>
+        ) : null}
         {dualPane ? (
           <CompareChapterPane
             primary={chapter}
