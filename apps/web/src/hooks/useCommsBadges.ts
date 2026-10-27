@@ -25,7 +25,8 @@ export function useCommsBadges() {
   }, []);
 
   useEffect(() => {
-    void refresh(false);
+    // Defer first badge fetch so Bible/chapter traffic wins the first seconds.
+    const boot = window.setTimeout(() => void refresh(false), 2_500);
     const unsub = subscribeCommsBadges(() => {
       setBadges(peekCommsBadges());
       void refresh(false);
@@ -35,6 +36,7 @@ export function useCommsBadges() {
     };
     window.addEventListener("focus", onFocus);
     return () => {
+      window.clearTimeout(boot);
       unsub();
       window.removeEventListener("focus", onFocus);
     };

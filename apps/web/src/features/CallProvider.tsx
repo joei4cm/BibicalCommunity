@@ -37,8 +37,11 @@ type ConvoRow = {
 };
 
 /** Cap concurrent call-listen sockets — most recent / unread DMs first. */
-const MAX_CALL_LISTEN = 6;
-const LISTEN_DEFER_MS = 900;
+const MAX_CALL_LISTEN = 4;
+/** Let Bible chapter paint before opening call-listen sockets. */
+const LISTEN_DEFER_MS = 4_000;
+/** Defer first conversations/friends sync off the critical boot path. */
+const CONVERSATIONS_DEFER_MS = 1_800;
 
 type CallMeta = {
   conversationId: string | null;
@@ -181,13 +184,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refreshConversations();
-    const timer = window.setInterval(() => void refreshConversations(), 60_000);
+    const boot = window.setTimeout(() => void refreshConversations(), CONVERSATIONS_DEFER_MS);
+    const timer = window.setInterval(() => void refreshConversations(), 90_000);
     const onFocus = () => {
       if (document.visibilityState === "visible") void refreshConversations();
     };
     window.addEventListener("focus", onFocus);
     return () => {
+      window.clearTimeout(boot);
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
     };
