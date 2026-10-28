@@ -227,6 +227,8 @@ export function HomePage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [joinSlug, setJoinSlug] = useState("");
+  const [joinInviteCode, setJoinInviteCode] = useState("");
+  const [inviteCodeOut, setInviteCodeOut] = useState<string | null>(null);
   const [securityMode, setSecurityMode] = useState<SecurityMode>("standard");
   const [busy, setBusy] = useState(false);
   const [members, setMembers] = useState<ChurchMember[]>([]);
@@ -554,10 +556,14 @@ export function HomePage() {
         "/v1/home/churches/join",
         {
           method: "POST",
-          body: JSON.stringify({ slug: joinSlug.trim().toLowerCase() }),
+          body: JSON.stringify({
+            slug: joinSlug.trim().toLowerCase(),
+            inviteCode: joinInviteCode.trim() || undefined,
+          }),
         },
       );
       setJoinSlug("");
+      setJoinInviteCode("");
       setNote(joined.alreadyMember ? "already_member" : "joined_church");
       await refresh();
       setSelectedChurchId(joined.churchId);
@@ -810,6 +816,7 @@ export function HomePage() {
                   <span className="home-church-chip-name">{c.name}</span>
                   <span className="home-church-chip-meta">
                     {c.slug ? c.slug : (c.roles ?? [c.role])[0]}
+                    {c.verified ? ` · ${t("home.verifiedBadge")}` : ` · ${t("home.pendingVerify")}`}
                     {c.securityMode === "hostile"
                       ? ` · ${t("home.securityMode.hostileBadge")}`
                       : ""}
@@ -820,12 +827,24 @@ export function HomePage() {
 
             <details className="home-join-block" open={churches.length === 0}>
               <summary>{t("home.joinHome")}</summary>
+              <p className="muted" style={{ marginTop: "0.5rem" }}>
+                {t("home.joinInviteHint")}
+              </p>
               <div className="field" style={{ marginTop: "0.75rem" }}>
                 <label>{t("home.joinSlug")}</label>
                 <input
                   value={joinSlug}
                   onChange={(e) => setJoinSlug(e.target.value)}
                   placeholder={t("home.slugPlaceholder")}
+                />
+              </div>
+              <div className="field">
+                <label>{t("home.inviteCode")}</label>
+                <input
+                  value={joinInviteCode}
+                  onChange={(e) => setJoinInviteCode(e.target.value)}
+                  placeholder={t("home.inviteCodePlaceholder")}
+                  autoComplete="off"
                 />
               </div>
               <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
@@ -1029,13 +1048,18 @@ export function HomePage() {
       )}
 
       {homeSection === "forum" && (
-        <DadaoPanel
-          churchId={selectedChurchId}
-          churches={churches.map((c) => ({ id: c.id, name: c.name }))}
-          onSelectChurch={setSelectedChurchId}
-          membershipGroups={membershipGroups}
-          onNeedHome={() => setHomeSection("home")}
-        />
+        <>
+          <p className="muted" data-testid="forum-plaintext-notice" style={{ marginBottom: "0.75rem" }}>
+            {t("home.forumNotEncrypted")}
+          </p>
+          <DadaoPanel
+            churchId={selectedChurchId}
+            churches={churches.map((c) => ({ id: c.id, name: c.name }))}
+            onSelectChurch={setSelectedChurchId}
+            membershipGroups={membershipGroups}
+            onNeedHome={() => setHomeSection("home")}
+          />
+        </>
       )}
 
       {homeSection === "manage" && selectedChurchId && (
@@ -1237,6 +1261,42 @@ export function HomePage() {
                   </li>
                 ))}
               </ul>
+              {selectedChurch?.roles?.includes("security_officer") ||
+              selectedChurch?.role === "security_officer" ||
+              platformAdmin ? (
+                <div style={{ marginTop: "1.25rem" }} data-testid="manage-invites">
+                  <h3>{t("home.mintInvite")}</h3>
+                  <p className="muted" style={{ marginTop: 0 }}>
+                    {t("home.mintInviteHint")}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy || !selectedChurchId}
+                    onClick={() => {
+                      if (!selectedChurchId || !getToken()) return;
+                      setBusy(true);
+                      void api<{ code: string }>(`/v1/home/${selectedChurchId}/invites`, {
+                        method: "POST",
+                        body: JSON.stringify({ maxUses: 5, ttlHours: 72 }),
+                      })
+                        .then((res) => {
+                          setInviteCodeOut(res.code);
+                          setNote("invite_created");
+                        })
+                        .catch((e) => setNote(e instanceof Error ? e.message : "error"))
+                        .finally(() => setBusy(false));
+                    }}
+                  >
+                    {t("home.mintInvite")}
+                  </button>
+                  {inviteCodeOut ? (
+                    <p className="mono" data-testid="invite-code-out" style={{ marginTop: "0.75rem" }}>
+                      {inviteCodeOut}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
 

@@ -59,22 +59,46 @@ export const churches = sqliteTable("churches", {
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 
-export const churchMembers = sqliteTable("church_members", {
-  id: text("id").primaryKey(),
-  churchId: text("church_id")
-    .notNull()
-    .references(() => churches.id),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  /** Legacy primary role; keep in sync with rolesJson[0] for older clients. */
-  role: text("role").notNull().default("member"),
-  /** JSON array of ChurchRole — supports multi-role membership. */
-  rolesJson: text("roles_json").notNull().default("[]"),
-  verified: integer("verified", { mode: "boolean" }).notNull().default(false),
-  groupIdsJson: text("group_ids_json").notNull().default("[]"),
-  createdAt: integer("created_at", { mode: "number" }).notNull(),
-});
+export const churchMembers = sqliteTable(
+  "church_members",
+  {
+    id: text("id").primaryKey(),
+    churchId: text("church_id")
+      .notNull()
+      .references(() => churches.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    /** Legacy primary role; keep in sync with rolesJson[0] for older clients. */
+    role: text("role").notNull().default("member"),
+    /** JSON array of ChurchRole — supports multi-role membership. */
+    rolesJson: text("roles_json").notNull().default("[]"),
+    verified: integer("verified", { mode: "boolean" }).notNull().default(false),
+    groupIdsJson: text("group_ids_json").notNull().default("[]"),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("church_members_church_user_uidx").on(t.churchId, t.userId)],
+);
+
+/** One-time / limited invite codes for hostile (and optional standard) join. */
+export const churchInvites = sqliteTable(
+  "church_invites",
+  {
+    id: text("id").primaryKey(),
+    churchId: text("church_id")
+      .notNull()
+      .references(() => churches.id),
+    codeHash: text("code_hash").notNull().unique(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    expiresAt: integer("expires_at", { mode: "number" }),
+    maxUses: integer("max_uses", { mode: "number" }),
+    useCount: integer("use_count", { mode: "number" }).notNull().default(0),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("church_invites_church_idx").on(t.churchId)],
+);
 
 export const churchGroups = sqliteTable("church_groups", {
   id: text("id").primaryKey(),

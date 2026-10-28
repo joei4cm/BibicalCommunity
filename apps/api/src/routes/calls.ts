@@ -275,19 +275,35 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
     });
   }
 
-  // No Cloudflare / coturn relay — use public Open Relay so web & app can still call.
-  const fallback = openRelayIceServers();
-  const why = cfMintFailed
-    ? "Cloudflare Calls TURN mint failed; using public Open Relay fallback."
-    : "No TURN_CF_* / turn: URIs; using public Open Relay fallback (set TURN_CF_KEY_ID + TURN_CF_API_TOKEN for production relay).";
+  // Public Open Relay only when explicitly allowed (dev / emergency).
+  const allowOpenRelay = String(c.env.ALLOW_OPEN_RELAY_TURN ?? "") === "true";
+  if (allowOpenRelay) {
+    const fallback = openRelayIceServers();
+    const why = cfMintFailed
+      ? "Cloudflare Calls TURN mint failed; using public Open Relay fallback."
+      : "No TURN_CF_* / turn: URIs; using public Open Relay fallback.";
+    return c.json({
+      username: fallback.username,
+      credential: fallback.credential,
+      ttl,
+      uris: fallback.uris,
+      iceServers: fallback.iceServers,
+      hasRelay: true,
+      provider: fallback.provider,
+      note: why,
+    });
+  }
+
   return c.json({
-    username: fallback.username,
-    credential: fallback.credential,
+    username,
+    credential,
     ttl,
-    uris: fallback.uris,
-    iceServers: fallback.iceServers,
-    hasRelay: true,
-    provider: fallback.provider,
-    note: why,
+    uris,
+    iceServers,
+    hasRelay: false,
+    provider: cfMintFailed ? "cloudflare-calls-failed" : "stun-only",
+    note: cfMintFailed
+      ? "Cloudflare Calls TURN mint failed; set TURN_CF_* or ALLOW_OPEN_RELAY_TURN=true."
+      : "No turn: relay configured. Set TURN_CF_KEY_ID + TURN_CF_API_TOKEN (or ALLOW_OPEN_RELAY_TURN=true for public fallback).",
   });
 });

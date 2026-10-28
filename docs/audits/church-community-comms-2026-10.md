@@ -148,14 +148,26 @@ Calls: CallRoom DO signaling; media P2P — membership authz MISSING
 
 ---
 
-## 6. Suggested fix order (revised)
+## 6. Suggested fix order (revised) — progress
 
-1. **Media ACL + client-encrypt attachments** (R1–R3)  
-2. **Call membership + unguessable callId + max peers** (M2)  
-3. **Group board list/respond ACL + strip audienceUserIds** (F2–F4)  
-4. **Fail-closed degraded + gate OPK fetch** (M1, M3)  
-5. Hostile invite/approve join (C1)  
-6. Notice write moderation + forum confidentiality product decision (F1, F5)  
-7. Group chat invites; SECURITY.md claim sync  
+1. **Media ACL + client-encrypt attachments** (R1–R3) — **done** (#170)  
+2. **Call membership + unguessable callId + max peers** (M2) — **done** (#170)  
+3. **Group board list/respond ACL + strip audienceUserIds** (F2–F4) — **done** (#170)  
+4. **Fail-closed degraded + gate OPK fetch** (M1, M3) — **done** (#170)  
+5. Hostile invite/approve join (C1) — **done** (invite codes + auto-verify on redeem; open join blocked)  
+6. Notice write moderation + forum confidentiality product decision (F1, F5) — **done** (moderator-only notices; UI labels boards non-E2EE)  
+7. Group chat invites; SECURITY.md claim sync — **done** (friend-gate create; SECURITY.md aligned to shipped crypto)  
 
-This audit PR remains docs/config only; implement as follow-up fix PRs.
+### Also landed with step 5–7
+
+- Church 安全官 can patch `securityMode`
+- Hostile floors include receipts/typing/last-active off
+- Friend-request free text not stored
+- Unique `(church_id, user_id)`; Me verification badge + leave church
+- Assembly chat membership prune; Open Relay gated by `ALLOW_OPEN_RELAY_TURN`
+
+### Still open (later)
+
+- Hostile client-only P2 (Worker never decrypts) — target, not shipped  
+- Sender Keys / sealed sender  
+- Encrypt forum bodies (alternative to plaintext+label policy)

@@ -183,18 +183,30 @@ if [[ "${SMOKE_HOME_CALLS:-1}" == "1" ]] && [[ "${SMOKE_SKIP_CALL_SIGNALING:-}" 
   fi
 fi
 
-echo "== hostile church privacy floors =="
+echo "== hostile church privacy floors + invite join =="
 HSLUG="hostile-$(date +%s)"
 HCH=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
   -d "{\"name\":\"Hostile Church\",\"slug\":\"$HSLUG\",\"securityMode\":\"hostile\"}" \
   "$BASE/v1/home/churches")
 HCH_ID=$(echo "$HCH" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 test -n "$HCH_ID"
-curl -sf -X POST -H "$AUTH2" -H 'content-type: application/json' -d '{}' \
+# Open join without invite must fail.
+code=$(curl -s -o /tmp/lh-hostile-join.json -w '%{http_code}' -X POST -H "$AUTH2" -H 'content-type: application/json' -d '{}' \
+  "$BASE/v1/home/churches/${HCH_ID}/join")
+test "$code" = "403"
+grep -q invite_required /tmp/lh-hostile-join.json
+INV=$(curl -sf -X POST -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"maxUses":1,"ttlHours":24}' \
+  "$BASE/v1/home/${HCH_ID}/invites")
+ICODE=$(echo "$INV" | sed -n 's/.*"code":"\([^"]*\)".*/\1/p')
+test -n "$ICODE"
+curl -sf -X POST -H "$AUTH2" -H 'content-type: application/json' \
+  -d "{\"inviteCode\":\"$ICODE\"}" \
   "$BASE/v1/home/churches/${HCH_ID}/join" >/dev/null
 ME2=$(curl -sf -H "$AUTH2" "$BASE/v1/me")
 echo "$ME2" | grep -q '"discoverableByHandle":false'
 echo "$ME2" | grep -q '"allowMessageRequests":"admin-approved"'
+echo "$ME2" | grep -q '"shareReadReceipts":false'
 echo "HOME_HOSTILE_OK"
 
 echo "== self wipe + wipeToken ack =="
