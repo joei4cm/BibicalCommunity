@@ -1,8 +1,9 @@
 # Audit — 教会 / 社区（家） / 消息系统
 
 **Date:** 2026-10-28 (Asia/Shanghai)  
-**Scope:** `apps/api` home · chat · friends · comms · calls · keys; web Home/Chat; SECURITY.md / PRODUCT.md claims  
-**Method:** static code review (routes, schema, client crypto). No live red-team.
+**Scope:** `apps/api` home · chat · friends · comms · calls · keys · media; web Home/Chat; SECURITY.md / PRODUCT.md claims  
+**Method:** static code review (routes, schema, client crypto). No live red-team.  
+**Deep pass:** [Audit church/home API](bc-d006b7bb-b665-53a9-82d8-823df7eead45) · [Audit messaging/E2EE](bc-7c1fc491-4e1c-5e89-85ef-d57f26dff7d6)
 
 ---
 
@@ -10,14 +11,14 @@
 
 | Area | Verdict |
 | --- | --- |
-| **E2EE DMs** | Architecture sound: server stores `ratchetHeader` + `ciphertext` only; membership + friendship gates on DM send |
-| **教会 Home / 论坛** | Feature-rich; **board content is server-plaintext** (by design for bulletin UX) — high risk under `hostile` mode |
-| **入会** | Anyone who knows `slug` can self-join as **unverified** member — weak against enumeration / infiltration |
-| **群聊** | Group create can add arbitrary `memberIds` without friendship check; fan-out is pairwise E2EE (OK) but metadata-heavy |
-| **降级加密** | Client still has `degraded` conversation-seed path when keys missing — do not market as Signal-grade |
-| **好友请求留言** | `friend_requests.message` stored **plaintext** on D1 |
+| **E2EE DMs (product/X3DH path)** | Ciphertext courier is real: D1 stores `ratchetHeader` + `ciphertext`; DM gated by friendship + membership |
+| **Authz holes (P0)** | **Media GET/PUT IDOR**, **call signaling without membership**, **group-board list/respond leaks** — fix before marketing hostile mode |
+| **教会入会** | Slug/id open join → unverified but content-capable member |
+| **论坛** | Titles/bodies/surveys **plaintext** on D1; assembly notify can leak `audienceUserIds` on notice posts |
+| **降级加密 / 附件** | `degraded` seed ≈ operator-decryptable; chat attachments uploaded as **plaintext R2** |
+| **SECURITY.md drift** | Sender Keys, sealed sender, call max peers, hostile client-only P2 — **claimed, not shipped** |
 
-Overall: messaging ciphertext path matches SECURITY.md intent; **church community surface is the main confidentiality gap** relative to the hostile-jurisdiction threat model.
+Overall: DM ciphertext path is credible when product keys work; **do not claim hostile-jurisdiction readiness** until media/call/board authz and degraded/media plaintext are closed.
 
 ---
 
@@ -29,24 +30,26 @@ Overall: messaging ciphertext path matches SECURITY.md intent; **church communit
 - Join: `POST /churches/join` (slug) / `POST /churches/:id/join` → member `verified: false`
 - Roles: multi-role JSON (`elder`, `security_officer`, …) + legacy primary `role`
 - Org tree, groups/departments, roster verify, 同工大会 mailing + notify, security mode patch
-- Hostile join/create applies privacy floors (`applyHostilePrivacyFloors*`)
+- Hostile join/create applies privacy floors (`applyHostilePrivacyFloors*`) — floors incomplete vs SECURITY §3.2 (receipts/typing/last-active not forced off; Worker still `openField` for nicknames)
 
-**Key files:** `apps/api/src/routes/home.ts`, `apps/api/src/services/church-access.ts`, `apps/api/src/db/schema.ts` (`churches`, `church_members`, `church_groups`)
+**Key files:** `apps/api/src/routes/home.ts`, `apps/api/src/services/church-access.ts`, `apps/api/src/db/schema.ts`
 
 ### Findings
 
 | ID | Sev | Finding |
 | --- | --- | --- |
-| C1 | **P0** | **Open join by slug/id** — no invite token, no admin approval gate before membership row exists. Unverified still sees some home surfaces; infiltrator metadata/presence. |
-| C2 | **P1** | `securityMode` change restricted to **platform** admin, not church 安全官 — churches cannot self-escalate to hostile without platform. |
-| C3 | **P2** | Church `name` / `slug` plaintext in D1 — OK for directory; ensure hostile churches are not publicly listed (confirm directory endpoints). |
-| C4 | **P2** | Verification is admin-driven (`verified: true`) — good; but UI must make “unverified” limits obvious everywhere. |
+| C1 | **P0** | **Open join by slug/id** — no invite/approve before membership. Unverified still reads forum/org (membership ≠ verified). |
+| C2 | **P1** | `securityMode` change = **platform** admin only, not church 安全官. |
+| C3 | **P1** | Hostile floors incomplete vs SECURITY (Worker still decrypts P2; receipts/typing/last-active not forced off). |
+| C4 | **P2** | No unique `(church_id, user_id)` on `church_members` — race duplicates possible. |
+| C5 | **P2** | Me/Home UI: verification badge largely missing (`me.churches` / `verified` not surfaced). No self-leave church. |
+| C6 | **P2** | `roles_json` plaintext — membership/role graph is a protected asset under SECURITY §1.1. |
 
 ### Recommendations
 
-1. **P0:** Invite-only or approval-required join for `hostile` (and optionally all churches): invite codes, admin approve queue, rate-limit slug probing.
-2. **P1:** Allow church `security_officer` to set `securityMode` (with audit log).
-3. **P1:** Document which boards/APIs unverified members can hit; tighten to notices-only until verified if product agrees.
+1. **P0:** Invite-only or approval queue for `hostile` (optionally all); quarantine unverified from boards/org-tree.
+2. **P1:** Church 安全官 can set `securityMode` + audit log; extend hostile floors; stop Worker decrypt in hostile or amend docs.
+3. **P2:** Unique membership index; Me verification badge; leave-church.
 
 ---
 
@@ -54,90 +57,105 @@ Overall: messaging ciphertext path matches SECURITY.md intent; **church communit
 
 ### What exists
 
-- Boards: general / notices / group / 大道 collectable posts (poll, chain, survey, riddle, timed)
-- Authz: membership required; group board checks `groupId` membership; moderators pin/readonly/soft-delete
-- External media URL allowlist; `mediaKey` ownership check
-- Client: `HomePage.tsx` + Dadao panel
+- Boards: notice / general / group + 大道 kinds (poll, chain, survey, riddle, timed)
+- Authz helpers in `church-access.ts`; soft-delete / pin / readonly; embed allowlist
+- Client: `HomePage.tsx`, `DadaoPanel.tsx`
 
 ### Findings
 
 | ID | Sev | Finding |
 | --- | --- | --- |
-| F1 | **P0** (hostile) | `forum_posts.title` / `body` / response `payloadJson` are **plaintext** on D1 — operators & compelled access see pastoral/organizational content. Contradicts SECURITY.md spirit for P2/P4-class sensitive community speech under hostile threat model. |
-| F2 | **P1** | Coworker-assembly **notify** title/body plaintext in inbox/board path. |
-| F3 | **P2** | Riddle `answerHash` is hashed (good); survey/chain answers still plaintext JSON. |
-| F4 | **P2** | Soft-delete (`deletedAt`) — confirm hard purge / retention job exists for hostile churches. |
+| F1 | **P0** (hostile) | Forum `title` / `body` / response `payloadJson` **plaintext** on D1. |
+| F2 | **P0** | **Group-board list leak** — group ACL filter only when `board=group`; unfiltered `GET …/posts` can include other groups’ posts for any church member. |
+| F3 | **P0** | **Respond ACL hole** — `POST /posts/:id/respond` checks church membership only; `GET /posts/:id` checks groupIds. Non-group members can vote/survey if they know `postId`. |
+| F4 | **P0** | **Assembly notify roster leak** — `audienceUserIds` stored in notice `payloadJson` readable by all members. |
+| F5 | **P1** | Any member can `POST` `board: "notice"` — not gated to moderators. |
+| F6 | **P1** | Coworker-assembly notify title/body plaintext; assembly chat sync adds but does not prune departed conveners. |
+| F7 | **P2** | Soft-delete retention / hard purge unclear; embed allowlist allows any `https` host with media extension. |
 
 ### Recommendations
 
-1. **P0 for hostile:** Either (a) client-encrypt board bodies with church-shared key held only by members, or (b) product-label boards as **non-confidential** and push sensitive talk to E2EE chat only — and enforce in UX copy.
-2. **P1:** Retention TTL + purge for deleted/expired posts; export of collectable responses should be moderator-scoped (already) and encrypted at rest if kept.
+1. **P0:** Always filter group posts by `ctx.groupIds`; mirror ACL on respond/export; remove `audienceUserIds` from member-visible notice payloads.
+2. **P0/product:** Encrypt board bodies for hostile **or** label non-confidential and push sensitive talk to E2EE.
+3. **P1:** Restrict notice writes to `canModeratePosts`; prune assembly chat membership.
 
 ---
 
-## 3. 消息系统 (Chat / friends / calls)
+## 3. Media (cross-cutting P0)
 
-### Architecture (matches intent)
+| ID | Sev | Finding |
+| --- | --- | --- |
+| R1 | **P0** | `PUT /v1/media/put/*` does **not** enforce `isOwnedMediaKey` — any authed user can write arbitrary keys. |
+| R2 | **P0** | `GET /v1/media/*` returns object to **any** authed user who knows the key — no conversation/church ACL. |
+| R3 | **P0** | Chat attachments upload **raw** bytes to R2 (`ChatPanel.sendAttachment`) — contradicts SECURITY P5 client-encrypted media. |
+
+**Fix:** ownership on PUT; GET authorized by owner or conversation/forum membership (or signed short-lived URLs); client-encrypt attachment bodies with key only in E2EE payload.
+
+---
+
+## 4. 消息系统 (Chat / friends / calls / keys)
+
+### Architecture
 
 ```
 Client encrypt (product PQXDH / X3DH / degraded)
     → POST /v1/chat/conversations/:id/messages { ratchetHeader, ciphertext }
     → D1 messages (no plaintext column)
-Disappearing → tombstone clears ciphertext
-Favorites → client-encrypted blob on server
-Calls → CallRoom DO signaling + TURN credentials (metadata visible)
+Group: pairwise fan-out blob (group-fanout:v1) — NOT Sender Keys
+Calls: CallRoom DO signaling; media P2P — membership authz MISSING
 ```
-
-**Key files:** `chat.ts`, `keys.ts`, `calls.ts`, `friends.ts`, `comms.ts`; web `secure-chat.ts`, `group-fanout.ts`, `ChatPanel.tsx`
 
 ### What works
 
-- DM create/send requires **friendship**
-- Message send/list requires **conversation membership**
-- Read receipts gated by peer `shareReadReceipts` privacy
-- Group fan-out: per-peer envelopes (server sees fan-out JSON shape, not plaintext)
-- Comms badges: unread counts without message bodies
-- Remote wipe command table + client poll path (ops-sensitive; keep audited)
+- DM create/send requires friendship; message list/send requires membership
+- Read receipts gated by `shareReadReceipts`; favorites client-encrypted
+- Disappearing tombstone + cron sweep; wipe zeros ciphertext / sessions / media prefix (favorites/inbox leftovers)
+- Generic push copy (no message plaintext in notifications)
 
 ### Findings
 
 | ID | Sev | Finding |
 | --- | --- | --- |
-| M1 | **P0** | **`degraded` mode** derives from conversation seed when device keys missing — server operators who can push clients or MITM enroll could be stronger than claimed; marketing must not say Signal-grade until degraded is off by default / blocked. |
-| M2 | **P1** | `POST /conversations` for `group`/`seminar` accepts any `memberIds` — **no friendship / same-church check** → spam groups / forced membership UX; victim gets ciphertext they may not want. |
-| M3 | **P1** | `friend_requests.message` + inbox titles/bodies are **plaintext** (social graph + intro text). |
-| M4 | **P1** | OpenE2EE / product path ≠ official libsignal (known OPEN gate) — document clearly in privacy policy. |
-| M5 | **P2** | Group fan-out ciphertext is a JSON map of peer envelopes — size/metadata leakage (who is in the group is already known via members table). |
-| M6 | **P2** | Call signaling + TURN: who/when metadata unavoidable; ensure DO state TTL stays short (SECURITY.md). |
-| M7 | **P2** | Conversation `title` stored plaintext — OK for UX; avoid putting secrets in titles. |
+| M1 | **P0** | **`degraded` mode** — seed from `conversationId` + sorted user ids; **operators can decrypt**. Must fail-closed in production. |
+| M2 | **P0** | **Calls:** `POST /v1/chat/calls` and WS upgrade do **not** verify conversation membership; `callId` often `call_${conversationId}` (guessable); DO has **no max participants**. |
+| M3 | **P0** | **`GET /v1/keys/:userId`** — any session can fetch any bundle and **consume OPKs** (exhaustion / interference); no friend/church gate. |
+| M4 | **P1** | Group/seminar create: arbitrary `memberIds`, no consent/friendship. |
+| M5 | **P1** | No sealed sender; `senderDeviceId` always server-visible. Groups ≠ Sender Keys (doc mismatch). |
+| M6 | **P1** | Friend-request `message` + inbox title/body plaintext. |
+| M7 | **P1** | Mobile degraded seed asymmetry vs web sorted-pair (reliability); Open Relay TURN fallback risky in prod. |
+| M8 | **P2** | Local `lh.msg.*` / note keys in clear storage; typing privacy toggle without typing API; wipe collateral on shared threads. |
 
 ### Recommendations
 
-1. **P0:** Kill or hard-gate degraded mode in production builds (`VITE_ALLOW_DEGRADED_CHAT=false`); force key upload before send.
-2. **P1:** Group create: require each member to accept invite, or same-church + friendship policy.
-3. **P1:** Encrypt or drop friend-request free-text; prefer opaque “wants to connect”.
-4. **P1:** Add integration tests for IDOR on message list (non-member → 403) — appears implemented; keep regression coverage.
+1. **P0:** Fail closed on degraded; authorize calls + unguessable callId + max peers; gate/rate-limit key fetch + OPK consume; fix media R1–R3.
+2. **P1:** Group invites; document or implement Sender Keys; minimize friend-request text; disable Open Relay in production.
+3. **P2:** Align SECURITY.md claims with shipped crypto or treat mismatches as release blockers.
 
 ---
 
-## 4. Cross-cutting
+## 5. SECURITY.md / PRODUCT.md claim matrix (selected)
 
-| Topic | Note |
+| Claim | Status |
 | --- | --- |
-| Field encryption | Nicknames/signatures via `openField` / KEK — good for profile; forum bodies not covered |
-| Platform vs church admin | Church create + security mode = platform; day-to-day verify/groups = church roles |
-| Mobile parity | Expo `apps/mobile` has parallel crypto helpers; Capacitor uses web bundle — prefer one shell for store |
-| Docs drift | PRODUCT Phase 3–4 largely landed; ROADMAP still reads aspirational — update after fixes |
+| X3DH + DR courier-only | **Partial** — product path yes; degraded no |
+| Group Sender Keys | **Missing** — pairwise fan-out |
+| Sealed sender | **Missing** |
+| Client-encrypted R2 media (P5) | **Missing** |
+| Call membership + max participants | **Missing** |
+| Hostile P2 client-only (Worker never decrypts) | **Missing** |
+| Church verification badge on Me | **API yes, UI no** |
+| Disappearing + wipe sweeps | **Mostly** (server); client leftovers |
 
 ---
 
-## 5. Suggested fix order
+## 6. Suggested fix order (revised)
 
-1. Hostile join = invite/approve only  
-2. Production: disable degraded chat  
-3. Product decision: encrypt forum vs label non-confidential  
-4. Group membership invites  
-5. Friend-request message minimization  
-6. Church 安全官 can toggle securityMode + retention jobs  
+1. **Media ACL + client-encrypt attachments** (R1–R3)  
+2. **Call membership + unguessable callId + max peers** (M2)  
+3. **Group board list/respond ACL + strip audienceUserIds** (F2–F4)  
+4. **Fail-closed degraded + gate OPK fetch** (M1, M3)  
+5. Hostile invite/approve join (C1)  
+6. Notice write moderation + forum confidentiality product decision (F1, F5)  
+7. Group chat invites; SECURITY.md claim sync  
 
-No code fixes in this audit PR beyond iOS prep scaffolding — implement as follow-up PRs.
+This audit PR remains docs/config only; implement as follow-up fix PRs.
