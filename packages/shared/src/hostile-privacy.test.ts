@@ -8,6 +8,9 @@ describe("HOSTILE_PRIVACY_FLOORS", () => {
     assert.equal(HOSTILE_PRIVACY_FLOORS.discoverableByUid, false);
     assert.equal(HOSTILE_PRIVACY_FLOORS.showInChurchDirectory, false);
     assert.equal(HOSTILE_PRIVACY_FLOORS.allowMessageRequests, "admin-approved");
+    assert.equal(HOSTILE_PRIVACY_FLOORS.shareReadReceipts, false);
+    assert.equal(HOSTILE_PRIVACY_FLOORS.shareTypingIndicators, false);
+    assert.equal(HOSTILE_PRIVACY_FLOORS.shareLastActive, false);
   });
 });
 
@@ -26,10 +29,9 @@ describe("mergeHostilePrivacy", () => {
     assert.equal(merged.discoverableByUid, false);
     assert.equal(merged.showInChurchDirectory, false);
     assert.equal(merged.allowMessageRequests, "admin-approved");
-    // Non-floor fields preserved
-    assert.equal(merged.shareLastActive, true);
-    assert.equal(merged.shareReadReceipts, true);
-    assert.equal(merged.shareTypingIndicators, true);
+    assert.equal(merged.shareLastActive, false);
+    assert.equal(merged.shareReadReceipts, false);
+    assert.equal(merged.shareTypingIndicators, false);
   });
 
   it("applies floors when current privacy is empty", () => {

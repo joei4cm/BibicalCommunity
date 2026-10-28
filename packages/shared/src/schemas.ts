@@ -75,6 +75,9 @@ export const HOSTILE_PRIVACY_FLOORS = {
   discoverableByUid: false,
   showInChurchDirectory: false,
   allowMessageRequests: "admin-approved",
+  shareReadReceipts: false,
+  shareTypingIndicators: false,
+  shareLastActive: false,
 } as const satisfies Partial<z.infer<typeof privacySettingsSchema>>;
 
 /** Merge never raises discovery — floors always win over looser member settings. */

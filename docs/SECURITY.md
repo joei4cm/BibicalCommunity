@@ -74,8 +74,8 @@ Assign every field and blob a class. Storage, logging, retention, and access con
 | **P1 Account metadata** | Opaque user id, keyed identity handle hash, locale (`zh`/`en`/`ja`), created_at, feature flags | Yes (minimize) | D1 | Account lifetime + short tombstone |
 | **P2 Sensitive profile** | Display name, avatar, phone/email (if any), bio, church role labels | **No** — field-level encrypt at rest | D1 ciphertext columns | Account lifetime; wipe on remote wipe |
 | **P3 Private notes** | Personal Bible notes, journals, bookmarks with private annotations | **No** — client-side encrypt; server stores ciphertext blob | R2 or D1 BLOB + envelope | User-controlled; wipeable |
-| **P4 E2EE messages** | DM / group ciphertext, attachments pointers, sealed sender envelopes | **No** — ciphertext only | D1 message rows + R2 media | TTL / user delete / wipe |
-| **P5 Media blobs** | Voice notes, images, files, encrypted call recordings **if ever offered** (default: never record) | **No** — encrypted object body | R2 | Same as owning message |
+| **P4 E2EE messages** | DM / group ciphertext, attachment pointers (sender device id is metadata, not sealed-sender) | **No** — ciphertext only | D1 message rows + R2 media | TTL / user delete / wipe |
+| **P5 Media blobs** | Voice notes, images, files (chat attachments client-encrypted; content key in E2EE payload) | **No** — encrypted object body | R2 | Same as owning message |
 | **P6 Session & device secrets** | Session token hashes, device public keys, identity key fingerprints | Public keys: yes; private keys: **never on server** | D1 (pub + hashes); client secure store (priv) | Session TTL / device revoke |
 | **P7 Signaling metadata** | SDP/ICE via DO, room membership, timestamps | Yes (necessary for connectivity) | Durable Object memory + short D1 audit | Minutes–hours; minimize |
 | **P8 Admin / wipe control** | Wipe tokens, tombstone flags, admin audit events | Yes | D1 | Audit retention policy |
@@ -118,20 +118,29 @@ Sensitive profile columns are stored as ciphertext with AES-256-GCM via WebCrypt
 
 | Deployment mode | P2 handling |
 | --- | --- |
-| `standard` | Worker field-level AES-GCM with DEK |
-| `hostile` | Client encrypts P2 to the user’s identity key; D1 stores ciphertext only; Worker never decrypts |
+| `standard` | Worker field-level AES-GCM with DEK (`KEK_MASTER`) |
+| `hostile` | **Shipped today:** same Worker DEK path + stricter privacy floors (discovery/directory/receipts/typing/last-active off) + invite-only join. **Target (not yet shipped):** client encrypts P2 to identity key so Worker never decrypts. |
 
 ### 3.3 R2 encrypted blobs (P3/P5)
 
-- Object key: `r2://{env}/{church_id}/{user_id}/{object_id}` — no sensitive filenames.
-- Body: ciphertext produced **on the client** for P3/P5 (preferred).
-- Attachment keys live inside E2EE message payloads only.
+- Object key: `media/{user_id}/{object_id}` (owned prefix enforced on PUT).
+- Chat attachment bodies: client AES-GCM ciphertext; content key only inside E2EE chat payload.
+- GET requires owner, conversation membership (`?conversationId=`), or forum post ACL.
+- Forum / board media for notices may still be referenced as plaintext posts (boards are **not** E2EE — see §3.5).
 
 ### 3.4 Client-side E2EE for DMs / groups (Signal-style)
 
-**Protocols:** X3DH for session setup + Double Ratchet for ongoing messages. Server is a **ciphertext courier** only.
+**Protocols (shipped):** product OpenE2EE / X3DH + Double Ratchet when device keys exist. Server is a **ciphertext courier** only for those paths.
 
-Group messaging uses Sender Keys. Push notifications use generic localized titles only (no plaintext previews).
+**Degraded conversation-seed bootstrap is disabled by default** (`VITE_ALLOW_DEGRADED_CHAT` must be `"true"` to re-enable). Do not market Signal-grade without keys.
+
+**Groups (shipped):** pairwise fan-out envelopes (`group-fanout:v1`), **not** Sender Keys. Sender Keys remain a roadmap item.
+
+Push notifications use generic localized titles only (no plaintext previews).
+
+### 3.5 Church boards (intentional non-E2EE)
+
+Forum / 大道 / notice posts store title/body/responses as **server plaintext** for shared bulletin UX. Product UI must label boards as non-confidential; sensitive pastoral content belongs in E2EE chat. Hostile churches require invite codes and verification before board/org access.
 
 ---
 
@@ -148,10 +157,10 @@ Group messaging uses Sender Keys. Push notifications use generic localized title
 
 | Component | Responsibility |
 | --- | --- |
-| Worker API | Authenticate; authorize membership; mint call tokens |
-| Durable Object `CallRoomDO` | Fan-out SDP/ICE; enforce max participants |
+| Worker API | Authenticate; authorize conversation membership; mint unguessable call ids |
+| Durable Object `CallRoomDO` | Fan-out SDP/ICE; enforce max peers (2 DM / 16 group) |
 | Clients | WebRTC media is **P2P** |
-| TURN | Connectivity fallback only — relay encrypted SRTP |
+| TURN | Prefer Cloudflare Calls / coturn; public Open Relay only if `ALLOW_OPEN_RELAY_TURN=true` |
 
 No media bytes traverse Workers, DO, D1, or R2. No server-side call recording by default.
 

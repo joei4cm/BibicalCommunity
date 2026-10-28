@@ -246,6 +246,7 @@ friendsRoutes.get("/directory", async (c) => {
 const requestSchema = z.object({
   query: z.string().min(1).optional(),
   userId: z.string().min(1).optional(),
+  /** Free-text intros are not stored (audit: plaintext on D1). Accepted then discarded. */
   message: z.string().max(280).optional(),
 });
 
@@ -327,7 +328,7 @@ friendsRoutes.post("/request", async (c) => {
     id,
     fromUserId,
     toUserId: target.id,
-    message: body.message,
+    message: null,
     status: "pending",
     createdAt: now,
   });

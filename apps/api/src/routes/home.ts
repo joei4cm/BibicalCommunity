@@ -33,7 +33,7 @@ import {
   applyHostilePrivacyFloorsToChurch,
 } from "../services/hostile-privacy";
 import { openField } from "../services/field-crypto";
-import { sha256Hex } from "../services/crypto";
+import { hmacHex, sha256Hex } from "../services/crypto";
 import {
   assertCanManageGroupMembers,
   buildCoworkerAssembly,
@@ -238,12 +238,14 @@ async function joinChurch(
   db: ReturnType<typeof drizzle<typeof schema>>,
   userId: string,
   church: typeof schema.churches.$inferSelect,
+  opts?: { verified?: boolean },
 ): Promise<{
   id: string;
   churchId: string;
   role: string;
   roles: ChurchRole[];
   alreadyMember: boolean;
+  verified: boolean;
   name: string;
   slug: string;
 }> {
@@ -266,11 +268,13 @@ async function joinChurch(
       role: primaryChurchRole(roles),
       roles,
       alreadyMember: true,
+      verified: existing.verified,
       name: church.name,
       slug: church.slug,
     };
   }
 
+  const verified = Boolean(opts?.verified);
   const memberId = createId("cmbr");
   const synced = syncPrimaryRole(["member"]);
   await db.insert(schema.churchMembers).values({
@@ -279,7 +283,7 @@ async function joinChurch(
     userId,
     role: synced.role,
     rolesJson: synced.rolesJson,
-    verified: false,
+    verified,
     groupIdsJson: "[]",
     createdAt: Date.now(),
   });
@@ -294,6 +298,7 @@ async function joinChurch(
     role: "member",
     roles: ["member"],
     alreadyMember: false,
+    verified,
     name: church.name,
     slug: church.slug,
   };
@@ -305,7 +310,44 @@ const joinBySlugSchema = z.object({
     .min(2)
     .max(64)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  /** Required for hostile churches; optional otherwise. */
+  inviteCode: z.string().min(6).max(64).optional(),
 });
+
+async function redeemInviteIfNeeded(
+  env: Env,
+  db: ReturnType<typeof drizzle<typeof schema>>,
+  church: typeof schema.churches.$inferSelect,
+  inviteCode: string | undefined,
+): Promise<{ ok: true; inviteId?: string } | { ok: false; error: string; status: 403 | 400 }> {
+  if (church.securityMode !== "hostile") {
+    return { ok: true };
+  }
+  if (!inviteCode?.trim()) {
+    return { ok: false, error: "invite_required", status: 403 };
+  }
+  const pepper = env.HANDLE_PEPPER ?? "dev-handle-pepper";
+  const codeHash = await hmacHex(pepper, inviteCode.trim().toLowerCase());
+  const invite = (
+    await db
+      .select()
+      .from(schema.churchInvites)
+      .where(and(eq(schema.churchInvites.churchId, church.id), eq(schema.churchInvites.codeHash, codeHash)))
+      .limit(1)
+  )[0];
+  if (!invite) return { ok: false, error: "invite_invalid", status: 403 };
+  if (invite.expiresAt && invite.expiresAt < Date.now()) {
+    return { ok: false, error: "invite_expired", status: 403 };
+  }
+  if (invite.maxUses != null && invite.useCount >= invite.maxUses) {
+    return { ok: false, error: "invite_exhausted", status: 403 };
+  }
+  await db
+    .update(schema.churchInvites)
+    .set({ useCount: invite.useCount + 1 })
+    .where(eq(schema.churchInvites.id, invite.id));
+  return { ok: true, inviteId: invite.id };
+}
 
 homeRoutes.post("/churches/join", async (c) => {
   const body = joinBySlugSchema.parse(await c.req.json());
@@ -314,18 +356,27 @@ homeRoutes.post("/churches/join", async (c) => {
     await db.select().from(schema.churches).where(eq(schema.churches.slug, body.slug)).limit(1)
   )[0];
   if (!church) return c.json({ error: "not_found" }, 404);
-  const result = await joinChurch(db, c.get("userId"), church);
+  const redeem = await redeemInviteIfNeeded(c.env, db, church, body.inviteCode);
+  if (!redeem.ok) return c.json({ error: redeem.error }, redeem.status);
+  const viaInvite = church.securityMode === "hostile";
+  const result = await joinChurch(db, c.get("userId"), church, { verified: viaInvite });
   return c.json(result, result.alreadyMember ? 200 : 201);
 });
 
 homeRoutes.post("/churches/:id/join", async (c) => {
   const churchId = c.req.param("id");
+  const body = z.object({ inviteCode: z.string().min(6).max(64).optional() }).parse(
+    await c.req.json().catch(() => ({})),
+  );
   const db = drizzle(c.env.DB, { schema });
   const church = (
     await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
   )[0];
   if (!church) return c.json({ error: "not_found" }, 404);
-  const result = await joinChurch(db, c.get("userId"), church);
+  const redeem = await redeemInviteIfNeeded(c.env, db, church, body.inviteCode);
+  if (!redeem.ok) return c.json({ error: redeem.error }, redeem.status);
+  const viaInvite = church.securityMode === "hostile";
+  const result = await joinChurch(db, c.get("userId"), church, { verified: viaInvite });
   return c.json(result, result.alreadyMember ? 200 : 201);
 });
 
@@ -334,8 +385,11 @@ homeRoutes.patch("/churches/:id/security", async (c) => {
   const body = patchSecuritySchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
   const userId = c.get("userId");
-  if (!(await loadPlatformAdmin(db, userId))) {
-    return c.json({ error: "platform_admin_required" }, 403);
+  const platformAdmin = await loadPlatformAdmin(db, userId);
+  const ctx = await loadMembershipContext(db, userId, churchId);
+  const churchOfficer = Boolean(ctx?.roles.includes("security_officer"));
+  if (!platformAdmin && !churchOfficer) {
+    return c.json({ error: "forbidden" }, 403);
   }
 
   const church = (
@@ -353,6 +407,66 @@ homeRoutes.patch("/churches/:id/security", async (c) => {
   }
 
   return c.json({ id: churchId, securityMode: body.securityMode });
+});
+
+const createInviteSchema = z.object({
+  maxUses: z.number().int().positive().max(500).optional().default(1),
+  /** Hours until expiry; omit for no expiry. */
+  ttlHours: z.number().int().positive().max(24 * 90).optional(),
+});
+
+/** 安全官 / platform admin mints a join invite (plaintext code returned once). */
+homeRoutes.post("/:churchId/invites", async (c) => {
+  const churchId = c.req.param("churchId");
+  const body = createInviteSchema.parse(await c.req.json().catch(() => ({})));
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const ctx = await loadMembershipContext(db, userId, churchId);
+  if (!ctx || (!ctx.platformAdmin && !ctx.roles.includes("security_officer"))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const raw = `inv_${createId()}`.toLowerCase();
+  const pepper = c.env.HANDLE_PEPPER ?? "dev-handle-pepper";
+  const codeHash = await hmacHex(pepper, raw);
+  const id = createId("cinv");
+  const expiresAt = body.ttlHours ? Date.now() + body.ttlHours * 3600_000 : null;
+  await db.insert(schema.churchInvites).values({
+    id,
+    churchId,
+    codeHash,
+    createdBy: userId,
+    expiresAt,
+    maxUses: body.maxUses,
+    useCount: 0,
+    createdAt: Date.now(),
+  });
+  return c.json(
+    {
+      id,
+      code: raw,
+      maxUses: body.maxUses,
+      expiresAt,
+      note: "Store the code now; only the hash is retained server-side.",
+    },
+    201,
+  );
+});
+
+/** Member leaves a church (self). */
+homeRoutes.delete("/:churchId/membership", async (c) => {
+  const churchId = c.req.param("churchId");
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const membership = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(and(eq(schema.churchMembers.churchId, churchId), eq(schema.churchMembers.userId, userId)))
+      .limit(1)
+  )[0];
+  if (!membership) return c.json({ error: "not_found" }, 404);
+  await db.delete(schema.churchMembers).where(eq(schema.churchMembers.id, membership.id));
+  return c.json({ ok: true, churchId });
 });
 
 /** Org tree + visible people for the current home. */
@@ -537,6 +651,12 @@ homeRoutes.post("/:churchId/coworker-assembly/chat", async (c) => {
       userId: mid,
       role: "member",
     });
+  }
+  // Prune members no longer on the mailing list (keep self).
+  for (const row of existing) {
+    if (row.userId === userId) continue;
+    if (memberIds.has(row.userId)) continue;
+    await db.delete(schema.conversationMembers).where(eq(schema.conversationMembers.id, row.id));
   }
   return c.json({ conversationId, created: false, memberCount: memberIds.size });
 });

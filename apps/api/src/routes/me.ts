@@ -44,6 +44,7 @@ meRoutes.get("/", async (c) => {
       role: primaryChurchRole(roles),
       roles,
       verified: m.verified,
+      securityMode: church?.securityMode ?? "standard",
       groups: JSON.parse(m.groupIdsJson || "[]"),
     });
   }

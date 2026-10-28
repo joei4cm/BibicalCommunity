@@ -16,6 +16,8 @@ export type Env = {
   /** JSON array of TURN/STUN URIs. Include turn:/turns: for real relay. */
   TURN_URIS?: string;
   /** Cloudflare Calls TURN key id (optional; enables real turn: relays). */
+  /** When "true", allow public Open Relay TURN if Cloudflare/coturn unavailable. */
+  ALLOW_OPEN_RELAY_TURN?: string;
   TURN_CF_KEY_ID?: string;
   /** Cloudflare API token that can mint Calls TURN credentials. */
   TURN_CF_API_TOKEN?: string;

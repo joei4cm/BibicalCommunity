@@ -46,7 +46,9 @@ type MeChurch = {
   name?: string | null;
   slug?: string | null;
   role: string;
+  roles?: string[];
   verified: boolean;
+  securityMode?: string;
   groups: string[];
 };
 
@@ -556,6 +558,44 @@ export function MePage() {
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="panel" data-testid="me-churches-panel">
+            <h2>{t("me.myChurches")}</h2>
+            {(!profile?.churches || profile.churches.length === 0) && (
+              <p className="muted">{t("home.noHomes")}</p>
+            )}
+            <ul className="list">
+              {(profile?.churches ?? []).map((c) => (
+                <li key={c.churchId} data-testid={`me-church-${c.churchId}`}>
+                  <strong>{c.name || c.slug || c.churchId}</strong>
+                  <div className="muted">
+                    {c.slug ? `${c.slug} · ` : ""}
+                    {(c.roles ?? [c.role]).join(" · ")}
+                    {" · "}
+                    {c.verified ? t("me.churchVerified") : t("me.churchPending")}
+                    {c.securityMode === "hostile" ? ` · ${t("home.securityMode.hostileBadge")}` : ""}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={authBusy}
+                    onClick={() => {
+                      if (!window.confirm(t("me.leaveChurch"))) return;
+                      setAuthBusy(true);
+                      void api(`/v1/home/${encodeURIComponent(c.churchId)}/membership`, {
+                        method: "DELETE",
+                      })
+                        .then(() => refresh())
+                        .catch((e) => setMsg(e instanceof Error ? e.message : "error"))
+                        .finally(() => setAuthBusy(false));
+                    }}
+                  >
+                    {t("me.leaveChurch")}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="panel" data-testid="me-profile-panel">
