@@ -6,6 +6,7 @@ import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
+import { canFetchPeerKeys } from "../services/access-graph";
 
 export const keysRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
@@ -88,6 +89,10 @@ keysRoutes.put("/prekeys", async (c) => {
 keysRoutes.get("/:userId", async (c) => {
   const targetUserId = c.req.param("userId");
   const db = drizzle(c.env.DB, { schema });
+  const selfId = c.get("userId");
+  if (!(await canFetchPeerKeys(db, selfId, targetUserId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
 
   const deviceRows = await db
     .select()

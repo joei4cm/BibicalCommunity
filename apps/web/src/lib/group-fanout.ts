@@ -4,7 +4,7 @@
  * Each peer gets their own pairwise envelope (product / X3DH / degraded).
  * Courier stores one opaque blob; recipients open only their envelope.
  */
-import { decryptChatMessage, encryptChatMessage } from "./secure-chat";
+import { decryptChatMessage, degradedChatAllowed, encryptChatMessage } from "./secure-chat";
 
 export const GROUP_FANOUT_HEADER = "group-fanout:v1";
 
@@ -48,6 +48,10 @@ export async function encryptGroupFanout(opts: {
       ciphertext: enc.ciphertext,
     };
     if (enc.mode === "degraded") degradedPeers.push(peerId);
+  }
+
+  if (degradedPeers.length > 0 && !degradedChatAllowed()) {
+    throw new Error("chat_keys_required");
   }
 
   const blob: GroupFanoutBlob = {

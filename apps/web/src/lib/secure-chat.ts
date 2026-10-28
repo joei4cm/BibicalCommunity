@@ -204,11 +204,23 @@ async function bootstrapFromX3dh(
   return { state, preamble };
 }
 
+/** Opt-in only (`VITE_ALLOW_DEGRADED_CHAT=true`). Production must fail closed. */
+export function degradedChatAllowed(): boolean {
+  try {
+    return String(import.meta.env.VITE_ALLOW_DEGRADED_CHAT ?? "") === "true";
+  } catch {
+    return false;
+  }
+}
+
 async function bootstrapDegraded(
   conversationId: string,
   peerUserId?: string | null,
   selfUserId?: string | null,
 ): Promise<RatchetSessionState> {
+  if (!degradedChatAllowed()) {
+    throw new Error("chat_keys_required");
+  }
   const pair = pairKey(selfUserId, peerUserId);
   // v2 seed is symmetric for both peers (sorted user ids).
   const seedMaterial = pair
@@ -302,6 +314,9 @@ export async function encryptChatMessage(
     | "responder"
     | null;
   const mode = modeRaw ?? "degraded";
+  if (mode === "degraded" && !degradedChatAllowed()) {
+    throw new Error("chat_keys_required");
+  }
   let preamble: X3dhPreamble | null = null;
   if (mode === "initiator") {
     const raw = await secureGet(x3dhPreambleKey(conversationId, peerUserId, selfUserId));

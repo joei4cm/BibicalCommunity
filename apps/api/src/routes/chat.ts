@@ -7,12 +7,10 @@ import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { openField } from "../services/field-crypto";
+import { areFriends, isConversationMember } from "../services/access-graph";
+import { sha256Hex } from "../services/crypto";
 export const chatRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 chatRoutes.use("*", requireAuth);
-
-function orderedPair(a: string, b: string): [string, string] {
-  return a < b ? [a, b] : [b, a];
-}
 
 type MemberRow = { userId: string; lastReadAt: number | null };
 
@@ -52,21 +50,13 @@ async function sharedPeerLastReadAt(
   return max > 0 ? max : null;
 }
 
-async function areFriends(
-  db: ReturnType<typeof drizzle>,
-  a: string,
-  b: string,
-): Promise<boolean> {
-  if (a === b) return true;
-  const [userAId, userBId] = orderedPair(a, b);
-  const row = (
-    await db
-      .select()
-      .from(schema.friendships)
-      .where(and(eq(schema.friendships.userAId, userAId), eq(schema.friendships.userBId, userBId)))
-      .limit(1)
-  )[0];
-  return Boolean(row);
+const CALL_MAX_PEERS_DM = 2;
+const CALL_MAX_PEERS_GROUP = 16;
+
+async function mintCallId(env: Env, conversationId: string): Promise<string> {
+  const secret = env.TURN_SECRET ?? env.HANDLE_PEPPER ?? "dev-call-room";
+  const digest = await sha256Hex(`${secret}:call-room:${conversationId}`);
+  return `call_${digest.slice(0, 26)}`;
 }
 
 const createConvoSchema = z.object({
@@ -88,11 +78,18 @@ chatRoutes.post("/conversations", async (c) => {
   const db = drizzle(c.env.DB, { schema });
   const selfId = c.get("userId");
   const members = Array.from(new Set([selfId, ...body.memberIds]));
+  const peers = members.filter((id) => id !== selfId);
   if (body.kind === "dm") {
-    const peers = members.filter((id) => id !== selfId);
     if (peers.length !== 1) return c.json({ error: "dm_requires_one_peer" }, 400);
     if (!(await areFriends(db, selfId, peers[0]!))) {
       return c.json({ error: "friends_required" }, 403);
+    }
+  } else {
+    // Group / seminar: each invitee must already be a friend (consent gate).
+    for (const peerId of peers) {
+      if (!(await areFriends(db, selfId, peerId))) {
+        return c.json({ error: "friends_required", userId: peerId }, 403);
+      }
     }
   }
   const id = createId("convo");
@@ -532,17 +529,34 @@ chatRoutes.post("/calls", async (c) => {
   const body = z
     .object({ conversationId: z.string(), callId: z.string().optional() })
     .parse(await c.req.json());
-  // Deterministic room so both peers join the same signaling DO.
-  const callId = body.callId ?? `call_${body.conversationId}`;
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  if (!(await isConversationMember(db, body.conversationId, userId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const convo = (
+    await db
+      .select()
+      .from(schema.conversations)
+      .where(eq(schema.conversations.id, body.conversationId))
+      .limit(1)
+  )[0];
+  const maxPeers = convo?.kind === "dm" ? CALL_MAX_PEERS_DM : CALL_MAX_PEERS_GROUP;
+  // Deterministic unguessable room (HMAC) so both peers join the same DO after authz.
+  const callId = await mintCallId(c.env, body.conversationId);
+  if (body.callId && body.callId !== callId) {
+    return c.json({ error: "call_id_mismatch" }, 400);
+  }
   const id = c.env.CALL_ROOM.idFromName(callId);
   const stub = c.env.CALL_ROOM.get(id);
   const url = new URL(c.req.url);
   url.pathname = `/room/${callId}`;
   url.searchParams.set("conversationId", body.conversationId);
-  url.searchParams.set("userId", c.get("userId"));
-  // Auth already verified; DO handles WS fan-out of SDP/ICE only.
+  url.searchParams.set("userId", userId);
+  url.searchParams.set("maxPeers", String(maxPeers));
   return c.json({
     callId,
+    maxPeers,
     signalingPath: `/v1/calls/${callId}/ws`,
     note: "Media is P2P WebRTC after signaling; TURN credentials minted separately.",
     doId: id.toString(),
