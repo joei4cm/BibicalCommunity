@@ -2,6 +2,9 @@
 
 产品化的多端圣经社区：读经 · 计划灵修 · 教会「家」· 端到端加密沟通。
 
+iOS 海外个人开发者 / TestFlight 预备：[`docs/ios-personal-developer.md`](docs/ios-personal-developer.md)。  
+教会 · 社区 · 消息审计（2026-10）：[`docs/audits/church-community-comms-2026-10.md`](docs/audits/church-community-comms-2026-10.md)。
+
 部署目标：**Cloudflare Workers + D1 + R2**（Durable Objects 信令、Cron 过期与远程抹除）。
 
 ## 文档

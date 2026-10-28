@@ -290,10 +290,19 @@ jobs:
         working-directory: apps/mobile
         run: eas build --platform android --profile preview --non-interactive --no-wait
         continue-on-error: true
-      - name: EAS iOS (preview)
+      - name: EAS iOS (preview / device)
         if: steps.eas.outputs.skip != 'true'
         working-directory: apps/mobile
         run: eas build --platform ios --profile preview --non-interactive --no-wait
+        continue-on-error: true
+      - name: EAS iOS (TestFlight candidate)
+        if: >
+          steps.eas.outputs.skip != 'true' &&
+          startsWith(github.ref, 'refs/tags/v')
+        working-directory: apps/mobile
+        # Requires Apple credentials linked in EAS; soft-fail until configured.
+        # Prefer Capacitor Archive for first personal-developer TestFlight — see docs/ios-personal-developer.md
+        run: eas build --platform ios --profile testflight --non-interactive --no-wait
         continue-on-error: true
 
   release:

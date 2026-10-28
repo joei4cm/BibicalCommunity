@@ -14,6 +14,7 @@ Workflow: [`.github/workflows/deploy-cloudflare.yml`](../.github/workflows/deplo
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | Workers / D1 / R2 / Pages edit |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
+| `EXPO_TOKEN` | Optional — enables EAS store/TestFlight builds in Package (`apps/mobile`) |
 
 ### Optional repository secrets (synced onto the Worker when set)
 
@@ -171,17 +172,19 @@ npx wrangler pages deploy apps/web/dist --project-name=logoshome-web
 
 Details: `apps/web/pages.md`.
 
-## 8. Mobile (EAS note)
+## 8. Mobile (iOS personal developer + EAS)
 
-`apps/mobile` is Expo. Store binaries use [EAS Build](https://docs.expo.dev/build/introduction/):
+**Primary phone shell today:** Capacitor (`apps/native`) — Android APK + iOS simulator in GitHub Releases. For physical iPhone / TestFlight with an overseas **individual** Apple Developer account, see [`ios-personal-developer.md`](./ios-personal-developer.md) (Xcode Archive is the recommended first upload).
+
+**Optional Expo track:** `apps/mobile` + EAS (`preview` / `testflight` / `production` in `eas.json`). Set GitHub secret `EXPO_TOKEN` and link Apple credentials in EAS before CI builds are useful:
 
 ```bash
 cd apps/mobile
 npx eas-cli login
-npx eas build --platform all
+npx eas build --platform ios --profile testflight
 ```
 
-Point the app’s API base at the production Worker (env / `app.json` extra). Local `expo start` is enough for development; EAS is for TestFlight / Play tracks.
+Point the app’s API base at the production Worker (env / `app.json` extra).
 
 ## Checklist
 
