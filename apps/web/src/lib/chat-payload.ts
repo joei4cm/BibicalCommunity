@@ -10,6 +10,8 @@ export type ChatPayload =
       mime: string;
       name: string;
       text?: string;
+      /** Client AES-GCM key for R2 ciphertext (absent on legacy plaintext uploads). */
+      enc?: { v: 1; k: string; iv: string };
     }
   | {
       v: 1;
@@ -41,6 +43,14 @@ export function parseChatPayload(raw: string | undefined | null): ChatPayload | 
       typeof parsed.mime === "string" &&
       typeof parsed.name === "string"
     ) {
+      if (
+        parsed.enc &&
+        (parsed.enc.v !== 1 ||
+          typeof parsed.enc.k !== "string" ||
+          typeof parsed.enc.iv !== "string")
+      ) {
+        return { v: 1, kind: "text", text: raw };
+      }
       return parsed;
     }
     if (

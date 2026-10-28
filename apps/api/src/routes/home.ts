@@ -53,11 +53,33 @@ function parsePayloadJson(raw: string | null | undefined): Record<string, unknow
 }
 
 function publicPostPayload(kind: string, payload: Record<string, unknown>) {
+  const { audienceUserIds: _ids, ...withoutAudience } = payload;
+  const base = withoutAudience;
   if (kind === "riddle") {
-    const { answer: _a, ...rest } = payload;
+    const { answer: _a, ...rest } = base;
     return rest;
   }
-  return payload;
+  return base;
+}
+
+/** Hostile churches: unverified members cannot read boards / org until approved. */
+async function assertHomeContentAccess(
+  db: ReturnType<typeof drizzle<typeof schema>>,
+  churchId: string,
+  membership: typeof schema.churchMembers.$inferSelect,
+  platformAdmin: boolean,
+): Promise<Response | null> {
+  if (platformAdmin || membership.verified) return null;
+  const church = (
+    await db.select().from(schema.churches).where(eq(schema.churches.id, churchId)).limit(1)
+  )[0];
+  if (church?.securityMode === "hostile") {
+    return new Response(JSON.stringify({ error: "verified_required" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  return null;
 }
 
 function canModeratePosts(
@@ -337,6 +359,24 @@ homeRoutes.patch("/churches/:id/security", async (c) => {
 homeRoutes.get("/:churchId/org-tree", async (c) => {
   const churchId = c.req.param("churchId");
   const db = drizzle(c.env.DB, { schema });
+  const membership = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(eq(schema.churchMembers.churchId, churchId), eq(schema.churchMembers.userId, c.get("userId"))),
+      )
+      .limit(1)
+  )[0];
+  if (!membership) return c.json({ error: "forbidden" }, 403);
+  const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
+  const denied = await assertHomeContentAccess(
+    db,
+    churchId,
+    membership,
+    Boolean(ctx?.platformAdmin),
+  );
+  if (denied) return denied;
   try {
     const result = await buildOrgTree(db, c.env, churchId, c.get("userId"));
     return c.json(result);
@@ -404,7 +444,7 @@ homeRoutes.post("/:churchId/coworker-assembly/notify", async (c) => {
     mediaKey: null,
     payloadJson: JSON.stringify({
       assemblyNotify: true,
-      audienceUserIds: assembly.members.map((m) => m.userId),
+      audienceCount: assembly.members.length,
     }),
     answerHash: null,
     pinned: false,
@@ -538,6 +578,14 @@ homeRoutes.get("/:churchId/posts", async (c) => {
       .limit(1)
   )[0];
   if (!membership) return c.json({ error: "forbidden" }, 403);
+  const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
+  const denied = await assertHomeContentAccess(
+    db,
+    churchId,
+    membership,
+    Boolean(ctx?.platformAdmin),
+  );
+  if (denied) return denied;
 
   let posts = await db
     .select()
@@ -550,11 +598,12 @@ homeRoutes.get("/:churchId/posts", async (c) => {
 
   posts = posts.filter((p) => !p.deletedAt);
 
-  if (board === "group") {
-    const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
-    const allowed = new Set(ctx?.groupIds.length ? ctx.groupIds : memberGroupIds(membership));
-    posts = posts.filter((p) => p.groupId && allowed.has(p.groupId));
-  }
+  // Always hide other groups' posts (even when board is unset / notice / general mix).
+  const allowed = new Set(ctx?.groupIds.length ? ctx.groupIds : memberGroupIds(membership));
+  posts = posts.filter((p) => {
+    if (p.board !== "group") return true;
+    return Boolean(p.groupId && allowed.has(p.groupId));
+  });
 
   posts.sort((a, b) => {
     if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
@@ -581,12 +630,19 @@ homeRoutes.get("/:churchId/boards", async (c) => {
       .limit(1)
   )[0];
   if (!membership) return c.json({ error: "forbidden" }, 403);
+  const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
+  const denied = await assertHomeContentAccess(
+    db,
+    churchId,
+    membership,
+    Boolean(ctx?.platformAdmin),
+  );
+  if (denied) return denied;
 
   const posts = (
     await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.churchId, churchId))
   ).filter((p) => !p.deletedAt);
 
-  const ctx = await loadMembershipContext(db, c.get("userId"), churchId);
   const allowedGroups = new Set(ctx?.groupIds ?? memberGroupIds(membership));
 
   const boards = (["notice", "general", "group"] as const).map((id) => {
@@ -618,9 +674,22 @@ homeRoutes.post("/posts", async (c) => {
       .limit(1)
   )[0];
   if (!membership) return c.json({ error: "forbidden" }, 403);
+  const ctx = await loadMembershipContext(db, userId, body.churchId);
+  const denied = await assertHomeContentAccess(
+    db,
+    body.churchId,
+    membership,
+    Boolean(ctx?.platformAdmin),
+  );
+  if (denied) return denied;
+
+  if (body.board === "notice") {
+    if (!canModeratePosts(ctx?.roles ?? parseRolesJson(membership.rolesJson, membership.role), Boolean(ctx?.platformAdmin))) {
+      return c.json({ error: "notice_moderator_required" }, 403);
+    }
+  }
 
   if (body.board === "group") {
-    const ctx = await loadMembershipContext(db, userId, body.churchId);
     const allowed = ctx?.groupIds ?? memberGroupIds(membership);
     if (!body.groupId || !allowed.includes(body.groupId)) {
       return c.json({ error: "group_membership_required" }, 403);
@@ -694,6 +763,21 @@ homeRoutes.get("/posts/:postId", async (c) => {
   if (post.board === "group" && post.groupId && !ctx.groupIds.includes(post.groupId)) {
     return c.json({ error: "forbidden" }, 403);
   }
+  {
+    const membership = (
+      await db
+        .select()
+        .from(schema.churchMembers)
+        .where(
+          and(eq(schema.churchMembers.churchId, post.churchId), eq(schema.churchMembers.userId, userId)),
+        )
+        .limit(1)
+    )[0];
+    if (membership) {
+      const denied = await assertHomeContentAccess(db, post.churchId, membership, ctx.platformAdmin);
+      if (denied) return denied;
+    }
+  }
 
   const responses = await db
     .select()
@@ -757,6 +841,22 @@ homeRoutes.post("/posts/:postId/respond", async (c) => {
 
   const ctx = await loadMembershipContext(db, userId, post.churchId);
   if (!ctx) return c.json({ error: "forbidden" }, 403);
+  if (post.board === "group" && post.groupId && !ctx.groupIds.includes(post.groupId)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const membership = (
+    await db
+      .select()
+      .from(schema.churchMembers)
+      .where(
+        and(eq(schema.churchMembers.churchId, post.churchId), eq(schema.churchMembers.userId, userId)),
+      )
+      .limit(1)
+  )[0];
+  if (membership) {
+    const denied = await assertHomeContentAccess(db, post.churchId, membership, ctx.platformAdmin);
+    if (denied) return denied;
+  }
 
   const existing = await db
     .select()

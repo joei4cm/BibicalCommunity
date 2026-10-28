@@ -16,6 +16,7 @@ type BufferedSignal = {
 };
 
 const BUFFER_TTL_MS = 60_000;
+const DEFAULT_MAX_PEERS = 16;
 
 export class CallRoomDO implements DurableObject {
   private sessions = new Map<WebSocket, SessionMeta>();
@@ -76,12 +77,18 @@ export class CallRoomDO implements DurableObject {
       const client = pair[0];
       const server = pair[1];
       const userId = url.searchParams.get("userId") ?? "anonymous";
+      const maxRaw = Number(url.searchParams.get("maxPeers") ?? DEFAULT_MAX_PEERS);
+      const maxPeers =
+        Number.isFinite(maxRaw) && maxRaw > 0 ? Math.min(Math.floor(maxRaw), 32) : DEFAULT_MAX_PEERS;
+      if (this.sessions.size >= maxPeers) {
+        return Response.json({ error: "room_full", maxPeers }, { status: 403 });
+      }
       this.state.acceptWebSocket(server);
       this.sessions.set(server, { userId });
       this.pruneBuffer();
 
       const peers = this.sessions.size;
-      server.send(JSON.stringify({ type: "joined", userId, peers }));
+      server.send(JSON.stringify({ type: "joined", userId, peers, maxPeers }));
 
       // Notify existing peers so the caller can re-offer if the first offer was missed.
       const peerJoined = JSON.stringify({ type: "peer-joined", userId, peers });

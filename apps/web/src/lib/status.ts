@@ -22,6 +22,7 @@ export function humanizeStatus(
     chat_degraded_no_peer_keys: "chat.degradedNoPeerKeys",
     chat_degraded_awaiting_peer: "chat.degradedAwaitingPeer",
     chat_degraded_soft: "chat.degradedSoft",
+    chat_keys_required: "chat.keysRequired",
     friends_required: "chat.friendsRequired",
     admin_wipe_issued: "security.adminWipe",
     "admin.forbidden": "admin.forbidden",

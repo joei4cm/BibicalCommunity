@@ -886,13 +886,16 @@ export function ChatPanel({
       const minted = await api<{ key: string; putUrl: string }>("/v1/media/upload-url", {
         method: "POST",
       });
+      const raw = await file.arrayBuffer();
+      const { encryptMediaBlob } = await import("../lib/media-crypto");
+      const { ciphertext, contentKey } = await encryptMediaBlob(raw);
       const putRes = await fetch(apiUrl(minted.putUrl), {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${getToken()}`,
-          "Content-Type": file.type || "application/octet-stream",
+          "Content-Type": "application/octet-stream",
         },
-        body: file,
+        body: ciphertext,
       });
       if (!putRes.ok) throw new Error("media_upload_failed");
       caption = draft.trim();
@@ -907,6 +910,7 @@ export function ChatPanel({
         mime: file.type || "application/octet-stream",
         name: file.name || "file",
         text: caption || undefined,
+        enc: contentKey,
       });
       requestAnimationFrame(() => scrollMessagesToBottom(true));
     } catch (e) {
@@ -951,26 +955,39 @@ export function ChatPanel({
   }
 
   useEffect(() => {
-    const keys = [
-      ...new Set(
-        Object.values(plaintexts)
-          .map((raw) => parseChatPayload(raw))
-          .filter((p): p is Extract<ChatPayload, { kind: "media" }> => p?.kind === "media")
-          .map((p) => p.mediaKey),
-      ),
-    ].filter((k) => !mediaLoadedRef.current.has(k));
-    if (keys.length === 0 || !getToken()) return;
+    const mediaPayloads = Object.values(plaintexts)
+      .map((raw) => parseChatPayload(raw))
+      .filter((p): p is Extract<ChatPayload, { kind: "media" }> => p?.kind === "media");
+    const byKey = new Map<string, Extract<ChatPayload, { kind: "media" }>>();
+    for (const p of mediaPayloads) {
+      if (!byKey.has(p.mediaKey)) byKey.set(p.mediaKey, p);
+    }
+    const keys = [...byKey.keys()].filter((k) => !mediaLoadedRef.current.has(k));
+    if (keys.length === 0 || !getToken() || !selectedId) return;
     let cancelled = false;
     void (async () => {
+      const { decryptMediaBlob } = await import("../lib/media-crypto");
       for (const key of keys) {
         mediaLoadedRef.current.add(key);
+        const payload = byKey.get(key)!;
         try {
-          const res = await fetch(apiUrl(`/v1/media/${encodeURIComponent(key)}`), {
+          const q = `?conversationId=${encodeURIComponent(selectedId)}`;
+          const res = await fetch(apiUrl(`/v1/media/${encodeURIComponent(key)}${q}`), {
             headers: { Authorization: `Bearer ${getToken()}` },
           });
           if (!res.ok || cancelled) continue;
-          const blob = await res.blob();
+          const buf = await res.arrayBuffer();
           if (cancelled) return;
+          let bytes = buf;
+          if (payload.enc) {
+            try {
+              bytes = await decryptMediaBlob(buf, payload.enc);
+            } catch {
+              // Legacy plaintext uploads (no enc) still render as-is.
+              bytes = buf;
+            }
+          }
+          const blob = new Blob([bytes], { type: payload.mime || "application/octet-stream" });
           const url = URL.createObjectURL(blob);
           setMediaUrls((prev) => ({ ...prev, [key]: url }));
         } catch {
@@ -981,7 +998,7 @@ export function ChatPanel({
     return () => {
       cancelled = true;
     };
-  }, [plaintexts]);
+  }, [plaintexts, selectedId]);
 
   async function favoriteMessage(m: ChatMessage) {
     const text = payloadPreview(plaintexts[m.id], plaintexts[m.id] ?? "");

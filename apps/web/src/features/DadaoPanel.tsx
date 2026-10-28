@@ -122,6 +122,8 @@ export function DadaoPanel({
 
   async function openAttachment(key: string) {
     try {
+      // Forum ACL: server allows GET when a non-deleted post references the key
+      // and the viewer is a church (and group) member.
       const res = await fetch(apiUrl(`/v1/media/${encodeURIComponent(key)}`), {
         headers: { Authorization: `Bearer ${getToken()}` },
       });

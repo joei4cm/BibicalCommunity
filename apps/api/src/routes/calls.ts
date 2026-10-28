@@ -5,6 +5,7 @@ import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { sha256Hex } from "../services/crypto";
+import { isConversationMember } from "../services/access-graph";
 
 /**
  * Call / TURN helpers + CallRoom DO WebSocket upgrade.
@@ -195,14 +196,28 @@ callRoutes.get("/:callId/ws", async (c) => {
     return c.json({ error: "unauthorized" }, 401);
   }
 
+  const conversationId = c.req.query("conversationId") ?? "";
+  if (!conversationId) return c.json({ error: "conversation_required" }, 400);
+  if (!(await isConversationMember(db, conversationId, session.userId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const convo = (
+    await db
+      .select()
+      .from(schema.conversations)
+      .where(eq(schema.conversations.id, conversationId))
+      .limit(1)
+  )[0];
+  const maxPeers = convo?.kind === "dm" ? 2 : 16;
+
   const callId = c.req.param("callId");
   const id = c.env.CALL_ROOM.idFromName(callId);
   const stub = c.env.CALL_ROOM.get(id);
   const url = new URL(c.req.url);
   url.searchParams.set("userId", session.userId);
-  if (!url.searchParams.get("conversationId")) {
-    url.searchParams.set("conversationId", c.req.query("conversationId") ?? "");
-  }
+  url.searchParams.set("conversationId", conversationId);
+  url.searchParams.set("maxPeers", String(maxPeers));
   return stub.fetch(url.toString(), c.req.raw);
 });
 
