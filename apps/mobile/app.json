@@ -3,7 +3,7 @@
     "name": "LogosHome",
     "slug": "logoshome",
     "scheme": "logoshome",
-    "version": "0.1.2",
+    "version": "0.1.11",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "platforms": ["ios", "android"],
