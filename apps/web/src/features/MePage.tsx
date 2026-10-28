@@ -17,7 +17,9 @@ import {
 } from "../lib/product-signal-prefer";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { humanizeStatus } from "../lib/status";
+import { ApkUpdateBanner } from "../components/ApkUpdateBanner";
 import { APP_VERSION } from "../lib/app-version";
+import { isCapacitorAndroid } from "../lib/github-release-update";
 import { buildDeviceName, detectDevicePlatform, platformLabel } from "../lib/device-label";
 import {
   requestNotificationPermission,
@@ -796,6 +798,7 @@ export function MePage() {
                   <dd data-testid="me-version-build">{APP_VERSION}</dd>
                 </div>
               </dl>
+              {isCapacitorAndroid() ? <ApkUpdateBanner variant="panel" /> : null}
             </div>
           </div>
         </div>

@@ -11,6 +11,7 @@ import { MePage } from "./features/MePage";
 import { AdminConsole } from "./features/AdminConsole";
 import { LandingPage } from "./features/LandingPage";
 import { LoginPage } from "./features/LoginPage";
+import { ApkUpdateBanner } from "./components/ApkUpdateBanner";
 import { scheduleBiblePreload } from "./lib/bible-preload";
 import { scheduleChatLocalDecrypt } from "./lib/chat-preload";
 import { readerHomePath } from "./lib/reader-place";
@@ -29,6 +30,7 @@ function AppShell() {
     <AuthGate>
       <CallProvider>
         <div className="app-shell">
+          <ApkUpdateBanner />
           <main className="app-main">
             <Routes>
               <Route index element={<ReaderEntry />} />
