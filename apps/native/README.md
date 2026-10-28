@@ -29,3 +29,15 @@ cd apps/native && npm run sync:web && npx cap sync ios && npx cap open ios
 ```
 
 Then Archive → Upload to App Store Connect (signing with your personal team).
+
+## Android in-app updates (GitHub Releases)
+
+The Capacitor Android shell checks
+`https://api.github.com/repos/joei4cm/BibicalCommunity/releases/latest` for a newer
+`LogosHome-*-android*.apk` than the embedded `__APP_VERSION__`.
+
+- Auto banner on launch (at most every 12 hours); dismiss remembers the tag
+- **我 → 系统 → 检查更新** forces a check
+- Override repo with `VITE_GITHUB_REPO=owner/name` at web build time
+
+Installing the downloaded APK still requires the user to allow “install unknown apps” for the browser/file manager on their device.
