@@ -329,11 +329,13 @@ export function DadaoPanel({
 
   if (!churchId) {
     return (
-      <div className="panel" data-testid="home-forum-empty">
+      <div className="panel home-forum-empty" data-testid="home-forum-empty">
+        <h2 style={{ marginTop: 0 }}>{t("home.tabForum")}</h2>
         <p className="muted" style={{ marginTop: 0 }}>
           {t("home.forumNeedHome")}
         </p>
-        <button type="button" className="btn" onClick={onNeedHome}>
+        <p className="muted">{t("home.forumEmptyHint")}</p>
+        <button type="button" className="btn" data-testid="home-forum-go-join" onClick={onNeedHome}>
           {t("home.goHome")}
         </button>
       </div>
@@ -410,7 +412,14 @@ export function DadaoPanel({
           </div>
           <h2>{t(`home.board.${board}`)}</h2>
           <ul className="dadao-feed" data-testid="dadao-feed">
-            {posts.length === 0 && <li className="muted">{t("home.noPosts")}</li>}
+            {posts.length === 0 && (
+              <li className="dadao-feed-empty" data-testid="dadao-feed-empty">
+                <p className="muted" style={{ marginTop: 0 }}>
+                  {t("home.noPosts")}
+                </p>
+                <p className="muted">{t("home.boardsEmptyHint")}</p>
+              </li>
+            )}
             {feed}
           </ul>
         </div>

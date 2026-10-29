@@ -4624,6 +4624,107 @@ body:has(.bible-reader) .tab-bar a.active::after {
   color: var(--lh-accent);
 }
 
+.home-empty-onboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.35rem 0 0.5rem;
+}
+
+.home-empty-title {
+  margin: 0;
+  font-family: "Fraunces", "Noto Serif SC", serif;
+  font-size: clamp(1.35rem, 3.2vw, 1.7rem);
+  font-weight: 650;
+}
+
+.home-empty-lead {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.home-empty-card {
+  padding: 0.95rem 1rem 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--lh-border) 90%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--lh-bg-elevated) 88%, transparent);
+}
+
+.home-empty-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: var(--lh-text-md);
+}
+
+.home-assembly-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.home-assembly-notify {
+  flex: 1 1 100%;
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+}
+
+.admin-create-home {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+}
+
+.im-fav-btn {
+  min-width: 1.6rem;
+  padding: 0 0.2rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.im-fav-btn.is-active,
+.im-fav-btn:disabled.is-active {
+  opacity: 1;
+  color: var(--lh-accent);
+}
+
+.chat-favorites-block {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+}
+
+.chat-favorites-heading {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.chat-favorites-items {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.chat-favorites-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  align-items: baseline;
+}
+
+.chat-favorite-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
 .home-current {
   margin: 0.35rem 0 1.25rem;
 }

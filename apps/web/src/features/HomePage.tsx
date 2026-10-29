@@ -104,7 +104,7 @@ type AssemblyResponse = {
 };
 
 type HomeSection = "home" | "forum" | "manage";
-type ManageSub = "groups" | "verify" | "roles";
+type ManageSub = "groups" | "verify" | "roles" | "security";
 type ManageableGroup = {
   id: string;
   name: string;
@@ -247,6 +247,13 @@ export function HomePage() {
   const canVerify = Boolean(caps.verifyMembers);
   const canManageChurch = Boolean(caps.manageChurch || platformAdmin);
   const isGroupLeader = Boolean(caps.isGroupLeader);
+  const isSecurityOfficer =
+    platformAdmin ||
+    selectedChurch?.roles?.includes("security_officer") ||
+    selectedChurch?.role === "security_officer" ||
+    selectedChurch?.roles?.includes("admin") ||
+    selectedChurch?.role === "admin";
+  const canNotifyAssembly = Boolean(assembly?.viewer.canNotify);
   const ledGroupIds = caps.ledGroupIds ?? org?.viewer.ledGroupIds ?? [];
   const membershipGroups = useMemo(() => {
     const fromOrg = org
@@ -264,7 +271,7 @@ export function HomePage() {
       : [];
     return selectedChurch?.groups?.length ? selectedChurch.groups : fromOrg;
   }, [org, selectedChurch]);
-  const showManageTab = canCreateGroup || canVerify || isGroupLeader;
+  const showManageTab = canCreateGroup || canVerify || isGroupLeader || isSecurityOfficer;
   const pendingMembers = members.filter((m) => !m.verified);
 
   const directoryPeople = useMemo(() => {
@@ -492,11 +499,12 @@ export function HomePage() {
     if (isGroupLeader || canCreateGroup) available.push("groups");
     if (canVerify) available.push("verify");
     if (canCreateGroup) available.push("roles");
+    if (isSecurityOfficer) available.push("security");
     const first = available[0];
     if (first && !available.includes(manageSub)) {
       setManageSub(first);
     }
-  }, [isGroupLeader, canCreateGroup, canVerify, manageSub]);
+  }, [isGroupLeader, canCreateGroup, canVerify, isSecurityOfficer, manageSub]);
 
   useEffect(() => {
     setManageGroupId("");
@@ -748,6 +756,27 @@ export function HomePage() {
     }
   }
 
+  async function patchChurchSecurity(mode: SecurityMode) {
+    if (!selectedChurchId || !getToken()) {
+      setNote("login_required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api(`/v1/home/churches/${encodeURIComponent(selectedChurchId)}/security`, {
+        method: "PATCH",
+        body: JSON.stringify({ securityMode: mode }),
+      });
+      setNote(mode === "hostile" ? "hostile_enabled" : "standard_enabled");
+      await refresh();
+      await loadOrg();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function openAssemblyChat() {
     if (!selectedChurchId) return;
     setBusy(true);
@@ -803,85 +832,172 @@ export function HomePage() {
       {homeSection === "home" && (
         <>
           <div className="home-church-hub" data-testid="home-church-panel">
-            <div className="home-church-switcher" role="list" aria-label={t("home.myHomes")}>
-              {churches.length === 0 && <p className="muted">{t("home.noHomes")}</p>}
-              {churches.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="listitem"
-                  className={`home-church-chip${selectedChurchId === c.id ? " is-selected" : ""}`}
-                  onClick={() => setSelectedChurchId(c.id)}
-                >
-                  <span className="home-church-chip-name">{c.name}</span>
-                  <span className="home-church-chip-meta">
-                    {c.slug ? c.slug : (c.roles ?? [c.role])[0]}
-                    {c.verified ? ` · ${t("home.verifiedBadge")}` : ` · ${t("home.pendingVerify")}`}
-                    {c.securityMode === "hostile"
-                      ? ` · ${t("home.securityMode.hostileBadge")}`
-                      : ""}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <details className="home-join-block" open={churches.length === 0}>
-              <summary>{t("home.joinHome")}</summary>
-              <p className="muted" style={{ marginTop: "0.5rem" }}>
-                {t("home.joinInviteHint")}
-              </p>
-              <div className="field" style={{ marginTop: "0.75rem" }}>
-                <label>{t("home.joinSlug")}</label>
-                <input
-                  value={joinSlug}
-                  onChange={(e) => setJoinSlug(e.target.value)}
-                  placeholder={t("home.slugPlaceholder")}
-                />
-              </div>
-              <div className="field">
-                <label>{t("home.inviteCode")}</label>
-                <input
-                  value={joinInviteCode}
-                  onChange={(e) => setJoinInviteCode(e.target.value)}
-                  placeholder={t("home.inviteCodePlaceholder")}
-                  autoComplete="off"
-                />
-              </div>
-              <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
-                {t("home.joinHome")}
-              </button>
-            </details>
-
-            {platformAdmin && (
-              <details className="home-join-block">
-                <summary>{t("home.createHome")}</summary>
-                <p className="muted">{t("home.createHomeHint")}</p>
-                <div className="field" style={{ marginTop: "0.75rem" }}>
-                  <label>{t("home.homeName")}</label>
-                  <input value={name} onChange={(e) => setName(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>{t("home.homeSlug")}</label>
-                  <input
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder={t("home.slugPlaceholder")}
-                  />
-                </div>
-                <div className="field">
-                  <label>{t("home.securityMode")}</label>
-                  <select
-                    value={securityMode}
-                    onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
+            {churches.length === 0 ? (
+              <div className="home-empty-onboard" data-testid="home-empty-onboard">
+                <h2 className="home-empty-title">{t("home.noHomes")}</h2>
+                <p className="muted home-empty-lead">{t("home.emptyLead")}</p>
+                <div className="home-empty-card" data-testid="home-join-form">
+                  <h3>{t("home.joinHome")}</h3>
+                  <p className="muted" style={{ marginTop: 0 }}>
+                    {t("home.joinInviteHint")}
+                  </p>
+                  <div className="field">
+                    <label>{t("home.joinSlug")}</label>
+                    <input
+                      value={joinSlug}
+                      onChange={(e) => setJoinSlug(e.target.value)}
+                      placeholder={t("home.slugPlaceholder")}
+                      data-testid="home-join-slug"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>{t("home.inviteCode")}</label>
+                    <input
+                      value={joinInviteCode}
+                      onChange={(e) => setJoinInviteCode(e.target.value)}
+                      placeholder={t("home.inviteCodePlaceholder")}
+                      autoComplete="off"
+                      data-testid="home-join-invite"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    data-testid="home-join-submit"
+                    onClick={() => void joinBySlug()}
                   >
-                    <option value="standard">{t("home.securityMode.standard")}</option>
-                    <option value="hostile">{t("home.securityMode.hostile")}</option>
-                  </select>
+                    {t("home.joinHome")}
+                  </button>
                 </div>
-                <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
-                  {t("home.createHome")}
-                </button>
-              </details>
+                {platformAdmin && (
+                  <div className="home-empty-card" data-testid="home-create-form">
+                    <h3>{t("home.createHome")}</h3>
+                    <p className="muted" style={{ marginTop: 0 }}>
+                      {t("home.createHomeHint")}
+                    </p>
+                    <div className="field">
+                      <label>{t("home.homeName")}</label>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        data-testid="home-create-name"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>{t("home.homeSlug")}</label>
+                      <input
+                        value={slug}
+                        onChange={(e) => setSlug(e.target.value)}
+                        placeholder={t("home.slugPlaceholder")}
+                        data-testid="home-create-slug"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>{t("home.securityMode")}</label>
+                      <select
+                        value={securityMode}
+                        onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
+                        data-testid="home-create-security"
+                      >
+                        <option value="standard">{t("home.securityMode.standard")}</option>
+                        <option value="hostile">{t("home.securityMode.hostile")}</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy}
+                      data-testid="home-create-submit"
+                      onClick={() => void createChurch()}
+                    >
+                      {t("home.createHome")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="home-church-switcher" role="list" aria-label={t("home.myHomes")}>
+                  {churches.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="listitem"
+                      className={`home-church-chip${selectedChurchId === c.id ? " is-selected" : ""}`}
+                      onClick={() => setSelectedChurchId(c.id)}
+                    >
+                      <span className="home-church-chip-name">{c.name}</span>
+                      <span className="home-church-chip-meta">
+                        {c.slug ? c.slug : (c.roles ?? [c.role])[0]}
+                        {c.verified ? ` · ${t("home.verifiedBadge")}` : ` · ${t("home.pendingVerify")}`}
+                        {c.securityMode === "hostile"
+                          ? ` · ${t("home.securityMode.hostileBadge")}`
+                          : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <details className="home-join-block">
+                  <summary>{t("home.joinHome")}</summary>
+                  <p className="muted" style={{ marginTop: "0.5rem" }}>
+                    {t("home.joinInviteHint")}
+                  </p>
+                  <div className="field" style={{ marginTop: "0.75rem" }}>
+                    <label>{t("home.joinSlug")}</label>
+                    <input
+                      value={joinSlug}
+                      onChange={(e) => setJoinSlug(e.target.value)}
+                      placeholder={t("home.slugPlaceholder")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>{t("home.inviteCode")}</label>
+                    <input
+                      value={joinInviteCode}
+                      onChange={(e) => setJoinInviteCode(e.target.value)}
+                      placeholder={t("home.inviteCodePlaceholder")}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <button type="button" className="btn" disabled={busy} onClick={() => void joinBySlug()}>
+                    {t("home.joinHome")}
+                  </button>
+                </details>
+
+                {platformAdmin && (
+                  <details className="home-join-block">
+                    <summary>{t("home.createHome")}</summary>
+                    <p className="muted">{t("home.createHomeHint")}</p>
+                    <div className="field" style={{ marginTop: "0.75rem" }}>
+                      <label>{t("home.homeName")}</label>
+                      <input value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label>{t("home.homeSlug")}</label>
+                      <input
+                        value={slug}
+                        onChange={(e) => setSlug(e.target.value)}
+                        placeholder={t("home.slugPlaceholder")}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>{t("home.securityMode")}</label>
+                      <select
+                        value={securityMode}
+                        onChange={(e) => setSecurityMode(e.target.value as SecurityMode)}
+                      >
+                        <option value="standard">{t("home.securityMode.standard")}</option>
+                        <option value="hostile">{t("home.securityMode.hostile")}</option>
+                      </select>
+                    </div>
+                    <button type="button" className="btn" disabled={busy} onClick={() => void createChurch()}>
+                      {t("home.createHome")}
+                    </button>
+                  </details>
+                )}
+              </>
             )}
           </div>
 
@@ -932,21 +1048,78 @@ export function HomePage() {
             </div>
           )}
 
-          {selectedChurch && assembly?.viewer.canOpenChat && (
+          {selectedChurch &&
+            assembly &&
+            (assembly.viewer.canOpenChat || assembly.viewer.canNotify) && (
             <div className="home-assembly" data-testid="home-assembly">
               <div className="home-assembly-copy">
                 <h2>{t("home.assembly.title")}</h2>
-                <p className="muted">{t("home.assembly.openChatOnly")}</p>
+                <p className="muted">
+                  {canNotifyAssembly ? t("home.assembly.hint") : t("home.assembly.openChatOnly")}
+                </p>
               </div>
-              <button
-                type="button"
-                className="btn"
-                disabled={busy}
-                data-testid="home-assembly-chat-btn"
-                onClick={() => void openAssemblyChat()}
-              >
-                {t("home.assembly.openChat")}
-              </button>
+              <div className="home-assembly-actions">
+                {assembly.viewer.canOpenChat && (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    data-testid="home-assembly-chat-btn"
+                    onClick={() => void openAssemblyChat()}
+                  >
+                    {t("home.assembly.openChat")}
+                  </button>
+                )}
+                {canNotifyAssembly && (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={busy}
+                    data-testid="home-assembly-notify-btn"
+                    onClick={() => setAssemblyNotifyOpen((v) => !v)}
+                  >
+                    {t("home.assembly.notify")}
+                  </button>
+                )}
+              </div>
+              {assemblyNotifyOpen && canNotifyAssembly && (
+                <div className="home-assembly-notify" data-testid="home-assembly-notify-form">
+                  <div className="field">
+                    <label>{t("home.assembly.notifyTitle")}</label>
+                    <input
+                      value={assemblyNotifyTitle}
+                      onChange={(e) => setAssemblyNotifyTitle(e.target.value)}
+                      data-testid="home-assembly-notify-title"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>{t("home.assembly.notifyBody")}</label>
+                    <textarea
+                      value={assemblyNotifyBody}
+                      onChange={(e) => setAssemblyNotifyBody(e.target.value)}
+                      rows={3}
+                      data-testid="home-assembly-notify-body"
+                    />
+                  </div>
+                  <label className="role-check" style={{ marginBottom: "0.75rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={includeChurchCoworkers}
+                      onChange={(e) => setIncludeChurchCoworkers(e.target.checked)}
+                    />
+                    {t("home.assembly.includeCoworkers")}
+                  </label>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy || !assemblyNotifyTitle.trim()}
+                    data-testid="home-assembly-notify-send"
+                    onClick={() => void sendAssemblyNotify()}
+                  >
+                    {t("home.assembly.notifySend")}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1077,6 +1250,9 @@ export function HomePage() {
                   : []),
                 ...(canVerify ? ([["verify", t("home.manageSub.verify")]] as const) : []),
                 ...(canCreateGroup ? ([["roles", t("home.manageSub.roles")]] as const) : []),
+                ...(isSecurityOfficer
+                  ? ([["security", t("home.manageSub.security")]] as const)
+                  : []),
               ] as const
             ).map(([id, label]) => (
               <button
@@ -1086,7 +1262,7 @@ export function HomePage() {
                 aria-selected={manageSub === id}
                 className={`manage-subtab${manageSub === id ? " is-active" : ""}`}
                 data-testid={`manage-sub-${id}`}
-                onClick={() => setManageSub(id)}
+                onClick={() => setManageSub(id as ManageSub)}
               >
                 {label}
               </button>
@@ -1261,9 +1437,7 @@ export function HomePage() {
                   </li>
                 ))}
               </ul>
-              {selectedChurch?.roles?.includes("security_officer") ||
-              selectedChurch?.role === "security_officer" ||
-              platformAdmin ? (
+              {isSecurityOfficer ? (
                 <div style={{ marginTop: "1.25rem" }} data-testid="manage-invites">
                   <h3>{t("home.mintInvite")}</h3>
                   <p className="muted" style={{ marginTop: 0 }}>
@@ -1297,6 +1471,51 @@ export function HomePage() {
                   ) : null}
                 </div>
               ) : null}
+            </div>
+          )}
+
+          {manageSub === "security" && isSecurityOfficer && (
+            <div data-testid="manage-security">
+              <h3>{t("home.securityMode")}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {org?.church.securityMode === "hostile" || selectedChurch?.securityMode === "hostile"
+                  ? t("home.securityMode.hostileHint")
+                  : t("home.securityMode.standardHint")}
+              </p>
+              <div className="toolbar" data-testid="manage-security-toggles">
+                <button
+                  type="button"
+                  className={`btn ghost${
+                    (org?.church.securityMode ?? selectedChurch?.securityMode) === "standard"
+                      ? " active-toggle"
+                      : ""
+                  }`}
+                  disabled={
+                    busy ||
+                    (org?.church.securityMode ?? selectedChurch?.securityMode) === "standard"
+                  }
+                  data-testid="manage-security-standard"
+                  onClick={() => void patchChurchSecurity("standard")}
+                >
+                  {t("home.securityMode.standard")}
+                </button>
+                <button
+                  type="button"
+                  className={`btn ghost${
+                    (org?.church.securityMode ?? selectedChurch?.securityMode) === "hostile"
+                      ? " active-toggle"
+                      : ""
+                  }`}
+                  disabled={
+                    busy ||
+                    (org?.church.securityMode ?? selectedChurch?.securityMode) === "hostile"
+                  }
+                  data-testid="manage-security-hostile"
+                  onClick={() => void patchChurchSecurity("hostile")}
+                >
+                  {t("home.securityMode.hostile")}
+                </button>
+              </div>
             </div>
           )}
 
@@ -1385,14 +1604,14 @@ export function HomePage() {
             </div>
           )}
 
-          {(canManageChurch || canVerify) && (
+          {(canManageChurch || canVerify || isSecurityOfficer) && (
             <div className="manage-block" data-testid="manage-advanced-link">
               <h3>{t("admin.title")}</h3>
               <p className="muted" style={{ marginTop: 0 }}>
                 {t("home.manageAdvancedHint")}
               </p>
-              <Link className="btn ghost" to="/app/admin#groups">
-                {t("admin.openGroups")}
+              <Link className="btn ghost" to="/app/admin#homes" data-testid="manage-open-admin">
+                {t("admin.open")}
               </Link>
             </div>
           )}

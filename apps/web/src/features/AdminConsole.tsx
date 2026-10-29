@@ -123,6 +123,10 @@ export function AdminConsole() {
   const [addMemberUserId, setAddMemberUserId] = useState("");
   const [addMemberAsLeader, setAddMemberAsLeader] = useState(false);
   const [churchName, setChurchName] = useState("");
+  const [newChurchName, setNewChurchName] = useState("");
+  const [newChurchSlug, setNewChurchSlug] = useState("");
+  const [newChurchSecurity, setNewChurchSecurity] = useState<SecurityMode>("standard");
+  const [inviteCodeOut, setInviteCodeOut] = useState<string | null>(null);
   const [bootstrapSecret, setBootstrapSecret] = useState("");
   const [churchFilter, setChurchFilter] = useState("");
   const [pdTid, setPdTid] = useState<(typeof PD_CORPUS_TIDS)[number]>("web");
@@ -245,6 +249,7 @@ export function AdminConsole() {
 
   useEffect(() => {
     if (selected) setChurchName(selected.name);
+    setInviteCodeOut(null);
   }, [selected]);
 
   useEffect(() => {
@@ -301,6 +306,41 @@ export function AdminConsole() {
       });
       setNote("saved");
       await loadChurches();
+    });
+  }
+
+  async function createChurch() {
+    if (!access?.platformAdmin || !newChurchName.trim() || !newChurchSlug.trim()) return;
+    await run(async () => {
+      const created = await api<{ id: string }>("/v1/home/churches", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newChurchName.trim(),
+          slug: newChurchSlug.trim().toLowerCase(),
+          securityMode: newChurchSecurity,
+        }),
+      });
+      setNewChurchName("");
+      setNewChurchSlug("");
+      setNewChurchSecurity("standard");
+      setNote("home_created");
+      await loadChurches();
+      if (created.id) setChurchId(created.id);
+    });
+  }
+
+  async function mintInvite() {
+    if (!churchId) return;
+    await run(async () => {
+      const res = await api<{ code: string }>(
+        `/v1/home/${encodeURIComponent(churchId)}/invites`,
+        {
+          method: "POST",
+          body: JSON.stringify({ maxUses: 5, ttlHours: 72 }),
+        },
+      );
+      setInviteCodeOut(res.code);
+      setNote("invite_created");
     });
   }
 
@@ -658,8 +698,55 @@ export function AdminConsole() {
       {section === "homes" && (
         <div className="panel" data-testid="admin-homes-panel">
           <h2 style={{ marginTop: 0 }}>{t("admin.sectionHomes")}</h2>
+
+          {access?.platformAdmin && (
+            <div className="admin-create-home" data-testid="admin-create-home">
+              <h3 style={{ marginTop: 0 }}>{t("admin.createHome")}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("admin.createHomeHint")}
+              </p>
+              <div className="field">
+                <label>{t("home.homeName")}</label>
+                <input
+                  value={newChurchName}
+                  onChange={(e) => setNewChurchName(e.target.value)}
+                  data-testid="admin-create-name"
+                />
+              </div>
+              <div className="field">
+                <label>{t("home.homeSlug")}</label>
+                <input
+                  value={newChurchSlug}
+                  onChange={(e) => setNewChurchSlug(e.target.value)}
+                  placeholder={t("home.slugPlaceholder")}
+                  data-testid="admin-create-slug"
+                />
+              </div>
+              <div className="field">
+                <label>{t("home.securityMode")}</label>
+                <select
+                  value={newChurchSecurity}
+                  onChange={(e) => setNewChurchSecurity(e.target.value as SecurityMode)}
+                  data-testid="admin-create-security"
+                >
+                  <option value="standard">{t("home.securityMode.standard")}</option>
+                  <option value="hostile">{t("home.securityMode.hostile")}</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !newChurchName.trim() || !newChurchSlug.trim()}
+                data-testid="admin-create-submit"
+                onClick={() => void createChurch()}
+              >
+                {t("home.createHome")}
+              </button>
+            </div>
+          )}
+
           {!selected ? (
-            <p className="muted">—</p>
+            <p className="muted">{churches.length === 0 ? t("home.noHomes") : "—"}</p>
           ) : (
             <>
               <div className="field">
@@ -692,6 +779,25 @@ export function AdminConsole() {
                   {t("home.securityMode.hostile")}
                 </button>
               </div>
+
+              <h3 style={{ marginTop: "1.25rem" }}>{t("home.mintInvite")}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {t("home.mintInviteHint")}
+              </p>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy}
+                data-testid="admin-mint-invite"
+                onClick={() => void mintInvite()}
+              >
+                {t("home.mintInvite")}
+              </button>
+              {inviteCodeOut ? (
+                <p className="mono" data-testid="admin-invite-code-out" style={{ marginTop: "0.75rem" }}>
+                  {inviteCodeOut}
+                </p>
+              ) : null}
 
               <h3 style={{ marginTop: "1.25rem" }}>{t("admin.members")}</h3>
               <ul className="list" data-testid="admin-member-list">
