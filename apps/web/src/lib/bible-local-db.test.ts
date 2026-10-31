@@ -43,7 +43,7 @@ describe("placeholder corpus guards", () => {
     assert.deepEqual(out, real);
   });
 
-  it("strips CrossWire footnote-marker verses from cached chapters", () => {
+  it("strips CrossWire footnote-marker verses and keeps a 13-14 range", () => {
     const out = densifyChapterVerses("cuvs", "Esth", 1, [
       {
         verse: 13,
@@ -53,8 +53,11 @@ describe("placeholder corpus guards", () => {
       { verse: 15, text: "「王后瓦实提不遵太监所传的王命，照例应当怎样办理呢？」" },
     ]);
     assert.deepEqual(
-      out.map((v) => v.verse),
-      [13, 15],
+      out.map((v) => ({ verse: v.verse, verseEnd: v.verseEnd })),
+      [
+        { verse: 13, verseEnd: 14 },
+        { verse: 15, verseEnd: undefined },
+      ],
     );
   });
 });

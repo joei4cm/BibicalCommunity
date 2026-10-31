@@ -134,6 +134,16 @@ export const annotationSchema = z.object({
   iv: z.string(),
 });
 
+/** Opaque client-encrypted account vault blobs (reading place / history pointers). */
+export const vaultKindSchema = z.enum(["reader_place", "reader_history"]);
+export type VaultKind = z.infer<typeof vaultKindSchema>;
+
+export const vaultPutSchema = z.object({
+  ciphertext: z.string().min(1),
+  iv: z.string().min(1),
+});
+export type VaultPutInput = z.infer<typeof vaultPutSchema>;
+
 export const readingPlanDaySchema = z.object({
   day: z.number().int().positive(),
   ref: z.string().min(1),
