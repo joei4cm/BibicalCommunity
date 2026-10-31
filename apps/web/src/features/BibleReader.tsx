@@ -11,6 +11,7 @@ import { saveReaderPlace } from "../lib/reader-place";
 import {
   applyVerseTap,
   highlightIdsInRange,
+  isChapterSwipeGesture,
   normalizeVerseRange,
   rangeForHighlightAt,
   type VerseRange,
@@ -189,11 +190,12 @@ function verseFromPoint(clientX: number, clientY: number): number | null {
 
 /**
  * Tap selects. Moving onto another verse selects that range immediately.
- * A page scroll (the document actually moves) does not select.
+ * Vertical page scroll and horizontal chapter swipe do not select.
  */
 function useVerseGesture(opts: {
   onTapVerse: (verse: number) => void;
   onDragSelection: (anchor: number, verse: number) => void;
+  onCancelSelection?: () => void;
 }) {
   const start = useRef<{
     x: number;
@@ -202,7 +204,7 @@ function useVerseGesture(opts: {
     verse: number;
     pointerId: number;
   } | null>(null);
-  const mode = useRef<"pending" | "selecting" | "scrolling">("pending");
+  const mode = useRef<"pending" | "selecting" | "scrolling" | "paging">("pending");
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
@@ -216,14 +218,32 @@ function useVerseGesture(opts: {
     return Math.abs(window.scrollY - originScrollY) > 6;
   }
 
+  function enterPaging() {
+    if (mode.current === "selecting") {
+      optsRef.current.onCancelSelection?.();
+    }
+    mode.current = "paging";
+  }
+
   function onWinMove(e: PointerEvent) {
     const origin = start.current;
     if (!origin || origin.pointerId !== e.pointerId || e.buttons === 0) return;
-    const under = verseFromPoint(e.clientX, e.clientY);
+    if (mode.current === "paging" || mode.current === "scrolling") return;
+
     if (pageScrolled(origin.scrollY)) {
       mode.current = "scrolling";
       return;
     }
+
+    const dx = e.clientX - origin.x;
+    const dy = e.clientY - origin.y;
+    // Prefer chapter turn over accidental highlight while swiping sideways.
+    if (isChapterSwipeGesture(dx, dy)) {
+      enterPaging();
+      return;
+    }
+
+    const under = verseFromPoint(e.clientX, e.clientY);
     if (under != null && under !== origin.verse) {
       mode.current = "selecting";
       optsRef.current.onDragSelection(origin.verse, under);
@@ -241,12 +261,19 @@ function useVerseGesture(opts: {
     if (!origin || origin.pointerId !== e.pointerId) return;
     const dx = e.clientX - origin.x;
     const dy = e.clientY - origin.y;
+    // Late swipe recognition: finger lifted after a horizontal flick.
+    if (mode.current !== "selecting" && isChapterSwipeGesture(dx, dy, 48, 1.2)) {
+      enterPaging();
+    }
     const selecting = mode.current === "selecting";
-    const scrolling = mode.current === "scrolling" || pageScrolled(origin.scrollY);
+    const blocked =
+      mode.current === "scrolling" ||
+      mode.current === "paging" ||
+      pageScrolled(origin.scrollY);
     start.current = null;
     mode.current = "pending";
     detach();
-    if (!selecting && !scrolling && dx * dx + dy * dy <= 576) {
+    if (!selecting && !blocked && dx * dx + dy * dy <= 576) {
       optsRef.current.onTapVerse(origin.verse);
     }
   }
@@ -284,6 +311,7 @@ function CompareChapterPane({
   selection,
   onTapVerse,
   onDragSelection,
+  onCancelSelection,
   highlightByVerse,
 }: {
   primary: ChapterPayload | null;
@@ -296,9 +324,10 @@ function CompareChapterPane({
   selection: VerseRange | null;
   onTapVerse: (verse: number) => void;
   onDragSelection: (anchor: number, verse: number) => void;
+  onCancelSelection?: () => void;
   highlightByVerse?: Record<number, string>;
 }) {
-  const press = useVerseGesture({ onTapVerse, onDragSelection });
+  const press = useVerseGesture({ onTapVerse, onDragSelection, onCancelSelection });
   if (!primary || "external" in primary) {
     return <p className="muted">…</p>;
   }
@@ -361,6 +390,7 @@ function ChapterPane({
   selection,
   onTapVerse,
   onDragSelection,
+  onCancelSelection,
   highlightByVerse,
 }: {
   chapter: ChapterPayload | null;
@@ -373,9 +403,10 @@ function ChapterPane({
   selection: VerseRange | null;
   onTapVerse: (verse: number) => void;
   onDragSelection: (anchor: number, verse: number) => void;
+  onCancelSelection?: () => void;
   highlightByVerse?: Record<number, string>;
 }) {
-  const press = useVerseGesture({ onTapVerse, onDragSelection });
+  const press = useVerseGesture({ onTapVerse, onDragSelection, onCancelSelection });
   const headingLocale = locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : "en";
 
   if (!chapter) return <p className="muted">…</p>;
@@ -1302,6 +1333,12 @@ export function BibleReader() {
     setSelection(normalizeVerseRange(anchor, verse));
   }
 
+  function cancelSelection() {
+    verseSelectingRef.current = false;
+    dragAnchor.current = null;
+    setSelection(null);
+  }
+
   async function clearSelectionHighlights() {
     if (!selection) return;
     if (!getToken()) {
@@ -1747,12 +1784,18 @@ export function BibleReader() {
       swipeStart.current = null;
       const touch = e.changedTouches[0];
       if (!start || !touch) return;
-      if (verseSelectingRef.current) {
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      // Clear accidental highlight chrome from the same finger stroke.
+      if (isChapterSwipeGesture(dx, dy, 48, 1.2)) {
+        verseSelectingRef.current = false;
+        dragAnchor.current = null;
+        setSelection(null);
+      } else if (verseSelectingRef.current) {
+        // Genuine verse-range drag: do not also turn the chapter.
         verseSelectingRef.current = false;
         return;
       }
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
       if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
       if (Date.now() - start.t > 800) return;
       if (dx < 0 && nextCursor) {
@@ -2265,6 +2308,7 @@ export function BibleReader() {
             selection={selection}
             onTapVerse={tapVerse}
             onDragSelection={dragSelection}
+            onCancelSelection={cancelSelection}
             highlightByVerse={highlightByVerse}
           />
         ) : (
@@ -2279,6 +2323,7 @@ export function BibleReader() {
             selection={selection}
             onTapVerse={tapVerse}
             onDragSelection={dragSelection}
+            onCancelSelection={cancelSelection}
             highlightByVerse={highlightByVerse}
           />
         )}

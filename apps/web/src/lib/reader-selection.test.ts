@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   applyVerseTap,
   highlightIdsInRange,
+  isChapterSwipeGesture,
   normalizeVerseRange,
   rangeForHighlightAt,
 } from "./reader-selection.ts";
@@ -39,5 +40,13 @@ describe("verse selection", () => {
       end: 3,
     });
     assert.equal(rangeForHighlightAt({ 1: "h1" }, 9), null);
+  });
+
+  it("treats dominant horizontal moves as chapter swipes", () => {
+    assert.equal(isChapterSwipeGesture(64, 10), true);
+    assert.equal(isChapterSwipeGesture(-50, 5), true);
+    assert.equal(isChapterSwipeGesture(20, 5), false);
+    assert.equal(isChapterSwipeGesture(60, 55), false);
+    assert.equal(isChapterSwipeGesture(30, 40), false);
   });
 });

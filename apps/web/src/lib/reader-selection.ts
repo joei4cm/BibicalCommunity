@@ -5,6 +5,22 @@ export function normalizeVerseRange(a: number, b: number): VerseRange {
 }
 
 /**
+ * Horizontal chapter turn vs verse range drag.
+ * Inline verses sit left→right, so short sideways moves may still select;
+ * a clear horizontal swipe (matching chapter-turn intent) must not.
+ */
+export function isChapterSwipeGesture(
+  dx: number,
+  dy: number,
+  thresholdPx = 40,
+  dominance = 1.25,
+): boolean {
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  return absDx >= thresholdPx && absDx > absDy * dominance;
+}
+
+/**
  * First tap selects one verse. A later tap grows the range from the anchor.
  * Tapping the only selected verse clears the selection.
  * When idle, tapping a painted highlight selects that whole annotation range.
