@@ -21,8 +21,9 @@ active users doing Bible reading, DMs, calls, assembly/community, and plans.
    unless you intentionally bootstrap.
 
 4. **CORS / Pages**  
-   Prefer a fixed allowlist of web origins for production; mobile shells use the
-   baked `VITE_API_BASE` Worker URL.
+   Set Worker secret/var `CORS_ORIGINS` to a comma-separated Pages allowlist
+   (e.g. `https://app.example.com`). Mobile shells use the baked `VITE_API_BASE`
+   Worker URL (Bearer, not cookie CORS).
 
 ## What is safe on the server (by design)
 
@@ -51,11 +52,18 @@ unlinkability.
 
 ## Call stability checklist
 
-- [ ] TURN mint returns `hasRelay: true` in staging and prod
+- [ ] TURN mint returns `hasRelay: true` in staging and prod (else API returns 503)
 - [ ] DM call on cellular ↔ Wi-Fi works (relay path)
 - [ ] Late accept still gets buffered offer (CallRoomDO)
 - [ ] Caller ICE restart on `failed` / `disconnected` after answer
 - [ ] Hangup clears buffered invite so re-call works
+
+## Security hardenings in this branch
+
+- Remote wipe zeros **outbound** messages only (does not blank peer ciphertext)
+- Wipe also clears favorites ciphertext, vault, inbox, OPKs; auth rejects tombstoned users
+- Media GET requires object owner to share the `conversationId` (not any membership)
+- Plans PATCH is owner-only; subscribe respects private/church visibility
 
 ## Known limits (acceptable for hundreds, not millions)
 

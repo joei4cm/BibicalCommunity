@@ -46,4 +46,9 @@ export type Env = {
   WEREAD_OAUTH_TOKEN_URL?: string;
   /** Local/dev secret to promote a caller to platform_admin via /v1/admin/platform/bootstrap. */
   PLATFORM_ADMIN_BOOTSTRAP_SECRET?: string;
+  /**
+   * Comma-separated browser origins allowed for CORS (e.g. Pages URL).
+   * When unset, reflect request Origin (dev). Set in production beta.
+   */
+  CORS_ORIGINS?: string;
 };

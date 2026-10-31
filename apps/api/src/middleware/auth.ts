@@ -29,6 +29,16 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: AuthVars
     if (!session || session.expiresAt < Date.now()) {
       return c.json({ error: "unauthorized" }, 401);
     }
+    const user = (
+      await db
+        .select({ tombstoned: schema.users.tombstoned })
+        .from(schema.users)
+        .where(eq(schema.users.id, session.userId))
+        .limit(1)
+    )[0];
+    if (!user || user.tombstoned) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
     c.set("userId", session.userId);
     c.set("deviceId", session.deviceId);
     c.set("sessionId", session.id);

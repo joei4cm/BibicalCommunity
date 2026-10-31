@@ -64,8 +64,8 @@ mediaRoutes.put("/put/*", async (c) => {
 });
 
 /**
- * Stream private blob — owner, conversation member (?conversationId=), or
- * church member who can see a forum post referencing this key.
+ * Stream private blob — owner, conversation peer (owner of key must share the
+ * conversation), or church member who can see a forum post referencing this key.
  */
 mediaRoutes.get("/*", async (c) => {
   const key = keyFromPath(new URL(c.req.url).pathname, "/v1/media/");

@@ -539,16 +539,17 @@ adminRoutes.post("/wipe", async (c) => {
   await db.update(schema.users).set({ tombstoned: true }).where(eq(schema.users.id, body.userId));
   await db.delete(schema.sessions).where(eq(schema.sessions.userId, body.userId));
 
-  const convoMemberships = await db
-    .select({ conversationId: schema.conversationMembers.conversationId })
-    .from(schema.conversationMembers)
-    .where(eq(schema.conversationMembers.userId, body.userId));
-  const conversationIds = convoMemberships.map((m) => m.conversationId);
-  if (conversationIds.length > 0) {
+  // Only destroy this user's outbound ciphertext — never blank peer messages in shared threads.
+  const userDevices = await db
+    .select({ id: schema.devices.id })
+    .from(schema.devices)
+    .where(eq(schema.devices.userId, body.userId));
+  const deviceIds = userDevices.map((d) => d.id);
+  if (deviceIds.length > 0) {
     await db
       .update(schema.messages)
       .set({ tombstoned: true, ciphertext: "", ratchetHeader: "" })
-      .where(inArray(schema.messages.conversationId, conversationIds));
+      .where(inArray(schema.messages.senderDeviceId, deviceIds));
   }
 
   // Zero private note/highlight ciphertext (P3) — destruction, not archival.
@@ -556,6 +557,14 @@ adminRoutes.post("/wipe", async (c) => {
     .update(schema.annotations)
     .set({ ciphertext: "", iv: "", updatedAt: now })
     .where(eq(schema.annotations.userId, body.userId));
+
+  await db
+    .update(schema.messageFavorites)
+    .set({ ciphertext: "", iv: "" })
+    .where(eq(schema.messageFavorites.userId, body.userId));
+  await db.delete(schema.userVault).where(eq(schema.userVault.userId, body.userId));
+  await db.delete(schema.inboxMessages).where(eq(schema.inboxMessages.userId, body.userId));
+  await db.delete(schema.oneTimePrekeys).where(eq(schema.oneTimePrekeys.userId, body.userId));
 
   await db.update(schema.devices).set({ revoked: true }).where(eq(schema.devices.userId, body.userId));
 
@@ -570,6 +579,8 @@ adminRoutes.post("/wipe", async (c) => {
       r2Deleted: r2.deleted,
       r2Prefix: r2.prefix,
       annotationsZeroed: true,
+      outboundMessagesOnly: true,
+      vaultCleared: true,
     },
     201,
   );

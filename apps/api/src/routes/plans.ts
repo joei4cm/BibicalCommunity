@@ -7,6 +7,7 @@ import { parsePlanCsv } from "@logoshome/bible";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
+import { shareChurch } from "../services/access-graph";
 
 export const planRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 planRoutes.use("*", requireAuth);
@@ -117,11 +118,24 @@ planRoutes.post("/import-csv", async (c) => {
 planRoutes.post("/:id/subscribe", async (c) => {
   const db = drizzle(c.env.DB, { schema });
   const planId = c.req.param("id");
+  const userId = c.get("userId");
+  const plan = (
+    await db.select().from(schema.readingPlans).where(eq(schema.readingPlans.id, planId)).limit(1)
+  )[0];
+  if (!plan) return c.json({ error: "not_found" }, 404);
+  if (plan.visibility === "private" && plan.ownerId !== userId) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  if (plan.visibility === "church" && plan.ownerId !== userId) {
+    if (!(await shareChurch(db, userId, plan.ownerId))) {
+      return c.json({ error: "forbidden" }, 403);
+    }
+  }
   const id = createId("psub");
   await db.insert(schema.planSubscriptions).values({
     id,
     planId,
-    userId: c.get("userId"),
+    userId,
     progressDay: 0,
     devotionStep: "pause",
     createdAt: Date.now(),
@@ -203,14 +217,18 @@ planRoutes.post("/:id/devotion", async (c) => {
 planRoutes.patch("/:id", async (c) => {
   const body = readingPlanSchema.partial().parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
+  const planId = c.req.param("id");
+  const plan = (
+    await db.select().from(schema.readingPlans).where(eq(schema.readingPlans.id, planId)).limit(1)
+  )[0];
+  if (!plan) return c.json({ error: "not_found" }, 404);
+  if (plan.ownerId !== c.get("userId")) return c.json({ error: "forbidden" }, 403);
+
   const patch: Partial<typeof schema.readingPlans.$inferInsert> = { updatedAt: Date.now() };
   if (body.title) patch.title = body.title;
   if (body.description !== undefined) patch.description = body.description;
   if (body.visibility) patch.visibility = body.visibility;
   if (body.days) patch.daysJson = JSON.stringify(body.days);
-  await db
-    .update(schema.readingPlans)
-    .set(patch)
-    .where(eq(schema.readingPlans.id, c.req.param("id")));
+  await db.update(schema.readingPlans).set(patch).where(eq(schema.readingPlans.id, planId));
   return c.json({ ok: true });
 });

@@ -299,16 +299,21 @@ callRoutes.post("/turn-credentials", requireAuth, async (c) => {
     });
   }
 
-  return c.json({
-    username,
-    credential,
-    ttl,
-    uris,
-    iceServers,
-    hasRelay: false,
-    provider: cfMintFailed ? "cloudflare-calls-failed" : "stun-only",
-    note: cfMintFailed
-      ? "Cloudflare Calls TURN mint failed; set TURN_CF_* or ALLOW_OPEN_RELAY_TURN=true."
-      : "No turn: relay configured. Set TURN_CF_KEY_ID + TURN_CF_API_TOKEN (or ALLOW_OPEN_RELAY_TURN=true for public fallback).",
-  });
+  // Closed beta: fail closed without a real relay — STUN-only breaks many mobile NATs.
+  return c.json(
+    {
+      username,
+      credential,
+      ttl,
+      uris,
+      iceServers,
+      hasRelay: false,
+      provider: cfMintFailed ? "cloudflare-calls-failed" : "stun-only",
+      error: "turn_relay_required",
+      note: cfMintFailed
+        ? "Cloudflare Calls TURN mint failed; set TURN_CF_* or ALLOW_OPEN_RELAY_TURN=true."
+        : "No turn: relay configured. Set TURN_CF_KEY_ID + TURN_CF_API_TOKEN (or ALLOW_OPEN_RELAY_TURN=true for public fallback).",
+    },
+    503,
+  );
 });

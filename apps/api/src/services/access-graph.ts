@@ -90,6 +90,13 @@ export async function canFetchPeerKeys(
   return false;
 }
 
+/** Parse `media/{ownerUserId}/…` owner; null if key shape is invalid. */
+export function mediaKeyOwnerUserId(objectKey: string): string | null {
+  const m = /^media\/([^/]+)\//.exec(objectKey);
+  if (!m?.[1] || objectKey.includes("..")) return null;
+  return m[1];
+}
+
 export async function mediaKeyReadableByUser(
   db: ReturnType<typeof drizzle>,
   userId: string,
@@ -98,8 +105,17 @@ export async function mediaKeyReadableByUser(
 ): Promise<boolean> {
   if (isOwnedMediaKey(objectKey, userId)) return true;
 
-  if (conversationId && (await isConversationMember(db, conversationId, userId))) {
-    return true;
+  // Conversation ACL: caller must be a member AND the object owner must also be
+  // in that same conversation (prevents "any membership + arbitrary key" bypass).
+  if (conversationId) {
+    const ownerId = mediaKeyOwnerUserId(objectKey);
+    if (
+      ownerId &&
+      (await isConversationMember(db, conversationId, userId)) &&
+      (await isConversationMember(db, conversationId, ownerId))
+    ) {
+      return true;
+    }
   }
 
   const forumPost = (

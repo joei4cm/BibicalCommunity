@@ -22,14 +22,22 @@ import { CallRoomDO } from "./durable/CallRoomDO";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use(
-  "*",
-  cors({
-    origin: (origin) => origin || "*",
+app.use("*", async (c, next) => {
+  const allowlist = (c.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const handler = cors({
+    origin: (origin) => {
+      if (!origin) return allowlist[0] ?? "*";
+      if (allowlist.length === 0) return origin;
+      return allowlist.includes(origin) ? origin : "";
+    },
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  }),
-);
+  });
+  return handler(c, next);
+});
 
 app.onError((err, c) => {
   if (err instanceof ZodError) {
