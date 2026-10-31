@@ -84,8 +84,13 @@ export default function MessagesScreen() {
   const callRef = useRef<CallSession | null>(null);
   const pendingOfferRef = useRef<string | null>(null);
   const incomingConvoRef = useRef<string | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const peersFor = useCallback(
     (conversationId: string | null) => {
@@ -116,13 +121,37 @@ export default function MessagesScreen() {
   }, [showArchived]);
 
   const loadMessages = useCallback(
-    async (conversationId: string) => {
+    async (conversationId: string, mode: "full" | "incremental" = "full") => {
+      const known = mode === "incremental" ? messagesRef.current : [];
+      const after =
+        known.length > 0 ? known.reduce((max, m) => Math.max(max, m.createdAt), 0) : 0;
+      const qs =
+        after > 0 ? `?after=${after}&limit=100` : mode === "full" ? "?limit=50" : "?limit=100";
       const res = await api<{
         messages: ChatMessage[];
         peerLastReadAt?: number | null;
-      }>(`/v1/chat/conversations/${conversationId}/messages`);
+      }>(`/v1/chat/conversations/${conversationId}/messages${qs}`);
       const now = Date.now();
-      const live = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+      const incoming = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
+      const knownIds = new Set(known.map((m) => m.id));
+      const fresh = after > 0 ? incoming.filter((m) => !knownIds.has(m.id)) : incoming;
+      if (after > 0 && fresh.length === 0) {
+        if (res.peerLastReadAt !== undefined) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, peerLastReadAt: res.peerLastReadAt } : c,
+            ),
+          );
+        }
+        return;
+      }
+      const live =
+        after > 0
+          ? [...known.filter((m) => m.expiresAt == null || m.expiresAt > now), ...fresh].sort(
+              (a, b) => a.createdAt - b.createdAt,
+            )
+          : incoming;
+      messagesRef.current = live;
       setMessages(live);
       if (res.peerLastReadAt !== undefined) {
         setConversations((prev) =>
@@ -132,30 +161,43 @@ export default function MessagesScreen() {
         );
       }
       const peer = peersFor(conversationId)[0] ?? null;
+      const toDecode = after > 0 ? fresh : live;
       const decoded: Record<string, string> = {};
-      for (const m of live) {
-        try {
-          if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
-            decoded[m.id] = await decryptGroupFanout({
-              conversationId,
-              ratchetHeader: m.ratchetHeader,
-              ciphertext: m.ciphertext,
-              selfUserId,
-            });
-          } else {
-            const pt = await decryptMobileMessage(
-              conversationId,
-              m.ratchetHeader,
-              m.ciphertext,
-              peer,
-            );
-            decoded[m.id] = pt ?? "[ciphertext]";
-          }
-        } catch {
-          decoded[m.id] = "[ciphertext]";
+      const CONCURRENCY = 8;
+      for (let i = 0; i < toDecode.length; i += CONCURRENCY) {
+        const chunk = toDecode.slice(i, i + CONCURRENCY);
+        const parts = await Promise.all(
+          chunk.map(async (m) => {
+            try {
+              if (isGroupFanoutHeader(m.ratchetHeader) && selfUserId) {
+                return [
+                  m.id,
+                  await decryptGroupFanout({
+                    conversationId,
+                    ratchetHeader: m.ratchetHeader,
+                    ciphertext: m.ciphertext,
+                    selfUserId,
+                  }),
+                ] as const;
+              }
+              const pt = await decryptMobileMessage(
+                conversationId,
+                m.ratchetHeader,
+                m.ciphertext,
+                peer,
+              );
+              return [m.id, pt ?? "[ciphertext]"] as const;
+            } catch {
+              return [m.id, "[ciphertext]"] as const;
+            }
+          }),
+        );
+        for (const [id, text] of parts) decoded[id] = text;
+        if (i + CONCURRENCY < toDecode.length) {
+          setPlaintexts((prev) => ({ ...prev, ...Object.fromEntries(parts) }));
         }
       }
-      setPlaintexts((prev) => ({ ...prev, ...decoded }));
+      setPlaintexts((prev) => (after > 0 ? { ...prev, ...decoded } : decoded));
     },
     [peersFor, selfUserId],
   );
@@ -191,12 +233,15 @@ export default function MessagesScreen() {
     void loadMessages(selectedId).catch((e) => setNote(e instanceof Error ? e.message : "error"));
   }, [selectedId, loadMessages]);
 
-  /** Soft realtime: poll open thread for new messages + peer read receipts. */
+  /** Soft realtime: incremental poll (not full re-decrypt every 2.5s). */
   useEffect(() => {
     if (!selectedId) return;
+    let ticks = 0;
     const timer = setInterval(() => {
-      void loadMessages(selectedId).catch(() => {});
-    }, 2500);
+      ticks += 1;
+      const mode = ticks % 12 === 0 ? "full" : "incremental";
+      void loadMessages(selectedId, mode).catch(() => {});
+    }, 5_000);
     return () => clearInterval(timer);
   }, [selectedId, loadMessages]);
 

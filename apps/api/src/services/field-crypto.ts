@@ -1,27 +1,46 @@
 import type { Env } from "../env";
 
 /** AES-GCM field encryption for P2 profile fields (standard mode). */
+const dekCache = new Map<string, Promise<CryptoKey>>();
+
 async function getDek(env: Env): Promise<CryptoKey> {
   const secret = env.KEK_MASTER ?? "dev-only-kek-change-me-32bytes!!";
-  const material = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret.slice(0, 32).padEnd(32, "0")),
-    "PBKDF2",
-    false,
-    ["deriveKey"],
-  );
-  return crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: new TextEncoder().encode("logoshome-dek-profile"),
-      iterations: 100_000,
-      hash: "SHA-256",
-    },
-    material,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"],
-  );
+  const cacheKey = secret.slice(0, 32).padEnd(32, "0");
+  let pending = dekCache.get(cacheKey);
+  if (!pending) {
+    pending = (async () => {
+      const material = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(cacheKey),
+        "PBKDF2",
+        false,
+        ["deriveKey"],
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: new TextEncoder().encode("logoshome-dek-profile"),
+          iterations: 100_000,
+          hash: "SHA-256",
+        },
+        material,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"],
+      );
+    })();
+    dekCache.set(cacheKey, pending);
+    // Drop failed derives so a later call can retry.
+    pending.catch(() => {
+      if (dekCache.get(cacheKey) === pending) dekCache.delete(cacheKey);
+    });
+  }
+  return pending;
+}
+
+/** Test helper — clear DEK cache between cases. */
+export function clearDekCacheForTests(): void {
+  dekCache.clear();
 }
 
 function b64(buf: ArrayBuffer): string {

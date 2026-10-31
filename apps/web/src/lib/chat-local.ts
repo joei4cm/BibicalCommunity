@@ -5,6 +5,7 @@
  */
 
 const PREVIEW_KEY = "lh.chat.previews";
+const CONVO_LIST_KEY = "lh.chat.conversations.v1";
 const PLAIN_PREFIX = "lh.msg.";
 const DB_NAME = "lh-messages";
 const DB_VERSION = 1;
@@ -12,6 +13,10 @@ const STORE = "threads";
 const MAX_MESSAGES = 80;
 const MAX_PREVIEW = 80;
 const MAX_THREADS = 40;
+const MAX_CACHED_CONVOS = 80;
+
+/** In-memory snapshot shared by CallProvider ↔ ChatPanel (avoids duplicate cold fetches). */
+let conversationsMemory: unknown[] | null = null;
 
 export type StoredChatMessage = {
   id: string;
@@ -104,6 +109,35 @@ export function writeChatPreview(conversationId: string, text: string, at: numbe
     localStorage.setItem(PREVIEW_KEY, JSON.stringify(next));
   } catch {
     /* ignore quota */
+  }
+}
+
+/** Instant contact-list paint — memory first, then last successful network snapshot. */
+export function readCachedConversations<T>(): T[] {
+  if (Array.isArray(conversationsMemory) && conversationsMemory.length >= 0) {
+    return conversationsMemory as T[];
+  }
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CONVO_LIST_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    conversationsMemory = parsed;
+    return parsed as T[];
+  } catch {
+    return [];
+  }
+}
+
+export function writeCachedConversations(list: unknown[]): void {
+  const trimmed = Array.isArray(list) ? list.slice(0, MAX_CACHED_CONVOS) : [];
+  conversationsMemory = trimmed;
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(CONVO_LIST_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* quota */
   }
 }
 
