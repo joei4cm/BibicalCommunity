@@ -8,16 +8,19 @@ import {
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
 import { api, apiUrl, getToken } from "../lib/api";
-import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
+import { decryptChatMessage, encryptChatMessage, ensureRatchet } from "../lib/secure-chat";
 import { decodeStoredChatMessage } from "../lib/chat-decode";
 import {
+  readCachedConversations,
   readChatPreviews,
   readPlainSync,
   readThread,
+  writeCachedConversations,
   writeChatPreview,
   writePlainSync,
   writeThread,
 } from "../lib/chat-local";
+import { fetchConversationsList } from "../lib/conversations-fetch";
 import { encryptGroupFanout } from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
 import { peerHasProductKeys } from "../lib/product-signal-chat";
@@ -116,7 +119,9 @@ export function ChatPanel({
   const { t } = useTranslation();
   const { startOutboundCall, shareScreen, endScreen, screenShareReady, callSessionActive } = useCall();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() =>
+    readCachedConversations<Conversation>(),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
@@ -256,7 +261,7 @@ export function ChatPanel({
     void refreshLocalKeysReady();
   }, [selectedId]);
 
-  // Opening a thread without local keys: one confirm dialog — no Me-page navigation.
+  // Opening a thread without local keys: soft banner only — never block with confirm().
   useEffect(() => {
     if (!selectedId || !getToken() || keysPromptedRef.current || keyBusy) return;
     let cancelled = false;
@@ -266,13 +271,12 @@ export function ChatPanel({
       setLocalKeysReady(has);
       if (has || keysPromptedRef.current) return;
       keysPromptedRef.current = true;
-      await confirmAndUploadKeys();
+      setNote("chat_degraded_soft");
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt once per session when keys missing
-  }, [selectedId]);
+  }, [selectedId, keyBusy]);
 
   useEffect(() => {
     onThreadOpenChange?.(Boolean(selectedId));
@@ -301,11 +305,13 @@ export function ChatPanel({
       if (!opts?.quiet) setNote("login_required");
       return;
     }
-    const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
-    conversationsRef.current = res.conversations;
-    setConversations(res.conversations);
+    // Share CallProvider's in-flight/fresh snapshot — don't force a second GET.
+    const list = (await fetchConversationsList()) as Conversation[];
+    conversationsRef.current = list;
+    setConversations(list);
+    writeCachedConversations(list);
     const fromPeers: Record<string, string> = {};
-    for (const c of res.conversations) {
+    for (const c of list) {
       for (const p of c.peers ?? []) {
         fromPeers[p.userId] = labelFromPeer(p, p.userId);
       }
@@ -494,7 +500,9 @@ export function ChatPanel({
       const known = mode === "incremental" ? messageRowsRef.current : [];
       const after =
         known.length > 0 ? known.reduce((max, m) => Math.max(max, m.createdAt), 0) : 0;
-      const qs = after > 0 ? `?after=${after}` : "";
+      // First open: recent page only. Incremental: after-cursor without re-pulling history.
+      const qs =
+        after > 0 ? `?after=${after}&limit=100` : mode === "full" ? "?limit=50" : "?limit=100";
       const res = await api<{
         messages: ChatMessage[];
         peerLastReadAt?: number | null;
@@ -557,20 +565,45 @@ export function ChatPanel({
       const prevPt = plaintextsRef.current;
       const toDecode = after > 0 ? fresh : live;
       const decoded: Record<string, string> = {};
+      const pending: ChatMessage[] = [];
       for (const m of toDecode) {
         const cached = prevPt[m.id] && prevPt[m.id] !== "[ciphertext]" ? prevPt[m.id] : readPlainSync(m.id);
         if (cached) {
           decoded[m.id] = cached;
-          continue;
+        } else {
+          pending.push(m);
         }
-        decoded[m.id] = await decodeStoredChatMessage({
-          conversationId,
-          messageId: m.id,
-          ratchetHeader: m.ratchetHeader,
-          ciphertext: m.ciphertext,
-          peerUserId: peer,
-          selfUserId: me,
-        });
+      }
+      // Warm ratchet/session once so the first decode doesn't serialize the whole page behind /v1/keys.
+      if (pending.length > 0 && peer && me) {
+        try {
+          await ensureRatchet(conversationId, peer, me);
+        } catch {
+          /* keys missing — decode path surfaces degraded tip */
+        }
+      }
+      // Decrypt in parallel — sequential ratchet opens made long threads feel stuck.
+      const CONCURRENCY = 8;
+      for (let i = 0; i < pending.length; i += CONCURRENCY) {
+        const chunk = pending.slice(i, i + CONCURRENCY);
+        const parts = await Promise.all(
+          chunk.map(async (m) => {
+            const text = await decodeStoredChatMessage({
+              conversationId,
+              messageId: m.id,
+              ratchetHeader: m.ratchetHeader,
+              ciphertext: m.ciphertext,
+              peerUserId: peer,
+              selfUserId: me,
+            });
+            return [m.id, text] as const;
+          }),
+        );
+        for (const [id, text] of parts) decoded[id] = text;
+        // Progressive paint so the thread isn't blank until the last message decrypts.
+        if (i + CONCURRENCY < pending.length) {
+          setPlaintexts((prev) => ({ ...prev, ...Object.fromEntries(parts) }));
+        }
       }
       for (const [id, text] of Object.entries(decoded)) writePlainSync(id, text);
       void writeThread(conversationId, peer, live).catch(() => {});
@@ -632,19 +665,37 @@ export function ChatPanel({
 
   useEffect(() => {
     void refreshConversations().catch((e) => setNote(e instanceof Error ? e.message : "error"));
-    void loadFavorites();
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refreshConversations({ quiet: true }).catch(() => {});
     }, 15_000);
     return () => window.clearInterval(timer);
-  }, [refreshConversations, loadFavorites]);
+  }, [refreshConversations]);
+
+  // Favorites decrypt is off the contact-list critical path.
+  useEffect(() => {
+    if (listTab === "archived") {
+      void loadFavorites();
+      return;
+    }
+    const ric = (
+      window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    if (typeof ric === "function") {
+      const id = ric(() => void loadFavorites(), { timeout: 4_000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(() => void loadFavorites(), 2_500);
+    return () => window.clearTimeout(t);
+  }, [listTab, loadFavorites]);
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState !== "visible") return;
       void refreshConversations({ quiet: true }).catch(() => {});
-      void loadFavorites();
     };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", onVis);
@@ -652,7 +703,7 @@ export function ChatPanel({
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("focus", onVis);
     };
-  }, [refreshConversations, loadFavorites]);
+  }, [refreshConversations]);
 
   useEffect(() => {
     const onPreviews = () => setPreviews(readChatPreviews());

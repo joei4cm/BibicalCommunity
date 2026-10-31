@@ -49,14 +49,42 @@ export function ContactsPanel({
       setNote("login_required");
       return;
     }
-    const [dir, reqs] = await Promise.all([
-      api<{ contacts: Contact[] }>("/v1/friends/directory"),
+    // Fast path: friends + requests paint first (directory builds full org trees).
+    const [friendsRes, reqs] = await Promise.all([
+      api<{
+        friends: {
+          user: {
+            id: string;
+            uid: string | null;
+            nickname: string | null;
+            signature: string | null;
+          };
+        }[];
+      }>("/v1/friends"),
       api<{ incoming: FriendReq[]; outgoing: FriendReq[] }>("/v1/friends/requests"),
     ]);
-    setContacts(dir.contacts);
     setIncoming(reqs.incoming);
     setOutgoing(reqs.outgoing);
+    setContacts(
+      friendsRes.friends.map((f) => ({
+        userId: f.user.id,
+        uid: f.user.uid,
+        nickname: f.user.nickname,
+        signature: f.user.signature,
+        roles: [],
+        groupNames: [],
+        churches: [],
+        source: "friend" as const,
+      })),
+    );
     setNote(null);
+
+    try {
+      const dir = await api<{ contacts: Contact[] }>("/v1/friends/directory");
+      setContacts(dir.contacts);
+    } catch {
+      /* keep friends-only snapshot */
+    }
   }, []);
 
   useEffect(() => {

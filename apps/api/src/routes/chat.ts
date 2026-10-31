@@ -117,42 +117,45 @@ chatRoutes.post("/conversations", async (c) => {
 chatRoutes.get("/conversations", async (c) => {
   const db = drizzle(c.env.DB, { schema });
   const userId = c.get("userId");
-  const memberships = await db
-    .select()
-    .from(schema.conversationMembers)
-    .where(eq(schema.conversationMembers.userId, userId));
 
-  const unreadRows = await c.env.DB.prepare(
-    `SELECT m.conversation_id AS conversationId, COUNT(*) AS n
-     FROM messages m
-     INNER JOIN conversation_members cm
-       ON cm.conversation_id = m.conversation_id AND cm.user_id = ?
-     LEFT JOIN devices d ON d.id = m.sender_device_id
-     WHERE IFNULL(cm.archived, 0) = 0
-       AND IFNULL(m.tombstoned, 0) = 0
-       AND m.content_type = 'msg'
-       AND m.created_at > IFNULL(cm.last_read_at, 0)
-       AND (d.user_id IS NULL OR d.user_id != ?)
-     GROUP BY m.conversation_id`,
-  )
-    .bind(userId, userId)
-    .all<{ conversationId: string; n: number }>();
+  // Memberships + aggregates in parallel — these were the list TTFB bottleneck.
+  const [memberships, unreadRows, lastRows] = await Promise.all([
+    db
+      .select()
+      .from(schema.conversationMembers)
+      .where(eq(schema.conversationMembers.userId, userId)),
+    c.env.DB.prepare(
+      `SELECT m.conversation_id AS conversationId, COUNT(*) AS n
+       FROM messages m
+       INNER JOIN conversation_members cm
+         ON cm.conversation_id = m.conversation_id AND cm.user_id = ?
+       LEFT JOIN devices d ON d.id = m.sender_device_id
+       WHERE IFNULL(cm.archived, 0) = 0
+         AND IFNULL(m.tombstoned, 0) = 0
+         AND m.content_type = 'msg'
+         AND m.created_at > IFNULL(cm.last_read_at, 0)
+         AND (d.user_id IS NULL OR d.user_id != ?)
+       GROUP BY m.conversation_id`,
+    )
+      .bind(userId, userId)
+      .all<{ conversationId: string; n: number }>(),
+    c.env.DB.prepare(
+      `SELECT conversation_id AS conversationId, MAX(created_at) AS lastAt
+       FROM messages
+       WHERE IFNULL(tombstoned, 0) = 0
+         AND conversation_id IN (
+           SELECT conversation_id FROM conversation_members WHERE user_id = ?
+         )
+       GROUP BY conversation_id`,
+    )
+      .bind(userId)
+      .all<{ conversationId: string; lastAt: number }>(),
+  ]);
+
   const unreadByConvo = new Map<string, number>();
   for (const row of unreadRows.results ?? []) {
     unreadByConvo.set(row.conversationId, Number(row.n ?? 0));
   }
-
-  const lastRows = await c.env.DB.prepare(
-    `SELECT conversation_id AS conversationId, MAX(created_at) AS lastAt
-     FROM messages
-     WHERE IFNULL(tombstoned, 0) = 0
-       AND conversation_id IN (
-         SELECT conversation_id FROM conversation_members WHERE user_id = ?
-       )
-     GROUP BY conversation_id`,
-  )
-    .bind(userId)
-    .all<{ conversationId: string; lastAt: number }>();
   const lastAtByConvo = new Map<string, number>();
   for (const row of lastRows.results ?? []) {
     lastAtByConvo.set(row.conversationId, Number(row.lastAt ?? 0));
@@ -161,21 +164,17 @@ chatRoutes.get("/conversations", async (c) => {
   const convoIds = memberships.map((m) => m.conversationId);
   const membershipByConvo = new Map(memberships.map((m) => [m.conversationId, m]));
 
-  const convos =
+  const [convos, allMembers] = await Promise.all([
     convoIds.length === 0
-      ? []
-      : await db
-          .select()
-          .from(schema.conversations)
-          .where(inArray(schema.conversations.id, convoIds));
-
-  const allMembers =
+      ? Promise.resolve([] as (typeof schema.conversations.$inferSelect)[])
+      : db.select().from(schema.conversations).where(inArray(schema.conversations.id, convoIds)),
     convoIds.length === 0
-      ? []
-      : await db
+      ? Promise.resolve([] as (typeof schema.conversationMembers.$inferSelect)[])
+      : db
           .select()
           .from(schema.conversationMembers)
-          .where(inArray(schema.conversationMembers.conversationId, convoIds));
+          .where(inArray(schema.conversationMembers.conversationId, convoIds)),
+  ]);
 
   const membersByConvo = new Map<string, typeof allMembers>();
   for (const row of allMembers) {
@@ -260,6 +259,9 @@ chatRoutes.get("/conversations", async (c) => {
       },
     });
   }
+  conversations.sort(
+    (a, b) => (b.lastMessageAt ?? b.createdAt) - (a.lastMessageAt ?? a.createdAt),
+  );
   return c.json({ conversations });
 });
 
