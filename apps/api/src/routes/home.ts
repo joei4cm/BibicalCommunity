@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   canAssignChurchRoles,
@@ -42,6 +42,10 @@ import {
   loadPlatformAdmin,
   syncPrimaryRole,
 } from "../services/church-access";
+import { enforceRateLimit } from "../services/rate-limit";
+
+/** Recent community posts per board list (pinned are merged in separately). */
+const FORUM_LIST_LIMIT = 100;
 
 function parsePayloadJson(raw: string | null | undefined): Record<string, unknown> {
   try {
@@ -707,16 +711,30 @@ homeRoutes.get("/:churchId/posts", async (c) => {
   );
   if (denied) return denied;
 
-  let posts = await db
-    .select()
-    .from(schema.forumPosts)
-    .where(
-      board
-        ? and(eq(schema.forumPosts.churchId, churchId), eq(schema.forumPosts.board, board))
-        : eq(schema.forumPosts.churchId, churchId),
-    );
+  const boardFilter = board
+    ? and(eq(schema.forumPosts.churchId, churchId), eq(schema.forumPosts.board, board))
+    : eq(schema.forumPosts.churchId, churchId);
 
-  posts = posts.filter((p) => !p.deletedAt);
+  const [recent, pinnedRows] = await Promise.all([
+    db
+      .select()
+      .from(schema.forumPosts)
+      .where(boardFilter)
+      .orderBy(desc(schema.forumPosts.createdAt))
+      .limit(FORUM_LIST_LIMIT),
+    db
+      .select()
+      .from(schema.forumPosts)
+      .where(and(boardFilter, eq(schema.forumPosts.pinned, true)))
+      .orderBy(desc(schema.forumPosts.pinnedAt))
+      .limit(50),
+  ]);
+
+  const byId = new Map<string, (typeof recent)[number]>();
+  for (const p of [...pinnedRows, ...recent]) {
+    if (!p.deletedAt) byId.set(p.id, p);
+  }
+  let posts = Array.from(byId.values());
 
   // Always hide other groups' posts (even when board is unset / notice / general mix).
   const allowed = new Set(ctx?.groupIds.length ? ctx.groupIds : memberGroupIds(membership));
@@ -759,8 +777,14 @@ homeRoutes.get("/:churchId/boards", async (c) => {
   );
   if (denied) return denied;
 
+  // Board index only needs recent activity counts — avoid full-table scan at beta scale.
   const posts = (
-    await db.select().from(schema.forumPosts).where(eq(schema.forumPosts.churchId, churchId))
+    await db
+      .select()
+      .from(schema.forumPosts)
+      .where(eq(schema.forumPosts.churchId, churchId))
+      .orderBy(desc(schema.forumPosts.createdAt))
+      .limit(500)
   ).filter((p) => !p.deletedAt);
 
   const allowedGroups = new Set(ctx?.groupIds ?? memberGroupIds(membership));
@@ -781,6 +805,10 @@ homeRoutes.get("/:churchId/boards", async (c) => {
 });
 
 homeRoutes.post("/posts", async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `home:post:${c.get("userId")}`, 20, 60 * 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   const body = forumPostSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
   const userId = c.get("userId");

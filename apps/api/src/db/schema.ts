@@ -210,30 +210,34 @@ export const planSubscriptions = sqliteTable("plan_subscriptions", {
   createdAt: integer("created_at", { mode: "number" }).notNull(),
 });
 
-export const forumPosts = sqliteTable("forum_posts", {
-  id: text("id").primaryKey(),
-  churchId: text("church_id")
-    .notNull()
-    .references(() => churches.id),
-  groupId: text("group_id"),
-  authorId: text("author_id")
-    .notNull()
-    .references(() => users.id),
-  board: text("board").notNull().default("general"),
-  kind: text("kind").notNull().default("text"),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  externalMediaUrl: text("external_media_url"),
-  mediaKey: text("media_key"),
-  payloadJson: text("payload_json").notNull().default("{}"),
-  answerHash: text("answer_hash"),
-  pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
-  pinnedAt: integer("pinned_at", { mode: "number" }),
-  readonly: integer("readonly", { mode: "boolean" }).notNull().default(false),
-  expiresAt: integer("expires_at", { mode: "number" }),
-  deletedAt: integer("deleted_at", { mode: "number" }),
-  createdAt: integer("created_at", { mode: "number" }).notNull(),
-});
+export const forumPosts = sqliteTable(
+  "forum_posts",
+  {
+    id: text("id").primaryKey(),
+    churchId: text("church_id")
+      .notNull()
+      .references(() => churches.id),
+    groupId: text("group_id"),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => users.id),
+    board: text("board").notNull().default("general"),
+    kind: text("kind").notNull().default("text"),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    externalMediaUrl: text("external_media_url"),
+    mediaKey: text("media_key"),
+    payloadJson: text("payload_json").notNull().default("{}"),
+    answerHash: text("answer_hash"),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    pinnedAt: integer("pinned_at", { mode: "number" }),
+    readonly: integer("readonly", { mode: "boolean" }).notNull().default(false),
+    expiresAt: integer("expires_at", { mode: "number" }),
+    deletedAt: integer("deleted_at", { mode: "number" }),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("forum_posts_church_created_idx").on(t.churchId, t.createdAt)],
+);
 
 export const forumPostResponses = sqliteTable("forum_post_responses", {
   id: text("id").primaryKey(),
@@ -274,21 +278,36 @@ export const conversationMembers = sqliteTable(
     /** Client last opened / marked-read time; used for unread badges (opaque message counts). */
     lastReadAt: integer("last_read_at", { mode: "number" }),
   },
-  (t) => [index("conversation_members_user_last_read_idx").on(t.userId, t.lastReadAt)],
+  (t) => [
+    index("conversation_members_user_last_read_idx").on(t.userId, t.lastReadAt),
+    index("conversation_members_conversation_idx").on(t.conversationId),
+    index("conversation_members_user_conversation_idx").on(t.userId, t.conversationId),
+  ],
 );
 
-export const messages = sqliteTable("messages", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversations.id),
-  senderDeviceId: text("sender_device_id").notNull(),
-  ratchetHeader: text("ratchet_header").notNull(),
-  ciphertext: text("ciphertext").notNull(),
-  contentType: text("content_type").notNull().default("msg"),
-  createdAt: integer("created_at", { mode: "number" }).notNull(),
-  expiresAt: integer("expires_at", { mode: "number" }),
-  tombstoned: integer("tombstoned", { mode: "boolean" }).notNull().default(false),
+export const messages = sqliteTable(
+  "messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id),
+    senderDeviceId: text("sender_device_id").notNull(),
+    ratchetHeader: text("ratchet_header").notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    contentType: text("content_type").notNull().default("msg"),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "number" }),
+    tombstoned: integer("tombstoned", { mode: "boolean" }).notNull().default(false),
+  },
+  (t) => [index("messages_conversation_created_idx").on(t.conversationId, t.createdAt)],
+);
+
+/** Sliding-window counters for auth/chat/calls rate limits (beta hardening). */
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(),
+  windowStart: integer("window_start", { mode: "number" }).notNull(),
+  count: integer("count").notNull(),
 });
 
 export const wipeCommands = sqliteTable("wipe_commands", {

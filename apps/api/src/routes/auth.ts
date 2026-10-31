@@ -8,10 +8,23 @@ import { hashPassword, hmacHex, randomToken, sha256Hex, verifyPassword } from ".
 import { sealField } from "../services/field-crypto";
 import type { AuthVars } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
+import { enforceRateLimit } from "../services/rate-limit";
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
+function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  return (
+    c.req.header("cf-connecting-ip") ||
+    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown"
+  );
+}
+
 authRoutes.post("/register", async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `auth:register:${clientIp(c)}`, 10, 60 * 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   let raw: unknown;
   try {
     raw = await c.req.json();
@@ -70,6 +83,10 @@ authRoutes.post("/register", async (c) => {
 });
 
 authRoutes.post("/login", async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `auth:login:${clientIp(c)}`, 30, 15 * 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   const body = loginSchema.parse(await c.req.json());
   const pepper = c.env.HANDLE_PEPPER ?? "dev-handle-pepper";
   const db = drizzle(c.env.DB, { schema });

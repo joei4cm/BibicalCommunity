@@ -12,6 +12,18 @@ import {
 ensureBase64Globals();
 
 /**
+ * Opt-in only (`EXPO_PUBLIC_ALLOW_DEGRADED_CHAT=true`). Closed beta / production
+ * must fail closed — same policy as web `VITE_ALLOW_DEGRADED_CHAT`.
+ */
+export function degradedChatAllowed(): boolean {
+  try {
+    return String(process.env.EXPO_PUBLIC_ALLOW_DEGRADED_CHAT ?? "") === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Degraded (no peer product keys) material is deterministic from conversationId
  * so two handsets can still decrypt each other — same model as web bootstrapDegraded.
  * Prefer the product x25519 path whenever both peers uploaded keys.
@@ -42,6 +54,10 @@ export async function encryptMobileMessage(
   const product = await tryEncryptProductMobileMessage(conversationId, plaintext, peerUserId);
   if (product) return product;
 
+  if (!degradedChatAllowed()) {
+    throw new Error("chat_keys_required");
+  }
+
   const material = degradedMaterial(conversationId, peerUserId, selfUserId);
   const key = await deriveSessionKey(material);
   const enc = await encryptSessionPayload(key, plaintext, `conv:${conversationId}`);
@@ -63,6 +79,8 @@ export async function decryptMobileMessage(
     peerUserId,
   );
   if (productPlain != null) return productPlain;
+
+  if (!degradedChatAllowed()) return null;
 
   try {
     const material = degradedMaterial(conversationId, peerUserId, selfUserId);

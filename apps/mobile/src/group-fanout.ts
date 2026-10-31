@@ -1,7 +1,7 @@
 /**
  * Mobile group fan-out — mirrors apps/web/src/lib/group-fanout.ts.
  */
-import { decryptMobileMessage, encryptMobileMessage } from "./session-crypto";
+import { decryptMobileMessage, degradedChatAllowed, encryptMobileMessage } from "./session-crypto";
 
 export const GROUP_FANOUT_HEADER = "group-fanout:v1";
 
@@ -44,6 +44,10 @@ export async function encryptGroupFanout(opts: {
       ciphertext: enc.ciphertext,
     };
     if (enc.mode === "degraded") degradedPeers.push(peerId);
+  }
+
+  if (degradedPeers.length > 0 && !degradedChatAllowed()) {
+    throw new Error("chat_keys_required");
   }
 
   const blob: GroupFanoutBlob = {

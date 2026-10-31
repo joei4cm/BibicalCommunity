@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lte } from "drizzle-orm";
 import { z } from "zod";
 import { createId, privacySettingsSchema } from "@logoshome/shared";
 import type { Env } from "../env";
@@ -9,6 +9,7 @@ import { requireAuth, type AuthVars } from "../middleware/auth";
 import { openField } from "../services/field-crypto";
 import { areFriends, isConversationMember } from "../services/access-graph";
 import { sha256Hex } from "../services/crypto";
+import { enforceRateLimit } from "../services/rate-limit";
 export const chatRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 chatRoutes.use("*", requireAuth);
 
@@ -354,6 +355,10 @@ chatRoutes.patch("/conversations/:id", async (c) => {
 });
 
 chatRoutes.post("/conversations/:id/messages", async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `chat:msgsend:${c.get("userId")}`, 60, 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   const body = sendMessageSchema.parse(await c.req.json());
   const conversationId = c.req.param("id");
   const db = drizzle(c.env.DB, { schema });
@@ -420,18 +425,43 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
   )[0];
   if (!member) return c.json({ error: "forbidden" }, 403);
 
+  const rl = await enforceRateLimit(c.env.DB, `chat:msgget:${c.get("userId")}`, 120, 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
+
   const now = Date.now();
+  // Batch-expire disappearing messages for this thread (avoid N+1 updates on poll).
+  await db
+    .update(schema.messages)
+    .set({ tombstoned: true, ratchetHeader: "", ciphertext: "" })
+    .where(
+      and(
+        eq(schema.messages.conversationId, conversationId),
+        eq(schema.messages.tombstoned, false),
+        lte(schema.messages.expiresAt, now),
+      ),
+    );
+
   const afterRaw = Number(c.req.query("after") ?? "0");
   const after = Number.isFinite(afterRaw) && afterRaw > 0 ? Math.floor(afterRaw) : 0;
+  const limitRaw = Number(c.req.query("limit") ?? "100");
+  const limit =
+    Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(200, Math.floor(limitRaw)) : 100;
   const filters = [
     eq(schema.messages.conversationId, conversationId),
     eq(schema.messages.tombstoned, false),
   ];
   if (after > 0) filters.push(gt(schema.messages.createdAt, after));
-  const rows = await db
+
+  // Incremental: oldest-first after cursor. Full: newest page, then reverse for UI order.
+  const page = await db
     .select()
     .from(schema.messages)
-    .where(and(...filters));
+    .where(and(...filters))
+    .orderBy(after > 0 ? asc(schema.messages.createdAt) : desc(schema.messages.createdAt))
+    .limit(limit);
+  const rows = after > 0 ? page : [...page].reverse();
 
   // Resolve sender user ids so clients can mark "mine" across devices.
   const senderDeviceIds = Array.from(new Set(rows.map((m) => m.senderDeviceId)));
@@ -444,27 +474,16 @@ chatRoutes.get("/conversations/:id/messages", async (c) => {
       : [];
   const senderUserByDevice = new Map(senderDevices.map((d) => [d.id, d.userId]));
 
-  // Disappearing messages: tombstone expired rows and omit ciphertext from the response.
-  const live = [];
-  for (const m of rows) {
-    if (m.expiresAt != null && m.expiresAt <= now) {
-      await db
-        .update(schema.messages)
-        .set({ tombstoned: true, ratchetHeader: "", ciphertext: "" })
-        .where(eq(schema.messages.id, m.id));
-      continue;
-    }
-    live.push({
-      id: m.id,
-      senderDeviceId: m.senderDeviceId,
-      senderUserId: senderUserByDevice.get(m.senderDeviceId) ?? null,
-      ratchetHeader: m.ratchetHeader,
-      ciphertext: m.ciphertext,
-      contentType: m.contentType,
-      createdAt: m.createdAt,
-      expiresAt: m.expiresAt,
-    });
-  }
+  const live = rows.map((m) => ({
+    id: m.id,
+    senderDeviceId: m.senderDeviceId,
+    senderUserId: senderUserByDevice.get(m.senderDeviceId) ?? null,
+    ratchetHeader: m.ratchetHeader,
+    ciphertext: m.ciphertext,
+    contentType: m.contentType,
+    createdAt: m.createdAt,
+    expiresAt: m.expiresAt,
+  }));
 
   // Mark read only when something newer than the stored cursor arrived.
   // Idle polls used to write last_read_at every few seconds.
@@ -526,6 +545,10 @@ chatRoutes.get("/favorites", async (c) => {
 });
 
 chatRoutes.post("/calls", async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `chat:calls:${c.get("userId")}`, 20, 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   const body = z
     .object({ conversationId: z.string(), callId: z.string().optional() })
     .parse(await c.req.json());

@@ -155,7 +155,7 @@ export const readingPlanSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   visibility: z.enum(["private", "church", "public"]).default("private"),
-  days: z.array(readingPlanDaySchema).min(1),
+  days: z.array(readingPlanDaySchema).min(1).max(400),
 });
 
 export const forumPostSchema = z
