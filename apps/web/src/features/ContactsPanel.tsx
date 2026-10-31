@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
 import { humanizeStatus } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
+import { AUTH_NOTE_CODES, CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
 
 type Contact = {
   userId: string;
@@ -42,8 +43,6 @@ function contactSubtitle(c: Contact, noGroup: string) {
   if (c.uid) parts.push(c.uid);
   return parts.join(" · ");
 }
-
-const AUTH_NOTES = new Set(["login_required", "unauthorized", "401"]);
 
 export function ContactsPanel({
   onOpenChat,
@@ -157,22 +156,15 @@ export function ContactsPanel({
     }
   }
 
-  const authBlocked = !getToken() || (note != null && AUTH_NOTES.has(note));
-
-  if (authBlocked) {
+  if (isAuthBlocked(note)) {
     return (
       <div className="contacts-panel" data-testid="comms-contacts">
-        <div className="comms-gate" data-testid="contacts-login-gate">
-          <p className="comms-gate-title">{t("comms.loginGate")}</p>
-          <a className="btn" href="/app/login" data-testid="contacts-login-cta">
-            {t("comms.loginGateCta")}
-          </a>
-        </div>
+        <CommsLoginGate titleKey="comms.loginGate" testIdPrefix="contacts" />
       </div>
     );
   }
 
-  const showNote = Boolean(note);
+  const showNote = Boolean(note) && !AUTH_NOTE_CODES.has(note!);
 
   return (
     <div className="contacts-panel" data-testid="comms-contacts">
@@ -237,9 +229,27 @@ export function ContactsPanel({
       <ul className="list contacts-list" data-testid="contacts-list">
         {!listHydrated && visible.length === 0 && (
           <li className="im-list-skeleton" aria-busy="true" data-testid="contacts-list-loading">
-            <span className="im-skel-row" />
-            <span className="im-skel-row" />
-            <span className="im-skel-row" />
+            <div className="im-skel-item" aria-hidden>
+              <span className="im-skel-avatar" />
+              <span className="im-skel-lines">
+                <span className="im-skel-line is-title" />
+                <span className="im-skel-line is-sub" />
+              </span>
+            </div>
+            <div className="im-skel-item" aria-hidden>
+              <span className="im-skel-avatar" />
+              <span className="im-skel-lines">
+                <span className="im-skel-line is-title" />
+                <span className="im-skel-line is-sub" />
+              </span>
+            </div>
+            <div className="im-skel-item" aria-hidden>
+              <span className="im-skel-avatar" />
+              <span className="im-skel-lines">
+                <span className="im-skel-line is-title" />
+                <span className="im-skel-line is-sub" />
+              </span>
+            </div>
             <p className="muted im-skel-label">{t("comms.loadingContacts")}</p>
           </li>
         )}

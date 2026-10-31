@@ -8,6 +8,7 @@ import {
 } from "../lib/calendar-time";
 import { humanizeStatus } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
+import { AUTH_NOTE_CODES, CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
 import { IconChevronLeft, IconChevronRight } from "../components/icons";
 
 type CalEvent = {
@@ -445,9 +446,17 @@ export function CalendarPanel({
   const statusNote =
     note === "event_start_invalid"
       ? t("comms.eventStartInvalid")
-      : note
+      : note && !AUTH_NOTE_CODES.has(note)
         ? humanizeStatus(t, note)
         : null;
+
+  if (isAuthBlocked(note)) {
+    return (
+      <div className="calendar-panel" data-testid="comms-calendar">
+        <CommsLoginGate titleKey="comms.calendarLoginGate" testIdPrefix="calendar" />
+      </div>
+    );
+  }
 
   return (
     <div className="calendar-panel" data-testid="comms-calendar">
