@@ -2906,9 +2906,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
   top: 0;
   z-index: 1;
   margin: 0;
-  padding: 0.65rem 0.75rem;
+  padding: 0.85rem 0.75rem 1rem;
+  max-width: none;
   background: color-mix(in srgb, var(--br-bg, var(--lh-bg, #fff)) 88%, transparent);
   backdrop-filter: blur(4px);
+}
+
+.comms-load-error {
+  margin: 0.35rem 0 0;
 }
 
 .cal-agenda-row {

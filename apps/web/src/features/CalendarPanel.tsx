@@ -390,7 +390,10 @@ export function CalendarPanel({
 
         <div className="cal-agenda-scroll" ref={agendaScrollRef} data-testid="calendar-day-list">
           {dayEvents.length === 0 && (
-            <p className="muted cal-agenda-empty">{t("comms.noEvents")}</p>
+            <div className="comms-empty cal-agenda-empty" data-testid="calendar-day-empty">
+              <strong>{t("comms.noEvents")}</strong>
+              <p className="muted">{t("comms.noEventsHint")}</p>
+            </div>
           )}
           {Array.from({ length: 24 }, (_, hour) => {
             const list = byHour.get(hour) ?? [];

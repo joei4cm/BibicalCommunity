@@ -1713,17 +1713,26 @@ export function ChatPanel({
                   {t("me.search")}
                 </button>
                 <ul className="list" style={{ marginTop: "0.75rem" }}>
-                  {discoverHits.length === 0 && <li className="muted">{t("chat.discoverEmpty")}</li>}
+                  {discoverHits.length === 0 && (
+                    <li className="comms-empty">
+                      <strong>{t("chat.discoverEmpty")}</strong>
+                    </li>
+                  )}
                   {discoverHits.map((hit) => (
                     <li key={hit.id}>
                       <button
                         type="button"
-                        className="convo-row"
+                        className="convo-row convo-row-rich"
                         data-testid={`chat-discover-hit-${hit.uid}`}
                         onClick={() => void openOrStartDm(hit.id)}
                       >
-                        <strong>{hit.nickname || hit.uid}</strong>
-                        <div className="muted">UID {hit.uid}</div>
+                        <span className="im-avatar" aria-hidden>
+                          {(hit.nickname || hit.uid || "?").trim().charAt(0).toUpperCase()}
+                        </span>
+                        <span className="convo-row-main">
+                          <strong>{hit.nickname || hit.uid}</strong>
+                          <span className="muted convo-row-preview">UID {hit.uid}</span>
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -1751,18 +1760,26 @@ export function ChatPanel({
                     </p>
                     <ul className="list" data-testid="chat-compose-contacts">
                       {directory.length === 0 && (
-                        <li className="muted">{t("chat.discoverEmpty")}</li>
+                        <li className="comms-empty" data-testid="chat-compose-empty">
+                          <strong>{t("chat.composeEmpty")}</strong>
+                          <p className="muted">{t("chat.composeEmptyHint")}</p>
+                        </li>
                       )}
                       {directory.map((c) => (
                         <li key={c.userId}>
                           <button
                             type="button"
-                            className="convo-row"
+                            className="convo-row convo-row-rich"
                             data-testid={`chat-compose-contact-${c.uid || c.userId}`}
                             onClick={() => void openOrStartDm(c.userId)}
                           >
-                            <strong>{c.nickname || c.uid || c.userId.slice(0, 10)}</strong>
-                            {c.uid ? <div className="muted">UID {c.uid}</div> : null}
+                            <span className="im-avatar" aria-hidden>
+                              {(c.nickname || c.uid || "?").trim().charAt(0).toUpperCase()}
+                            </span>
+                            <span className="convo-row-main">
+                              <strong>{c.nickname || c.uid || c.userId.slice(0, 10)}</strong>
+                              {c.uid ? <span className="muted convo-row-preview">UID {c.uid}</span> : null}
+                            </span>
                           </button>
                         </li>
                       ))}
