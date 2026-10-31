@@ -63,7 +63,9 @@ unlinkability.
 - Remote wipe zeros **outbound** messages only (does not blank peer ciphertext)
 - Wipe also clears favorites ciphertext, vault, inbox, OPKs; auth rejects tombstoned users
 - Media GET requires object owner to share the `conversationId` (not any membership)
-- Plans PATCH is owner-only; subscribe respects private/church visibility
+- Plans PATCH is owner-only; subscribe respects private/church visibility; days capped at 400
+- Mobile degraded chat fail-closed unless `EXPO_PUBLIC_ALLOW_DEGRADED_CHAT=true`
+  (mirrors web `VITE_ALLOW_DEGRADED_CHAT`)
 
 ## Known limits (acceptable for hundreds, not millions)
 
@@ -73,3 +75,7 @@ unlinkability.
   WAF / rate limiting rules at the zone for abuse.
 - Note/vault decrypt key stays on device (`lh.noteKey.jwk`); multi-device
   decrypt requires the same key material on each device.
+- Production Workers Free: scheduled cron for TTL/wipe sweeps is **commented out**
+  in `wrangler.production.toml` (5-trigger cap). Disappearing messages still
+  tombstone on thread poll; upgrade plan or reclaim a cron slot before relying
+  on global expiry sweeps.

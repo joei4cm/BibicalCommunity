@@ -96,9 +96,14 @@ planRoutes.post("/", async (c) => {
 
 planRoutes.post("/import-csv", async (c) => {
   const form = await c.req.parseBody();
-  const title = String(form.title ?? "Imported plan");
+  const title = String(form.title ?? "Imported plan").slice(0, 200);
   const csv = String(form.csv ?? "");
+  if (csv.length > 512 * 1024) {
+    return c.json({ error: "csv_too_large", maxBytes: 512 * 1024 }, 413);
+  }
   const days = parsePlanCsv(csv);
+  if (days.length === 0) return c.json({ error: "csv_empty" }, 400);
+  if (days.length > 400) return c.json({ error: "days_limit", max: 400 }, 400);
   const db = drizzle(c.env.DB, { schema });
   const now = Date.now();
   const id = createId("plan");
