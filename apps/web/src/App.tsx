@@ -52,7 +52,7 @@ function AppShell() {
   );
 }
 
-/** Desktop ops console: no consumer TabBar; full-width workbench. */
+/** Admin workbench (phone + desktop): no consumer TabBar. */
 function AdminShell() {
   return (
     <AuthGate>

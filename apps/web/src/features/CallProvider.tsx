@@ -422,6 +422,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const startOutboundCall = useCallback(
     (conversationId: string, opts?: { video?: boolean; peerLabel?: string }) => {
       if (answeringRef.current || callRef.current) return;
+      const convo = conversationsRef.current.find((c) => c.id === conversationId);
+      // Product honesty: only 1:1 DM calls are supported (inbound listen is DM-only).
+      if (convo && convo.kind !== "dm") {
+        setCallNote(t("chat.callDmOnly"));
+        return;
+      }
       answeringRef.current = true;
       const video = opts?.video ?? callVideo;
       void (async () => {
@@ -442,7 +448,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         });
       })();
     },
-    [callVideo, runCall],
+    [callVideo, runCall, t],
   );
 
   const shareScreen = useCallback(

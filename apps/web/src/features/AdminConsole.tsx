@@ -123,6 +123,10 @@ export function AdminConsole() {
   const [addMemberUserId, setAddMemberUserId] = useState("");
   const [addMemberAsLeader, setAddMemberAsLeader] = useState(false);
   const [churchName, setChurchName] = useState("");
+  const [newChurchName, setNewChurchName] = useState("");
+  const [newChurchSlug, setNewChurchSlug] = useState("");
+  const [newChurchSecurity, setNewChurchSecurity] = useState<SecurityMode>("standard");
+  const [inviteCodeOut, setInviteCodeOut] = useState<string | null>(null);
   const [bootstrapSecret, setBootstrapSecret] = useState("");
   const [churchFilter, setChurchFilter] = useState("");
   const [pdTid, setPdTid] = useState<(typeof PD_CORPUS_TIDS)[number]>("web");
@@ -245,6 +249,7 @@ export function AdminConsole() {
 
   useEffect(() => {
     if (selected) setChurchName(selected.name);
+    setInviteCodeOut(null);
   }, [selected]);
 
   useEffect(() => {
@@ -301,6 +306,41 @@ export function AdminConsole() {
       });
       setNote("saved");
       await loadChurches();
+    });
+  }
+
+  async function createChurch() {
+    if (!access?.platformAdmin || !newChurchName.trim() || !newChurchSlug.trim()) return;
+    await run(async () => {
+      const created = await api<{ id: string }>("/v1/home/churches", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newChurchName.trim(),
+          slug: newChurchSlug.trim().toLowerCase(),
+          securityMode: newChurchSecurity,
+        }),
+      });
+      setNewChurchName("");
+      setNewChurchSlug("");
+      setNewChurchSecurity("standard");
+      setNote("home_created");
+      await loadChurches();
+      if (created.id) setChurchId(created.id);
+    });
+  }
+
+  async function mintInvite() {
+    if (!churchId) return;
+    await run(async () => {
+      const res = await api<{ code: string }>(
+        `/v1/home/${encodeURIComponent(churchId)}/invites`,
+        {
+          method: "POST",
+          body: JSON.stringify({ maxUses: 5, ttlHours: 72 }),
+        },
+      );
+      setInviteCodeOut(res.code);
+      setNote("invite_created");
     });
   }
 
@@ -497,9 +537,11 @@ export function AdminConsole() {
 
   if (!getToken()) {
     return (
-      <section className="fade-up" data-testid="admin-console">
-        <h1 className="brand">{t("admin.title")}</h1>
-        <p className="muted">{t("auth.loginRequired")}</p>
+      <section className="admin-gate fade-up" data-testid="admin-console">
+        <header className="admin-gate-head">
+          <h1 className="brand">{t("admin.title")}</h1>
+          <p className="muted">{t("auth.loginRequired")}</p>
+        </header>
         <Link className="btn" to="/app/me">
           {t("nav.me")}
         </Link>
@@ -509,12 +551,14 @@ export function AdminConsole() {
 
   if (access && !access.canAccessConsole) {
     return (
-      <section className="fade-up" data-testid="admin-console">
-        <h1 className="brand">{t("admin.title")}</h1>
-        <p className="muted" role="status">
-          {t("admin.forbidden")}
-        </p>
-        <div className="panel">
+      <section className="admin-gate fade-up" data-testid="admin-console">
+        <header className="admin-gate-head">
+          <h1 className="brand">{t("admin.title")}</h1>
+          <p className="muted" role="status">
+            {t("admin.forbidden")}
+          </p>
+        </header>
+        <div className="panel admin-panel">
           <h2 style={{ marginTop: 0 }}>{t("admin.bootstrap")}</h2>
           <p className="muted">{t("admin.bootstrapHint")}</p>
           <div className="field">
@@ -537,6 +581,9 @@ export function AdminConsole() {
           </button>
         </div>
         {note ? <p className="muted">{humanizeStatus(t, note)}</p> : null}
+        <Link className="btn ghost" to="/app/home">
+          {t("admin.backToApp")}
+        </Link>
       </section>
     );
   }
@@ -553,6 +600,18 @@ export function AdminConsole() {
 
   return (
     <section className="admin-console fade-up" data-testid="admin-console">
+      <header className="admin-topbar" data-testid="admin-topbar">
+        <div className="admin-topbar-copy">
+          <h1 className="brand admin-topbar-title">{t("admin.title")}</h1>
+          <p className="muted admin-topbar-role">
+            {access?.platformAdmin ? t("admin.platformAdmin") : t("admin.churchAdmin")}
+          </p>
+        </div>
+        <Link className="btn ghost admin-topbar-back" to="/app/home" data-testid="admin-back-app-mobile">
+          {t("admin.backToApp")}
+        </Link>
+      </header>
+
       <aside className="admin-sidebar" aria-label={t("admin.title")}>
         <div className="admin-sidebar-brand">
           <h1 className="brand">{t("admin.title")}</h1>
@@ -560,7 +619,7 @@ export function AdminConsole() {
             {access?.platformAdmin ? t("admin.platformAdmin") : t("admin.churchAdmin")}
           </p>
         </div>
-        <nav className="admin-nav" role="tablist">
+        <nav className="admin-nav" role="tablist" aria-label={t("admin.title")}>
           {sections.map((s) => (
             <button
               key={s.id}
@@ -576,9 +635,7 @@ export function AdminConsole() {
           ))}
         </nav>
         <div className="admin-sidebar-foot">
-          <p className="muted" style={{ fontSize: "0.82rem" }}>
-            {t("admin.desktopHint")}
-          </p>
+          <p className="muted admin-hint">{t("admin.adaptiveHint")}</p>
           <Link className="btn ghost" to="/app/home" data-testid="admin-back-app">
             {t("admin.backToApp")}
           </Link>
@@ -586,17 +643,29 @@ export function AdminConsole() {
       </aside>
 
       <div className="admin-main">
-        {note ? <p className="muted admin-banner">{humanizeStatus(t, note)}</p> : null}
+        {note ? <p className="muted admin-banner" role="status">{humanizeStatus(t, note)}</p> : null}
 
-      <div className="panel" data-testid="admin-church-picker">
-        <h2 style={{ marginTop: 0 }}>{t("admin.selectHome")}</h2>
+      <div className="admin-context panel" data-testid="admin-church-picker">
+        <div className="admin-context-head">
+          <h2 className="admin-context-title">{t("admin.selectHome")}</h2>
+          {selected ? (
+            <p className="muted admin-context-meta" data-testid="admin-church-meta">
+              {selected.memberCount} {t("admin.members")} · {selected.groupCount} {t("admin.groups")}
+              {selected.securityMode === "hostile" ? (
+                <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
         {churches.length === 0 ? (
-          <p className="muted">—</p>
+          <p className="muted admin-empty">{t("home.noHomes")}</p>
         ) : (
           <>
             {churches.length > 8 ? (
-              <div className="field">
-                <label htmlFor="admin-church-filter">{t("admin.selectHome")}</label>
+              <div className="field admin-context-filter">
+                <label htmlFor="admin-church-filter" className="sr-only">
+                  {t("admin.selectHome")}
+                </label>
                 <input
                   id="admin-church-filter"
                   data-testid="admin-church-filter"
@@ -606,7 +675,33 @@ export function AdminConsole() {
                 />
               </div>
             ) : null}
-            <div className="field">
+            <div
+              className="admin-church-switcher"
+              role="list"
+              aria-label={t("admin.selectHome")}
+              data-testid="admin-church-list"
+            >
+              {pickerChurches.slice(0, 40).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="listitem"
+                  className={`admin-church-chip${churchId === c.id ? " is-selected" : ""}`}
+                  data-testid={`admin-church-chip-${c.id}`}
+                  onClick={() => setChurchId(c.id)}
+                >
+                  <span className="admin-church-chip-name">{c.name}</span>
+                  <span className="admin-church-chip-meta">
+                    {c.slug}
+                    {c.securityMode === "hostile"
+                      ? ` · ${t("home.securityMode.hostileBadge")}`
+                      : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {/* Keep a native select for accessibility / keyboard users */}
+            <div className="field admin-church-select-wrap">
               <label htmlFor="admin-church-select">{t("admin.selectHome")}</label>
               <select
                 id="admin-church-select"
@@ -622,155 +717,224 @@ export function AdminConsole() {
                 ))}
               </select>
             </div>
-            {selected ? (
-              <p className="muted" data-testid="admin-church-meta">
-                {selected.role} · {selected.memberCount} {t("admin.members")} ·{" "}
-                {selected.groupCount} {t("admin.groups")}
-                {selected.securityMode === "hostile" ? (
-                  <span className="badge-hostile"> · {t("home.securityMode.hostileBadge")}</span>
-                ) : null}
-              </p>
-            ) : null}
-            {section === "homes" && pickerChurches.length > 1 ? (
-              <ul className="list" data-testid="admin-church-list">
-                {pickerChurches.slice(0, 40).map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      className={`btn ghost${churchId === c.id ? " active-toggle" : ""}`}
-                      onClick={() => setChurchId(c.id)}
-                    >
-                      {c.name}
-                      {churchId === c.id ? ` · ${t("home.selected")}` : ""}
-                    </button>
-                    <div className="muted">
-                      {c.role} · {c.memberCount} {t("admin.members")} · {c.groupCount}{" "}
-                      {t("admin.groups")}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </>
         )}
       </div>
 
       {section === "homes" && (
-        <div className="panel" data-testid="admin-homes-panel">
-          <h2 style={{ marginTop: 0 }}>{t("admin.sectionHomes")}</h2>
+        <div className="panel admin-panel" data-testid="admin-homes-panel">
+          <header className="admin-panel-head">
+            <h2>{t("admin.sectionHomes")}</h2>
+            <p className="muted">{t("admin.sectionHomesHint")}</p>
+          </header>
+
+          {access?.platformAdmin && (
+            <div className="admin-block admin-create-home" data-testid="admin-create-home">
+              <h3>{t("admin.createHome")}</h3>
+              <p className="muted">{t("admin.createHomeHint")}</p>
+              <div className="admin-form-grid">
+                <div className="field">
+                  <label>{t("home.homeName")}</label>
+                  <input
+                    value={newChurchName}
+                    onChange={(e) => setNewChurchName(e.target.value)}
+                    data-testid="admin-create-name"
+                  />
+                </div>
+                <div className="field">
+                  <label>{t("home.homeSlug")}</label>
+                  <input
+                    value={newChurchSlug}
+                    onChange={(e) => setNewChurchSlug(e.target.value)}
+                    placeholder={t("home.slugPlaceholder")}
+                    data-testid="admin-create-slug"
+                  />
+                </div>
+                <div className="field">
+                  <label>{t("home.securityMode")}</label>
+                  <select
+                    value={newChurchSecurity}
+                    onChange={(e) => setNewChurchSecurity(e.target.value as SecurityMode)}
+                    data-testid="admin-create-security"
+                  >
+                    <option value="standard">{t("home.securityMode.standard")}</option>
+                    <option value="hostile">{t("home.securityMode.hostile")}</option>
+                  </select>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !newChurchName.trim() || !newChurchSlug.trim()}
+                data-testid="admin-create-submit"
+                onClick={() => void createChurch()}
+              >
+                {t("home.createHome")}
+              </button>
+            </div>
+          )}
+
           {!selected ? (
-            <p className="muted">—</p>
+            <p className="muted admin-empty">
+              {churches.length === 0 ? t("home.noHomes") : t("admin.pickHomeFirst")}
+            </p>
           ) : (
             <>
-              <div className="field">
-                <label>{t("home.churchName")}</label>
-                <input
-                  value={churchName}
-                  onChange={(e) => setChurchName(e.target.value)}
-                  data-testid="admin-church-name"
-                />
-              </div>
-              <button type="button" className="btn" disabled={busy} onClick={() => void saveChurch()}>
-                {t("me.save")}
-              </button>
-              <h3 style={{ marginTop: "1.25rem" }}>{t("home.securityMode")}</h3>
-              <div className="toolbar">
-                <button
-                  type="button"
-                  className={`btn ghost${selected.securityMode === "standard" ? " active-toggle" : ""}`}
-                  disabled={busy || selected.securityMode === "standard"}
-                  onClick={() => void setSecurityMode("standard")}
-                >
-                  {t("home.securityMode.standard")}
-                </button>
-                <button
-                  type="button"
-                  className={`btn ghost${selected.securityMode === "hostile" ? " active-toggle" : ""}`}
-                  disabled={busy || selected.securityMode === "hostile"}
-                  onClick={() => void setSecurityMode("hostile")}
-                >
-                  {t("home.securityMode.hostile")}
-                </button>
+              <div className="admin-block" data-testid="admin-home-settings">
+                <h3>{t("home.churchName")}</h3>
+                <div className="admin-form-grid">
+                  <div className="field">
+                    <label>{t("home.churchName")}</label>
+                    <input
+                      value={churchName}
+                      onChange={(e) => setChurchName(e.target.value)}
+                      data-testid="admin-church-name"
+                    />
+                  </div>
+                </div>
+                <div className="admin-actions">
+                  <button type="button" className="btn" disabled={busy} onClick={() => void saveChurch()}>
+                    {t("me.save")}
+                  </button>
+                </div>
+
+                <h3>{t("home.securityMode")}</h3>
+                <p className="muted">
+                  {selected.securityMode === "hostile"
+                    ? t("home.securityMode.hostileHint")
+                    : t("home.securityMode.standardHint")}
+                </p>
+                <div className="admin-actions admin-toggle-row">
+                  <button
+                    type="button"
+                    className={`btn ghost${selected.securityMode === "standard" ? " active-toggle" : ""}`}
+                    disabled={busy || selected.securityMode === "standard"}
+                    onClick={() => void setSecurityMode("standard")}
+                  >
+                    {t("home.securityMode.standard")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ghost${selected.securityMode === "hostile" ? " active-toggle" : ""}`}
+                    disabled={busy || selected.securityMode === "hostile"}
+                    onClick={() => void setSecurityMode("hostile")}
+                  >
+                    {t("home.securityMode.hostile")}
+                  </button>
+                </div>
               </div>
 
-              <h3 style={{ marginTop: "1.25rem" }}>{t("admin.members")}</h3>
-              <ul className="list" data-testid="admin-member-list">
-                {members.map((m) => (
-                  <li key={m.userId}>
-                    <strong>{m.uid ?? m.userId}</strong>
-                    <div className="muted">
-                      {t(`home.role.${adminRoleLabelKey(m.role)}`)}
-                      {m.verified ? ` · ${t("me.verified")}` : ` · ${t("me.pendingVerify")}`}
-                      {m.tombstoned ? ` · ${t("admin.tombstoned")}` : ""}
-                    </div>
-                    <div className="toolbar" style={{ marginTop: "0.5rem" }}>
-                      <select
-                        value={normalizeAdminSelectRole(m.role)}
-                        disabled={busy}
-                        aria-label={t("admin.memberRole")}
-                        onChange={(e) => void patchMember(m.userId, { role: e.target.value })}
-                      >
-                        <option value="member">{t("home.role.member")}</option>
-                        <option value="elder">{t("home.role.elder")}</option>
-                        <option value="deacon">{t("home.role.deacon")}</option>
-                        <option value="coworker">{t("home.role.coworker")}</option>
-                        <option value="security_officer">{t("home.role.securityOfficer")}</option>
-                      </select>
-                      {!m.verified && (
+              <div className="admin-block" data-testid="admin-home-invites">
+                <h3>{t("home.mintInvite")}</h3>
+                <p className="muted">{t("home.mintInviteHint")}</p>
+                <div className="admin-actions">
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    data-testid="admin-mint-invite"
+                    onClick={() => void mintInvite()}
+                  >
+                    {t("home.mintInvite")}
+                  </button>
+                </div>
+                {inviteCodeOut ? (
+                  <p className="mono admin-invite-out" data-testid="admin-invite-code-out">
+                    {inviteCodeOut}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="admin-block" data-testid="admin-home-members">
+                <h3>{t("admin.members")}</h3>
+                <ul className="admin-entity-list" data-testid="admin-member-list">
+                  {members.length === 0 && <li className="muted admin-empty">{t("admin.noMembership")}</li>}
+                  {members.map((m) => (
+                    <li key={m.userId} className="admin-entity-card">
+                      <div className="admin-entity-main">
+                        <strong>{m.uid ?? m.userId}</strong>
+                        <div className="muted">
+                          {t(`home.role.${adminRoleLabelKey(m.role)}`)}
+                          {m.verified ? ` · ${t("me.verified")}` : ` · ${t("me.pendingVerify")}`}
+                          {m.tombstoned ? ` · ${t("admin.tombstoned")}` : ""}
+                        </div>
+                      </div>
+                      <div className="admin-entity-actions">
+                        <select
+                          value={normalizeAdminSelectRole(m.role)}
+                          disabled={busy}
+                          aria-label={t("admin.memberRole")}
+                          onChange={(e) => void patchMember(m.userId, { role: e.target.value })}
+                        >
+                          <option value="member">{t("home.role.member")}</option>
+                          <option value="elder">{t("home.role.elder")}</option>
+                          <option value="deacon">{t("home.role.deacon")}</option>
+                          <option value="coworker">{t("home.role.coworker")}</option>
+                          <option value="security_officer">{t("home.role.securityOfficer")}</option>
+                        </select>
+                        {!m.verified && (
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={busy}
+                            onClick={() => void patchMember(m.userId, { verified: true })}
+                          >
+                            {t("home.verify")}
+                          </button>
+                        )}
                         <button
                           type="button"
-                          className="btn"
+                          className="btn danger"
                           disabled={busy}
-                          onClick={() => void patchMember(m.userId, { verified: true })}
+                          onClick={() => void removeMember(m.userId)}
                         >
-                          {t("home.verify")}
+                          {t("admin.removeMember")}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn danger"
-                        disabled={busy}
-                        onClick={() => void removeMember(m.userId)}
-                      >
-                        {t("admin.removeMember")}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </>
           )}
         </div>
       )}
 
       {section === "users" && (
-        <div className="panel" data-testid="admin-users-panel">
-          <h2 style={{ marginTop: 0 }}>{t("admin.sectionUsers")}</h2>
-          <ul className="list" data-testid="admin-user-list">
-            {users.length === 0 && <li className="muted">—</li>}
+        <div className="panel admin-panel" data-testid="admin-users-panel">
+          <header className="admin-panel-head">
+            <h2>{t("admin.sectionUsers")}</h2>
+            <p className="muted">{t("admin.sectionUsersHint")}</p>
+          </header>
+          <ul className="admin-entity-list" data-testid="admin-user-list">
+            {users.length === 0 && <li className="muted admin-empty">—</li>}
             {users.map((u) => (
-              <li key={u.userId}>
-                <strong>{u.uid ?? u.userId}</strong>
-                <div className="muted">
-                  {u.userId}
-                  {u.platformRole ? ` · ${u.platformRole}` : ""}
-                  {u.tombstoned ? ` · ${t("admin.tombstoned")}` : ""}
-                </div>
-                <div className="muted">
-                  {u.memberships
-                    .map((m) => `${m.role}${m.verified ? "" : " (pending)"}`)
-                    .join(" · ") || t("admin.noMembership")}
+              <li key={u.userId} className="admin-entity-card">
+                <div className="admin-entity-main">
+                  <strong>{u.uid ?? u.userId}</strong>
+                  <div className="muted">
+                    {u.userId}
+                    {u.platformRole ? ` · ${u.platformRole}` : ""}
+                    {u.tombstoned ? ` · ${t("admin.tombstoned")}` : ""}
+                  </div>
+                  <div className="muted">
+                    {u.memberships
+                      .map((m) => `${m.role}${m.verified ? "" : " (pending)"}`)
+                      .join(" · ") || t("admin.noMembership")}
+                  </div>
                 </div>
                 {!u.tombstoned && (
-                  <button
-                    type="button"
-                    className="btn danger"
-                    disabled={busy}
-                    data-testid={`admin-wipe-${u.userId}`}
-                    onClick={() => void remoteWipe(u.userId)}
-                  >
-                    {t("security.adminWipe")}
-                  </button>
+                  <div className="admin-entity-actions">
+                    <button
+                      type="button"
+                      className="btn danger"
+                      disabled={busy}
+                      data-testid={`admin-wipe-${u.userId}`}
+                      onClick={() => void remoteWipe(u.userId)}
+                    >
+                      {t("security.adminWipe")}
+                    </button>
+                  </div>
                 )}
               </li>
             ))}
@@ -779,11 +943,11 @@ export function AdminConsole() {
       )}
 
       {section === "groups" && churchId && (
-        <div className="panel" data-testid="admin-groups-panel">
-          <h2 style={{ marginTop: 0 }}>{t("admin.sectionGroups")}</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            {t("admin.groupsHint")}
-          </p>
+        <div className="panel admin-panel" data-testid="admin-groups-panel">
+          <header className="admin-panel-head">
+            <h2>{t("admin.sectionGroups")}</h2>
+            <p className="muted">{t("admin.groupsHint")}</p>
+          </header>
 
           <div className="admin-groups-layout">
             <div className="admin-groups-list" data-testid="admin-group-list">
@@ -849,17 +1013,19 @@ export function AdminConsole() {
                     {t("home.manageGroupMembers")}
                   </p>
 
-                  <ul className="list">
+                  <ul className="admin-entity-list">
                     {groupMembers.length === 0 && (
-                      <li className="muted">{t("home.noGroupMembers")}</li>
+                      <li className="muted admin-empty">{t("home.noGroupMembers")}</li>
                     )}
                     {groupMembers.map((m) => (
-                      <li key={m.userId}>
-                        <strong>{m.nickname || m.uid || m.userId}</strong>
-                        <div className="muted">
-                          {m.role === "leader" ? t("home.role.groupLeader") : t("home.role.member")}
+                      <li key={m.userId} className="admin-entity-card">
+                        <div className="admin-entity-main">
+                          <strong>{m.nickname || m.uid || m.userId}</strong>
+                          <div className="muted">
+                            {m.role === "leader" ? t("home.role.groupLeader") : t("home.role.member")}
+                          </div>
                         </div>
-                        <div className="toolbar" style={{ marginTop: "0.4rem" }}>
+                        <div className="admin-entity-actions">
                           {m.role !== "leader" ? (
                             <button
                               type="button"
@@ -990,48 +1156,60 @@ export function AdminConsole() {
       )}
 
       {section === "wipe" && (
-        <div className="panel" data-testid="admin-wipe-panel">
-          <h2 style={{ marginTop: 0 }}>{t("admin.sectionWipe")}</h2>
-          <p className="muted">{t("security.adminWipeHint")}</p>
-          <ul className="list" data-testid="admin-wipe-list">
-            {wipes.length === 0 && <li className="muted">{t("admin.noWipes")}</li>}
+        <div className="panel admin-panel" data-testid="admin-wipe-panel">
+          <header className="admin-panel-head">
+            <h2>{t("admin.sectionWipe")}</h2>
+            <p className="muted">{t("security.adminWipeHint")}</p>
+          </header>
+          <ul className="admin-entity-list" data-testid="admin-wipe-list">
+            {wipes.length === 0 && <li className="muted admin-empty">{t("admin.noWipes")}</li>}
             {wipes.map((w) => (
-              <li key={w.id}>
-                <strong>{w.id}</strong>
-                <div className="muted">
-                  {w.userId} · {w.reasonCode} · {w.status}
-                  {w.deviceId ? ` · ${w.deviceId}` : ""}
+              <li key={w.id} className="admin-entity-card">
+                <div className="admin-entity-main">
+                  <strong>{w.id}</strong>
+                  <div className="muted">
+                    {w.userId} · {w.reasonCode} · {w.status}
+                    {w.deviceId ? ` · ${w.deviceId}` : ""}
+                  </div>
                 </div>
               </li>
             ))}
           </ul>
-          <h3 style={{ marginTop: "1.25rem" }}>{t("admin.wipeFromUsers")}</h3>
-          <ul className="list">
-            {users
-              .filter((u) => !u.tombstoned)
-              .map((u) => (
-                <li key={u.userId}>
-                  <strong>{u.uid ?? u.userId}</strong>
-                  <button
-                    type="button"
-                    className="btn danger"
-                    disabled={busy}
-                    onClick={() => void remoteWipe(u.userId)}
-                  >
-                    {t("security.adminWipe")}
-                  </button>
-                </li>
-              ))}
-          </ul>
+          <div className="admin-block">
+            <h3>{t("admin.wipeFromUsers")}</h3>
+            <ul className="admin-entity-list">
+              {users
+                .filter((u) => !u.tombstoned)
+                .map((u) => (
+                  <li key={u.userId} className="admin-entity-card">
+                    <div className="admin-entity-main">
+                      <strong>{u.uid ?? u.userId}</strong>
+                    </div>
+                    <div className="admin-entity-actions">
+                      <button
+                        type="button"
+                        className="btn danger"
+                        disabled={busy}
+                        onClick={() => void remoteWipe(u.userId)}
+                      >
+                        {t("security.adminWipe")}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          </div>
         </div>
       )}
 
       {section === "corpus" && access?.platformAdmin && (
-        <div className="panel" data-testid="admin-corpus-panel">
-          <h2 style={{ marginTop: 0 }}>{t("admin.sectionCorpus")}</h2>
-          <p className="muted">{t("admin.corpusHint")}</p>
-          <div className="toolbar" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
-            <div className="field" style={{ margin: 0 }}>
+        <div className="panel admin-panel" data-testid="admin-corpus-panel">
+          <header className="admin-panel-head">
+            <h2>{t("admin.sectionCorpus")}</h2>
+            <p className="muted">{t("admin.corpusHint")}</p>
+          </header>
+          <div className="admin-form-grid admin-corpus-controls">
+            <div className="field">
               <label htmlFor="admin-corpus-tid">{t("admin.corpusTid")}</label>
               <select
                 id="admin-corpus-tid"
@@ -1046,7 +1224,7 @@ export function AdminConsole() {
                 ))}
               </select>
             </div>
-            <div className="field" style={{ margin: 0 }}>
+            <div className="field">
               <label htmlFor="admin-corpus-book">{t("admin.corpusBookNr")}</label>
               <input
                 id="admin-corpus-book"
@@ -1058,6 +1236,8 @@ export function AdminConsole() {
                 onChange={(e) => setPdBookNr(Number(e.target.value) || 1)}
               />
             </div>
+          </div>
+          <div className="admin-actions">
             <button
               type="button"
               className="btn"
@@ -1115,9 +1295,11 @@ export function AdminConsole() {
       )}
 
       {access && !access.platformAdmin && (
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>{t("admin.bootstrap")}</h2>
-          <p className="muted">{t("admin.bootstrapHint")}</p>
+        <div className="panel admin-panel" data-testid="admin-bootstrap-panel">
+          <header className="admin-panel-head">
+            <h2>{t("admin.bootstrap")}</h2>
+            <p className="muted">{t("admin.bootstrapHint")}</p>
+          </header>
           <div className="field">
             <label>{t("admin.bootstrapSecret")}</label>
             <input
@@ -1126,16 +1308,22 @@ export function AdminConsole() {
               onChange={(e) => setBootstrapSecret(e.target.value)}
             />
           </div>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy || !bootstrapSecret}
-            onClick={() => void bootstrapPlatform()}
-          >
-            {t("admin.bootstrap")}
-          </button>
+          <div className="admin-actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={busy || !bootstrapSecret}
+              onClick={() => void bootstrapPlatform()}
+            >
+              {t("admin.bootstrap")}
+            </button>
+          </div>
         </div>
       )}
+
+      <footer className="admin-mobile-foot">
+        <p className="muted admin-hint">{t("admin.adaptiveHint")}</p>
+      </footer>
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  decryptSessionPayload,
   deriveSessionKey,
   encryptSessionPayload,
 } from "@logoshome/crypto";
@@ -125,7 +126,10 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [favorites, setFavorites] = useState<{ id: string; messageId: string }[]>([]);
+  const [favorites, setFavorites] = useState<
+    { id: string; messageId: string; preview?: string; createdAt?: number }[]
+  >([]);
+  const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const [listTab, setListTab] = useState<"dm" | "group" | "archived">("dm");
   const [sheet, setSheet] = useState<"none" | "discover" | "compose">("none");
@@ -600,8 +604,27 @@ export function ChatPanel({
   const loadFavorites = useCallback(async () => {
     if (!getToken()) return;
     try {
-      const res = await api<{ favorites: { id: string; messageId: string }[] }>("/v1/chat/favorites");
-      setFavorites(res.favorites);
+      const res = await api<{
+        favorites: { id: string; messageId: string; ciphertext: string; iv: string; createdAt: number }[];
+      }>("/v1/chat/favorites");
+      const key = await sessionKeyFor("fav");
+      const decoded = await Promise.all(
+        res.favorites.map(async (f) => {
+          let preview = "";
+          try {
+            preview = await decryptSessionPayload(key, f.iv, f.ciphertext, "fav");
+          } catch {
+            preview = "";
+          }
+          return {
+            id: f.id,
+            messageId: f.messageId,
+            preview: preview || undefined,
+            createdAt: f.createdAt,
+          };
+        }),
+      );
+      setFavorites(decoded);
     } catch {
       /* endpoint may be unavailable in older deploys */
     }
@@ -1001,18 +1024,29 @@ export function ChatPanel({
   }, [plaintexts, selectedId]);
 
   async function favoriteMessage(m: ChatMessage) {
+    if (favoriteBusyId === m.id) return;
     const text = payloadPreview(plaintexts[m.id], plaintexts[m.id] ?? "");
-    const key = await sessionKeyFor(selectedId ?? "fav");
-    const enc = await encryptSessionPayload(key, text, "fav");
-    await api("/v1/chat/favorites", {
-      method: "POST",
-      body: JSON.stringify({
-        messageId: m.id,
-        ciphertext: enc.ciphertext,
-        iv: enc.ratchetHeader,
-      }),
-    });
-    await loadFavorites();
+    if (!text.trim()) return;
+    setFavoriteBusyId(m.id);
+    try {
+      // Stable user-scoped key so archived favorites decrypt without conversation id.
+      const key = await sessionKeyFor("fav");
+      const enc = await encryptSessionPayload(key, text, "fav");
+      await api("/v1/chat/favorites", {
+        method: "POST",
+        body: JSON.stringify({
+          messageId: m.id,
+          ciphertext: enc.ciphertext,
+          iv: enc.ratchetHeader,
+        }),
+      });
+      setNote("message_favorited");
+      await loadFavorites();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setFavoriteBusyId(null);
+    }
   }
 
   async function patchTtl(ttl: number | null) {
@@ -1116,21 +1150,35 @@ export function ChatPanel({
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              className="btn ghost im-call-btn"
-              data-testid="chat-call"
-              disabled={busy || dmPeerBlocked}
-              aria-label={t("chat.call")}
-              onClick={() => {
-                if (!selectedId) return;
-                startOutboundCall(selectedId, {
-                  peerLabel: selected ? convoLabel(selected) : undefined,
-                });
-              }}
-            >
-              <IconPhone />
-            </button>
+            {selected.kind === "dm" ? (
+              <button
+                type="button"
+                className="btn ghost im-call-btn"
+                data-testid="chat-call"
+                disabled={busy || dmPeerBlocked}
+                aria-label={t("chat.call")}
+                title={t("chat.call")}
+                onClick={() => {
+                  if (!selectedId) return;
+                  startOutboundCall(selectedId, {
+                    peerLabel: selected ? convoLabel(selected) : undefined,
+                  });
+                }}
+              >
+                <IconPhone />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn ghost im-call-btn"
+                data-testid="chat-call-dm-only"
+                disabled
+                aria-label={t("chat.callDmOnly")}
+                title={t("chat.callDmOnly")}
+              >
+                <IconPhone />
+              </button>
+            )}
             <details className="im-more">
               <summary className="btn ghost" aria-label={t("chat.more")}>
                 <IconMore />
@@ -1279,6 +1327,21 @@ export function ChatPanel({
                         ? ` · ${t("chat.disappearing")} ${new Date(m.expiresAt).toLocaleString()}`
                         : ""}
                     </span>
+                    {!loading && m.contentType !== "control" && (
+                      <button
+                        type="button"
+                        className={`btn ghost im-fav-btn${
+                          favorites.some((f) => f.messageId === m.id) ? " is-active" : ""
+                        }`}
+                        data-testid={`chat-favorite-${m.id}`}
+                        disabled={favoriteBusyId === m.id || favorites.some((f) => f.messageId === m.id)}
+                        aria-label={t("chat.favorite")}
+                        title={t("chat.favorite")}
+                        onClick={() => void favoriteMessage(m)}
+                      >
+                        ★
+                      </button>
+                    )}
                     {mine && m.contentType !== "control" && (
                       <span
                         className={`im-receipt${isRead ? " is-read" : ""}`}
@@ -1452,9 +1515,29 @@ export function ChatPanel({
                 </li>
               );
             })}
-            {listTab === "archived" && favorites.length > 0 && (
-              <li className="muted">
-                {t("chat.favorites")}: {favorites.length}
+            {listTab === "archived" && (
+              <li className="chat-favorites-block" data-testid="chat-favorites-list">
+                <strong className="chat-favorites-heading">{t("chat.favorites")}</strong>
+                {favorites.length === 0 ? (
+                  <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                    {t("chat.favoritesEmpty")}
+                  </p>
+                ) : (
+                  <ul className="chat-favorites-items">
+                    {favorites.map((f) => (
+                      <li key={f.id} data-testid={`chat-favorite-item-${f.id}`}>
+                        <span className="chat-favorite-preview">
+                          {f.preview?.trim() || t("chat.favoriteEncrypted")}
+                        </span>
+                        {f.createdAt ? (
+                          <span className="muted convo-row-time">
+                            {formatConvoWhen(f.createdAt)}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             )}
           </ul>

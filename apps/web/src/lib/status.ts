@@ -52,6 +52,7 @@ export function humanizeStatus(
     group_member_removed: "home.removeGroupMember",
     roles_updated: "home.saveRoles",
     assembly_notify_sent: "home.assembly.notifySent",
+    message_favorited: "chat.favorited",
     friend_request_sent: "friend_request_sent",
     user_not_found: "comms.contactsEmpty",
     already_friends: "comms.friendBadge",
