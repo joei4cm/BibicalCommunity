@@ -77,13 +77,13 @@ describe("fetchR2ChaptersByKeys", () => {
       "bible/cuvs/Gen.1.json": JSON.stringify({
         book: "Gen",
         chapter: 1,
-        verses: [{ verse: 1, text: "a" }],
+        verses: [{ verse: 1, text: "起初，神创造天地。" }],
       }),
       "bible/cuvs/Gen.2.json": "not-json",
       "bible/cuvs/Exod.1.json": JSON.stringify({
         book: "Exod",
         chapter: 1,
-        verses: [{ verse: 1, text: "b" }],
+        verses: [{ verse: 1, text: "以色列的众子，各带家眷和雅各一同来到埃及。" }],
       }),
     };
     let inflight = 0;

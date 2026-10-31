@@ -5,6 +5,7 @@
 import {
   parseR2ChapterJson,
   parseR2ChapterObjectKey,
+  sanitizeCorpusVerses,
   type R2ChapterJson,
 } from "@logoshome/bible";
 
@@ -107,7 +108,11 @@ export async function fetchR2ChaptersByKeys(
     const body = await media.get(key);
     if (!body) return null;
     try {
-      return parseR2ChapterJson(await body.text());
+      const chapter = parseR2ChapterJson(await body.text());
+      return {
+        ...chapter,
+        verses: sanitizeCorpusVerses(chapter.verses),
+      };
     } catch {
       return null;
     }

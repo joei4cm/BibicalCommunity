@@ -315,7 +315,8 @@ export function listDownloadableCorpusCatalog(): DownloadableCorpusPack[] {
 
     packs.push({
       translationId: t.id,
-      version: 1,
+      // v2: clients re-pull after PD footnote-marker (`a`) sanitization.
+      version: 2,
       name: t.name,
       language: t.language,
       license: t.license,

@@ -151,7 +151,7 @@ function partnerSsoEnabled(chapter: { url: string; sso?: boolean }): boolean {
 
 /** Strip demo fixture markers so reading UI is not visually polluted. */
 function displayVerseText(text: string): string {
-  return text
+  const trimmed = text
     .replace(/[（(]\s*样例[^）)]*[）)]/gi, "")
     .replace(/[（(]\s*fixture[^）)]*[）)]/gi, "")
     .replace(/[（(]\s*見本[^）)]*[）)]/g, "")
@@ -159,6 +159,9 @@ function displayVerseText(text: string): string {
     .replace(/\s*\(local-db(?:\s+demo)?\)\s*/gi, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
+  // CrossWire/getbible sometimes dumps Latin footnote markers as whole verses.
+  if (/^[a-z]{1,3}$/i.test(trimmed)) return "";
+  return trimmed;
 }
 
 function rangeIncludes(range: VerseRange | null, verse: number): boolean {
@@ -455,6 +458,8 @@ function ChapterPane({
           {chapter.chapter}
         </span>
         {chapter.verses.map((v) => {
+          const body = displayVerseText(v.text);
+          if (!body) return null;
           const hl = highlightByVerse?.[v.verse];
           const selected = rangeIncludes(selection, v.verse);
           const heading = headingAt.get(v.verse);
@@ -483,7 +488,7 @@ function ChapterPane({
                 title={t("reader.longPressSelect")}
               >
                 <sup className="verse-num">{v.verse}</sup>
-                {displayVerseText(v.text)}{" "}
+                {body}{" "}
               </span>
             </span>
           );
@@ -1303,7 +1308,12 @@ export function BibleReader() {
             translationId,
             book: local.book,
             chapter: local.chapter,
-            verses: local.verses,
+            verses: densifyChapterVerses(
+              translationId,
+              local.book,
+              local.chapter,
+              local.verses,
+            ),
             source: "local-db",
           });
         }

@@ -51,10 +51,19 @@ for (const tid of tids) {
     }
     for (const ch of book.chapters ?? []) {
       const chapter = Number(ch.chapter);
-      const verses = (ch.verses ?? []).map((v) => ({
-        verse: Number(v.verse),
-        text: String(v.text ?? "").replace(/\s+/g, " ").trim(),
-      }));
+      // Drop CrossWire footnote-marker leaks (`a`) — real text lives in the prior verse.
+      const verses = (ch.verses ?? [])
+        .map((v) => ({
+          verse: Number(v.verse),
+          text: String(v.text ?? "").replace(/\s+/g, " ").trim(),
+        }))
+        .filter(
+          (v) =>
+            Number.isFinite(v.verse) &&
+            v.verse > 0 &&
+            v.text.length > 0 &&
+            !/^[a-z]{1,3}$/i.test(v.text),
+        );
       if (!verses.length) continue;
       const key = `bible/${tid}/${osis}.${chapter}.json`;
       const body = JSON.stringify({ book: osis, chapter, verses });
