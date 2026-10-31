@@ -11,6 +11,8 @@ export function humanizeStatus(
 
   const map: Record<string, string> = {
     login_required: "auth.loginRequired",
+    unauthorized: "auth.loginRequired",
+    "401": "auth.loginRequired",
     "auth.invalidCredentials": "auth.invalidCredentials",
     members_required: "chat.membersRequired",
     registered: "auth.registered",

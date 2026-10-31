@@ -27,6 +27,24 @@ function labelOf(c: { nickname?: string | null; uid?: string | null; userId?: st
   return c.nickname || c.uid || c.userId || c.id || "—";
 }
 
+function avatarLetter(label: string) {
+  const ch = label.trim().charAt(0);
+  return ch ? ch.toUpperCase() : "?";
+}
+
+function contactSubtitle(c: Contact, noGroup: string) {
+  const parts: string[] = [];
+  if (c.source === "friend") {
+    /* badge shown separately */
+  }
+  if (c.groupNames.length) parts.push(c.groupNames.join(" · "));
+  else if (c.source !== "friend") parts.push(noGroup);
+  if (c.uid) parts.push(c.uid);
+  return parts.join(" · ");
+}
+
+const AUTH_NOTES = new Set(["login_required", "unauthorized", "401"]);
+
 export function ContactsPanel({
   onOpenChat,
   onBadgesMaybeChanged,
@@ -43,52 +61,60 @@ export function ContactsPanel({
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"all" | "friends">("all");
+  const [listHydrated, setListHydrated] = useState(() => !getToken());
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
       setNote("login_required");
+      setListHydrated(true);
       return;
     }
-    // Fast path: friends + requests paint first (directory builds full org trees).
-    const [friendsRes, reqs] = await Promise.all([
-      api<{
-        friends: {
-          user: {
-            id: string;
-            uid: string | null;
-            nickname: string | null;
-            signature: string | null;
-          };
-        }[];
-      }>("/v1/friends"),
-      api<{ incoming: FriendReq[]; outgoing: FriendReq[] }>("/v1/friends/requests"),
-    ]);
-    setIncoming(reqs.incoming);
-    setOutgoing(reqs.outgoing);
-    setContacts(
-      friendsRes.friends.map((f) => ({
-        userId: f.user.id,
-        uid: f.user.uid,
-        nickname: f.user.nickname,
-        signature: f.user.signature,
-        roles: [],
-        groupNames: [],
-        churches: [],
-        source: "friend" as const,
-      })),
-    );
-    setNote(null);
-
     try {
-      const dir = await api<{ contacts: Contact[] }>("/v1/friends/directory");
-      setContacts(dir.contacts);
-    } catch {
-      /* keep friends-only snapshot */
+      // Fast path: friends + requests paint first (directory builds full org trees).
+      const [friendsRes, reqs] = await Promise.all([
+        api<{
+          friends: {
+            user: {
+              id: string;
+              uid: string | null;
+              nickname: string | null;
+              signature: string | null;
+            };
+          }[];
+        }>("/v1/friends"),
+        api<{ incoming: FriendReq[]; outgoing: FriendReq[] }>("/v1/friends/requests"),
+      ]);
+      setIncoming(reqs.incoming);
+      setOutgoing(reqs.outgoing);
+      setContacts(
+        friendsRes.friends.map((f) => ({
+          userId: f.user.id,
+          uid: f.user.uid,
+          nickname: f.user.nickname,
+          signature: f.user.signature,
+          roles: [],
+          groupNames: [],
+          churches: [],
+          source: "friend" as const,
+        })),
+      );
+      setNote(null);
+
+      try {
+        const dir = await api<{ contacts: Contact[] }>("/v1/friends/directory");
+        setContacts(dir.contacts);
+      } catch {
+        /* keep friends-only snapshot */
+      }
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setListHydrated(true);
     }
   }, []);
 
   useEffect(() => {
-    void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void refresh();
   }, [refresh]);
 
   const visible = useMemo(() => {
@@ -131,20 +157,42 @@ export function ContactsPanel({
     }
   }
 
+  const authBlocked = !getToken() || (note != null && AUTH_NOTES.has(note));
+
+  if (authBlocked) {
+    return (
+      <div className="contacts-panel" data-testid="comms-contacts">
+        <div className="comms-gate" data-testid="contacts-login-gate">
+          <p className="comms-gate-title">{t("comms.loginGate")}</p>
+          <a className="btn" href="/app/login" data-testid="contacts-login-cta">
+            {t("comms.loginGateCta")}
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const showNote = Boolean(note);
+
   return (
     <div className="contacts-panel" data-testid="comms-contacts">
-      {note && <p className="muted">{humanizeStatus(t, note)}</p>}
+      {showNote && <p className="muted im-note">{humanizeStatus(t, note)}</p>}
 
       {incoming.length > 0 && (
-        <div className="panel" style={{ marginBottom: "0.85rem" }} data-testid="contacts-incoming">
-          <h3 style={{ marginTop: 0 }}>{t("comms.incomingRequests")}</h3>
+        <div className="contacts-incoming" data-testid="contacts-incoming">
+          <h3 className="contacts-section-title">{t("comms.incomingRequests")}</h3>
           <ul className="list">
             {incoming.map((r) => (
               <li key={r.id}>
-                <div className="convo-row" style={{ cursor: "default" }}>
-                  <strong>{labelOf(r.user)}</strong>
-                  <div className="muted">UID {r.user.uid}</div>
-                  <div className="toolbar" style={{ marginTop: "0.45rem" }}>
+                <div className="convo-row-rich contacts-req-row">
+                  <span className="im-avatar" aria-hidden>
+                    {avatarLetter(labelOf(r.user))}
+                  </span>
+                  <span className="convo-row-main">
+                    <strong>{labelOf(r.user)}</strong>
+                    <span className="muted convo-row-preview">UID {r.user.uid}</span>
+                  </span>
+                  <span className="contacts-req-actions">
                     <button
                       type="button"
                       className="btn"
@@ -161,7 +209,7 @@ export function ContactsPanel({
                     >
                       {t("comms.decline")}
                     </button>
-                  </div>
+                  </span>
                 </div>
               </li>
             ))}
@@ -186,51 +234,66 @@ export function ContactsPanel({
         </button>
       </div>
 
-      <ul className="list" data-testid="contacts-list">
-        {visible.length === 0 && <li className="muted">{t("comms.contactsEmpty")}</li>}
-        {visible.map((c) => (
-          <li key={c.userId}>
-            <div className="convo-row" style={{ cursor: "default" }}>
-              <strong>
-                {labelOf(c)}
-                {c.source === "friend" ? (
-                  <span className="muted" style={{ fontWeight: 400 }}>
-                    {" "}
-                    · {t("comms.friendBadge")}
-                  </span>
-                ) : null}
-              </strong>
-              <div className="muted">
-                {c.groupNames.length ? c.groupNames.join(" · ") : t("comms.noGroup")}
-                {c.uid ? ` · ${c.uid}` : ""}
-              </div>
-              {c.signature ? <div className="muted">{c.signature}</div> : null}
-              <div className="contacts-row-actions" style={{ marginTop: "0.4rem" }}>
-                {c.source === "friend" ? (
-                  <button type="button" className="btn" onClick={() => onOpenChat(c.userId)}>
-                    {t("comms.openChat")}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={busy}
-                    onClick={() => {
-                      setQuery(c.uid || c.userId);
-                      setSheetOpen(true);
-                    }}
-                  >
-                    {t("comms.addFriend")}
-                  </button>
-                )}
-              </div>
-            </div>
+      <ul className="list contacts-list" data-testid="contacts-list">
+        {!listHydrated && visible.length === 0 && (
+          <li className="im-list-skeleton" aria-busy="true" data-testid="contacts-list-loading">
+            <span className="im-skel-row" />
+            <span className="im-skel-row" />
+            <span className="im-skel-row" />
+            <p className="muted im-skel-label">{t("comms.loadingContacts")}</p>
           </li>
-        ))}
+        )}
+        {listHydrated && visible.length === 0 && (
+          <li className="comms-empty" data-testid="contacts-list-empty">
+            <strong>{t("comms.contactsEmpty")}</strong>
+            <p className="muted">{t("comms.contactsEmptyHint")}</p>
+          </li>
+        )}
+        {visible.map((c) => {
+          const label = labelOf(c);
+          const sub = contactSubtitle(c, t("comms.noGroup"));
+          return (
+            <li key={c.userId}>
+              <div className="convo-row-rich contacts-person-row">
+                <span className="im-avatar" aria-hidden>
+                  {avatarLetter(label)}
+                </span>
+                <span className="convo-row-main">
+                  <strong>
+                    {label}
+                    {c.source === "friend" ? (
+                      <span className="contacts-friend-badge">{t("comms.friendBadge")}</span>
+                    ) : null}
+                  </strong>
+                  {sub ? <span className="muted convo-row-preview">{sub}</span> : null}
+                </span>
+                <span className="contacts-row-cta">
+                  {c.source === "friend" ? (
+                    <button type="button" className="btn" onClick={() => onOpenChat(c.userId)}>
+                      {t("comms.openChat")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setQuery(c.uid || c.userId);
+                        setSheetOpen(true);
+                      }}
+                    >
+                      {t("comms.addFriend")}
+                    </button>
+                  )}
+                </span>
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       {outgoing.length > 0 && (
-        <p className="muted" style={{ marginTop: "1rem" }}>
+        <p className="muted contacts-outgoing" data-testid="contacts-outgoing">
           {t("comms.outgoingPending", { count: outgoing.length })}
         </p>
       )}
@@ -247,42 +310,42 @@ export function ContactsPanel({
 
       {sheetOpen && (
         <SheetPortal>
-        <div className="sheet-backdrop" role="presentation" onClick={() => setSheetOpen(false)}>
-          <div
-            className="sheet-panel"
-            role="dialog"
-            aria-modal="true"
-            data-testid="contacts-add-sheet"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sheet-handle" aria-hidden />
-            <div className="chat-sheet-head">
-              <h3 style={{ margin: 0 }}>{t("comms.addFriend")}</h3>
-              <button type="button" className="btn ghost" onClick={() => setSheetOpen(false)}>
-                ✕
+          <div className="sheet-backdrop" role="presentation" onClick={() => setSheetOpen(false)}>
+            <div
+              className="sheet-panel"
+              role="dialog"
+              aria-modal="true"
+              data-testid="contacts-add-sheet"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sheet-handle" aria-hidden />
+              <div className="chat-sheet-head">
+                <h3 style={{ margin: 0 }}>{t("comms.addFriend")}</h3>
+                <button type="button" className="btn ghost" onClick={() => setSheetOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <p className="muted">{t("comms.addFriendHint")}</p>
+              <div className="field">
+                <label>{t("comms.addFriendQuery")}</label>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("comms.addFriendPlaceholder")}
+                  data-testid="contacts-add-input"
+                />
+              </div>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !query.trim()}
+                data-testid="contacts-add-submit"
+                onClick={() => void sendRequest()}
+              >
+                {t("comms.sendRequest")}
               </button>
             </div>
-            <p className="muted">{t("comms.addFriendHint")}</p>
-            <div className="field">
-              <label>{t("comms.addFriendQuery")}</label>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("comms.addFriendPlaceholder")}
-                data-testid="contacts-add-input"
-              />
-            </div>
-            <button
-              type="button"
-              className="btn"
-              disabled={busy || !query.trim()}
-              data-testid="contacts-add-submit"
-              onClick={() => void sendRequest()}
-            >
-              {t("comms.sendRequest")}
-            </button>
           </div>
-        </div>
         </SheetPortal>
       )}
     </div>

@@ -122,6 +122,10 @@ export function ChatPanel({
   const [conversations, setConversations] = useState<Conversation[]>(() =>
     readCachedConversations<Conversation>(),
   );
+  /** False until first conversations fetch settles (cache can paint earlier). */
+  const [listHydrated, setListHydrated] = useState(
+    () => readCachedConversations<Conversation>().length > 0 || !getToken(),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
@@ -302,24 +306,31 @@ export function ChatPanel({
 
   const refreshConversations = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!getToken()) {
+      setListHydrated(true);
       if (!opts?.quiet) setNote("login_required");
       return;
     }
-    // Share CallProvider's in-flight/fresh snapshot — don't force a second GET.
-    const list = (await fetchConversationsList()) as Conversation[];
-    conversationsRef.current = list;
-    setConversations(list);
-    writeCachedConversations(list);
-    const fromPeers: Record<string, string> = {};
-    for (const c of list) {
-      for (const p of c.peers ?? []) {
-        fromPeers[p.userId] = labelFromPeer(p, p.userId);
+    try {
+      // Share CallProvider's in-flight/fresh snapshot — don't force a second GET.
+      const list = (await fetchConversationsList()) as Conversation[];
+      conversationsRef.current = list;
+      setConversations(list);
+      writeCachedConversations(list);
+      const fromPeers: Record<string, string> = {};
+      for (const c of list) {
+        for (const p of c.peers ?? []) {
+          fromPeers[p.userId] = labelFromPeer(p, p.userId);
+        }
       }
+      if (Object.keys(fromPeers).length > 0) {
+        setPeerLabels((prev) => mergePeerLabels(prev, fromPeers));
+      }
+      if (!opts?.quiet) setNote(null);
+    } catch (e) {
+      if (!opts?.quiet) setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setListHydrated(true);
     }
-    if (Object.keys(fromPeers).length > 0) {
-      setPeerLabels((prev) => mergePeerLabels(prev, fromPeers));
-    }
-    if (!opts?.quiet) setNote(null);
   }, []);
 
   useEffect(() => {
@@ -1174,9 +1185,22 @@ export function ChatPanel({
     Boolean(selected.peerUserIds?.[0]) &&
     !friendIds.has(selected.peerUserIds![0]!);
 
+  const authBlocked =
+    !getToken() ||
+    note === "login_required" ||
+    note === "unauthorized" ||
+    note === "401";
+  const listNote =
+    note &&
+    note !== "login_required" &&
+    note !== "unauthorized" &&
+    note !== "401"
+      ? note
+      : null;
+
   return (
     <div className={`chat-home im-shell${selected ? " is-thread" : ""}`} data-testid="home-chat-panel">
-      {note && !selected && renderNote(note)}
+      {listNote && !selected && !authBlocked && renderNote(listNote)}
 
       {selected ? (
         <div className="im-thread" data-testid="im-thread">
@@ -1486,126 +1510,150 @@ export function ChatPanel({
           <div className="im-list-head">
             <h2 className="im-list-title">{t("chat.tabChats")}</h2>
           </div>
-          <label className="im-search">
-            <IconSearch className="im-search-icon" />
-            <input
-              value={listQuery}
-              onChange={(e) => setListQuery(e.target.value)}
-              placeholder={t("chat.search")}
-              data-testid="chat-search"
-            />
-          </label>
-          <div className="im-kind-tabs manage-subtabs" role="tablist" data-testid="chat-list-tabs">
-            {(
-              [
-                ["dm", "chat.dm"],
-                ["group", "chat.group"],
-                ["archived", "chat.tabArchived"],
-              ] as const
-            ).map(([id, key]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={listTab === id}
-                className={`manage-subtab${listTab === id ? " is-active" : ""}`}
-                data-testid={`chat-tab-${id}`}
-                onClick={() => setListTab(id)}
-              >
-                {t(key)}
-              </button>
-            ))}
-          </div>
-
-          <ul
-            className="list im-convo-list"
-            data-testid={listTab === "archived" ? "chat-archived-list" : "chat-active-list"}
-          >
-            {visibleConversations.length === 0 && (
-              <li className="muted">
-                {listTab === "archived" ? t("chat.archivedEmpty") : t("chat.empty")}
-              </li>
-            )}
-            {visibleConversations.map((c) => {
-              const label = convoLabel(c);
-              const unread = c.unreadCount ?? 0;
-              const preview = previews[c.id]?.text;
-              return (
-                <li key={c.id}>
+          {authBlocked ? (
+            <div className="comms-gate" data-testid="chat-login-gate">
+              <p className="comms-gate-title">{t("chat.loginGate")}</p>
+              <a className="btn" href="/app/login" data-testid="chat-login-cta">
+                {t("chat.loginGateCta")}
+              </a>
+            </div>
+          ) : (
+            <>
+              <label className="im-search">
+                <IconSearch className="im-search-icon" />
+                <input
+                  value={listQuery}
+                  onChange={(e) => setListQuery(e.target.value)}
+                  placeholder={t("chat.search")}
+                  data-testid="chat-search"
+                />
+              </label>
+              <div className="im-kind-tabs manage-subtabs" role="tablist" data-testid="chat-list-tabs">
+                {(
+                  [
+                    ["dm", "chat.dm"],
+                    ["group", "chat.group"],
+                    ["archived", "chat.tabArchived"],
+                  ] as const
+                ).map(([id, key]) => (
                   <button
+                    key={id}
                     type="button"
-                    className={`convo-row convo-row-rich${unread > 0 ? " is-unread" : ""}`}
-                    onClick={() => setSelectedId(c.id)}
+                    role="tab"
+                    aria-selected={listTab === id}
+                    className={`manage-subtab${listTab === id ? " is-active" : ""}`}
+                    data-testid={`chat-tab-${id}`}
+                    onClick={() => setListTab(id)}
                   >
-                    <span className="im-avatar" aria-hidden>
-                      {avatarLetter(label)}
-                    </span>
-                    <span className="convo-row-main">
-                      <strong>{label}</strong>
-                      <span className="muted convo-row-preview">
-                        {preview
-                          ? preview
-                          : listTab === "archived"
-                            ? t("chat.archived")
-                            : c.kind !== "dm"
-                              ? kindLabel(c.kind)
-                              : t("chat.tapToOpen")}
-                      </span>
-                    </span>
-                    <span className="convo-row-meta">
-                      {unread > 0 ? (
-                        <span className="nav-badge" data-testid="chat-convo-badge">
-                          {unread > 99 ? "99+" : unread}
-                        </span>
-                      ) : null}
-                      <span className="muted convo-row-time">
-                        {formatConvoWhen(c.lastMessageAt ?? c.createdAt)}
-                      </span>
-                    </span>
+                    {t(key)}
                   </button>
-                </li>
-              );
-            })}
-            {listTab === "archived" && (
-              <li className="chat-favorites-block" data-testid="chat-favorites-list">
-                <strong className="chat-favorites-heading">{t("chat.favorites")}</strong>
-                {favorites.length === 0 ? (
-                  <p className="muted" style={{ margin: "0.35rem 0 0" }}>
-                    {t("chat.favoritesEmpty")}
-                  </p>
-                ) : (
-                  <ul className="chat-favorites-items">
-                    {favorites.map((f) => (
-                      <li key={f.id} data-testid={`chat-favorite-item-${f.id}`}>
-                        <span className="chat-favorite-preview">
-                          {f.preview?.trim() || t("chat.favoriteEncrypted")}
-                        </span>
-                        {f.createdAt ? (
-                          <span className="muted convo-row-time">
-                            {formatConvoWhen(f.createdAt)}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            )}
-          </ul>
+                ))}
+              </div>
 
-          <button
-            type="button"
-            className="comms-fab"
-            data-testid="chat-compose-open"
-            aria-label={t("comms.newChat")}
-            onClick={() => {
-              setKind(listTab === "group" ? "group" : "dm");
-              setSheet("compose");
-              void loadDirectory();
-            }}
-          >
-            +
-          </button>
+              <ul
+                className="list im-convo-list"
+                data-testid={listTab === "archived" ? "chat-archived-list" : "chat-active-list"}
+              >
+                {!listHydrated && visibleConversations.length === 0 && (
+                  <li className="im-list-skeleton" aria-busy="true" data-testid="chat-list-loading">
+                    <span className="im-skel-row" />
+                    <span className="im-skel-row" />
+                    <span className="im-skel-row" />
+                    <p className="muted im-skel-label">{t("chat.loadingList")}</p>
+                  </li>
+                )}
+                {listHydrated && visibleConversations.length === 0 && (
+                  <li className="comms-empty" data-testid="chat-list-empty">
+                    <strong>
+                      {listTab === "archived" ? t("chat.archivedEmpty") : t("chat.empty")}
+                    </strong>
+                    {listTab !== "archived" ? (
+                      <p className="muted">{t("chat.emptyHint")}</p>
+                    ) : null}
+                  </li>
+                )}
+                {visibleConversations.map((c) => {
+                  const label = convoLabel(c);
+                  const unread = c.unreadCount ?? 0;
+                  const preview = previews[c.id]?.text;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        className={`convo-row convo-row-rich${unread > 0 ? " is-unread" : ""}`}
+                        onClick={() => setSelectedId(c.id)}
+                      >
+                        <span className="im-avatar" aria-hidden>
+                          {avatarLetter(label)}
+                        </span>
+                        <span className="convo-row-main">
+                          <strong>{label}</strong>
+                          <span className="muted convo-row-preview">
+                            {preview
+                              ? preview
+                              : listTab === "archived"
+                                ? t("chat.archived")
+                                : c.kind !== "dm"
+                                  ? kindLabel(c.kind)
+                                  : t("chat.tapToOpen")}
+                          </span>
+                        </span>
+                        <span className="convo-row-meta">
+                          {unread > 0 ? (
+                            <span className="nav-badge" data-testid="chat-convo-badge">
+                              {unread > 99 ? "99+" : unread}
+                            </span>
+                          ) : null}
+                          <span className="muted convo-row-time">
+                            {formatConvoWhen(c.lastMessageAt ?? c.createdAt)}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+                {listTab === "archived" && (
+                  <li className="chat-favorites-block" data-testid="chat-favorites-list">
+                    <strong className="chat-favorites-heading">{t("chat.favorites")}</strong>
+                    {favorites.length === 0 ? (
+                      <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                        {t("chat.favoritesEmpty")}
+                      </p>
+                    ) : (
+                      <ul className="chat-favorites-items">
+                        {favorites.map((f) => (
+                          <li key={f.id} data-testid={`chat-favorite-item-${f.id}`}>
+                            <span className="chat-favorite-preview">
+                              {f.preview?.trim() || t("chat.favoriteEncrypted")}
+                            </span>
+                            {f.createdAt ? (
+                              <span className="muted convo-row-time">
+                                {formatConvoWhen(f.createdAt)}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                )}
+              </ul>
+
+              <button
+                type="button"
+                className="comms-fab"
+                data-testid="chat-compose-open"
+                aria-label={t("comms.newChat")}
+                onClick={() => {
+                  setKind(listTab === "group" ? "group" : "dm");
+                  setSheet("compose");
+                  void loadDirectory();
+                }}
+              >
+                +
+              </button>
+            </>
+          )}
         </>
       )}
 
