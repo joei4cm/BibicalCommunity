@@ -7,6 +7,7 @@ import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { canFetchPeerKeys } from "../services/access-graph";
+import { enforceRateLimit } from "../services/rate-limit";
 
 export const keysRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
 
@@ -87,6 +88,10 @@ keysRoutes.put("/prekeys", async (c) => {
 });
 
 keysRoutes.get("/:userId", async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `keys:get:${c.get("userId")}`, 60, 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   const targetUserId = c.req.param("userId");
   const db = drizzle(c.env.DB, { schema });
   const selfId = c.get("userId");
