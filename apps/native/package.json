@@ -1,6 +1,6 @@
 {
   "name": "logoshome-native",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "private": true,
   "description": "Capacitor shell wrapping the LogosHome web build for Android / iOS",
   "scripts": {
