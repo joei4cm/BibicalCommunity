@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
-import { humanizeStatus } from "../lib/status";
+import { humanizeStatus, isLoadFailureNote, normalizeErrorCode } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
 import { AUTH_NOTE_CODES, CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
+import { CommsLoadError } from "../components/CommsLoadError";
 
 type Contact = {
   userId: string;
@@ -106,7 +107,7 @@ export function ContactsPanel({
         /* keep friends-only snapshot */
       }
     } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
+      setNote(normalizeErrorCode(e));
     } finally {
       setListHydrated(true);
     }
@@ -164,7 +165,8 @@ export function ContactsPanel({
     );
   }
 
-  const showNote = Boolean(note) && !AUTH_NOTE_CODES.has(note!);
+  const loadFailed = isLoadFailureNote(note);
+  const showNote = Boolean(note) && !AUTH_NOTE_CODES.has(note!) && !loadFailed;
 
   return (
     <div className="contacts-panel" data-testid="comms-contacts">
@@ -209,114 +211,120 @@ export function ContactsPanel({
         </div>
       )}
 
-      <div className="manage-subtabs" role="tablist">
-        <button
-          type="button"
-          className={`manage-subtab${filter === "all" ? " is-active" : ""}`}
-          onClick={() => setFilter("all")}
-        >
-          {t("comms.directory")}
-        </button>
-        <button
-          type="button"
-          className={`manage-subtab${filter === "friends" ? " is-active" : ""}`}
-          onClick={() => setFilter("friends")}
-        >
-          {t("comms.addedFriends")}
-        </button>
-      </div>
+      {listHydrated && loadFailed && visible.length === 0 ? (
+        <CommsLoadError testId="contacts-list-error" onRetry={() => void refresh()} />
+      ) : (
+        <>
+          <div className="manage-subtabs" role="tablist">
+            <button
+              type="button"
+              className={`manage-subtab${filter === "all" ? " is-active" : ""}`}
+              onClick={() => setFilter("all")}
+            >
+              {t("comms.directory")}
+            </button>
+            <button
+              type="button"
+              className={`manage-subtab${filter === "friends" ? " is-active" : ""}`}
+              onClick={() => setFilter("friends")}
+            >
+              {t("comms.addedFriends")}
+            </button>
+          </div>
 
-      <ul className="list contacts-list" data-testid="contacts-list">
-        {!listHydrated && visible.length === 0 && (
-          <li className="im-list-skeleton" aria-busy="true" data-testid="contacts-list-loading">
-            <div className="im-skel-item" aria-hidden>
-              <span className="im-skel-avatar" />
-              <span className="im-skel-lines">
-                <span className="im-skel-line is-title" />
-                <span className="im-skel-line is-sub" />
-              </span>
-            </div>
-            <div className="im-skel-item" aria-hidden>
-              <span className="im-skel-avatar" />
-              <span className="im-skel-lines">
-                <span className="im-skel-line is-title" />
-                <span className="im-skel-line is-sub" />
-              </span>
-            </div>
-            <div className="im-skel-item" aria-hidden>
-              <span className="im-skel-avatar" />
-              <span className="im-skel-lines">
-                <span className="im-skel-line is-title" />
-                <span className="im-skel-line is-sub" />
-              </span>
-            </div>
-            <p className="muted im-skel-label">{t("comms.loadingContacts")}</p>
-          </li>
-        )}
-        {listHydrated && visible.length === 0 && (
-          <li className="comms-empty" data-testid="contacts-list-empty">
-            <strong>{t("comms.contactsEmpty")}</strong>
-            <p className="muted">{t("comms.contactsEmptyHint")}</p>
-          </li>
-        )}
-        {visible.map((c) => {
-          const label = labelOf(c);
-          const sub = contactSubtitle(c, t("comms.noGroup"));
-          return (
-            <li key={c.userId}>
-              <div className="convo-row-rich contacts-person-row">
-                <span className="im-avatar" aria-hidden>
-                  {avatarLetter(label)}
-                </span>
-                <span className="convo-row-main">
-                  <strong>
-                    {label}
-                    {c.source === "friend" ? (
-                      <span className="contacts-friend-badge">{t("comms.friendBadge")}</span>
-                    ) : null}
-                  </strong>
-                  {sub ? <span className="muted convo-row-preview">{sub}</span> : null}
-                </span>
-                <span className="contacts-row-cta">
-                  {c.source === "friend" ? (
-                    <button type="button" className="btn" onClick={() => onOpenChat(c.userId)}>
-                      {t("comms.openChat")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        setQuery(c.uid || c.userId);
-                        setSheetOpen(true);
-                      }}
-                    >
-                      {t("comms.addFriend")}
-                    </button>
-                  )}
-                </span>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+          <ul className="list contacts-list" data-testid="contacts-list">
+            {!listHydrated && visible.length === 0 && (
+              <li className="im-list-skeleton" aria-busy="true" data-testid="contacts-list-loading">
+                <div className="im-skel-item" aria-hidden>
+                  <span className="im-skel-avatar" />
+                  <span className="im-skel-lines">
+                    <span className="im-skel-line is-title" />
+                    <span className="im-skel-line is-sub" />
+                  </span>
+                </div>
+                <div className="im-skel-item" aria-hidden>
+                  <span className="im-skel-avatar" />
+                  <span className="im-skel-lines">
+                    <span className="im-skel-line is-title" />
+                    <span className="im-skel-line is-sub" />
+                  </span>
+                </div>
+                <div className="im-skel-item" aria-hidden>
+                  <span className="im-skel-avatar" />
+                  <span className="im-skel-lines">
+                    <span className="im-skel-line is-title" />
+                    <span className="im-skel-line is-sub" />
+                  </span>
+                </div>
+                <p className="muted im-skel-label">{t("comms.loadingContacts")}</p>
+              </li>
+            )}
+            {listHydrated && visible.length === 0 && (
+              <li className="comms-empty" data-testid="contacts-list-empty">
+                <strong>{t("comms.contactsEmpty")}</strong>
+                <p className="muted">{t("comms.contactsEmptyHint")}</p>
+              </li>
+            )}
+            {visible.map((c) => {
+              const label = labelOf(c);
+              const sub = contactSubtitle(c, t("comms.noGroup"));
+              return (
+                <li key={c.userId}>
+                  <div className="convo-row-rich contacts-person-row">
+                    <span className="im-avatar" aria-hidden>
+                      {avatarLetter(label)}
+                    </span>
+                    <span className="convo-row-main">
+                      <strong>
+                        {label}
+                        {c.source === "friend" ? (
+                          <span className="contacts-friend-badge">{t("comms.friendBadge")}</span>
+                        ) : null}
+                      </strong>
+                      {sub ? <span className="muted convo-row-preview">{sub}</span> : null}
+                    </span>
+                    <span className="contacts-row-cta">
+                      {c.source === "friend" ? (
+                        <button type="button" className="btn" onClick={() => onOpenChat(c.userId)}>
+                          {t("comms.openChat")}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          disabled={busy}
+                          onClick={() => {
+                            setQuery(c.uid || c.userId);
+                            setSheetOpen(true);
+                          }}
+                        >
+                          {t("comms.addFriend")}
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
 
-      {outgoing.length > 0 && (
-        <p className="muted contacts-outgoing" data-testid="contacts-outgoing">
-          {t("comms.outgoingPending", { count: outgoing.length })}
-        </p>
+          {outgoing.length > 0 && (
+            <p className="muted contacts-outgoing" data-testid="contacts-outgoing">
+              {t("comms.outgoingPending", { count: outgoing.length })}
+            </p>
+          )}
+
+          <button
+            type="button"
+            className="comms-fab"
+            data-testid="contacts-add-open"
+            aria-label={t("comms.addFriend")}
+            onClick={() => setSheetOpen(true)}
+          >
+            +
+          </button>
+        </>
       )}
-
-      <button
-        type="button"
-        className="comms-fab"
-        data-testid="contacts-add-open"
-        aria-label={t("comms.addFriend")}
-        onClick={() => setSheetOpen(true)}
-      >
-        +
-      </button>
 
       {sheetOpen && (
         <SheetPortal>

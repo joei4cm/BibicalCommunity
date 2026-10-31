@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getToken } from "../lib/api";
-import { humanizeStatus } from "../lib/status";
+import { humanizeStatus, isLoadFailureNote, normalizeErrorCode } from "../lib/status";
 import { notifyCommsBadgesChanged } from "../lib/comms-badges";
 import { AUTH_NOTE_CODES, CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
+import { CommsLoadError } from "../components/CommsLoadError";
 
 type InboxMessage = {
   id: string;
@@ -48,7 +49,7 @@ export function InboxPanel({
   }, []);
 
   useEffect(() => {
-    void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void refresh().catch((e) => setNote(normalizeErrorCode(e)));
   }, [refresh]);
 
   async function markRead(id: string) {
@@ -131,20 +132,30 @@ export function InboxPanel({
     );
   }
 
+  const loadFailed = isLoadFailureNote(note);
+  const unreadCount = messages.filter((m) => !m.readAt).length;
+
   return (
     <div className="inbox-panel" data-testid="comms-inbox">
-      <div className="im-toolbar-row">
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => void markAll()}>
-          {t("comms.markAllRead")}
-        </button>
-      </div>
+      {unreadCount > 0 && (
+        <div className="im-toolbar-row">
+          <button type="button" className="btn ghost" disabled={busy} onClick={() => void markAll()}>
+            {t("comms.markAllRead")}
+          </button>
+        </div>
+      )}
 
-      {note && !AUTH_NOTE_CODES.has(note) && (
+      {note && !AUTH_NOTE_CODES.has(note) && !loadFailed && (
         <p className="muted">{humanizeStatus(t, note)}</p>
       )}
 
       <ul className="list" data-testid="inbox-list">
-        {messages.length === 0 && (
+        {messages.length === 0 && loadFailed && (
+          <li>
+            <CommsLoadError testId="inbox-list-error" onRetry={() => void refresh()} busy={busy} />
+          </li>
+        )}
+        {messages.length === 0 && !loadFailed && (
           <li className="comms-empty" data-testid="inbox-list-empty">
             <strong>{t("comms.inboxEmpty")}</strong>
             <p className="muted">{t("comms.inboxEmptyHint")}</p>

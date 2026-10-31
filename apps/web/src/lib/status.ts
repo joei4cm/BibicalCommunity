@@ -1,3 +1,31 @@
+/** Normalize thrown API/network errors into stable UI status codes. */
+export function normalizeErrorCode(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? "error");
+  const lower = msg.toLowerCase();
+  if (
+    !msg ||
+    msg === "Failed to fetch" ||
+    msg === "request_failed" ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed") ||
+    lower.includes("load failed")
+  ) {
+    return "network_error";
+  }
+  return msg;
+}
+
+/** True when the note means list load failed (show retry empty, not “no data”). */
+export function isLoadFailureNote(note: string | null | undefined): boolean {
+  return (
+    note === "network_error" ||
+    note === "request_failed" ||
+    note === "Failed to fetch" ||
+    (typeof note === "string" && /failed to fetch/i.test(note))
+  );
+}
+
 /** Map internal status codes to localized copy for UI banners. */
 export function humanizeStatus(
   t: (key: string, opts?: Record<string, unknown>) => string,
@@ -8,11 +36,17 @@ export function humanizeStatus(
   if (code.startsWith("created:")) return t("plans.createdOk");
   if (code.startsWith("subscribed:")) return t("plans.subscribedOk");
   if (code.startsWith("progress:")) return t("plans.progressOk");
+  if (/failed to fetch/i.test(code) || /networkerror/i.test(code)) {
+    return t("comms.networkError");
+  }
 
   const map: Record<string, string> = {
     login_required: "auth.loginRequired",
     unauthorized: "auth.loginRequired",
     "401": "auth.loginRequired",
+    network_error: "comms.networkError",
+    request_failed: "comms.networkError",
+    "Failed to fetch": "comms.networkError",
     "auth.invalidCredentials": "auth.invalidCredentials",
     members_required: "chat.membersRequired",
     registered: "auth.registered",

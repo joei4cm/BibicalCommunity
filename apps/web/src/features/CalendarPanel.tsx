@@ -6,9 +6,10 @@ import {
   toDateInputValue,
   toDateTimeLocalValue,
 } from "../lib/calendar-time";
-import { humanizeStatus } from "../lib/status";
+import { humanizeStatus, isLoadFailureNote, normalizeErrorCode } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
 import { AUTH_NOTE_CODES, CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
+import { CommsLoadError } from "../components/CommsLoadError";
 import { IconChevronLeft, IconChevronRight } from "../components/icons";
 
 type CalEvent = {
@@ -134,7 +135,7 @@ export function CalendarPanel({
   }, [range.from, range.to]);
 
   useEffect(() => {
-    void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void refresh().catch((e) => setNote(normalizeErrorCode(e)));
   }, [refresh]);
 
   useEffect(() => {
@@ -443,10 +444,11 @@ export function CalendarPanel({
     );
   }
 
+  const loadFailed = isLoadFailureNote(note);
   const statusNote =
     note === "event_start_invalid"
       ? t("comms.eventStartInvalid")
-      : note && !AUTH_NOTE_CODES.has(note)
+      : note && !AUTH_NOTE_CODES.has(note) && !loadFailed
         ? humanizeStatus(t, note)
         : null;
 
@@ -454,6 +456,14 @@ export function CalendarPanel({
     return (
       <div className="calendar-panel" data-testid="comms-calendar">
         <CommsLoginGate titleKey="comms.calendarLoginGate" testIdPrefix="calendar" />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="calendar-panel" data-testid="comms-calendar">
+        <CommsLoadError testId="calendar-list-error" onRetry={() => void refresh()} />
       </div>
     );
   }

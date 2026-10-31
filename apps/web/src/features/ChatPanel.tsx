@@ -22,13 +22,14 @@ import {
 } from "../lib/chat-local";
 import { fetchConversationsList } from "../lib/conversations-fetch";
 import { encryptGroupFanout } from "../lib/group-fanout";
-import { humanizeStatus } from "../lib/status";
+import { humanizeStatus, isLoadFailureNote, normalizeErrorCode } from "../lib/status";
 import { peerHasProductKeys } from "../lib/product-signal-chat";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
 import { SheetPortal } from "../components/SheetPortal";
 import { EmojiPicker } from "../components/EmojiPicker";
 import { ChatVerseText } from "../components/ChatVerseText";
 import { CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
+import { CommsLoadError } from "../components/CommsLoadError";
 import { useCall } from "./CallProvider";
 import {
   IconCheck,
@@ -328,7 +329,7 @@ export function ChatPanel({
       }
       if (!opts?.quiet) setNote(null);
     } catch (e) {
-      if (!opts?.quiet) setNote(e instanceof Error ? e.message : "error");
+      if (!opts?.quiet) setNote(normalizeErrorCode(e));
     } finally {
       setListHydrated(true);
     }
@@ -1187,8 +1188,13 @@ export function ChatPanel({
     !friendIds.has(selected.peerUserIds![0]!);
 
   const authBlocked = isAuthBlocked(note);
+  const loadFailed = isLoadFailureNote(note);
   const listNote =
-    note && !["login_required", "unauthorized", "401"].includes(note) ? note : null;
+    note &&
+    !["login_required", "unauthorized", "401"].includes(note) &&
+    !loadFailed
+      ? note
+      : null;
 
   return (
     <div className={`chat-home im-shell${selected ? " is-thread" : ""}`} data-testid="home-chat-panel">
@@ -1504,77 +1510,84 @@ export function ChatPanel({
           <div className="im-list-head">
             <h2 className="im-list-title">{t("chat.tabChats")}</h2>
           </div>
-          <label className="im-search">
-            <IconSearch className="im-search-icon" />
-            <input
-              value={listQuery}
-              onChange={(e) => setListQuery(e.target.value)}
-              placeholder={t("chat.search")}
-              data-testid="chat-search"
+          {listHydrated && loadFailed && visibleConversations.length === 0 ? (
+            <CommsLoadError
+              testId="chat-list-error"
+              onRetry={() => void refreshConversations()}
             />
-          </label>
-          <div className="im-kind-tabs manage-subtabs" role="tablist" data-testid="chat-list-tabs">
-            {(
-              [
-                ["dm", "chat.dm"],
-                ["group", "chat.group"],
-                ["archived", "chat.tabArchived"],
-              ] as const
-            ).map(([id, key]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={listTab === id}
-                className={`manage-subtab${listTab === id ? " is-active" : ""}`}
-                data-testid={`chat-tab-${id}`}
-                onClick={() => setListTab(id)}
-              >
-                {t(key)}
-              </button>
-            ))}
-          </div>
+          ) : (
+            <>
+              <label className="im-search">
+                <IconSearch className="im-search-icon" />
+                <input
+                  value={listQuery}
+                  onChange={(e) => setListQuery(e.target.value)}
+                  placeholder={t("chat.search")}
+                  data-testid="chat-search"
+                />
+              </label>
+              <div className="im-kind-tabs manage-subtabs" role="tablist" data-testid="chat-list-tabs">
+                {(
+                  [
+                    ["dm", "chat.dm"],
+                    ["group", "chat.group"],
+                    ["archived", "chat.tabArchived"],
+                  ] as const
+                ).map(([id, key]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={listTab === id}
+                    className={`manage-subtab${listTab === id ? " is-active" : ""}`}
+                    data-testid={`chat-tab-${id}`}
+                    onClick={() => setListTab(id)}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
 
-          <ul
-            className="list im-convo-list"
-            data-testid={listTab === "archived" ? "chat-archived-list" : "chat-active-list"}
-          >
-            {!listHydrated && visibleConversations.length === 0 && (
-              <li className="im-list-skeleton" aria-busy="true" data-testid="chat-list-loading">
-                <div className="im-skel-item" aria-hidden>
-                  <span className="im-skel-avatar" />
-                  <span className="im-skel-lines">
-                    <span className="im-skel-line is-title" />
-                    <span className="im-skel-line is-sub" />
-                  </span>
-                </div>
-                <div className="im-skel-item" aria-hidden>
-                  <span className="im-skel-avatar" />
-                  <span className="im-skel-lines">
-                    <span className="im-skel-line is-title" />
-                    <span className="im-skel-line is-sub" />
-                  </span>
-                </div>
-                <div className="im-skel-item" aria-hidden>
-                  <span className="im-skel-avatar" />
-                  <span className="im-skel-lines">
-                    <span className="im-skel-line is-title" />
-                    <span className="im-skel-line is-sub" />
-                  </span>
-                </div>
-                <p className="muted im-skel-label">{t("chat.loadingList")}</p>
-              </li>
-            )}
-            {listHydrated && visibleConversations.length === 0 && (
-              <li className="comms-empty" data-testid="chat-list-empty">
-                <strong>
-                  {listTab === "archived" ? t("chat.archivedEmpty") : t("chat.empty")}
-                </strong>
-                {listTab !== "archived" ? (
-                  <p className="muted">{t("chat.emptyHint")}</p>
-                ) : null}
-              </li>
-            )}
+              <ul
+                className="list im-convo-list"
+                data-testid={listTab === "archived" ? "chat-archived-list" : "chat-active-list"}
+              >
+                {!listHydrated && visibleConversations.length === 0 && (
+                  <li className="im-list-skeleton" aria-busy="true" data-testid="chat-list-loading">
+                    <div className="im-skel-item" aria-hidden>
+                      <span className="im-skel-avatar" />
+                      <span className="im-skel-lines">
+                        <span className="im-skel-line is-title" />
+                        <span className="im-skel-line is-sub" />
+                      </span>
+                    </div>
+                    <div className="im-skel-item" aria-hidden>
+                      <span className="im-skel-avatar" />
+                      <span className="im-skel-lines">
+                        <span className="im-skel-line is-title" />
+                        <span className="im-skel-line is-sub" />
+                      </span>
+                    </div>
+                    <div className="im-skel-item" aria-hidden>
+                      <span className="im-skel-avatar" />
+                      <span className="im-skel-lines">
+                        <span className="im-skel-line is-title" />
+                        <span className="im-skel-line is-sub" />
+                      </span>
+                    </div>
+                    <p className="muted im-skel-label">{t("chat.loadingList")}</p>
+                  </li>
+                )}
+                {listHydrated && visibleConversations.length === 0 && (
+                  <li className="comms-empty" data-testid="chat-list-empty">
+                    <strong>
+                      {listTab === "archived" ? t("chat.archivedEmpty") : t("chat.empty")}
+                    </strong>
+                    {listTab !== "archived" ? (
+                      <p className="muted">{t("chat.emptyHint")}</p>
+                    ) : null}
+                  </li>
+                )}
                 {visibleConversations.map((c) => {
                   const label = convoLabel(c);
                   const unread = c.unreadCount ?? 0;
@@ -1655,6 +1668,8 @@ export function ChatPanel({
               >
                 +
               </button>
+            </>
+          )}
             </>
           )}
 

@@ -2429,7 +2429,8 @@ body:has(.bible-reader) .tab-bar a.active::after {
 .comms-empty {
   display: grid;
   gap: 0.4rem;
-  padding: 1.6rem 0.35rem 1.75rem;
+  justify-items: start;
+  padding: 1.85rem 0.35rem 2rem;
   list-style: none;
   max-width: 20rem;
 }
@@ -2444,6 +2445,16 @@ body:has(.bible-reader) .tab-bar a.active::after {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.comms-load-error {
+  gap: 0.5rem;
+}
+
+.comms-load-error .btn {
+  margin-top: 0.35rem;
+  min-height: 2.6rem;
+  padding-inline: 1.1rem;
 }
 
 .im-list-skeleton {
