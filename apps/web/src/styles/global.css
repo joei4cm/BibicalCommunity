@@ -3770,28 +3770,82 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .admin-shell {
   min-height: 100dvh;
+  min-height: 100svh;
   background: var(--lh-bg);
   color: var(--lh-ink);
 }
 
+.admin-gate {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.1rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-gate-head .brand {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 4vw, 1.7rem);
+}
+
 .admin-console {
   display: grid;
-  grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+  grid-template-columns: minmax(13rem, 15.5rem) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "sidebar main"
+    "sidebar main";
   min-height: 100dvh;
-  max-width: 1200px;
+  min-height: 100svh;
+  max-width: 1180px;
   margin: 0 auto;
+  width: 100%;
+}
+
+.admin-topbar {
+  display: none;
+  grid-area: topbar;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--lh-border) 88%, transparent);
+  background: color-mix(in srgb, var(--lh-bg-elevated) 92%, transparent);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 8;
+}
+
+.admin-topbar-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.admin-topbar-role {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+}
+
+.admin-topbar-back {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .admin-sidebar {
+  grid-area: sidebar;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 1.25rem 1rem 1.5rem;
   border-right: 1px solid var(--lh-border);
-  background: var(--lh-bg-elevated);
+  background: color-mix(in srgb, var(--lh-bg-elevated) 94%, transparent);
   position: sticky;
   top: 0;
   height: 100dvh;
+  height: 100svh;
+  overflow: auto;
 }
 
 .admin-sidebar-brand .brand {
@@ -3817,10 +3871,11 @@ body:has(.bible-reader) .tab-bar a.active::after {
   background: transparent;
   text-align: start;
   padding: 0.55rem 0.7rem;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--lh-ink-muted);
   font-weight: 600;
   cursor: pointer;
+  font: inherit;
 }
 
 .admin-nav-item:hover {
@@ -3839,13 +3894,237 @@ body:has(.bible-reader) .tab-bar a.active::after {
   gap: 0.55rem;
 }
 
+.admin-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .admin-main {
-  padding: 1.25rem 1.35rem 2.5rem;
+  grid-area: main;
+  padding: 1.15rem 1.25rem 2.75rem;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
 }
 
 .admin-banner {
+  margin: 0;
+}
+
+.admin-mobile-foot {
+  display: none;
+}
+
+.admin-panel {
+  margin: 0;
+}
+
+.admin-panel-head {
+  margin-bottom: 0.85rem;
+}
+
+.admin-panel-head h2 {
+  margin: 0;
+  font-size: var(--lh-text-title);
+}
+
+.admin-panel-head .muted {
+  margin: 0.3rem 0 0;
+}
+
+.admin-block {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+}
+
+.admin-block:first-of-type,
+.admin-create-home.admin-block {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-block h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.admin-block > .muted {
   margin: 0 0 0.75rem;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  gap: 0.65rem 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-toggle-row .btn {
+  min-width: 5.5rem;
+}
+
+.admin-invite-out {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--lh-accent-soft) 70%, transparent);
+  word-break: break-all;
+}
+
+.admin-empty {
+  margin: 0.35rem 0 0;
+}
+
+.admin-context {
+  margin: 0;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: color-mix(in srgb, var(--lh-bg-elevated) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.admin-context-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+.admin-context-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.admin-context-meta {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.admin-context-filter {
+  margin-bottom: 0.55rem;
+}
+
+.admin-church-switcher {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.1rem 0 0.35rem;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-church-chip {
+  appearance: none;
+  border: 1px solid var(--lh-border);
+  background: color-mix(in srgb, var(--lh-bg) 70%, transparent);
+  color: inherit;
+  text-align: left;
+  min-width: 8.5rem;
+  max-width: 13rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  font: inherit;
+}
+
+.admin-church-chip:hover {
+  border-color: color-mix(in srgb, var(--lh-accent) 35%, var(--lh-border));
+}
+
+.admin-church-chip.is-selected {
+  border-color: color-mix(in srgb, var(--lh-accent) 55%, var(--lh-border));
+  background: var(--lh-accent-soft);
+  transform: translateY(-1px);
+}
+
+.admin-church-chip-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 0.15rem;
+}
+
+.admin-church-chip-meta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--lh-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chip switcher is the primary UX; keep select for a11y / fallback. */
+.admin-church-select-wrap {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.admin-entity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.admin-entity-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 0.85rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--lh-border) 88%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--lh-bg) 55%, transparent);
+}
+
+.admin-entity-main {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.admin-entity-main strong {
+  display: block;
+  word-break: break-word;
+}
+
+.admin-entity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  flex: 1 1 12rem;
+  justify-content: flex-end;
+}
+
+.admin-entity-actions select,
+.admin-entity-actions .btn {
+  max-width: 100%;
 }
 
 .admin-groups-layout {
@@ -3853,7 +4132,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
   gap: 1.25rem 1.75rem;
   align-items: start;
-  margin-top: 0.85rem;
+  margin-top: 0.35rem;
 }
 
 .admin-groups-list h3,
@@ -3869,7 +4148,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border: 1px solid transparent;
   background: transparent;
   padding: 0.55rem 0.65rem;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   color: inherit;
   font: inherit;
@@ -3892,30 +4171,6 @@ body:has(.bible-reader) .tab-bar a.active::after {
   color: var(--lh-accent);
 }
 
-@media (max-width: 800px) {
-  .admin-groups-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 800px) {
-  .admin-console {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-sidebar {
-    position: static;
-    height: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--lh-border);
-  }
-
-  .admin-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-}
-
 .admin-section-tabs {
   position: sticky;
   top: 0;
@@ -3924,6 +4179,102 @@ body:has(.bible-reader) .tab-bar a.active::after {
   margin-bottom: 0.75rem;
   background: color-mix(in srgb, var(--lh-bg) 92%, transparent);
   backdrop-filter: blur(10px);
+}
+
+/* Phone / narrow: top bar + horizontal section tabs; same content panels. */
+@media (max-width: 860px) {
+  .admin-console {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "topbar"
+      "sidebar"
+      "main";
+    max-width: none;
+  }
+
+  .admin-topbar {
+    display: flex;
+  }
+
+  .admin-sidebar {
+    position: sticky;
+    top: 3.55rem;
+    z-index: 7;
+    height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--lh-border) 88%, transparent);
+    padding: 0.35rem 0.65rem 0.55rem;
+    background: color-mix(in srgb, var(--lh-bg-elevated) 94%, transparent);
+    backdrop-filter: blur(14px);
+    gap: 0;
+  }
+
+  .admin-sidebar-brand,
+  .admin-sidebar-foot {
+    display: none;
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.15rem;
+    padding: 0.15rem 0.15rem 0.25rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-nav-item {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0.55rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+  }
+
+  .admin-nav-item.is-active {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lh-accent) 28%, transparent);
+  }
+
+  .admin-main {
+    padding: 0.85rem 0.9rem calc(2.25rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.8rem;
+  }
+
+  .admin-context {
+    top: 0;
+    position: relative;
+    backdrop-filter: none;
+  }
+
+  .admin-groups-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-entity-actions {
+    justify-content: stretch;
+  }
+
+  .admin-entity-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .admin-mobile-foot {
+    display: block;
+    margin-top: 0.35rem;
+  }
+}
+
+@media (min-width: 861px) {
+  .admin-context {
+    top: 0.85rem;
+  }
 }
 
 .highlight-colors {
@@ -4669,9 +5020,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
 }
 
 .admin-create-home {
-  margin-bottom: 1.25rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--lh-border) 85%, transparent);
+  margin-bottom: 0.35rem;
 }
 
 .im-fav-btn {
