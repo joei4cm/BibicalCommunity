@@ -89,6 +89,36 @@ export async function startCallSession(opts: {
   let gotRemoteAnswer = false;
   let reofferInFlight = false;
 
+  let iceRestartInFlight = false;
+  let iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
+  let pc!: RTCPeerConnection;
+
+  const tryIceRestart = (reason: string) => {
+    if (
+      role !== "caller" ||
+      !gotRemoteAnswer ||
+      iceRestartInFlight ||
+      !pc ||
+      typeof pc.restartIce !== "function"
+    ) {
+      return;
+    }
+    iceRestartInFlight = true;
+    void (async () => {
+      try {
+        pc.restartIce();
+        await createOffer(pc, callbacks);
+        opts.onNote?.(`ice-restart:${reason}`);
+      } catch (e) {
+        opts.onNote?.(
+          e instanceof Error ? `ice-restart-failed:${e.message}` : "ice-restart-failed",
+        );
+      } finally {
+        iceRestartInFlight = false;
+      }
+    })();
+  };
+
   const callbacks: PeerCallbacks = {
     onLocalDescription: (desc) => {
       if (desc.type === "offer") {
@@ -107,10 +137,28 @@ export async function startCallSession(opts: {
       const stream = ev.streams[0] ?? new MediaStream([ev.track]);
       opts.onRemoteStream?.(stream);
     },
-    onConnectionStateChange: (state) => opts.onNote?.(`pc:${state}`),
+    onConnectionStateChange: (state) => {
+      opts.onNote?.(`pc:${state}`);
+      if (iceRestartTimer) {
+        clearTimeout(iceRestartTimer);
+        iceRestartTimer = null;
+      }
+      // Recover from transient NAT / Wi-Fi flips during beta calls.
+      // `disconnected` often recovers on its own — debounce; `failed` restarts immediately.
+      if (state === "failed") {
+        tryIceRestart("failed");
+      } else if (state === "disconnected") {
+        iceRestartTimer = setTimeout(() => {
+          iceRestartTimer = null;
+          if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+            tryIceRestart("disconnected");
+          }
+        }, 2_000);
+      }
+    },
   };
 
-  const pc = createPeerConnection(callbacks, { iceServers: opts.iceServers });
+  pc = createPeerConnection(callbacks, { iceServers: opts.iceServers });
   const localStream = await attachLocalMedia(
     pc,
     {
@@ -214,6 +262,10 @@ export async function startCallSession(opts: {
       opts.onNote?.("sent-screen-stop");
     },
     close: () => {
+      if (iceRestartTimer) {
+        clearTimeout(iceRestartTimer);
+        iceRestartTimer = null;
+      }
       sendSignal({ type: "hangup" });
       for (const t of localStream.getTracks()) t.stop();
       pc.close();

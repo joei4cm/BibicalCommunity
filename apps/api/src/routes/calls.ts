@@ -6,6 +6,7 @@ import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
 import { sha256Hex } from "../services/crypto";
 import { isConversationMember } from "../services/access-graph";
+import { enforceRateLimit } from "../services/rate-limit";
 
 /**
  * Call / TURN helpers + CallRoom DO WebSocket upgrade.
@@ -222,6 +223,10 @@ callRoutes.get("/:callId/ws", async (c) => {
 });
 
 callRoutes.post("/turn-credentials", requireAuth, async (c) => {
+  const rl = await enforceRateLimit(c.env.DB, `calls:turn:${c.get("userId")}`, 30, 60_000);
+  if (!rl.ok) {
+    return c.json({ error: "rate_limited", retryAfterSec: rl.retryAfterSec }, 429);
+  }
   const ttl = DEFAULT_TTL_SEC;
   const cfKey = c.env.TURN_CF_KEY_ID;
   const cfToken = c.env.TURN_CF_API_TOKEN;
