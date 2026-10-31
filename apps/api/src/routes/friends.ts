@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { createId, isChurchAdminRoles, parseRolesJson } from "@logoshome/shared";
 import type { Env } from "../env";
@@ -91,19 +91,27 @@ friendsRoutes.get("/", async (c) => {
     .from(schema.friendships)
     .where(or(eq(schema.friendships.userAId, userId), eq(schema.friendships.userBId, userId)));
 
-  const friends = [];
-  for (const row of rows) {
-    const peerId = row.userAId === userId ? row.userBId : row.userAId;
-    const peer = (
-      await db.select().from(schema.users).where(eq(schema.users.id, peerId)).limit(1)
-    )[0];
-    if (!peer || peer.tombstoned) continue;
-    friends.push({
-      friendshipId: row.id,
-      createdAt: row.createdAt,
-      user: await publicUser(c.env, peer),
-    });
-  }
+  const peerIds = rows.map((row) => (row.userAId === userId ? row.userBId : row.userAId));
+  const peers =
+    peerIds.length === 0
+      ? []
+      : await db.select().from(schema.users).where(inArray(schema.users.id, peerIds));
+  const peerById = new Map(peers.map((p) => [p.id, p]));
+
+  const friends = (
+    await Promise.all(
+      rows.map(async (row) => {
+        const peerId = row.userAId === userId ? row.userBId : row.userAId;
+        const peer = peerById.get(peerId);
+        if (!peer || peer.tombstoned) return null;
+        return {
+          friendshipId: row.id,
+          createdAt: row.createdAt,
+          user: await publicUser(c.env, peer),
+        };
+      }),
+    )
+  ).filter((f): f is NonNullable<typeof f> => Boolean(f));
   return c.json({ friends });
 });
 
@@ -124,26 +132,36 @@ friendsRoutes.get("/requests", async (c) => {
     );
 
   async function enrich(rows: typeof incoming, peerKey: "fromUserId" | "toUserId") {
-    const out = [];
-    for (const row of rows) {
-      const peer = (
-        await db.select().from(schema.users).where(eq(schema.users.id, row[peerKey])).limit(1)
-      )[0];
-      if (!peer) continue;
-      out.push({
-        id: row.id,
-        status: row.status,
-        message: row.message,
-        createdAt: row.createdAt,
-        user: await publicUser(c.env, peer),
-      });
-    }
-    return out;
+    const peerIds = [...new Set(rows.map((row) => row[peerKey]))];
+    const peers =
+      peerIds.length === 0
+        ? []
+        : await db.select().from(schema.users).where(inArray(schema.users.id, peerIds));
+    const peerById = new Map(peers.map((p) => [p.id, p]));
+    return (
+      await Promise.all(
+        rows.map(async (row) => {
+          const peer = peerById.get(row[peerKey]);
+          if (!peer) return null;
+          return {
+            id: row.id,
+            status: row.status,
+            message: row.message,
+            createdAt: row.createdAt,
+            user: await publicUser(c.env, peer),
+          };
+        }),
+      )
+    ).filter((r): r is NonNullable<typeof r> => Boolean(r));
   }
 
+  const [incomingEnriched, outgoingEnriched] = await Promise.all([
+    enrich(incoming, "fromUserId"),
+    enrich(outgoing, "toUserId"),
+  ]);
   return c.json({
-    incoming: await enrich(incoming, "fromUserId"),
-    outgoing: await enrich(outgoing, "toUserId"),
+    incoming: incomingEnriched,
+    outgoing: outgoingEnriched,
   });
 });
 
@@ -216,27 +234,36 @@ friendsRoutes.get("/directory", async (c) => {
     .select()
     .from(schema.friendships)
     .where(or(eq(schema.friendships.userAId, userId), eq(schema.friendships.userBId, userId)));
+  const missingFriendIds: string[] = [];
   for (const row of friendRows) {
     const peerId = row.userAId === userId ? row.userBId : row.userAId;
     if (byUser.has(peerId)) {
       byUser.get(peerId)!.source = "friend";
-      continue;
+    } else {
+      missingFriendIds.push(peerId);
     }
-    const peer = (
-      await db.select().from(schema.users).where(eq(schema.users.id, peerId)).limit(1)
-    )[0];
-    if (!peer || peer.tombstoned) continue;
-    const pub = await publicUser(c.env, peer);
-    byUser.set(peerId, {
-      userId: pub.id,
-      uid: pub.uid,
-      nickname: pub.nickname,
-      signature: pub.signature,
-      roles: [],
-      groupNames: [],
-      churches: [],
-      source: "friend",
-    });
+  }
+  if (missingFriendIds.length > 0) {
+    const peers = await db
+      .select()
+      .from(schema.users)
+      .where(inArray(schema.users.id, missingFriendIds));
+    await Promise.all(
+      peers.map(async (peer) => {
+        if (peer.tombstoned) return;
+        const pub = await publicUser(c.env, peer);
+        byUser.set(peer.id, {
+          userId: pub.id,
+          uid: pub.uid,
+          nickname: pub.nickname,
+          signature: pub.signature,
+          roles: [],
+          groupNames: [],
+          churches: [],
+          source: "friend",
+        });
+      }),
+    );
   }
 
   byUser.delete(userId);

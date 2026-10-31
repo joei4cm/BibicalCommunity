@@ -494,7 +494,9 @@ export function ChatPanel({
       const known = mode === "incremental" ? messageRowsRef.current : [];
       const after =
         known.length > 0 ? known.reduce((max, m) => Math.max(max, m.createdAt), 0) : 0;
-      const qs = after > 0 ? `?after=${after}` : "";
+      // First open: recent page only. Incremental: after-cursor without re-pulling history.
+      const qs =
+        after > 0 ? `?after=${after}&limit=100` : mode === "full" ? "?limit=50" : "?limit=100";
       const res = await api<{
         messages: ChatMessage[];
         peerLastReadAt?: number | null;
@@ -557,20 +559,37 @@ export function ChatPanel({
       const prevPt = plaintextsRef.current;
       const toDecode = after > 0 ? fresh : live;
       const decoded: Record<string, string> = {};
+      const pending: ChatMessage[] = [];
       for (const m of toDecode) {
         const cached = prevPt[m.id] && prevPt[m.id] !== "[ciphertext]" ? prevPt[m.id] : readPlainSync(m.id);
         if (cached) {
           decoded[m.id] = cached;
-          continue;
+        } else {
+          pending.push(m);
         }
-        decoded[m.id] = await decodeStoredChatMessage({
-          conversationId,
-          messageId: m.id,
-          ratchetHeader: m.ratchetHeader,
-          ciphertext: m.ciphertext,
-          peerUserId: peer,
-          selfUserId: me,
-        });
+      }
+      // Decrypt in parallel — sequential ratchet opens made long threads feel stuck.
+      const CONCURRENCY = 8;
+      for (let i = 0; i < pending.length; i += CONCURRENCY) {
+        const chunk = pending.slice(i, i + CONCURRENCY);
+        const parts = await Promise.all(
+          chunk.map(async (m) => {
+            const text = await decodeStoredChatMessage({
+              conversationId,
+              messageId: m.id,
+              ratchetHeader: m.ratchetHeader,
+              ciphertext: m.ciphertext,
+              peerUserId: peer,
+              selfUserId: me,
+            });
+            return [m.id, text] as const;
+          }),
+        );
+        for (const [id, text] of parts) decoded[id] = text;
+        // Progressive paint so the thread isn't blank until the last message decrypts.
+        if (i + CONCURRENCY < pending.length) {
+          setPlaintexts((prev) => ({ ...prev, ...Object.fromEntries(parts) }));
+        }
       }
       for (const [id, text] of Object.entries(decoded)) writePlainSync(id, text);
       void writeThread(conversationId, peer, live).catch(() => {});

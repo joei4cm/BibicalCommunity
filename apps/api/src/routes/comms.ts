@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
 import { requireAuth, type AuthVars } from "../middleware/auth";
@@ -34,19 +34,19 @@ commsRoutes.get("/badges", async (c) => {
   const db = drizzle(c.env.DB, { schema });
   const userId = c.get("userId");
 
-  const [inboxRows, friendRows, calendarRows, chatUnread] = await Promise.all([
+  const [inboxRow, friendRow, calendarRow, chatUnread] = await Promise.all([
     db
-      .select({ id: schema.inboxMessages.id })
+      .select({ n: count() })
       .from(schema.inboxMessages)
       .where(and(eq(schema.inboxMessages.userId, userId), isNull(schema.inboxMessages.readAt))),
     db
-      .select({ id: schema.friendRequests.id })
+      .select({ n: count() })
       .from(schema.friendRequests)
       .where(
         and(eq(schema.friendRequests.toUserId, userId), eq(schema.friendRequests.status, "pending")),
       ),
     db
-      .select({ id: schema.calendarInvites.id })
+      .select({ n: count() })
       .from(schema.calendarInvites)
       .where(
         and(
@@ -57,9 +57,9 @@ commsRoutes.get("/badges", async (c) => {
     countChatUnread(c.env, userId),
   ]);
 
-  const inboxUnread = inboxRows.length;
-  const friendRequestsPending = friendRows.length;
-  const calendarPending = calendarRows.length;
+  const inboxUnread = Number(inboxRow[0]?.n ?? 0);
+  const friendRequestsPending = Number(friendRow[0]?.n ?? 0);
+  const calendarPending = Number(calendarRow[0]?.n ?? 0);
   const total = chatUnread + inboxUnread + calendarPending + friendRequestsPending;
 
   return c.json({
