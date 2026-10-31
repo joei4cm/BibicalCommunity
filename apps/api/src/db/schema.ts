@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable(
   "users",
@@ -161,6 +161,25 @@ export const annotations = sqliteTable("annotations", {
   createdAt: integer("created_at", { mode: "number" }).notNull(),
   updatedAt: integer("updated_at", { mode: "number" }).notNull(),
 });
+
+/**
+ * Client-encrypted account vault (reading place / history pointers).
+ * Server stores opaque ciphertext only — never plaintext scripture positions.
+ */
+export const userVault = sqliteTable(
+  "user_vault",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    kind: text("kind").notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    iv: text("iv").notNull(),
+    updatedAt: integer("updated_at", { mode: "number" }).notNull(),
+  },
+  (t) => [uniqueIndex("user_vault_user_kind_uidx").on(t.userId, t.kind)],
+);
 
 export const readingPlans = sqliteTable("reading_plans", {
   id: text("id").primaryKey(),

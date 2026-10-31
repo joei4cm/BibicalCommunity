@@ -7,7 +7,13 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { saveReaderPlace } from "../lib/reader-place";
+import { readerPlacePath } from "../lib/reader-place";
+import {
+  loadReaderHistory,
+  pullReaderVault,
+  recordReaderVisit,
+  type ReaderHistoryEntry,
+} from "../lib/reader-vault";
 import {
   applyVerseTap,
   highlightIdsInRange,
@@ -52,6 +58,7 @@ import {
   type StudyCommentaryId,
   type StrongsDictionary,
   type StrongsEntry,
+  formatVerseNumLabel,
   type InstalledTranslationSummary,
   type TranslationMeta,
 } from "@logoshome/bible";
@@ -122,12 +129,14 @@ type DecryptedNote = {
   text: string;
 };
 
+type ReaderVerse = { verse: number; text: string; verseEnd?: number };
+
 type ChapterPayload =
   | {
       translationId: string;
       book: string;
       chapter: number;
-      verses: { verse: number; text: string }[];
+      verses: ReaderVerse[];
       source: string;
     }
   | { external: true; url: string; meta: TranslationMeta; sso?: boolean };
@@ -342,6 +351,8 @@ function CompareChapterPane({
       data-testid="reader-compare-pane"
     >
       {primary.verses.map((v) => {
+        const body = displayVerseText(v.text);
+        if (!body) return null;
         const selected = rangeIncludes(selection, v.verse);
         const hl = highlightByVerse?.[v.verse];
         const peerText = peerMap.get(v.verse);
@@ -352,6 +363,7 @@ function CompareChapterPane({
             style={hl ? ({ ["--verse-hl" as string]: hl } as CSSProperties) : undefined}
             data-highlighted={hl ? "1" : "0"}
             data-verse={v.verse}
+            data-verse-end={v.verseEnd && v.verseEnd > v.verse ? String(v.verseEnd) : undefined}
             role="button"
             tabIndex={0}
             onPointerDown={(e) => press.onPointerDown(v.verse, e)}
@@ -362,13 +374,13 @@ function CompareChapterPane({
               }
             }}
           >
-            <sup className="verse-num">{v.verse}</sup>
+            <sup className="verse-num">{formatVerseNumLabel(v.verse, v.verseEnd)}</sup>
             <div className="compare-verse-stack">
               <p className="compare-line">
                 <span className="compare-abbr">{primaryAbbr}</span>
-                <span className="compare-text">{displayVerseText(v.text)}</span>
+                <span className="compare-text">{body}</span>
               </p>
-              {peerText != null && (
+              {peerText != null && displayVerseText(peerText) && (
                 <p className="compare-line compare-line--peer">
                   <span className="compare-abbr">{peerAbbr}</span>
                   <span className="compare-text">{displayVerseText(peerText)}</span>
@@ -463,6 +475,7 @@ function ChapterPane({
           const hl = highlightByVerse?.[v.verse];
           const selected = rangeIncludes(selection, v.verse);
           const heading = headingAt.get(v.verse);
+          const label = formatVerseNumLabel(v.verse, v.verseEnd);
           return (
             <span key={v.verse} className="verse-block">
               {heading ? (
@@ -483,11 +496,12 @@ function ChapterPane({
                 role="button"
                 tabIndex={0}
                 data-verse={v.verse}
+                data-verse-end={v.verseEnd && v.verseEnd > v.verse ? String(v.verseEnd) : undefined}
                 data-selected={selected ? "1" : "0"}
                 data-highlighted={hl ? "1" : "0"}
                 title={t("reader.longPressSelect")}
               >
-                <sup className="verse-num">{v.verse}</sup>
+                <sup className="verse-num">{label}</sup>
                 {body}{" "}
               </span>
             </span>
@@ -603,11 +617,20 @@ export function BibleReader() {
       setTranslationId(tid);
       setBookId(nextBookId);
       setChapterNum(capped);
-      saveReaderPlace({ tid, bookSlug: bookSlug(nextBookId), chapter: capped });
+      setReaderHistory(
+        recordReaderVisit({ tid, bookSlug: bookSlug(nextBookId), chapter: capped }),
+      );
       // Verse focus is applied via routeVerse → focusVerse after prose mounts.
     },
     [navigate],
   );
+
+  useEffect(() => {
+    if (!getToken()) return;
+    void pullReaderVault()
+      .then((res) => setReaderHistory(res.history))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const book = getBook(routeBookId);
@@ -622,7 +645,9 @@ export function BibleReader() {
       setChapterNum(capped);
     }
     if (params.tid && params.bookSlug && params.chapter) {
-      saveReaderPlace({ tid: routeTid, bookSlug: bookSlug(routeBookId), chapter: capped });
+      setReaderHistory(
+        recordReaderVisit({ tid: routeTid, bookSlug: bookSlug(routeBookId), chapter: capped }),
+      );
     }
     // Normalize incomplete URLs once.
     if (!params.tid || !params.bookSlug || !params.chapter || capped !== routeChapter) {
@@ -769,6 +794,7 @@ export function BibleReader() {
   const [bookmarks, setBookmarks] = useState<
     { id: string; label: string; book: string; chapter: number; verse: number }[]
   >([]);
+  const [readerHistory, setReaderHistory] = useState<ReaderHistoryEntry[]>(() => loadReaderHistory());
   const [corpusHint, setCorpusHint] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
   const [passagePickerOpen, setPassagePickerOpen] = useState(false);
@@ -1397,7 +1423,19 @@ export function BibleReader() {
     if (!chapter || "external" in chapter || !("verses" in chapter)) return;
     if (chapter.book !== bookId || chapter.chapter !== chapterNum) return;
     const prose = document.querySelector('[data-testid="reader-prose"]');
-    const el = prose?.querySelector(`[data-verse="${focusVerse}"]`);
+    // Marker-absorbed ranges keep data-verse=start; also match data-verse-end hosts.
+    let el = prose?.querySelector(`[data-verse="${focusVerse}"]`);
+    if (!(el instanceof HTMLElement) && prose) {
+      for (const node of prose.querySelectorAll("[data-verse][data-verse-end]")) {
+        if (!(node instanceof HTMLElement)) continue;
+        const start = Number(node.getAttribute("data-verse"));
+        const end = Number(node.getAttribute("data-verse-end"));
+        if (focusVerse >= start && focusVerse <= end) {
+          el = node;
+          break;
+        }
+      }
+    }
     if (focusVerse === 1) {
       // Reset to page top so topbar, chapter lead, and section heading stay visible.
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2969,9 +3007,36 @@ export function BibleReader() {
         </div>
       )}
 
-      {(bookmarks.some((b) => b.book === bookId && b.chapter === chapterNum) ||
+      {(readerHistory.length > 0 ||
+        bookmarks.some((b) => b.book === bookId && b.chapter === chapterNum) ||
         decryptedNotes.some((n) => n.label.startsWith(`${bookId} ${chapterNum}:`))) && (
         <div className="bible-more-body" style={{ marginTop: "1.25rem" }}>
+          {readerHistory.length > 0 && (
+            <div className="bible-side-block" data-testid="reader-history-list">
+              <h2>{t("reader.history")}</h2>
+              <p className="bible-hint">{t("reader.historyHint")}</p>
+              <ul>
+                {readerHistory.slice(0, 12).map((h) => {
+                  const b = getBook(bookIdFromSlug(h.bookSlug) ?? h.bookSlug);
+                  const label = b
+                    ? `${b.name[bookNameLocale]} ${h.chapter}`
+                    : `${h.bookSlug} ${h.chapter}`;
+                  return (
+                    <li key={`${h.tid}/${h.bookSlug}/${h.chapter}/${h.updatedAt}`}>
+                      <Link
+                        className="bible-text-btn"
+                        to={readerPlacePath(h)}
+                        data-testid={`reader-history-${h.bookSlug}-${h.chapter}`}
+                      >
+                        {label}
+                        <span className="muted"> · {h.tid}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           {bookmarks.some((b) => b.book === bookId && b.chapter === chapterNum) && (
             <div className="bible-side-block" data-testid="reader-bookmark-list">
               <h2>{t("reader.bookmarkChapter")}</h2>

@@ -16,6 +16,7 @@ import {
   type ProductSignalPrefer,
 } from "../lib/product-signal-prefer";
 import { hasLocalDeviceKeys, uploadDeviceKeyBundle } from "../lib/upload-device-keys";
+import { pullReaderVault } from "../lib/reader-vault";
 import { humanizeStatus } from "../lib/status";
 import { ApkUpdateBanner } from "../components/ApkUpdateBanner";
 import { APP_VERSION } from "../lib/app-version";
@@ -299,6 +300,7 @@ export function MePage() {
       } catch (refreshErr) {
         setMsg(refreshErr instanceof Error ? refreshErr.message : "registered");
       }
+      void pullReaderVault().catch(() => undefined);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     } finally {
@@ -347,6 +349,7 @@ export function MePage() {
         setMsg(refreshErr instanceof Error ? refreshErr.message : "logged_in");
       }
       await checkPendingWipe();
+      void pullReaderVault().catch(() => undefined);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "error");
     } finally {

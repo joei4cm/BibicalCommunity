@@ -2,10 +2,13 @@ import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { and, eq } from "drizzle-orm";
 import {
+  createId,
   isChurchAdminRoles,
   parseRolesJson,
   primaryChurchRole,
   profileUpdateSchema,
+  vaultKindSchema,
+  vaultPutSchema,
 } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
@@ -139,6 +142,69 @@ meRoutes.patch("/", async (c) => {
   }
   await db.update(schema.users).set(patch).where(eq(schema.users.id, userId));
   return c.json({ ok: true });
+});
+
+/**
+ * GET /v1/me/vault/:kind — opaque client-encrypted blob (reader place / history).
+ * Server never sees plaintext pointers.
+ */
+meRoutes.get("/vault/:kind", async (c) => {
+  const kindParsed = vaultKindSchema.safeParse(c.req.param("kind"));
+  if (!kindParsed.success) return c.json({ error: "invalid_vault_kind" }, 400);
+  const kind = kindParsed.data;
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const row = (
+    await db
+      .select()
+      .from(schema.userVault)
+      .where(and(eq(schema.userVault.userId, userId), eq(schema.userVault.kind, kind)))
+      .limit(1)
+  )[0];
+  if (!row) return c.json({ kind, blob: null });
+  return c.json({
+    kind,
+    blob: {
+      ciphertext: row.ciphertext,
+      iv: row.iv,
+      updatedAt: row.updatedAt,
+    },
+  });
+});
+
+/** PUT /v1/me/vault/:kind — upsert encrypted blob for this account. */
+meRoutes.put("/vault/:kind", async (c) => {
+  const kindParsed = vaultKindSchema.safeParse(c.req.param("kind"));
+  if (!kindParsed.success) return c.json({ error: "invalid_vault_kind" }, 400);
+  const kind = kindParsed.data;
+  const body = vaultPutSchema.parse(await c.req.json());
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const now = Date.now();
+  const existing = (
+    await db
+      .select()
+      .from(schema.userVault)
+      .where(and(eq(schema.userVault.userId, userId), eq(schema.userVault.kind, kind)))
+      .limit(1)
+  )[0];
+  if (existing) {
+    await db
+      .update(schema.userVault)
+      .set({ ciphertext: body.ciphertext, iv: body.iv, updatedAt: now })
+      .where(eq(schema.userVault.id, existing.id));
+    return c.json({ ok: true, kind, updatedAt: now, id: existing.id });
+  }
+  const id = createId("vault");
+  await db.insert(schema.userVault).values({
+    id,
+    userId,
+    kind,
+    ciphertext: body.ciphertext,
+    iv: body.iv,
+    updatedAt: now,
+  });
+  return c.json({ ok: true, kind, updatedAt: now, id }, 201);
 });
 
 /** List this account's devices (for revoke UX). Recovery material stays client-only. */

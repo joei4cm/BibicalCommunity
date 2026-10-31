@@ -99,8 +99,8 @@ export function densifyChapterVerses(
   translationId: string,
   book: string,
   chapter: number,
-  verses: { verse: number; text: string }[],
-): { verse: number; text: string }[] {
+  verses: { verse: number; text: string; verseEnd?: number }[],
+): { verse: number; text: string; verseEnd?: number }[] {
   // Always strip CrossWire footnote-marker leaks so cached PD chapters paint clean.
   const cleaned = sanitizeCorpusVerses(verses ?? []);
   if (cleaned.length && !chapterHasPlaceholderVerses(cleaned)) {
