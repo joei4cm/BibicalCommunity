@@ -6,8 +6,10 @@ import {
   toDateInputValue,
   toDateTimeLocalValue,
 } from "../lib/calendar-time";
-import { humanizeStatus } from "../lib/status";
+import { humanizeStatus, isLoadFailureNote, normalizeErrorCode } from "../lib/status";
 import { SheetPortal } from "../components/SheetPortal";
+import { AUTH_NOTE_CODES, CommsLoginGate, isAuthBlocked } from "../components/CommsLoginGate";
+import { CommsLoadError } from "../components/CommsLoadError";
 import { IconChevronLeft, IconChevronRight } from "../components/icons";
 
 type CalEvent = {
@@ -133,7 +135,7 @@ export function CalendarPanel({
   }, [range.from, range.to]);
 
   useEffect(() => {
-    void refresh().catch((e) => setNote(e instanceof Error ? e.message : "error"));
+    void refresh().catch((e) => setNote(normalizeErrorCode(e)));
   }, [refresh]);
 
   useEffect(() => {
@@ -388,7 +390,10 @@ export function CalendarPanel({
 
         <div className="cal-agenda-scroll" ref={agendaScrollRef} data-testid="calendar-day-list">
           {dayEvents.length === 0 && (
-            <p className="muted cal-agenda-empty">{t("comms.noEvents")}</p>
+            <div className="comms-empty cal-agenda-empty" data-testid="calendar-day-empty">
+              <strong>{t("comms.noEvents")}</strong>
+              <p className="muted">{t("comms.noEventsHint")}</p>
+            </div>
           )}
           {Array.from({ length: 24 }, (_, hour) => {
             const list = byHour.get(hour) ?? [];
@@ -442,12 +447,29 @@ export function CalendarPanel({
     );
   }
 
+  const loadFailed = isLoadFailureNote(note);
   const statusNote =
     note === "event_start_invalid"
       ? t("comms.eventStartInvalid")
-      : note
+      : note && !AUTH_NOTE_CODES.has(note) && !loadFailed
         ? humanizeStatus(t, note)
         : null;
+
+  if (isAuthBlocked(note)) {
+    return (
+      <div className="calendar-panel" data-testid="comms-calendar">
+        <CommsLoginGate titleKey="comms.calendarLoginGate" testIdPrefix="calendar" />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="calendar-panel" data-testid="comms-calendar">
+        <CommsLoadError testId="calendar-list-error" onRetry={() => void refresh()} />
+      </div>
+    );
+  }
 
   return (
     <div className="calendar-panel" data-testid="comms-calendar">
