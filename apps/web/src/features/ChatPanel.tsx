@@ -8,7 +8,7 @@ import {
 } from "@logoshome/crypto";
 import { isCoworkerAssemblyConversationTitle, messageReceiptState } from "@logoshome/shared";
 import { api, apiUrl, getToken } from "../lib/api";
-import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
+import { decryptChatMessage, encryptChatMessage, ensureRatchet } from "../lib/secure-chat";
 import { decodeStoredChatMessage } from "../lib/chat-decode";
 import {
   readCachedConversations,
@@ -20,6 +20,7 @@ import {
   writePlainSync,
   writeThread,
 } from "../lib/chat-local";
+import { fetchConversationsList } from "../lib/conversations-fetch";
 import { encryptGroupFanout } from "../lib/group-fanout";
 import { humanizeStatus } from "../lib/status";
 import { peerHasProductKeys } from "../lib/product-signal-chat";
@@ -304,12 +305,13 @@ export function ChatPanel({
       if (!opts?.quiet) setNote("login_required");
       return;
     }
-    const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
-    conversationsRef.current = res.conversations;
-    setConversations(res.conversations);
-    writeCachedConversations(res.conversations);
+    // Share CallProvider's in-flight/fresh snapshot — don't force a second GET.
+    const list = (await fetchConversationsList()) as Conversation[];
+    conversationsRef.current = list;
+    setConversations(list);
+    writeCachedConversations(list);
     const fromPeers: Record<string, string> = {};
-    for (const c of res.conversations) {
+    for (const c of list) {
       for (const p of c.peers ?? []) {
         fromPeers[p.userId] = labelFromPeer(p, p.userId);
       }
@@ -570,6 +572,14 @@ export function ChatPanel({
           decoded[m.id] = cached;
         } else {
           pending.push(m);
+        }
+      }
+      // Warm ratchet/session once so the first decode doesn't serialize the whole page behind /v1/keys.
+      if (pending.length > 0 && peer && me) {
+        try {
+          await ensureRatchet(conversationId, peer, me);
+        } catch {
+          /* keys missing — decode path surfaces degraded tip */
         }
       }
       // Decrypt in parallel — sequential ratchet opens made long threads feel stuck.

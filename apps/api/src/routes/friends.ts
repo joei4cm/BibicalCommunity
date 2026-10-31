@@ -21,12 +21,18 @@ function orderedPair(a: string, b: string): [string, string] {
 async function publicUser(
   env: Env,
   user: typeof schema.users.$inferSelect,
+  opts?: { includeSignature?: boolean },
 ): Promise<{ id: string; uid: string; nickname: string | null; signature: string | null }> {
+  const nickname = await openField(env, user.id, "nickname", user.nicknameCt);
+  const signature =
+    opts?.includeSignature === false
+      ? null
+      : await openField(env, user.id, "signature", user.signatureCt);
   return {
     id: user.id,
     uid: user.uid,
-    nickname: await openField(env, user.id, "nickname", user.nicknameCt),
-    signature: await openField(env, user.id, "signature", user.signatureCt),
+    nickname,
+    signature,
   };
 }
 
@@ -107,7 +113,8 @@ friendsRoutes.get("/", async (c) => {
         return {
           friendshipId: row.id,
           createdAt: row.createdAt,
-          user: await publicUser(c.env, peer),
+          // List endpoint: nickname only — signature waits for directory/detail.
+          user: await publicUser(c.env, peer, { includeSignature: false }),
         };
       }),
     )

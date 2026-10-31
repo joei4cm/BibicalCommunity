@@ -19,7 +19,7 @@ import {
   loadPeerLabelCache,
   mergePeerLabels,
 } from "../lib/peer-labels";
-import { writeCachedConversations } from "../lib/chat-local";
+import { fetchConversationsList } from "../lib/conversations-fetch";
 import { postControlMessage } from "../lib/post-control-message";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
@@ -157,15 +157,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
       return;
     }
     const [convoRes, friendsRes] = await Promise.allSettled([
-      api<{ conversations: ConvoRow[] }>("/v1/chat/conversations"),
+      fetchConversationsList(),
       api<{
         friends: { user: { id: string; uid: string | null; nickname: string | null } }[];
       }>("/v1/friends"),
     ]);
     if (convoRes.status === "fulfilled") {
-      const list = Array.isArray(convoRes.value.conversations) ? convoRes.value.conversations : [];
+      const list = (Array.isArray(convoRes.value) ? convoRes.value : []) as ConvoRow[];
       setConversations(list);
-      writeCachedConversations(list);
       const fromPeers: Record<string, string> = {};
       for (const c of list) {
         for (const p of c.peers ?? []) {
