@@ -11,9 +11,11 @@ import { api, apiUrl, getToken } from "../lib/api";
 import { decryptChatMessage, encryptChatMessage } from "../lib/secure-chat";
 import { decodeStoredChatMessage } from "../lib/chat-decode";
 import {
+  readCachedConversations,
   readChatPreviews,
   readPlainSync,
   readThread,
+  writeCachedConversations,
   writeChatPreview,
   writePlainSync,
   writeThread,
@@ -116,7 +118,9 @@ export function ChatPanel({
   const { t } = useTranslation();
   const { startOutboundCall, shareScreen, endScreen, screenShareReady, callSessionActive } = useCall();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() =>
+    readCachedConversations<Conversation>(),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [plaintexts, setPlaintexts] = useState<Record<string, string>>({});
@@ -256,7 +260,7 @@ export function ChatPanel({
     void refreshLocalKeysReady();
   }, [selectedId]);
 
-  // Opening a thread without local keys: one confirm dialog — no Me-page navigation.
+  // Opening a thread without local keys: soft banner only — never block with confirm().
   useEffect(() => {
     if (!selectedId || !getToken() || keysPromptedRef.current || keyBusy) return;
     let cancelled = false;
@@ -266,13 +270,12 @@ export function ChatPanel({
       setLocalKeysReady(has);
       if (has || keysPromptedRef.current) return;
       keysPromptedRef.current = true;
-      await confirmAndUploadKeys();
+      setNote("chat_degraded_soft");
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt once per session when keys missing
-  }, [selectedId]);
+  }, [selectedId, keyBusy]);
 
   useEffect(() => {
     onThreadOpenChange?.(Boolean(selectedId));
@@ -304,6 +307,7 @@ export function ChatPanel({
     const res = await api<{ conversations: Conversation[] }>("/v1/chat/conversations");
     conversationsRef.current = res.conversations;
     setConversations(res.conversations);
+    writeCachedConversations(res.conversations);
     const fromPeers: Record<string, string> = {};
     for (const c of res.conversations) {
       for (const p of c.peers ?? []) {
@@ -651,19 +655,37 @@ export function ChatPanel({
 
   useEffect(() => {
     void refreshConversations().catch((e) => setNote(e instanceof Error ? e.message : "error"));
-    void loadFavorites();
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refreshConversations({ quiet: true }).catch(() => {});
     }, 15_000);
     return () => window.clearInterval(timer);
-  }, [refreshConversations, loadFavorites]);
+  }, [refreshConversations]);
+
+  // Favorites decrypt is off the contact-list critical path.
+  useEffect(() => {
+    if (listTab === "archived") {
+      void loadFavorites();
+      return;
+    }
+    const ric = (
+      window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    if (typeof ric === "function") {
+      const id = ric(() => void loadFavorites(), { timeout: 4_000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(() => void loadFavorites(), 2_500);
+    return () => window.clearTimeout(t);
+  }, [listTab, loadFavorites]);
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState !== "visible") return;
       void refreshConversations({ quiet: true }).catch(() => {});
-      void loadFavorites();
     };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", onVis);
@@ -671,7 +693,7 @@ export function ChatPanel({
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("focus", onVis);
     };
-  }, [refreshConversations, loadFavorites]);
+  }, [refreshConversations]);
 
   useEffect(() => {
     const onPreviews = () => setPreviews(readChatPreviews());

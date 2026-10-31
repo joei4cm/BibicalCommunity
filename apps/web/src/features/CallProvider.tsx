@@ -19,6 +19,7 @@ import {
   loadPeerLabelCache,
   mergePeerLabels,
 } from "../lib/peer-labels";
+import { writeCachedConversations } from "../lib/chat-local";
 import { postControlMessage } from "../lib/post-control-message";
 import { canStartScreenShare, probeDisplayMedia } from "../lib/screen-share";
 import { buildIceServersFromTurnResponse, turnResponseHasRelay } from "../lib/turn-ice";
@@ -164,6 +165,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (convoRes.status === "fulfilled") {
       const list = Array.isArray(convoRes.value.conversations) ? convoRes.value.conversations : [];
       setConversations(list);
+      writeCachedConversations(list);
       const fromPeers: Record<string, string> = {};
       for (const c of list) {
         for (const p of c.peers ?? []) {
