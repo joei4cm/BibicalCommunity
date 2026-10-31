@@ -14,6 +14,7 @@ export * from "./content-policy.js";
 export * from "./study.js";
 export * from "./study-tools.js";
 export * from "./r2-format.js";
+export * from "./verse-sanitize.js";
 export * from "./partners.js";
 export * from "./theme-packs.js";
 export * from "./devotion-packs.js";

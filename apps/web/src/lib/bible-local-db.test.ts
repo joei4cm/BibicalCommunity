@@ -42,4 +42,19 @@ describe("placeholder corpus guards", () => {
     const out = densifyChapterVerses("cuvs", "John", 4, real);
     assert.deepEqual(out, real);
   });
+
+  it("strips CrossWire footnote-marker verses from cached chapters", () => {
+    const out = densifyChapterVerses("cuvs", "Esth", 1, [
+      {
+        verse: 13,
+        text: "那时，在王左右常见王面、国中坐高位的，有波斯和米底亚的七个大臣，就是甲示拿、示达、押玛他、他施斯、米力、玛西拿、米母干，都是达时务的明哲人。按王的常规，办事必先询问知例明法的人。王问他们说：",
+      },
+      { verse: 14, text: "a" },
+      { verse: 15, text: "「王后瓦实提不遵太监所传的王命，照例应当怎样办理呢？」" },
+    ]);
+    assert.deepEqual(
+      out.map((v) => v.verse),
+      [13, 15],
+    );
+  });
 });

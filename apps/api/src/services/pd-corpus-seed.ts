@@ -6,7 +6,12 @@
  * Product tids may map to a different getbible abbreviation
  * (e.g. cuvs ← cus 和合本简体公版).
  */
-import { BOOK_LIST, r2ChapterObjectKey, r2CorpusPrefix } from "@logoshome/bible";
+import {
+  BOOK_LIST,
+  r2ChapterObjectKey,
+  r2CorpusPrefix,
+  sanitizeCorpusVerses,
+} from "@logoshome/bible";
 
 /** Product translation ids that may be seeded from a public-domain getbible source. */
 export const PD_SEED_TRANSLATION_IDS = ["web", "kjv", "asv", "cuvs"] as const;
@@ -76,14 +81,13 @@ export async function seedPdBookToR2(
   for (const ch of chapters) {
     const chapter = Number(ch.chapter);
     if (!Number.isFinite(chapter) || chapter < 1) continue;
-    const verses = (ch.verses ?? [])
-      .map((v) => ({
+    // Drop CrossWire footnote-marker leaks (`a`) — real text is merged into the prior verse.
+    const verses = sanitizeCorpusVerses(
+      (ch.verses ?? []).map((v) => ({
         verse: Number(v.verse),
-        text: String(v.text ?? "")
-          .replace(/\s+/g, " ")
-          .trim(),
-      }))
-      .filter((v) => Number.isFinite(v.verse) && v.verse > 0 && v.text.length > 0);
+        text: String(v.text ?? ""),
+      })),
+    );
     if (!verses.length) continue;
 
     const key = r2ChapterObjectKey(tid, osis, chapter);

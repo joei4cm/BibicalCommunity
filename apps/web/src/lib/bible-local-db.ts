@@ -10,6 +10,7 @@ import {
   type R2ChapterJson,
   buildDemoDownloadPack,
   BOOT_DEFAULT_TRANSLATION_IDS,
+  sanitizeCorpusVerses,
 } from "@logoshome/bible";
 
 const DB_NAME = "lh-bible";
@@ -100,17 +101,19 @@ export function densifyChapterVerses(
   chapter: number,
   verses: { verse: number; text: string }[],
 ): { verse: number; text: string }[] {
-  if (verses?.length && !chapterHasPlaceholderVerses(verses)) {
-    return verses;
+  // Always strip CrossWire footnote-marker leaks so cached PD chapters paint clean.
+  const cleaned = sanitizeCorpusVerses(verses ?? []);
+  if (cleaned.length && !chapterHasPlaceholderVerses(cleaned)) {
+    return cleaned;
   }
   const demo = buildDemoDownloadPack(translationId).chapters.find(
     (c) => c.book === book && c.chapter === chapter,
   );
-  if (demo && !isIncompleteLocalChapter(demo) && demo.verses.length > (verses?.length ?? 0)) {
-    return demo.verses;
+  if (demo && !isIncompleteLocalChapter(demo) && demo.verses.length > cleaned.length) {
+    return sanitizeCorpusVerses(demo.verses);
   }
   // Keep caller verses (may be empty) — do not invent placeholder text for paint.
-  return verses ?? [];
+  return cleaned;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -424,7 +427,9 @@ export async function installDownloadedPack(
   translationId: string,
   chapters: R2ChapterJson[],
 ): Promise<{ installed: number }> {
-  const clean = chapters.filter((ch) => !isIncompleteLocalChapter(ch));
+  const clean = chapters
+    .map((ch) => ({ ...ch, verses: sanitizeCorpusVerses(ch.verses ?? []) }))
+    .filter((ch) => !isIncompleteLocalChapter(ch));
   if (!clean.length) return { installed: 0 };
   return bibleLocalDb.installPack(translationId, clean);
 }
@@ -438,13 +443,14 @@ export async function cacheNetworkChapter(
   source?: string,
   revision?: string,
 ): Promise<void> {
-  if (!verses?.length) return;
+  const cleaned = sanitizeCorpusVerses(verses ?? []);
+  if (!cleaned.length) return;
   if (source === "demo" || source === "local-demo") return;
-  if (isIncompleteLocalChapter({ verses })) return;
+  if (isIncompleteLocalChapter({ verses: cleaned })) return;
   await bibleLocalDb.installChapter(translationId, {
     book,
     chapter,
-    verses,
+    verses: cleaned,
     ...(revision ? { revision } : {}),
   });
 }

@@ -21,6 +21,7 @@ import {
   probeLocalCorpusPipeline,
   r2ChapterObjectKey,
   r2CorpusPrefix,
+  sanitizeCorpusVerses,
 } from "@logoshome/bible";
 import { createId } from "@logoshome/shared";
 import type { Env } from "../env";
@@ -303,7 +304,8 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     return c.json(
       {
         translationId,
-        version: 1,
+        // v2: strip CrossWire footnote-marker verses (`a`) from PD dumps.
+        version: 2,
         chapters: fromR2,
         source: "r2" as const,
         scope,
@@ -323,7 +325,7 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
     return c.json(
       {
         translationId,
-        version: 1,
+        version: 2,
         chapters: fromR2,
         source: "r2" as const,
         scope,
@@ -347,15 +349,19 @@ bibleRoutes.get("/corpus-download/:translationId", async (c) => {
       limit: pageLimit || undefined,
     });
     if (page.totalKeys > 0 || page.chapters.length > 0) {
+      const chapters = page.chapters.map((ch) => ({
+        ...ch,
+        verses: sanitizeCorpusVerses(ch.verses ?? []),
+      }));
       return c.json(
         {
           translationId,
-          version: 1,
-          chapters: page.chapters,
+          version: 2,
+          chapters,
           source: "d1" as const,
           scope,
           packKind: "whole-bible" as const,
-          chapterCount: page.chapters.length,
+          chapterCount: chapters.length,
           totalChapterKeys: page.totalKeys,
           done: page.done,
           nextAfter: page.nextAfter,
@@ -520,7 +526,7 @@ bibleRoutes.get("/chapter", async (c) => {
             translationId,
             book: parsed.book,
             chapter: parsed.chapter,
-            verses: parsed.verses,
+            verses: sanitizeCorpusVerses(parsed.verses),
             source: "r2" as const,
             ...(revision ? { revision } : {}),
           },
@@ -540,7 +546,7 @@ bibleRoutes.get("/chapter", async (c) => {
             translationId,
             book: d1ch.book,
             chapter: d1ch.chapter,
-            verses: d1ch.verses,
+            verses: sanitizeCorpusVerses(d1ch.verses),
             source: "d1" as const,
           },
           200,
@@ -563,7 +569,7 @@ bibleRoutes.get("/chapter", async (c) => {
               translationId,
               book: filled.book,
               chapter: filled.chapter,
-              verses: filled.verses,
+              verses: sanitizeCorpusVerses(filled.verses),
               source: "r2" as const,
               filledFrom: "getbible" as const,
             },
