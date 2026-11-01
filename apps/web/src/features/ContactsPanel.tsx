@@ -275,8 +275,8 @@ export function ContactsPanel({
                       {avatarLetter(label)}
                     </span>
                     <span className="convo-row-main">
-                      <strong>
-                        {label}
+                      <strong className="contacts-person-name">
+                        <span className="contacts-person-label">{label}</span>
                         {c.source === "friend" ? (
                           <span className="contacts-friend-badge">{t("comms.friendBadge")}</span>
                         ) : null}

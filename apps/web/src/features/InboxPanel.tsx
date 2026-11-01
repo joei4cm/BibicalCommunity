@@ -17,6 +17,33 @@ type InboxMessage = {
   createdAt: number;
 };
 
+function formatInboxWhen(ts: number, locale: string): string {
+  const d = new Date(ts);
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff >= 0 && diff < 60_000) return locale.startsWith("zh") ? "刚刚" : locale.startsWith("ja") ? "たった今" : "Just now";
+  if (diff >= 0 && diff < 3_600_000) {
+    const m = Math.max(1, Math.floor(diff / 60_000));
+    if (locale.startsWith("zh")) return `${m} 分钟前`;
+    if (locale.startsWith("ja")) return `${m}分前`;
+    return `${m}m ago`;
+  }
+  const sameDay =
+    d.getFullYear() === new Date().getFullYear() &&
+    d.getMonth() === new Date().getMonth() &&
+    d.getDate() === new Date().getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  return d.toLocaleString(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export function InboxPanel({
   onAcceptFriend,
   onBadgesMaybeChanged,
@@ -24,7 +51,7 @@ export function InboxPanel({
   onAcceptFriend?: (requestId: string) => Promise<void>;
   onBadgesMaybeChanged?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,13 +136,36 @@ export function InboxPanel({
     }
   }
 
+  async function declineFriendFromInbox(m: InboxMessage) {
+    const requestId = typeof m.payload.requestId === "string" ? m.payload.requestId : null;
+    if (!requestId) return;
+    setBusy(true);
+    try {
+      await api(`/v1/friends/requests/${requestId}/decline`, { method: "POST", body: "{}" });
+      setResolvedRequests((prev) => new Set(prev).add(requestId));
+      setPendingIncomingIds((prev) => {
+        if (!prev) return prev;
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
+      await markRead(m.id).catch(() => undefined);
+      await refresh();
+      onBadgesMaybeChanged?.();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function kindLabel(kind: string) {
     const key = `comms.inboxKind.${kind}`;
     const translated = t(key);
     return translated === key ? kind : translated;
   }
 
-  function canAcceptFriend(m: InboxMessage): boolean {
+  function canRespondFriend(m: InboxMessage): boolean {
     if (m.kind !== "friend_request") return false;
     const requestId = typeof m.payload.requestId === "string" ? m.payload.requestId : null;
     if (!requestId) return false;
@@ -134,6 +184,7 @@ export function InboxPanel({
 
   const loadFailed = isLoadFailureNote(note);
   const unreadCount = messages.filter((m) => !m.readAt).length;
+  const locale = i18n.language || "zh-CN";
 
   return (
     <div className="inbox-panel" data-testid="comms-inbox">
@@ -161,51 +212,64 @@ export function InboxPanel({
             <p className="muted">{t("comms.inboxEmptyHint")}</p>
           </li>
         )}
-        {messages.map((m) => (
-          <li key={m.id}>
-            <div
-              className={`convo-row${m.readAt ? "" : " is-unread"}`}
-              style={{ cursor: "default" }}
-            >
-              <strong>
-                {m.title}
-                {!m.readAt && (
-                  <span className="muted" style={{ fontWeight: 400 }}>
-                    {" "}
-                    · {t("comms.unread")}
-                  </span>
-                )}
-              </strong>
-              <div className="muted">
-                {kindLabel(m.kind)} · {new Date(m.createdAt).toLocaleString()}
+        {messages.map((m) => {
+          const friendPending = canRespondFriend(m);
+          const titleLooksLikeKind = m.title.trim() === kindLabel(m.kind);
+          return (
+            <li key={m.id}>
+              <div
+                className={`convo-row${m.readAt ? "" : " is-unread"}`}
+                style={{ cursor: "default" }}
+              >
+                <strong>
+                  {m.title}
+                  {!m.readAt && (
+                    <span className="muted" style={{ fontWeight: 400 }}>
+                      {" "}
+                      · {t("comms.unread")}
+                    </span>
+                  )}
+                </strong>
+                <div className="muted">
+                  {titleLooksLikeKind ? formatInboxWhen(m.createdAt, locale) : `${kindLabel(m.kind)} · ${formatInboxWhen(m.createdAt, locale)}`}
+                </div>
+                {m.body ? <p style={{ margin: "0.35rem 0 0" }}>{m.body}</p> : null}
+                <div className="toolbar inbox-row-actions" style={{ marginTop: "0.45rem" }}>
+                  {friendPending ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={busy}
+                        onClick={() => void acceptFriendFromInbox(m)}
+                      >
+                        {t("comms.accept")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={busy}
+                        onClick={() => void declineFriendFromInbox(m)}
+                      >
+                        {t("comms.decline")}
+                      </button>
+                    </>
+                  ) : m.kind === "friend_request" &&
+                    typeof m.payload.requestId === "string" &&
+                    (resolvedRequests.has(m.payload.requestId) ||
+                      (pendingIncomingIds != null &&
+                        !pendingIncomingIds.has(m.payload.requestId))) ? (
+                    <span className="muted">{t("comms.friendAccepted")}</span>
+                  ) : !m.readAt ? (
+                    <button type="button" className="btn ghost" onClick={() => void markRead(m.id)}>
+                      {t("comms.markRead")}
+                    </button>
+                  ) : null}
+                </div>
               </div>
-              {m.body ? <p style={{ margin: "0.35rem 0 0" }}>{m.body}</p> : null}
-              <div className="toolbar" style={{ marginTop: "0.45rem" }}>
-                {!m.readAt && (
-                  <button type="button" className="btn ghost" onClick={() => void markRead(m.id)}>
-                    {t("comms.markRead")}
-                  </button>
-                )}
-                {canAcceptFriend(m) ? (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={busy}
-                    onClick={() => void acceptFriendFromInbox(m)}
-                  >
-                    {t("comms.accept")}
-                  </button>
-                ) : m.kind === "friend_request" &&
-                  typeof m.payload.requestId === "string" &&
-                  (resolvedRequests.has(m.payload.requestId) ||
-                    (pendingIncomingIds != null &&
-                      !pendingIncomingIds.has(m.payload.requestId))) ? (
-                  <span className="muted">{t("comms.friendAccepted")}</span>
-                ) : null}
-              </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

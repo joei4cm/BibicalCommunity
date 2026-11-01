@@ -388,35 +388,40 @@ export function CalendarPanel({
           </div>
         )}
 
-        <div className="cal-agenda-scroll" ref={agendaScrollRef} data-testid="calendar-day-list">
-          {dayEvents.length === 0 && (
+        <div
+          className={`cal-agenda-scroll${dayEvents.length === 0 ? " is-empty-day" : ""}`}
+          ref={agendaScrollRef}
+          data-testid="calendar-day-list"
+        >
+          {dayEvents.length === 0 ? (
             <div className="comms-empty cal-agenda-empty" data-testid="calendar-day-empty">
               <strong>{t("comms.noEvents")}</strong>
               <p className="muted">{t("comms.noEventsHint")}</p>
             </div>
-          )}
-          {Array.from({ length: 24 }, (_, hour) => {
-            const list = byHour.get(hour) ?? [];
-            return (
-              <div
-                key={hour}
-                className={`cal-agenda-row${hour === nowHour ? " is-now" : ""}${list.length ? " has-events" : ""}`}
-                data-hour={hour}
-              >
-                <div className="cal-agenda-hour muted">{formatHour(hour)}</div>
-                <div className="cal-agenda-slot">
-                  {list.map((e) => (
-                    <div
-                      key={e.id}
-                      className={`cal-agenda-event${e.kind === "seminar" ? " is-seminar" : ""}`}
-                    >
-                      {renderEventBody(e)}
-                    </div>
-                  ))}
+          ) : (
+            Array.from({ length: 24 }, (_, hour) => {
+              const list = byHour.get(hour) ?? [];
+              return (
+                <div
+                  key={hour}
+                  className={`cal-agenda-row${hour === nowHour ? " is-now" : ""}${list.length ? " has-events" : ""}`}
+                  data-hour={hour}
+                >
+                  <div className="cal-agenda-hour muted">{formatHour(hour)}</div>
+                  <div className="cal-agenda-slot">
+                    {list.map((e) => (
+                      <div
+                        key={e.id}
+                        className={`cal-agenda-event${e.kind === "seminar" ? " is-seminar" : ""}`}
+                      >
+                        {renderEventBody(e)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     );
