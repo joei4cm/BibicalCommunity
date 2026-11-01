@@ -558,7 +558,7 @@ export function BibleReader() {
   const [dockCollapsed, setDockCollapsed] = useState(() => {
     if (typeof localStorage === "undefined") return true;
     const raw = localStorage.getItem("lh.readerDockCollapsed");
-    // Default collapsed so the floating bar does not cover the text.
+    // Default collapsed: tools live in the top bar until explicitly opened.
     if (raw == null) return true;
     return raw === "1";
   });
@@ -786,6 +786,20 @@ export function BibleReader() {
   const [chapter, setChapter] = useState<ChapterPayload | null>(null);
   const [secondChapter, setSecondChapter] = useState<ChapterPayload | null>(null);
   const [selection, setSelection] = useState<VerseRange | null>(null);
+
+  // Auto-hide the tools pill while reading so it never sits on the prose.
+  useEffect(() => {
+    if (dockCollapsed || selection != null || dockPanel != null) return;
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY) < 28) return;
+      setDockCollapsed(true);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [dockCollapsed, selection, dockPanel]);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noteMsg, setNoteMsg] = useState<string | null>(null);
@@ -1918,6 +1932,23 @@ export function BibleReader() {
           </button>
           <button
             type="button"
+            className={`bible-tid-btn${!dockCollapsed && !selection ? " is-on" : ""}`}
+            data-testid="reader-dock-expand"
+            aria-label={t("reader.dockExpand")}
+            aria-expanded={!dockCollapsed && !selection}
+            title={t("reader.dockMore")}
+            onClick={() => {
+              setDockCollapsed((c) => !c);
+              setTidPickerOpen(false);
+              setPassagePickerOpen(false);
+              setLayoutOpen(false);
+              setSettingsOpen(false);
+            }}
+          >
+            {t("reader.dockMore")}
+          </button>
+          <button
+            type="button"
             className={`bible-tid-btn${tidPickerOpen ? " is-on" : ""}`}
             data-testid="reader-translation-select"
             aria-label={t("reader.pickTranslation")}
@@ -2389,8 +2420,9 @@ export function BibleReader() {
 
       {renderChapterNav("reader-bottom", "bottom")}
 
+      {(selection || !dockCollapsed) && (
       <div
-        className={`bible-reading-dock${dockCollapsed && !selection ? " is-collapsed" : ""}${selection ? " is-selecting" : ""}`}
+        className={`bible-reading-dock${selection ? " is-selecting" : " is-tools"}`}
         data-testid="reader-dock"
         role="toolbar"
         aria-label={selection ? t("reader.selectionHighlight") : t("reader.moreTools")}
@@ -2466,17 +2498,6 @@ export function BibleReader() {
               </span>
             )}
           </div>
-        ) : dockCollapsed ? (
-          <button
-            type="button"
-            className="bible-dock-fab"
-            data-testid="reader-dock-expand"
-            aria-label={t("reader.dockExpand")}
-            title={t("reader.dockExpand")}
-            onClick={() => setDockCollapsed(false)}
-          >
-            {t("reader.dockMore")}
-          </button>
         ) : (
           <div className="bible-dock-tools" data-testid="reader-dock-tools">
             <button
@@ -2535,6 +2556,7 @@ export function BibleReader() {
           </div>
         )}
       </div>
+      )}
       {dockPanel === "note" && (
         <div className="bible-modal-backdrop" role="presentation" onClick={() => setDockPanel(null)}>
         <div
