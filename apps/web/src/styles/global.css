@@ -3477,7 +3477,8 @@ body:has(.bible-reader) .tab-bar a.active::after {
   padding: 0.3rem 0.4rem;
   border-radius: 999px;
   border: 1px solid var(--lh-glass-border);
-  background: var(--lh-glass-strong);
+  /* Slightly denser glass so verse text does not bleed through labels. */
+  background: color-mix(in srgb, var(--lh-glass-strong, #fff) 92%, var(--lh-bg, #fff));
   box-shadow: var(--lh-glass-shadow);
   animation: bible-dock-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
