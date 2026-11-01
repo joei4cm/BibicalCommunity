@@ -1822,9 +1822,20 @@ body:has(.bible-reader) .tab-bar a.active::after {
 .bible-reader-topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
   flex-shrink: 0;
   min-height: 2rem;
+}
+
+@media (max-width: 420px) {
+  .bible-reader-topbar-actions {
+    gap: 0.28rem;
+  }
+
+  .bible-reader-topbar-actions .bible-tid-btn {
+    padding-inline: 0.48rem 0.55rem;
+    font-size: 0.82rem;
+  }
 }
 
 .bible-reader-title {
@@ -3486,10 +3497,15 @@ body:has(.bible-reader) .tab-bar a.active::after {
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+  /* Never leave a sticky hover wash on touch scroll. */
+  -webkit-tap-highlight-color: transparent;
 }
 
-.verse-inline:hover:not(.verse-highlighted) {
-  background: var(--br-accent-soft);
+/* Hover wash only for real pointer devices — touch :hover sticks after scroll. */
+@media (hover: hover) and (pointer: fine) {
+  .verse-inline:hover:not(.verse-highlighted):not(.verse-selected) {
+    background: var(--br-accent-soft);
+  }
 }
 
 .verse-inline.verse-highlighted {
@@ -3499,13 +3515,15 @@ body:has(.bible-reader) .tab-bar a.active::after {
   -webkit-box-decoration-break: clone;
 }
 
+/* Selection = underline only (highlight paint stays the color wash). */
 .verse-inline.verse-selected {
   box-shadow: inset 0 -2.5px 0 color-mix(in srgb, var(--br-accent) 55%, transparent);
   outline: none;
+  background: transparent;
 }
 
-.verse-inline.verse-selected:not(.verse-highlighted) {
-  background: color-mix(in srgb, var(--br-accent) 14%, transparent);
+.verse-inline.verse-selected.verse-highlighted {
+  background-color: var(--verse-hl, transparent);
 }
 
 .bible-prose .verse-num {
@@ -3527,7 +3545,7 @@ body:has(.bible-reader) .tab-bar a.active::after {
   border-top: 1px solid var(--br-line);
 }
 
-/* Floating reading dock — compact pill; collapsed is a small FAB */
+/* Reading dock — tools / selection pill above the tab bar; never a corner FAB. */
 .bible-reading-dock {
   position: fixed;
   left: 50%;
@@ -3553,56 +3571,12 @@ body:has(.bible-reader) .tab-bar a.active::after {
   animation: bible-dock-in 360ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.bible-reading-dock.is-collapsed {
-  left: auto;
-  right: 0.85rem;
-  transform: none;
-  bottom: calc(5.6rem + env(safe-area-inset-bottom));
-  width: auto;
-  max-width: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  animation: bible-dock-fab-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.bible-reading-dock.is-tools {
+  /* Sit in the clearance above tab + chapter nav so prose stays readable. */
+  bottom: calc(5.15rem + env(safe-area-inset-bottom));
 }
 
-.bible-dock-fab {
-  appearance: none;
-  border: 1px solid var(--lh-glass-border);
-  border-radius: 999px;
-  background: var(--lh-glass-strong);
-  backdrop-filter: var(--lh-glass-blur);
-  -webkit-backdrop-filter: var(--lh-glass-blur);
-  box-shadow: var(--lh-glass-shadow);
-  color: var(--br-accent, var(--lh-accent));
-  font-family: var(--br-font-ui, inherit);
-  font-size: 0.82rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  padding: 0.55rem 0.95rem;
-  cursor: pointer;
-}
-
-.bible-dock-fab:hover {
-  color: var(--br-ink);
-}
-
-@keyframes bible-dock-fab-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.bible-reading-dock.is-selecting,
-.bible-reading-dock.is-selecting.is-collapsed {
+.bible-reading-dock.is-selecting {
   left: 50%;
   right: auto;
   transform: translateX(-50%);
@@ -3929,11 +3903,6 @@ body:has(.bible-reader) .tab-bar a.active::after {
     max-width: calc(100% - 1rem);
   }
 
-  .bible-reading-dock.is-collapsed {
-    right: 0.75rem;
-    bottom: calc(5.7rem + env(safe-area-inset-bottom));
-  }
-
   .bible-reading-dock.is-selecting {
     width: max-content;
     max-width: calc(100% - 1rem);
@@ -4130,9 +4099,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 }
 
+.compare-verse {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .compare-verse.verse-selected {
   outline: 1px solid var(--lh-border);
   cursor: pointer;
+  background: transparent;
 }
 
 .compare-verse.verse-highlighted {
@@ -4141,8 +4115,10 @@ body:has(.bible-reader) .tab-bar a.active::after {
   padding-inline: 0.2rem;
 }
 
-.compare-verse.verse-selected:not(.verse-highlighted) {
-  background: color-mix(in srgb, var(--lh-accent-soft) 80%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .compare-verse:hover:not(.verse-highlighted):not(.verse-selected) {
+    background: color-mix(in srgb, var(--lh-accent-soft) 55%, transparent);
+  }
 }
 
 .bible-chapter-bookmark-mark {
