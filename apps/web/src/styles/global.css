@@ -3486,10 +3486,15 @@ body:has(.bible-reader) .tab-bar a.active::after {
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+  /* Never leave a sticky hover wash on touch scroll. */
+  -webkit-tap-highlight-color: transparent;
 }
 
-.verse-inline:hover:not(.verse-highlighted) {
-  background: var(--br-accent-soft);
+/* Hover wash only for real pointer devices — touch :hover sticks after scroll. */
+@media (hover: hover) and (pointer: fine) {
+  .verse-inline:hover:not(.verse-highlighted):not(.verse-selected) {
+    background: var(--br-accent-soft);
+  }
 }
 
 .verse-inline.verse-highlighted {
@@ -3499,13 +3504,15 @@ body:has(.bible-reader) .tab-bar a.active::after {
   -webkit-box-decoration-break: clone;
 }
 
+/* Selection = underline only (highlight paint stays the color wash). */
 .verse-inline.verse-selected {
   box-shadow: inset 0 -2.5px 0 color-mix(in srgb, var(--br-accent) 55%, transparent);
   outline: none;
+  background: transparent;
 }
 
-.verse-inline.verse-selected:not(.verse-highlighted) {
-  background: color-mix(in srgb, var(--br-accent) 14%, transparent);
+.verse-inline.verse-selected.verse-highlighted {
+  background-color: var(--verse-hl, transparent);
 }
 
 .bible-prose .verse-num {
@@ -4130,9 +4137,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
   }
 }
 
+.compare-verse {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .compare-verse.verse-selected {
   outline: 1px solid var(--lh-border);
   cursor: pointer;
+  background: transparent;
 }
 
 .compare-verse.verse-highlighted {
@@ -4141,8 +4153,10 @@ body:has(.bible-reader) .tab-bar a.active::after {
   padding-inline: 0.2rem;
 }
 
-.compare-verse.verse-selected:not(.verse-highlighted) {
-  background: color-mix(in srgb, var(--lh-accent-soft) 80%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .compare-verse:hover:not(.verse-highlighted):not(.verse-selected) {
+    background: color-mix(in srgb, var(--lh-accent-soft) 55%, transparent);
+  }
 }
 
 .bible-chapter-bookmark-mark {
