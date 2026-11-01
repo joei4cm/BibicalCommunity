@@ -92,12 +92,13 @@ await page.route("**/v1/**", async (route) => {
 
 await page.addInitScript(() => {
   localStorage.setItem("lh.token", "demo");
-  localStorage.removeItem("lh.readerDockCollapsed");
+  // Expanded dock for selection helpers; bookmark lives in the top bar.
+  localStorage.setItem("lh.readerDockCollapsed", "0");
 });
 
 await page.goto(`${WEB}/app/bible/cuvs/john/1`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector('[data-verse="1"]', { timeout: 20000 });
-await page.waitForSelector('[data-testid="reader-dock-note"]');
+await page.waitForSelector('[data-testid="reader-top-bookmark"]');
 
 await page.locator('[data-verse="1"]').click();
 await page.waitForSelector('[data-testid="reader-selection-bar"]');

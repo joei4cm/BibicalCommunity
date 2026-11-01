@@ -556,10 +556,12 @@ export function BibleReader() {
   const skinsEnabled = appThemeAllowsReaderSkins(appTheme);
   const [dockPanel, setDockPanel] = useState<DockPanel>(null);
   const [dockCollapsed, setDockCollapsed] = useState(() => {
-    if (typeof localStorage === "undefined") return false;
-    return localStorage.getItem("lh.readerDockCollapsed") === "1";
+    if (typeof localStorage === "undefined") return true;
+    const raw = localStorage.getItem("lh.readerDockCollapsed");
+    // Default collapsed so the floating bar does not cover the text.
+    if (raw == null) return true;
+    return raw === "1";
   });
-  const [dockToolsOpen, setDockToolsOpen] = useState(false);
   const dragAnchor = useRef<number | null>(null);
   const verseSelectingRef = useRef(false);
   const [chapterBookmarkId, setChapterBookmarkId] = useState<string | null>(null);
@@ -713,7 +715,6 @@ export function BibleReader() {
 
   function toggleDock(panel: Exclude<DockPanel, null>) {
     setDockPanel((cur) => (cur === panel ? null : panel));
-    setDockToolsOpen(false);
   }
 
   function stopSpeech() {
@@ -1352,7 +1353,6 @@ export function BibleReader() {
   }
 
   function tapVerse(verse: number) {
-    setDockToolsOpen(false);
     setSelection((cur) => {
       const painted =
         cur == null ? rangeForHighlightAt(highlightIdByVerse, verse) : null;
@@ -1365,7 +1365,6 @@ export function BibleReader() {
   function dragSelection(anchor: number, verse: number) {
     verseSelectingRef.current = true;
     dragAnchor.current = anchor;
-    setDockToolsOpen(false);
     setSelection(normalizeVerseRange(anchor, verse));
   }
 
@@ -1908,6 +1907,17 @@ export function BibleReader() {
         <div className="bible-reader-topbar-actions" data-testid="reader-passage-controls">
           <button
             type="button"
+            className={`bible-tid-btn${chapterBookmarkId ? " is-on" : ""}`}
+            data-testid="reader-top-bookmark"
+            aria-label={chapterBookmarkId ? t("reader.bookmarkOn") : t("reader.bookmarkOff")}
+            aria-pressed={Boolean(chapterBookmarkId)}
+            title={t("reader.bookmark")}
+            onClick={() => void toggleChapterBookmark()}
+          >
+            {t("reader.bookmark")}
+          </button>
+          <button
+            type="button"
             className={`bible-tid-btn${tidPickerOpen ? " is-on" : ""}`}
             data-testid="reader-translation-select"
             aria-label={t("reader.pickTranslation")}
@@ -2386,8 +2396,8 @@ export function BibleReader() {
         aria-label={selection ? t("reader.selectionHighlight") : t("reader.moreTools")}
       >
         {selection ? (
-          <div className="bible-dock-highlight-tray" data-testid="reader-selection-bar">
-            <span className="bible-hint" data-testid="reader-selection-label">
+          <div className="bible-selection-bar" data-testid="reader-selection-bar">
+            <span className="sr-only" data-testid="reader-selection-label">
               {selectionLabel}
             </span>
             <div className="bible-highlight-row" aria-label={t("reader.highlight")}>
@@ -2439,23 +2449,16 @@ export function BibleReader() {
             </button>
             <button
               type="button"
-              className={`bible-dock-btn${chapterBookmarkId ? " is-on" : ""}`}
-              data-testid="reader-selection-bookmark"
-              aria-pressed={Boolean(chapterBookmarkId)}
-              onClick={() => void toggleChapterBookmark()}
-            >
-              {t("reader.bookmarkChapter")}
-            </button>
-            <button
-              type="button"
-              className="bible-dock-btn"
+              className="bible-dock-btn bible-dock-btn--icon"
               data-testid="reader-clear-selection"
+              aria-label={t("reader.clearSelection")}
+              title={t("reader.clearSelection")}
               onClick={() => {
                 setSelection(null);
                 dragAnchor.current = null;
               }}
             >
-              {t("reader.clearSelection")}
+              ✕
             </button>
             {copyFlash && (
               <span className="bible-hint" data-testid="reader-copy-flash">
@@ -2466,19 +2469,16 @@ export function BibleReader() {
         ) : dockCollapsed ? (
           <button
             type="button"
-            className="bible-dock-edge-tab"
+            className="bible-dock-fab"
             data-testid="reader-dock-expand"
             aria-label={t("reader.dockExpand")}
             title={t("reader.dockExpand")}
             onClick={() => setDockCollapsed(false)}
           >
-            <span className="bible-dock-edge-tab-mark" aria-hidden="true">
-              ‹
-            </span>
-            <span className="bible-dock-edge-tab-label">{t("reader.dockMore")}</span>
+            {t("reader.dockMore")}
           </button>
         ) : (
-          <>
+          <div className="bible-dock-tools" data-testid="reader-dock-tools">
             <button
               type="button"
               className={`bible-dock-btn${dockPanel === "note" ? " is-on" : ""}`}
@@ -2487,7 +2487,6 @@ export function BibleReader() {
             >
               {t("reader.note")}
             </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
             <button
               type="button"
               className={`bible-dock-btn${dockPanel === "study" ? " is-on" : ""}`}
@@ -2496,7 +2495,6 @@ export function BibleReader() {
             >
               {t("reader.study")}
             </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
             <button
               type="button"
               className={`bible-dock-btn${dockPanel === "speak" ? " is-on" : ""}`}
@@ -2505,65 +2503,36 @@ export function BibleReader() {
             >
               {t("reader.speak")}
             </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
             <button
               type="button"
-              className={`bible-dock-btn${chapterBookmarkId ? " is-on" : ""}`}
-              data-testid="reader-top-bookmark"
-              aria-label={chapterBookmarkId ? t("reader.bookmarkOn") : t("reader.bookmarkOff")}
-              aria-pressed={Boolean(chapterBookmarkId)}
-              title={t("reader.bookmarkToggle")}
-              onClick={() => void toggleChapterBookmark()}
+              className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
+              data-testid="reader-dock-search"
+              onClick={() => toggleDock("search")}
             >
-              {t("reader.bookmarkChapter")}
+              {t("reader.search")}
             </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
             <button
               type="button"
-              className={`bible-dock-btn${dockToolsOpen ? " is-on" : ""}`}
-              data-testid="reader-dock-more"
-              aria-expanded={dockToolsOpen}
-              onClick={() => setDockToolsOpen((open) => !open)}
-            >
-              {t("reader.dockMore")}
-            </button>
-            <span className="bible-dock-sep" aria-hidden="true" />
-            <button
-              type="button"
-              className="bible-dock-btn"
-              data-testid="reader-dock-collapse"
-              aria-label={t("reader.dockCollapse")}
+              className={`bible-dock-btn${dockPanel === "settings" || layoutOpen ? " is-on" : ""}`}
+              data-testid="reader-layout-btn"
               onClick={() => {
-                setDockCollapsed(true);
-                setDockToolsOpen(false);
+                setLayoutOpen(false);
+                toggleDock("settings");
               }}
             >
-              ▾
+              {t("reader.settings")}
             </button>
-            {dockToolsOpen && (
-              <div className="bible-dock-highlight-tray" data-testid="reader-dock-tools">
-                <button
-                  type="button"
-                  className={`bible-dock-btn${dockPanel === "search" ? " is-on" : ""}`}
-                  data-testid="reader-dock-search"
-                  onClick={() => toggleDock("search")}
-                >
-                  {t("reader.search")}
-                </button>
-                <button
-                  type="button"
-                  className={`bible-dock-btn${dockPanel === "settings" || layoutOpen ? " is-on" : ""}`}
-                  data-testid="reader-layout-btn"
-                  onClick={() => {
-                    setLayoutOpen(false);
-                    toggleDock("settings");
-                  }}
-                >
-                  {t("reader.settings")}
-                </button>
-              </div>
-            )}
-          </>
+            <button
+              type="button"
+              className="bible-dock-btn bible-dock-btn--icon"
+              data-testid="reader-dock-collapse"
+              aria-label={t("reader.dockCollapse")}
+              title={t("reader.dockCollapse")}
+              onClick={() => setDockCollapsed(true)}
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
       {dockPanel === "note" && (
