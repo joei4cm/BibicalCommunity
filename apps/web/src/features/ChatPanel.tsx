@@ -145,6 +145,7 @@ export function ChatPanel({
   const [listTab, setListTab] = useState<"dm" | "group" | "archived">("dm");
   const [sheet, setSheet] = useState<"none" | "discover" | "compose">("none");
   const [discoverQ, setDiscoverQ] = useState("");
+  const [composeFilter, setComposeFilter] = useState("");
   const [discoverHits, setDiscoverHits] = useState<
     { id: string; uid: string; nickname: string | null }[]
   >([]);
@@ -1607,11 +1608,13 @@ export function ChatPanel({
                           <span className="muted convo-row-preview">
                             {preview
                               ? preview
-                              : listTab === "archived"
-                                ? t("chat.archived")
-                                : c.kind !== "dm"
-                                  ? kindLabel(c.kind)
-                                  : t("chat.tapToOpen")}
+                              : unread > 0
+                                ? t("chat.unreadPreview", { count: unread })
+                                : listTab === "archived"
+                                  ? t("chat.archived")
+                                  : c.kind !== "dm"
+                                    ? kindLabel(c.kind)
+                                    : t("chat.noMessages")}
                           </span>
                         </span>
                         <span className="convo-row-meta">
@@ -1662,6 +1665,7 @@ export function ChatPanel({
                 aria-label={t("comms.newChat")}
                 onClick={() => {
                   setKind(listTab === "group" ? "group" : "dm");
+                  setComposeFilter("");
                   setSheet("compose");
                   void loadDirectory();
                 }}
@@ -1742,22 +1746,39 @@ export function ChatPanel({
 
             {sheet === "compose" && (
               <>
-                <div className="field">
-                  <label>{t("chat.newConversation")}</label>
-                  <select
-                    value={kind}
-                    onChange={(e) => setKind(e.target.value as ConversationKind)}
-                    data-testid="chat-compose-kind"
-                  >
-                    <option value="dm">{t("chat.dm")}</option>
-                    <option value="group">{t("chat.group")}</option>
-                  </select>
-                </div>
                 {kind === "dm" ? (
                   <>
-                    <p className="muted" style={{ marginTop: 0 }}>
-                      {t("chat.discoverHint")}
-                    </p>
+                    <label className="im-search" style={{ marginTop: "0.2rem" }}>
+                      <IconSearch className="im-search-icon" />
+                      <input
+                        value={composeFilter}
+                        onChange={(e) => setComposeFilter(e.target.value)}
+                        placeholder={t("chat.composeSearch")}
+                        data-testid="chat-compose-filter"
+                        autoFocus
+                      />
+                    </label>
+                    <div className="chat-compose-secondary" data-testid="chat-compose-kind">
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        data-testid="chat-compose-search-switch"
+                        onClick={() => {
+                          setDiscoverQ(composeFilter.trim());
+                          setSheet("discover");
+                        }}
+                      >
+                        {t("chat.discoverFriends")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        data-testid="chat-compose-kind-group"
+                        onClick={() => setKind("group")}
+                      >
+                        {t("chat.composeAsGroup")}
+                      </button>
+                    </div>
                     <ul className="list" data-testid="chat-compose-contacts">
                       {directory.length === 0 && (
                         <li className="comms-empty" data-testid="chat-compose-empty">
@@ -1765,7 +1786,14 @@ export function ChatPanel({
                           <p className="muted">{t("chat.composeEmptyHint")}</p>
                         </li>
                       )}
-                      {directory.map((c) => (
+                      {directory
+                        .filter((c) => {
+                          const q = composeFilter.trim().toLowerCase();
+                          if (!q) return true;
+                          const hay = `${c.nickname || ""} ${c.uid || ""}`.toLowerCase();
+                          return hay.includes(q);
+                        })
+                        .map((c) => (
                         <li key={c.userId}>
                           <button
                             type="button"
@@ -1784,17 +1812,18 @@ export function ChatPanel({
                         </li>
                       ))}
                     </ul>
+                  </>
+                ) : (
+                  <div className="chat-compose-group">
                     <button
                       type="button"
                       className="btn ghost"
-                      data-testid="chat-compose-search-switch"
-                      onClick={() => setSheet("discover")}
+                      data-testid="chat-compose-kind-dm"
+                      onClick={() => setKind("dm")}
+                      style={{ marginBottom: "0.35rem" }}
                     >
-                      {t("chat.discoverFriends")}
+                      ← {t("chat.dm")}
                     </button>
-                  </>
-                ) : (
-                  <>
                     <div className="field">
                       <label>{t("chat.title")}</label>
                       <input
@@ -1803,20 +1832,21 @@ export function ChatPanel({
                         placeholder={kind === "seminar" ? t("comms.seminarTitleHint") : undefined}
                       />
                     </div>
-                    <div className="field">
+                    <div className="field" style={{ marginBottom: 0 }}>
                       <label>{t("chat.members")}</label>
                       <p className="muted" style={{ marginTop: 0 }}>
                         {t("chat.pickMembers")}
                       </p>
-                      <ul className="list" data-testid="chat-compose-members">
+                      <ul className="list chat-compose-members" data-testid="chat-compose-members">
                         {directory.length === 0 && (
                           <li className="muted">{t("chat.discoverEmpty")}</li>
                         )}
                         {directory.map((c) => {
                           const checked = groupPick.includes(c.userId);
+                          const label = c.nickname || c.uid || c.userId.slice(0, 10);
                           return (
                             <li key={c.userId}>
-                              <label className="check-row">
+                              <label className="check-row chat-compose-member-row">
                                 <input
                                   type="checkbox"
                                   checked={checked}
@@ -1829,23 +1859,35 @@ export function ChatPanel({
                                     )
                                   }
                                 />
-                                {c.nickname || c.uid || c.userId.slice(0, 10)}
+                                <span className="im-avatar" aria-hidden>
+                                  {label.trim().charAt(0).toUpperCase()}
+                                </span>
+                                <span className="convo-row-main">
+                                  <strong>{label}</strong>
+                                  {c.uid ? (
+                                    <span className="muted convo-row-preview">UID {c.uid}</span>
+                                  ) : null}
+                                </span>
                               </label>
                             </li>
                           );
                         })}
                       </ul>
                     </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy || groupPick.length === 0}
-                      data-testid="chat-compose-create"
-                      onClick={() => void createConversation(groupPick, "group")}
-                    >
-                      {t("chat.create")}
-                    </button>
-                  </>
+                    <div className="chat-compose-sticky-actions">
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={busy || groupPick.length === 0}
+                        data-testid="chat-compose-create"
+                        onClick={() => void createConversation(groupPick, "group")}
+                      >
+                        {groupPick.length > 0
+                          ? t("chat.createWithCount", { count: groupPick.length })
+                          : t("chat.create")}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </>
             )}

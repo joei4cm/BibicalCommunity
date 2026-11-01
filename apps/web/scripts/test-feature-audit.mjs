@@ -131,7 +131,7 @@ console.log("OK: dead presence toggles hidden");
 await page.goto(`${WEB}/app/chat`, { waitUntil: "domcontentloaded", timeout: 30_000 });
 await page.waitForSelector("[data-testid='chat-compose-open']", { timeout: 20_000 });
 await page.getByTestId("chat-compose-open").click();
-await page.getByTestId("chat-compose-kind").selectOption("group");
+await page.getByTestId("chat-compose-kind-group").click();
 await page.waitForSelector("[data-testid='chat-compose-member-PEERUID']", { timeout: 10_000 });
 const rawId = await page.locator("[data-testid='chat-compose-members'] input[type='text']").count();
 if (rawId !== 0) {
