@@ -399,28 +399,56 @@ export function CalendarPanel({
               <p className="muted">{t("comms.noEventsHint")}</p>
             </div>
           ) : (
-            Array.from({ length: 24 }, (_, hour) => {
-              const list = byHour.get(hour) ?? [];
-              return (
-                <div
-                  key={hour}
-                  className={`cal-agenda-row${hour === nowHour ? " is-now" : ""}${list.length ? " has-events" : ""}`}
-                  data-hour={hour}
-                >
-                  <div className="cal-agenda-hour muted">{formatHour(hour)}</div>
-                  <div className="cal-agenda-slot">
-                    {list.map((e) => (
-                      <div
-                        key={e.id}
-                        className={`cal-agenda-event${e.kind === "seminar" ? " is-seminar" : ""}`}
-                      >
-                        {renderEventBody(e)}
+            (() => {
+              const eventHours = [...byHour.keys()].sort((a, b) => a - b);
+              const keep = new Set<number>();
+              for (const h of eventHours) {
+                for (let d = -1; d <= 1; d += 1) {
+                  const n = h + d;
+                  if (n >= 0 && n <= 23) keep.add(n);
+                }
+              }
+              // Include "now" only when it sits near an event band.
+              if (nowHour >= 0) {
+                const nearEvent = eventHours.some((h) => Math.abs(h - nowHour) <= 2);
+                if (nearEvent) {
+                  for (let d = -1; d <= 1; d += 1) {
+                    const n = nowHour + d;
+                    if (n >= 0 && n <= 23) keep.add(n);
+                  }
+                }
+              }
+              const hours = [...keep].sort((a, b) => a - b);
+              return hours.map((hour, idx) => {
+                const list = byHour.get(hour) ?? [];
+                const prev = hours[idx - 1];
+                const gapBefore = prev != null && hour - prev > 1;
+                return (
+                  <div key={hour} data-hour={hour}>
+                    {gapBefore ? (
+                      <div className="cal-agenda-gap muted" aria-hidden>
+                        ···
                       </div>
-                    ))}
+                    ) : null}
+                    <div
+                      className={`cal-agenda-row${hour === nowHour ? " is-now" : ""}${list.length ? " has-events" : ""}`}
+                    >
+                      <div className="cal-agenda-hour muted">{formatHour(hour)}</div>
+                      <div className="cal-agenda-slot">
+                        {list.map((e) => (
+                          <div
+                            key={e.id}
+                            className={`cal-agenda-event${e.kind === "seminar" ? " is-seminar" : ""}`}
+                          >
+                            {renderEventBody(e)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              });
+            })()
           )}
         </div>
       </div>

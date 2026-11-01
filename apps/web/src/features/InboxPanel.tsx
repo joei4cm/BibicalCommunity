@@ -45,18 +45,17 @@ function formatInboxWhen(ts: number, locale: string): string {
 }
 
 export function InboxPanel({
-  onAcceptFriend,
+  onOpenContacts,
   onBadgesMaybeChanged,
 }: {
-  onAcceptFriend?: (requestId: string) => Promise<void>;
+  /** Deep-link friend requests to Contacts (single place to accept/decline). */
+  onOpenContacts?: () => void;
   onBadgesMaybeChanged?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Request ids already accepted this session (or confirmed not pending). */
-  const [resolvedRequests, setResolvedRequests] = useState<Set<string>>(() => new Set());
   const [pendingIncomingIds, setPendingIncomingIds] = useState<Set<string> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -102,74 +101,16 @@ export function InboxPanel({
     }
   }
 
-  async function acceptFriendFromInbox(m: InboxMessage) {
-    const requestId = typeof m.payload.requestId === "string" ? m.payload.requestId : null;
-    if (!requestId) return;
-    setBusy(true);
-    try {
-      if (onAcceptFriend) await onAcceptFriend(requestId);
-      else {
-        await api(`/v1/friends/requests/${requestId}/accept`, { method: "POST", body: "{}" });
-      }
-      setResolvedRequests((prev) => new Set(prev).add(requestId));
-      setPendingIncomingIds((prev) => {
-        if (!prev) return prev;
-        const next = new Set(prev);
-        next.delete(requestId);
-        return next;
-      });
-      await markRead(m.id);
-      await refresh();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "error";
-      // Already accepted / not pending — treat as done, don't ask again.
-      if (msg.includes("not_pending") || msg.includes("409")) {
-        setResolvedRequests((prev) => new Set(prev).add(requestId));
-        await markRead(m.id).catch(() => undefined);
-        setNote("comms.friendAccepted");
-        await refresh().catch(() => undefined);
-      } else {
-        setNote(msg);
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function declineFriendFromInbox(m: InboxMessage) {
-    const requestId = typeof m.payload.requestId === "string" ? m.payload.requestId : null;
-    if (!requestId) return;
-    setBusy(true);
-    try {
-      await api(`/v1/friends/requests/${requestId}/decline`, { method: "POST", body: "{}" });
-      setResolvedRequests((prev) => new Set(prev).add(requestId));
-      setPendingIncomingIds((prev) => {
-        if (!prev) return prev;
-        const next = new Set(prev);
-        next.delete(requestId);
-        return next;
-      });
-      await markRead(m.id).catch(() => undefined);
-      await refresh();
-      onBadgesMaybeChanged?.();
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   function kindLabel(kind: string) {
     const key = `comms.inboxKind.${kind}`;
     const translated = t(key);
     return translated === key ? kind : translated;
   }
 
-  function canRespondFriend(m: InboxMessage): boolean {
+  function friendRequestPending(m: InboxMessage): boolean {
     if (m.kind !== "friend_request") return false;
     const requestId = typeof m.payload.requestId === "string" ? m.payload.requestId : null;
     if (!requestId) return false;
-    if (resolvedRequests.has(requestId)) return false;
     if (pendingIncomingIds && !pendingIncomingIds.has(requestId)) return false;
     return true;
   }
@@ -213,7 +154,7 @@ export function InboxPanel({
           </li>
         )}
         {messages.map((m) => {
-          const friendPending = canRespondFriend(m);
+          const friendPending = friendRequestPending(m);
           const titleLooksLikeKind = m.title.trim() === kindLabel(m.kind);
           return (
             <li key={m.id}>
@@ -231,34 +172,25 @@ export function InboxPanel({
                   )}
                 </strong>
                 <div className="muted">
-                  {titleLooksLikeKind ? formatInboxWhen(m.createdAt, locale) : `${kindLabel(m.kind)} · ${formatInboxWhen(m.createdAt, locale)}`}
+                  {titleLooksLikeKind
+                    ? formatInboxWhen(m.createdAt, locale)
+                    : `${kindLabel(m.kind)} · ${formatInboxWhen(m.createdAt, locale)}`}
                 </div>
                 {m.body ? <p style={{ margin: "0.35rem 0 0" }}>{m.body}</p> : null}
                 <div className="toolbar inbox-row-actions" style={{ marginTop: "0.45rem" }}>
                   {friendPending ? (
-                    <>
-                      <button
-                        type="button"
-                        className="btn"
-                        disabled={busy}
-                        onClick={() => void acceptFriendFromInbox(m)}
-                      >
-                        {t("comms.accept")}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        disabled={busy}
-                        onClick={() => void declineFriendFromInbox(m)}
-                      >
-                        {t("comms.decline")}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className="btn"
+                      data-testid="inbox-friend-goto-contacts"
+                      onClick={() => onOpenContacts?.()}
+                    >
+                      {t("comms.handleInContacts")}
+                    </button>
                   ) : m.kind === "friend_request" &&
                     typeof m.payload.requestId === "string" &&
-                    (resolvedRequests.has(m.payload.requestId) ||
-                      (pendingIncomingIds != null &&
-                        !pendingIncomingIds.has(m.payload.requestId))) ? (
+                    pendingIncomingIds != null &&
+                    !pendingIncomingIds.has(m.payload.requestId) ? (
                     <span className="muted">{t("comms.friendAccepted")}</span>
                   ) : !m.readAt ? (
                     <button type="button" className="btn ghost" onClick={() => void markRead(m.id)}>

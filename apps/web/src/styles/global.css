@@ -2668,7 +2668,83 @@ body:has(.bible-reader) .tab-bar a.active::after {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.chat-compose-group {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.chat-compose-members {
+  max-height: min(34vh, 16.5rem);
+  overflow-y: auto;
+  margin: 0.25rem 0 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-compose-members > li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chat-compose-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.15rem;
+  margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--br-line, #ddd) 75%, transparent);
+  text-align: left;
+}
+
+.chat-compose-member-row input {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.chat-compose-member-row .im-avatar {
+  width: 2.1rem;
+  height: 2.1rem;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.chat-compose-member-row .convo-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-compose-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   margin-top: 0.55rem;
+  padding: 0.65rem 0 0.45rem;
+  background: linear-gradient(
+    to top,
+    var(--lh-bg-elevated, var(--lh-bg, #fff)) 72%,
+    transparent
+  );
+}
+
+.chat-compose-sticky-actions .btn {
+  width: 100%;
+  min-height: 2.6rem;
+}
+
+/* Denser DM compose pick list */
+#chat-compose-contacts .convo-row-rich,
+[data-testid="chat-compose-contacts"] .convo-row-rich {
+  padding: 0.45rem 0.15rem;
+  min-height: 2.85rem;
 }
 
 @media (max-width: 420px) {
@@ -2964,6 +3040,14 @@ body:has(.bible-reader) .tab-bar a.active::after {
 
 .comms-load-error {
   margin: 0.35rem 0 0;
+}
+
+.cal-agenda-gap {
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  padding: 0.35rem 0;
+  opacity: 0.7;
 }
 
 .cal-agenda-row {
@@ -6306,7 +6390,7 @@ body:has(.sheet-backdrop) .dadao-fab {
   overflow-x: clip;
   overflow-y: auto;
   margin: 0;
-  padding: 0.35rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  padding: 0.35rem 1rem calc(1.35rem + env(safe-area-inset-bottom));
   border-radius: 16px 16px 0 0;
   background: var(--lh-bg-elevated, var(--lh-glass-strong, #fff));
   color: var(--lh-ink);

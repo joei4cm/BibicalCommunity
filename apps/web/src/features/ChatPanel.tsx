@@ -1814,13 +1814,13 @@ export function ChatPanel({
                     </ul>
                   </>
                 ) : (
-                  <>
+                  <div className="chat-compose-group">
                     <button
                       type="button"
                       className="btn ghost"
                       data-testid="chat-compose-kind-dm"
                       onClick={() => setKind("dm")}
-                      style={{ marginBottom: "0.45rem" }}
+                      style={{ marginBottom: "0.35rem" }}
                     >
                       ← {t("chat.dm")}
                     </button>
@@ -1832,20 +1832,21 @@ export function ChatPanel({
                         placeholder={kind === "seminar" ? t("comms.seminarTitleHint") : undefined}
                       />
                     </div>
-                    <div className="field">
+                    <div className="field" style={{ marginBottom: 0 }}>
                       <label>{t("chat.members")}</label>
                       <p className="muted" style={{ marginTop: 0 }}>
                         {t("chat.pickMembers")}
                       </p>
-                      <ul className="list" data-testid="chat-compose-members">
+                      <ul className="list chat-compose-members" data-testid="chat-compose-members">
                         {directory.length === 0 && (
                           <li className="muted">{t("chat.discoverEmpty")}</li>
                         )}
                         {directory.map((c) => {
                           const checked = groupPick.includes(c.userId);
+                          const label = c.nickname || c.uid || c.userId.slice(0, 10);
                           return (
                             <li key={c.userId}>
-                              <label className="check-row">
+                              <label className="check-row chat-compose-member-row">
                                 <input
                                   type="checkbox"
                                   checked={checked}
@@ -1858,23 +1859,35 @@ export function ChatPanel({
                                     )
                                   }
                                 />
-                                {c.nickname || c.uid || c.userId.slice(0, 10)}
+                                <span className="im-avatar" aria-hidden>
+                                  {label.trim().charAt(0).toUpperCase()}
+                                </span>
+                                <span className="convo-row-main">
+                                  <strong>{label}</strong>
+                                  {c.uid ? (
+                                    <span className="muted convo-row-preview">UID {c.uid}</span>
+                                  ) : null}
+                                </span>
                               </label>
                             </li>
                           );
                         })}
                       </ul>
                     </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy || groupPick.length === 0}
-                      data-testid="chat-compose-create"
-                      onClick={() => void createConversation(groupPick, "group")}
-                    >
-                      {t("chat.create")}
-                    </button>
-                  </>
+                    <div className="chat-compose-sticky-actions">
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={busy || groupPick.length === 0}
+                        data-testid="chat-compose-create"
+                        onClick={() => void createConversation(groupPick, "group")}
+                      >
+                        {groupPick.length > 0
+                          ? t("chat.createWithCount", { count: groupPick.length })
+                          : t("chat.create")}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </>
             )}

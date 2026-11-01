@@ -132,6 +132,7 @@ export function ChatPage() {
       )}
       {tab === "inbox" && (
         <InboxPanel
+          onOpenContacts={() => setTab("contacts")}
           onBadgesMaybeChanged={() => {
             notifyCommsBadgesChanged();
             void refresh();
