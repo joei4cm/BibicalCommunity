@@ -124,6 +124,27 @@ export async function tryEncryptProductMobileMessage(
   if (!peerUserId) return null;
   const { value: localPrivate } = await kvGet(PRODUCT_PRIV_KEY);
   if (!localPrivate) return null;
+
+  const sessionKey = productSessionKey(conversationId, peerUserId);
+  // Warm path: reuse local session — skip /v1/keys on every send.
+  const { value: cachedRaw } = await kvGet(sessionKey);
+  if (cachedRaw) {
+    try {
+      const session = JSON.parse(cachedRaw) as SecureSession;
+      const prefer = await loadProductSignalPrefer();
+      const client = await getProductSignalClient(prefer);
+      const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
+      await kvSet(sessionKey, JSON.stringify(session));
+      return {
+        ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
+        ciphertext: enc.ciphertext,
+        mode: "product",
+      };
+    } catch {
+      /* fall through to re-establish */
+    }
+  }
+
   const remote = await fetchPeerProductBundle(peerUserId);
   if (!remote) return null;
 
@@ -131,7 +152,7 @@ export async function tryEncryptProductMobileMessage(
   const client = await getProductSignalClient(prefer);
   const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
   const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
-  await kvSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
+  await kvSet(sessionKey, JSON.stringify(session));
   return {
     ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
     ciphertext: enc.ciphertext,
