@@ -512,8 +512,11 @@ export function ChatPanel({
       const hadUnread =
         (conversationsRef.current.find((c) => c.id === conversationId)?.unreadCount ?? 0) > 0;
       const known = mode === "incremental" ? messageRowsRef.current : [];
+      const durableKnown = known.filter((m) => !m.id.startsWith("temp_"));
       const after =
-        known.length > 0 ? known.reduce((max, m) => Math.max(max, m.createdAt), 0) : 0;
+        durableKnown.length > 0
+          ? durableKnown.reduce((max, m) => Math.max(max, m.createdAt), 0)
+          : 0;
       // First open: recent page only. Incremental: after-cursor without re-pulling history.
       const qs =
         after > 0 ? `?after=${after}&limit=100` : mode === "full" ? "?limit=50" : "?limit=100";
@@ -524,7 +527,7 @@ export function ChatPanel({
       if (selectedIdRef.current !== conversationId) return;
       const now = Date.now();
       const incoming = res.messages.filter((m) => m.expiresAt == null || m.expiresAt > now);
-      const knownIds = new Set(known.map((m) => m.id));
+      const knownIds = new Set(durableKnown.map((m) => m.id));
       const fresh = after > 0 ? incoming.filter((m) => !knownIds.has(m.id)) : incoming;
       if (after > 0 && fresh.length === 0) {
         if (res.peerLastReadAt !== undefined) {
@@ -540,12 +543,30 @@ export function ChatPanel({
         }
         return;
       }
-      const live =
+      // Keep in-flight optimistic rows (temp_*) unless a durable self message already covers them.
+      const pendingTemps = (after > 0 ? known : messageRowsRef.current).filter((m) =>
+        m.id.startsWith("temp_"),
+      );
+      const liveBase =
         after > 0
-          ? [...known.filter((m) => m.expiresAt == null || m.expiresAt > now), ...fresh].sort(
-              (a, b) => a.createdAt - b.createdAt,
-            )
+          ? [
+              ...durableKnown.filter((m) => m.expiresAt == null || m.expiresAt > now),
+              ...fresh,
+            ]
           : incoming;
+      const me = selfUserIdRef.current;
+      const deviceId = localStorage.getItem("lh.deviceId");
+      const keptTemps = pendingTemps.filter((t) => {
+        return !liveBase.some(
+          (m) =>
+            ((me && m.senderUserId === me) || (deviceId && m.senderDeviceId === deviceId)) &&
+            Math.abs(m.createdAt - t.createdAt) < 20_000,
+        );
+      });
+      const liveIds = new Set(liveBase.map((m) => m.id));
+      const live = [...liveBase, ...keptTemps.filter((m) => !liveIds.has(m.id))].sort(
+        (a, b) => a.createdAt - b.createdAt,
+      );
       setMessages((prev) => {
         if (
           prev.length === live.length &&
@@ -575,7 +596,6 @@ export function ChatPanel({
       if (hadUnread) onBadgesRef.current?.();
       const convo = conversationsRef.current.find((c) => c.id === conversationId);
       const peer = (convo?.peerUserIds ?? []).find(Boolean) ?? null;
-      const me = selfUserIdRef.current;
       const prevPt = plaintextsRef.current;
       const toDecode = after > 0 ? fresh : live;
       const decoded: Record<string, string> = {};
@@ -884,33 +904,119 @@ export function ChatPanel({
     await createConversation([userId], "dm");
   }
 
+  function paintOptimisticMessage(
+    tempId: string,
+    plaintext: string,
+    opts: { expiresAt?: number; ratchetHeader: string; ciphertext: string },
+  ) {
+    const createdAt = Date.now();
+    const deviceId =
+      selfDeviceId ||
+      (typeof localStorage !== "undefined" ? localStorage.getItem("lh.deviceId") : null) ||
+      "";
+    const row: ChatMessage = {
+      id: tempId,
+      senderDeviceId: deviceId,
+      senderUserId: selfUserId ?? selfUserIdRef.current,
+      ratchetHeader: opts.ratchetHeader,
+      ciphertext: opts.ciphertext,
+      contentType: "msg",
+      createdAt,
+      expiresAt: opts.expiresAt ?? null,
+    };
+    setMessages((prev) => [...prev, row]);
+    messageRowsRef.current = [...messageRowsRef.current, row];
+    setPlaintexts((prev) => ({ ...prev, [tempId]: plaintext }));
+    plaintextsRef.current = { ...plaintextsRef.current, [tempId]: plaintext };
+    if (selectedId) {
+      const preview = payloadPreview(plaintext);
+      writeChatPreview(selectedId, preview, createdAt);
+      setPreviews((prev) => ({ ...prev, [selectedId]: { text: preview, at: createdAt } }));
+      setConversations((prev) => {
+        const next = prev.map((c) =>
+          c.id === selectedId ? { ...c, lastMessageAt: createdAt } : c,
+        );
+        conversationsRef.current = next;
+        return next;
+      });
+    }
+  }
+
+  function dropOptimisticMessage(tempId: string) {
+    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    messageRowsRef.current = messageRowsRef.current.filter((m) => m.id !== tempId);
+    setPlaintexts((prev) => {
+      const next = { ...prev };
+      delete next[tempId];
+      return next;
+    });
+    const nextPt = { ...plaintextsRef.current };
+    delete nextPt[tempId];
+    plaintextsRef.current = nextPt;
+  }
+
+  function commitOptimisticMessage(
+    tempId: string,
+    serverId: string,
+    plaintext: string,
+    ratchetHeader: string,
+    ciphertext: string,
+  ) {
+    writePlainSync(serverId, plaintext);
+    localStorage.setItem(`lh.msg.${serverId}`, plaintext);
+    const promote = (rows: ChatMessage[]) => {
+      const base = rows.find((m) => m.id === tempId) ?? rows.find((m) => m.id === serverId);
+      const rest = rows.filter((m) => m.id !== tempId && m.id !== serverId);
+      if (!base) return rows;
+      return [...rest, { ...base, id: serverId, ratchetHeader, ciphertext }].sort(
+        (a, b) => a.createdAt - b.createdAt,
+      );
+    };
+    setMessages((prev) => promote(prev));
+    messageRowsRef.current = promote(messageRowsRef.current);
+    setPlaintexts((prev) => {
+      const next = { ...prev };
+      delete next[tempId];
+      next[serverId] = plaintext;
+      return next;
+    });
+    const nextPt = { ...plaintextsRef.current };
+    delete nextPt[tempId];
+    nextPt[serverId] = plaintext;
+    plaintextsRef.current = nextPt;
+  }
+
   async function sendEncryptedPayload(payload: ChatPayload) {
     if (!selectedId) return;
+    const conversationId = selectedId;
     const plaintext = encodeChatPayload(payload);
-    const peers = peersFor(selectedId);
+    const peers = peersFor(conversationId);
     const expiresAt = selected?.disappearingTtlSec
       ? Date.now() + selected.disappearingTtlSec * 1000
       : undefined;
+    const tempId = `temp_${crypto.randomUUID()}`;
+    let painted = false;
 
     let ratchetHeader: string;
     let ciphertext: string;
     let mode: string;
 
-    const groupLike = selected?.kind === "group" || selected?.kind === "seminar";
-    if (groupLike && peers.length >= 1 && selfUserId) {
-      const fanout = await encryptGroupFanout({
-        conversationId: selectedId,
-        plaintext,
-        fromUserId: selfUserId,
-        peerUserIds: peers,
-        expiresAt,
-      });
-      ratchetHeader = fanout.ratchetHeader;
-      ciphertext = fanout.ciphertext;
-      mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
-    } else {
+    try {
+      const groupLike = selected?.kind === "group" || selected?.kind === "seminar";
+      if (groupLike && peers.length >= 1 && selfUserId) {
+        const fanout = await encryptGroupFanout({
+          conversationId,
+          plaintext,
+          fromUserId: selfUserId,
+          peerUserIds: peers,
+          expiresAt,
+        });
+        ratchetHeader = fanout.ratchetHeader;
+        ciphertext = fanout.ciphertext;
+        mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
+      } else {
         const enc = await encryptChatMessage(
-          selectedId,
+          conversationId,
           plaintext,
           peers[0] ?? null,
           selfUserId,
@@ -920,23 +1026,35 @@ export function ChatPanel({
         mode = enc.mode;
       }
 
-    const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        ratchetHeader,
-        ciphertext,
-        contentType: "msg",
-        expiresAt,
-      }),
-    });
-    localStorage.setItem(`lh.msg.${res.id}`, plaintext);
-    // Degraded still decrypts peer-to-peer after v2 seed fix; tip depends on who still needs keys.
-    if (mode === "degraded") {
-      await noteAfterDegraded(peers[0] ?? null);
-    } else {
-      setNote(null);
+      // Show the bubble as soon as ciphertext is ready — do not wait for POST or reload.
+      paintOptimisticMessage(tempId, plaintext, { expiresAt, ratchetHeader, ciphertext });
+      painted = true;
+      requestAnimationFrame(() => scrollMessagesToBottom(true));
+
+      const res = await api<{ id: string }>(`/v1/chat/conversations/${conversationId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          ratchetHeader,
+          ciphertext,
+          contentType: "msg",
+          expiresAt,
+        }),
+      });
+      commitOptimisticMessage(tempId, res.id, plaintext, ratchetHeader, ciphertext);
+      // Degraded still decrypts peer-to-peer after v2 seed fix; tip depends on who still needs keys.
+      if (mode === "degraded") {
+        await noteAfterDegraded(peers[0] ?? null);
+      } else {
+        setNote(null);
+      }
+      // Do not await a full thread reload — the bubble is already on screen.
+      if (selectedIdRef.current === conversationId) {
+        void loadMessages(conversationId, "incremental");
+      }
+    } catch (e) {
+      if (painted) dropOptimisticMessage(tempId);
+      throw e;
     }
-    await loadMessages(selectedId);
   }
 
   async function sendMessage() {
@@ -950,18 +1068,14 @@ export function ChatPanel({
       return;
     }
     const text = draft.trim();
-    setBusy(true);
     setDraft("");
     setEmojiOpen(false);
+    stickToBottomRef.current = true;
     try {
-      stickToBottomRef.current = true;
       await sendEncryptedPayload({ v: 1, kind: "text", text });
-      requestAnimationFrame(() => scrollMessagesToBottom(true));
     } catch (e) {
       setDraft((cur) => (cur.trim() ? cur : text));
       setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -1408,7 +1522,11 @@ export function ChatPanel({
                           favorites.some((f) => f.messageId === m.id) ? " is-active" : ""
                         }`}
                         data-testid={`chat-favorite-${m.id}`}
-                        disabled={favoriteBusyId === m.id || favorites.some((f) => f.messageId === m.id)}
+                        disabled={
+                          m.id.startsWith("temp_") ||
+                          favoriteBusyId === m.id ||
+                          favorites.some((f) => f.messageId === m.id)
+                        }
                         aria-label={t("chat.favorite")}
                         title={t("chat.favorite")}
                         onClick={() => void favoriteMessage(m)}
@@ -1419,7 +1537,13 @@ export function ChatPanel({
                     {mine && m.contentType !== "control" && (
                       <span
                         className={`im-receipt${isRead ? " is-read" : ""}`}
-                        data-testid={isRead ? "chat-receipt-read" : "chat-receipt-sent"}
+                        data-testid={
+                          m.id.startsWith("temp_")
+                            ? "chat-receipt-sending"
+                            : isRead
+                              ? "chat-receipt-read"
+                              : "chat-receipt-sent"
+                        }
                         title={isRead ? t("chat.receiptRead") : t("chat.receiptSent")}
                         aria-label={isRead ? t("chat.receiptRead") : t("chat.receiptSent")}
                       >
