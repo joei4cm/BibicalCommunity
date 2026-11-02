@@ -323,21 +323,23 @@ export default function MessagesScreen() {
 
   async function send() {
     if (!selectedId || !draft.trim()) return;
-    setBusy(true);
+    const conversationId = selectedId;
+    const text = draft.trim();
+    const peers = peersFor(conversationId);
+    const expiresAt = selected?.disappearingTtlSec
+      ? Date.now() + selected.disappearingTtlSec * 1000
+      : undefined;
+    const tempId = `temp_${Date.now().toString(36)}`;
+    let painted = false;
+    setDraft("");
     try {
-      const text = draft.trim();
-      const peers = peersFor(selectedId);
-      const expiresAt = selected?.disappearingTtlSec
-        ? Date.now() + selected.disappearingTtlSec * 1000
-        : undefined;
-
       let ratchetHeader: string;
       let ciphertext: string;
       let mode: string;
 
       if (selected?.kind === "group" && peers.length >= 1 && selfUserId) {
         const fanout = await encryptGroupFanout({
-          conversationId: selectedId,
+          conversationId,
           plaintext: text,
           fromUserId: selfUserId,
           peerUserIds: peers,
@@ -346,28 +348,71 @@ export default function MessagesScreen() {
         ciphertext = fanout.ciphertext;
         mode = fanout.degradedPeers.length > 0 ? "degraded" : "group-fanout";
       } else {
-        const enc = await encryptMobileMessage(selectedId, text, peers[0] ?? null);
+        const enc = await encryptMobileMessage(conversationId, text, peers[0] ?? null);
         ratchetHeader = enc.ratchetHeader;
         ciphertext = enc.ciphertext;
         mode = enc.mode;
       }
 
-      const res = await api<{ id: string }>(`/v1/chat/conversations/${selectedId}/messages`, {
+      const createdAt = Date.now();
+      const optimistic: ChatMessage = {
+        id: tempId,
+        senderDeviceId: selfDeviceId ?? undefined,
+        senderUserId: selfUserId,
+        ratchetHeader,
+        ciphertext,
+        createdAt,
+        expiresAt: expiresAt ?? null,
+      };
+      setMessages((prev) => {
+        const next = [...prev, optimistic];
+        messagesRef.current = next;
+        return next;
+      });
+      setPlaintexts((p) => ({ ...p, [tempId]: text }));
+      painted = true;
+
+      const res = await api<{ id: string }>(`/v1/chat/conversations/${conversationId}/messages`, {
         method: "POST",
         body: JSON.stringify({ ratchetHeader, ciphertext, contentType: "msg", expiresAt }),
       });
-      setPlaintexts((p) => ({ ...p, [res.id]: text }));
-      setDraft("");
+      setMessages((prev) => {
+        const rest = prev.filter((m) => m.id !== tempId && m.id !== res.id);
+        const base = prev.find((m) => m.id === tempId) ?? optimistic;
+        const next = [
+          ...rest,
+          { ...base, id: res.id, ratchetHeader, ciphertext },
+        ].sort((a, b) => a.createdAt - b.createdAt);
+        messagesRef.current = next;
+        return next;
+      });
+      setPlaintexts((p) => {
+        const next = { ...p };
+        delete next[tempId];
+        next[res.id] = text;
+        return next;
+      });
       if (mode === "degraded") {
         setNote("chat_degraded_no_peer_keys");
       } else {
         setNote(null);
       }
-      await loadMessages(selectedId);
+      void loadMessages(conversationId, "incremental");
     } catch (e) {
+      if (painted) {
+        setMessages((prev) => {
+          const next = prev.filter((m) => m.id !== tempId);
+          messagesRef.current = next;
+          return next;
+        });
+        setPlaintexts((p) => {
+          const next = { ...p };
+          delete next[tempId];
+          return next;
+        });
+      }
+      setDraft((cur) => (cur.trim() ? cur : text));
       setNote(e instanceof Error ? e.message : "error");
-    } finally {
-      setBusy(false);
     }
   }
 

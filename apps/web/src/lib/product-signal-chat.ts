@@ -159,6 +159,29 @@ export async function tryEncryptProductChatMessage(
   if (!peerUserId) return null;
   const localPrivate = await loadProductPrivate();
   if (!localPrivate) return null;
+
+  const sessionKey = productSessionKey(conversationId, peerUserId);
+
+  // Warm path: reuse IndexedDB session — do not hit /v1/keys on every send.
+  const cachedRaw = await secureGet(sessionKey);
+  if (cachedRaw) {
+    try {
+      const session = JSON.parse(cachedRaw) as SecureSession;
+      if (sessionLooksUsable(session)) {
+        const client = await getProductSignalClient(loadProductSignalPrefer());
+        const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
+        await secureSet(sessionKey, JSON.stringify(session));
+        return {
+          ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
+          ciphertext: enc.ciphertext,
+          mode: "product",
+        };
+      }
+    } catch {
+      await secureRemove(sessionKey);
+    }
+  }
+
   const remote = await fetchPeerProductBundle(peerUserId);
   if (!remote) return null;
 
@@ -167,7 +190,7 @@ export async function tryEncryptProductChatMessage(
   try {
     const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
     const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
-    await secureSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
+    await secureSet(sessionKey, JSON.stringify(session));
     return {
       ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
       ciphertext: enc.ciphertext,
@@ -175,11 +198,11 @@ export async function tryEncryptProductChatMessage(
     };
   } catch {
     // Clear broken sessions (e.g. prior PQXDH + node:module failures) and retry once.
-    await secureRemove(productSessionKey(conversationId, peerUserId));
+    await secureRemove(sessionKey);
     try {
       const session = await loadOrEstablishSession(conversationId, peerUserId, localPrivate, remote);
       const enc = await productChatEncrypt(client, session, plaintext, expiresAt);
-      await secureSet(productSessionKey(conversationId, peerUserId), JSON.stringify(session));
+      await secureSet(sessionKey, JSON.stringify(session));
       return {
         ratchetHeader: PRODUCT_HEADER_PREFIX + enc.ratchetHeader,
         ciphertext: enc.ciphertext,
