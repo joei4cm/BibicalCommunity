@@ -83,6 +83,7 @@ export default function MessagesScreen() {
   const [callSessionActive, setCallSessionActive] = useState(false);
   const callRef = useRef<CallSession | null>(null);
   const pendingOfferRef = useRef<string | null>(null);
+  const pendingIceRef = useRef<Record<string, unknown>[]>([]);
   const incomingConvoRef = useRef<string | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
 
@@ -450,6 +451,7 @@ export default function MessagesScreen() {
     setCallNote(null);
     setCallPhase(asAnswerer ? "incoming" : "outgoing");
     const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
+    const initialIceCandidates = asAnswerer ? [...pendingIceRef.current] : [];
     try {
       callRef.current?.close();
       callRef.current = null;
@@ -479,6 +481,7 @@ export default function MessagesScreen() {
         role: asAnswerer ? "callee" : "caller",
         video: false,
         initialOfferSdp,
+        initialIceCandidates,
         onRemoteStream: (stream: RnMediaStream) => {
           setRemoteStreamUrl(stream.toURL());
           setCallPhase("connected");
@@ -497,6 +500,7 @@ export default function MessagesScreen() {
       });
       callRef.current = session;
       pendingOfferRef.current = null;
+      pendingIceRef.current = [];
       incomingConvoRef.current = null;
       if (!asAnswerer) setCallPhase("outgoing");
       setCallNote(
@@ -511,6 +515,7 @@ export default function MessagesScreen() {
       setCallPhase("idle");
       setCallSessionActive(false);
       pendingOfferRef.current = null;
+      pendingIceRef.current = [];
     } finally {
       setBusy(false);
     }
@@ -523,6 +528,7 @@ export default function MessagesScreen() {
     setCallSessionActive(false);
     setCallPhase("idle");
     pendingOfferRef.current = null;
+    pendingIceRef.current = [];
     incomingConvoRef.current = null;
     setCallNote((prev) => `${prev ?? ""} · hung-up`);
   }
@@ -556,13 +562,22 @@ export default function MessagesScreen() {
           const sock = new WebSocket(url);
           sock.onmessage = (ev) => {
             try {
-              const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
+              const msg = JSON.parse(String(ev.data)) as {
+                type?: string;
+                sdp?: string;
+                candidate?: Record<string, unknown> | null;
+              };
               if (msg.type === "offer" && msg.sdp) {
                 pendingOfferRef.current = msg.sdp;
+                pendingIceRef.current = [];
                 incomingConvoRef.current = conversationId;
                 setSelectedId(conversationId);
                 setCallPhase("incoming");
                 setCallNote(t(locale, "chat.callIncoming"));
+              } else if (msg.type === "ice" && msg.candidate) {
+                if (incomingConvoRef.current === conversationId) {
+                  pendingIceRef.current.push(msg.candidate);
+                }
               } else if (msg.type === "ring") {
                 incomingConvoRef.current = conversationId;
                 setSelectedId(conversationId);
@@ -571,6 +586,7 @@ export default function MessagesScreen() {
               } else if (msg.type === "hangup") {
                 if (!callRef.current && incomingConvoRef.current === conversationId) {
                   pendingOfferRef.current = null;
+                  pendingIceRef.current = [];
                   incomingConvoRef.current = null;
                   setCallPhase("idle");
                 }

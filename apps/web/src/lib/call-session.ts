@@ -72,6 +72,8 @@ export async function startCallSession(opts: {
   video?: boolean;
   /** Offer SDP already received on a listen socket (applied after media attach). */
   initialOfferSdp?: string | null;
+  /** Trickle ICE collected on the listen socket before Accept. */
+  initialIceCandidates?: RTCIceCandidateInit[] | null;
   /**
    * Media already captured in a user-gesture turn (iOS/PWA). When set, skips a
    * second getUserMedia after awaits that would lose the gesture.
@@ -92,6 +94,20 @@ export async function startCallSession(opts: {
   let iceRestartInFlight = false;
   let iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
   let pc!: RTCPeerConnection;
+  /** ICE that arrived before remote description was set. */
+  const pendingRemoteIce: RTCIceCandidateInit[] = [...(opts.initialIceCandidates ?? [])];
+
+  const flushPendingIce = async () => {
+    if (!pc.remoteDescription) return;
+    const queued = pendingRemoteIce.splice(0, pendingRemoteIce.length);
+    for (const candidate of queued) {
+      try {
+        await handleRemoteIce(pc, candidate);
+      } catch {
+        /* stale candidate */
+      }
+    }
+  };
 
   const tryIceRestart = (reason: string) => {
     if (
@@ -173,6 +189,7 @@ export async function startCallSession(opts: {
     if (!asScreen && pc.remoteDescription) return;
     answerAsScreen = asScreen;
     await handleRemoteOffer(pc, { type: "offer", sdp }, callbacks);
+    await flushPendingIce();
     opts.onNote?.(asScreen ? "answered-screen-offer" : "answered-remote-offer");
   }
 
@@ -185,14 +202,13 @@ export async function startCallSession(opts: {
     if (pc.remoteDescription) return;
     reofferInFlight = true;
     try {
-      const existing = pc.localDescription?.sdp;
-      if (existing) {
-        sendSignal({ type: "offer", sdp: existing });
-        opts.onNote?.(`reoffer:${reason}`);
-      } else {
-        await createOffer(pc, callbacks);
-        opts.onNote?.(`reoffer-new:${reason}`);
+      // Prefer ICE restart so fresh candidates are gathered for the late joiner
+      // (listen-socket ICE was often dropped before Accept).
+      if (typeof pc.restartIce === "function" && pc.localDescription) {
+        pc.restartIce();
       }
+      await createOffer(pc, callbacks);
+      opts.onNote?.(`reoffer:${reason}`);
     } catch (e) {
       opts.onNote?.(e instanceof Error ? `reoffer-failed:${e.message}` : "reoffer-failed");
     } finally {
@@ -215,9 +231,15 @@ export async function startCallSession(opts: {
     } else if ((msg.type === "answer" || msg.type === "screen-answer") && msg.sdp) {
       gotRemoteAnswer = true;
       await handleRemoteAnswer(pc, { type: "answer", sdp: msg.sdp });
+      await flushPendingIce();
       opts.onNote?.(msg.type === "screen-answer" ? "got-screen-answer" : "got-remote-answer");
     } else if (msg.type === "ice") {
-      await handleRemoteIce(pc, msg.candidate ?? null);
+      if (msg.candidate) {
+        if (!pc.remoteDescription) pendingRemoteIce.push(msg.candidate);
+        else await handleRemoteIce(pc, msg.candidate);
+      } else {
+        await handleRemoteIce(pc, null);
+      }
     } else if (msg.type === "screen") {
       opts.onNote?.("peer-screen");
     } else if (msg.type === "hangup") {
@@ -244,6 +266,8 @@ export async function startCallSession(opts: {
     await createOffer(pc, callbacks);
   } else if (opts.initialOfferSdp) {
     await applyRemoteOffer(opts.initialOfferSdp, false);
+  } else {
+    await flushPendingIce();
   }
 
   return {

@@ -72,6 +72,8 @@ export async function startCallSession(opts: {
   video?: boolean;
   /** Offer SDP already received on a listen socket (applied after media attach). */
   initialOfferSdp?: string | null;
+  /** Trickle ICE collected on the listen socket before Accept. */
+  initialIceCandidates?: Record<string, unknown>[] | null;
   onRemoteStream?: (stream: RnMediaStream) => void;
   onNote?: (msg: string) => void;
 }): Promise<CallSession> {
@@ -81,6 +83,9 @@ export async function startCallSession(opts: {
 
   let gotRemoteAnswer = false;
   let reofferInFlight = false;
+  const pendingRemoteIce: Array<Record<string, unknown> | null> = [
+    ...(opts.initialIceCandidates ?? []),
+  ];
 
   const session: CallSession = {
     pc: null as unknown as ReturnType<typeof createPeerConnection>,
@@ -122,14 +127,27 @@ export async function startCallSession(opts: {
   session.pc = pc;
   session.localStream = localStream;
 
+  async function flushPendingIce() {
+    if (!pc.remoteDescription) return;
+    const queued = pendingRemoteIce.splice(0, pendingRemoteIce.length);
+    for (const candidate of queued) {
+      try {
+        await handleRemoteIce(pc, candidate);
+      } catch {
+        /* stale */
+      }
+    }
+  }
+
   async function applyRemoteOffer(sdp: string) {
     if (pc.remoteDescription) return;
     await handleRemoteOffer(pc, { type: "offer", sdp }, callbacks);
+    await flushPendingIce();
     opts.onNote?.("answered-remote-offer");
   }
 
   /**
-   * Caller: if peer joins after our first offer was missed, resend local SDP only.
+   * Caller: if peer joins after our first offer was missed, restart ICE + re-offer.
    * Do NOT send another `ring` — that reopens Accept UI on the callee mid-answer.
    */
   async function maybeReoffer(reason: string) {
@@ -137,14 +155,12 @@ export async function startCallSession(opts: {
     if (pc.remoteDescription) return;
     reofferInFlight = true;
     try {
-      const existing = pc.localDescription?.sdp;
-      if (existing) {
-        sendSignal({ type: "offer", sdp: existing });
-        opts.onNote?.(`reoffer:${reason}`);
-      } else {
-        await createOffer(pc, callbacks);
-        opts.onNote?.(`reoffer-new:${reason}`);
+      const pcAny = pc as { restartIce?: () => void };
+      if (typeof pcAny.restartIce === "function" && pc.localDescription) {
+        pcAny.restartIce();
       }
+      await createOffer(pc, callbacks);
+      opts.onNote?.(`reoffer:${reason}`);
     } catch (e) {
       opts.onNote?.(e instanceof Error ? `reoffer-failed:${e.message}` : "reoffer-failed");
     } finally {
@@ -167,9 +183,11 @@ export async function startCallSession(opts: {
     } else if ((msg.type === "answer" || msg.type === "screen-answer") && msg.sdp) {
       gotRemoteAnswer = true;
       await handleRemoteAnswer(pc, { type: "answer", sdp: msg.sdp });
+      await flushPendingIce();
       opts.onNote?.(msg.type === "screen-answer" ? "got-screen-answer" : "got-remote-answer");
     } else if (msg.type === "ice") {
-      await handleRemoteIce(pc, msg.candidate ?? null);
+      if (msg.candidate && !pc.remoteDescription) pendingRemoteIce.push(msg.candidate);
+      else await handleRemoteIce(pc, msg.candidate ?? null);
     } else if (msg.type === "hangup") {
       opts.onNote?.("peer-hangup");
     } else if (msg.type === "ring") {
