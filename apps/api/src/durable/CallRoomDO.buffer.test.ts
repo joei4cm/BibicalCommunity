@@ -63,3 +63,24 @@ test("answer clears buffered invite", () => {
   buf = applySignal(buf, "callee", "answer", "answer1");
   assert.equal(buf, null);
 });
+
+test("room capacity is by unique user, not socket count", () => {
+  // Simulate: callee listen + caller session = 2 sockets, 2 users (full for DM).
+  // Callee Accept replaces their listen socket → still 2 users, must be allowed.
+  const sockets = new Map<string, string>([
+    ["ws-caller", "caller"],
+    ["ws-callee-listen", "callee"],
+  ]);
+  const dropUser = (userId: string) => {
+    for (const [id, uid] of [...sockets]) {
+      if (uid === userId) sockets.delete(id);
+    }
+  };
+  const unique = () => new Set(sockets.values()).size;
+  const maxPeers = 2;
+  dropUser("callee");
+  assert.equal(unique(), 1);
+  assert.equal(unique() >= maxPeers, false);
+  sockets.set("ws-callee-session", "callee");
+  assert.equal(unique(), 2);
+});

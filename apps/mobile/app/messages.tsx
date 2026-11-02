@@ -85,6 +85,7 @@ export default function MessagesScreen() {
   const pendingOfferRef = useRef<string | null>(null);
   const pendingIceRef = useRef<Record<string, unknown>[]>([]);
   const incomingConvoRef = useRef<string | null>(null);
+  const listenSocksRef = useRef<Map<string, WebSocket>>(new Map());
   const messagesRef = useRef<ChatMessage[]>([]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
@@ -456,7 +457,16 @@ export default function MessagesScreen() {
       callRef.current?.close();
       callRef.current = null;
       setRemoteStreamUrl(null);
-      // Own the room before tearing down listen sockets.
+      // Drop this DM's listen socket before the session WS (DM maxPeers=2).
+      const listenSock = listenSocksRef.current.get(conversationId);
+      if (listenSock) {
+        listenSocksRef.current.delete(conversationId);
+        try {
+          listenSock.close();
+        } catch {
+          /* ignore */
+        }
+      }
       setCallSessionActive(true);
 
       const res = await api<{ callId: string; signalingPath: string; note?: string }>(
@@ -535,7 +545,11 @@ export default function MessagesScreen() {
 
   // Listen on active DM rooms so inbound ring/offer shows Accept (web parity).
   useEffect(() => {
-    if (callSessionActive) return;
+    if (callSessionActive) {
+      for (const [, sock] of listenSocksRef.current) sock.close();
+      listenSocksRef.current.clear();
+      return;
+    }
     const token = getToken();
     const base = getApiBase();
     if (!token || !base) return;
@@ -544,14 +558,21 @@ export default function MessagesScreen() {
       .filter((c) => c.kind === "dm" && !c.membership.archived)
       .map((c) => c.id)
       .slice(0, 24);
-    if (dmIds.length === 0) return;
+    const wanted = new Set(dmIds);
+    for (const [id, sock] of [...listenSocksRef.current]) {
+      if (!wanted.has(id)) {
+        sock.close();
+        listenSocksRef.current.delete(id);
+      }
+    }
+    const missing = dmIds.filter((id) => !listenSocksRef.current.has(id));
+    if (missing.length === 0) return;
 
     let closed = false;
-    const socks: WebSocket[] = [];
-
     void (async () => {
-      for (const conversationId of dmIds) {
+      for (const conversationId of missing) {
         if (closed) return;
+        if (listenSocksRef.current.has(conversationId)) continue;
         try {
           const res = await api<{ signalingPath: string }>("/v1/chat/calls", {
             method: "POST",
@@ -595,7 +616,12 @@ export default function MessagesScreen() {
               /* ignore */
             }
           };
-          socks.push(sock);
+          sock.onclose = () => {
+            if (listenSocksRef.current.get(conversationId) === sock) {
+              listenSocksRef.current.delete(conversationId);
+            }
+          };
+          listenSocksRef.current.set(conversationId, sock);
         } catch {
           /* listen optional per convo */
         }
@@ -604,7 +630,6 @@ export default function MessagesScreen() {
 
     return () => {
       closed = true;
-      for (const s of socks) s.close();
     };
   }, [conversations, callSessionActive, locale]);
 

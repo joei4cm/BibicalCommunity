@@ -341,6 +341,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
       try {
         callRef.current?.close();
         callRef.current = null;
+        // Drop this conversation's listen socket before opening the session WS so
+        // DM maxPeers=2 is not consumed by listen+session for the same user.
+        const listenSock = listenSocksRef.current.get(conversationId);
+        if (listenSock) {
+          listenSocksRef.current.delete(conversationId);
+          try {
+            listenSock.close();
+          } catch {
+            /* ignore */
+          }
+        }
         setCallSessionActive(true);
         const res = await api<{
           callId: string;

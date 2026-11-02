@@ -33,6 +33,23 @@ export class CallRoomDO implements DurableObject {
     return [...this.sessions.keys()].filter((ws) => ws.readyState === WebSocket.OPEN);
   }
 
+  private uniqueUserIds(): Set<string> {
+    return new Set([...this.sessions.values()].map((s) => s.userId));
+  }
+
+  /** Listen → Accept opens a second socket for the same user; replace the old one. */
+  private dropUserSockets(userId: string) {
+    for (const [ws, meta] of [...this.sessions]) {
+      if (meta.userId !== userId) continue;
+      this.sessions.delete(ws);
+      try {
+        ws.close(1000, "replaced");
+      } catch {
+        /* already closed */
+      }
+    }
+  }
+
   private clearBuffer() {
     this.buffered = null;
   }
@@ -100,14 +117,17 @@ export class CallRoomDO implements DurableObject {
       const maxRaw = Number(url.searchParams.get("maxPeers") ?? DEFAULT_MAX_PEERS);
       const maxPeers =
         Number.isFinite(maxRaw) && maxRaw > 0 ? Math.min(Math.floor(maxRaw), 32) : DEFAULT_MAX_PEERS;
-      if (this.sessions.size >= maxPeers) {
+      // DM rooms use maxPeers=2 (caller + callee). Counting sockets (not users) made
+      // Accept fail with room_full while the callee's listen WS was still open.
+      this.dropUserSockets(userId);
+      if (this.uniqueUserIds().size >= maxPeers) {
         return Response.json({ error: "room_full", maxPeers }, { status: 403 });
       }
       this.state.acceptWebSocket(server);
       this.sessions.set(server, { userId });
       this.pruneBuffer();
 
-      const peers = this.sessions.size;
+      const peers = this.uniqueUserIds().size;
       server.send(JSON.stringify({ type: "joined", userId, peers, maxPeers }));
 
       // Notify existing peers so the caller can re-offer if the first offer was missed.
