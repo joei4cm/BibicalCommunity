@@ -33,14 +33,16 @@ type ConvoRow = {
   peerUserIds?: string[];
   peers?: { userId: string; uid: string; nickname: string | null }[];
   createdAt?: number;
+  /** Latest activity — preferred when ranking which DMs to listen on. */
+  lastMessageAt?: number;
   unreadCount?: number;
   membership: { archived: boolean };
 };
 
 /** Cap concurrent call-listen sockets — most recent / unread DMs first. */
-const MAX_CALL_LISTEN = 4;
-/** Let Bible chapter paint before opening call-listen sockets. */
-const LISTEN_DEFER_MS = 4_000;
+const MAX_CALL_LISTEN = 16;
+/** First boot only: let Bible chapter paint before opening call-listen sockets. */
+const LISTEN_DEFER_MS = 800;
 /** Defer first conversations/friends sync off the critical boot path. */
 const CONVERSATIONS_DEFER_MS = 1_800;
 
@@ -89,7 +91,9 @@ function pickListenDmIds(conversations: ConvoRow[]): string[] {
     .sort((a, b) => {
       const ur = (b.unreadCount ?? 0) - (a.unreadCount ?? 0);
       if (ur !== 0) return ur;
-      return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+      const aAt = a.lastMessageAt ?? a.createdAt ?? 0;
+      const bAt = b.lastMessageAt ?? b.createdAt ?? 0;
+      return bAt - aAt;
     })
     .slice(0, MAX_CALL_LISTEN)
     .map((c) => c.id)
@@ -126,6 +130,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   const callRef = useRef<CallSession | null>(null);
   const pendingOfferRef = useRef<string | null>(null);
+  const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const incomingConvoRef = useRef<string | null>(null);
   const answeringRef = useRef(false);
   const conversationsRef = useRef<ConvoRow[]>([]);
@@ -133,6 +138,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const metaRef = useRef<CallMeta>({ ...EMPTY_META });
   const selfUserIdRef = useRef<string | null>(null);
   const postedCallIdsRef = useRef<Set<string>>(new Set());
+  const listenSocksRef = useRef<Map<string, WebSocket>>(new Map());
+  const listenBootedRef = useRef(false);
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -247,6 +254,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     callRef.current?.close();
     callRef.current = null;
     pendingOfferRef.current = null;
+    pendingIceRef.current = [];
     incomingConvoRef.current = null;
     answeringRef.current = false;
     setCallSessionActive(false);
@@ -329,9 +337,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
         phase: "outgoing",
       };
       const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
+      const initialIceCandidates = asAnswerer ? [...pendingIceRef.current] : [];
       try {
         callRef.current?.close();
         callRef.current = null;
+        // Drop this conversation's listen socket before opening the session WS so
+        // DM maxPeers=2 is not consumed by listen+session for the same user.
+        const listenSock = listenSocksRef.current.get(conversationId);
+        if (listenSock) {
+          listenSocksRef.current.delete(conversationId);
+          try {
+            listenSock.close();
+          } catch {
+            /* ignore */
+          }
+        }
         setCallSessionActive(true);
         const res = await api<{
           callId: string;
@@ -355,6 +375,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           role: asAnswerer ? "callee" : "caller",
           video,
           initialOfferSdp,
+          initialIceCandidates,
           existingLocalStream: opts?.existingLocalStream ?? null,
           onRemoteStream: (stream) => {
             setRemoteStream(stream);
@@ -375,6 +396,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         });
         callRef.current = session;
         pendingOfferRef.current = null;
+        pendingIceRef.current = [];
         incomingConvoRef.current = null;
         setLocalStream(session.localStream);
         if (!asAnswerer) setPhase("outgoing");
@@ -384,6 +406,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setCallOpen(false);
         setCallSessionActive(false);
         pendingOfferRef.current = null;
+        pendingIceRef.current = [];
         incomingConvoRef.current = null;
         if (opts?.existingLocalStream) {
           for (const track of opts.existingLocalStream.getTracks()) track.stop();
@@ -509,19 +532,32 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [t],
   );
 
-  // Global DM ring listen — deferred + capped so first paint is not blocked by N sockets.
+  // Global DM ring listen — keep sockets stable across list refreshes (add/remove only).
   useEffect(() => {
-    if (!getToken() || callSessionActive) return;
+    if (!getToken() || callSessionActive) {
+      for (const [, sock] of listenSocksRef.current) sock.close();
+      listenSocksRef.current.clear();
+      return;
+    }
     const dmIds = callListenKey ? callListenKey.split("|").filter(Boolean) : [];
-    if (dmIds.length === 0) return;
+    const wanted = new Set(dmIds);
+    for (const [id, sock] of [...listenSocksRef.current]) {
+      if (!wanted.has(id)) {
+        sock.close();
+        listenSocksRef.current.delete(id);
+      }
+    }
+    const missing = dmIds.filter((id) => !listenSocksRef.current.has(id));
+    if (missing.length === 0) return;
 
     let closed = false;
-    const socks: WebSocket[] = [];
+    const defer = listenBootedRef.current ? 0 : LISTEN_DEFER_MS;
+    listenBootedRef.current = true;
     const deferTimer = window.setTimeout(() => {
       void (async () => {
         await Promise.all(
-          dmIds.map(async (conversationId) => {
-            if (closed) return;
+          missing.map(async (conversationId) => {
+            if (closed || listenSocksRef.current.has(conversationId)) return;
             try {
               const res = await api<{ signalingPath: string; callId?: string }>(
                 "/v1/chat/calls",
@@ -538,9 +574,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
               sock.onmessage = (ev) => {
                 if (callRef.current || answeringRef.current) return;
                 try {
-                  const msg = JSON.parse(String(ev.data)) as { type?: string; sdp?: string };
+                  const msg = JSON.parse(String(ev.data)) as {
+                    type?: string;
+                    sdp?: string;
+                    candidate?: RTCIceCandidateInit | null;
+                  };
                   if (msg.type === "offer" && msg.sdp) {
                     pendingOfferRef.current = msg.sdp;
+                    // Fresh offer → discard ICE gathered against a prior invite.
+                    pendingIceRef.current = [];
                     incomingConvoRef.current = conversationId;
                     const c = conversationsRef.current.find((x) => x.id === conversationId);
                     const label = labelFor(c, peerLabelsRef.current);
@@ -557,6 +599,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
                     setCallOpen(true);
                     setPhase("incoming");
                     alertIncoming(conversationId, label);
+                  } else if (msg.type === "ice" && msg.candidate) {
+                    if (incomingConvoRef.current === conversationId) {
+                      pendingIceRef.current.push(msg.candidate);
+                    }
                   } else if (msg.type === "ring") {
                     if (answeringRef.current || callRef.current) return;
                     if (
@@ -586,6 +632,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
                     if (!callRef.current && incomingConvoRef.current === conversationId) {
                       const meta = { ...metaRef.current };
                       pendingOfferRef.current = null;
+                      pendingIceRef.current = [];
                       incomingConvoRef.current = null;
                       setCallOpen(false);
                       setPhase("idle");
@@ -603,21 +650,34 @@ export function CallProvider({ children }: { children: ReactNode }) {
                   /* ignore */
                 }
               };
-              socks.push(sock);
+              sock.onclose = () => {
+                if (listenSocksRef.current.get(conversationId) === sock) {
+                  listenSocksRef.current.delete(conversationId);
+                }
+              };
+              listenSocksRef.current.set(conversationId, sock);
             } catch {
               /* listen optional per convo */
             }
           }),
         );
       })();
-    }, LISTEN_DEFER_MS);
+    }, defer);
 
     return () => {
       closed = true;
       window.clearTimeout(deferTimer);
-      for (const s of socks) s.close();
+      // Do not close live sockets here — effect re-runs on list refresh; we
+      // only close on unmount / active call via the callSessionActive branch.
     };
   }, [alertIncoming, callSessionActive, callListenKey, callVideo, postCallRecord, setPhase]);
+
+  useEffect(() => {
+    return () => {
+      for (const [, sock] of listenSocksRef.current) sock.close();
+      listenSocksRef.current.clear();
+    };
+  }, []);
 
   const value = useMemo(
     () => ({
