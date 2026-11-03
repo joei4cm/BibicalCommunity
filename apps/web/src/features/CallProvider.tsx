@@ -42,9 +42,11 @@ type ConvoRow = {
 /** Cap concurrent call-listen sockets — most recent / unread DMs first. */
 const MAX_CALL_LISTEN = 16;
 /** First boot only: let Bible chapter paint before opening call-listen sockets. */
-const LISTEN_DEFER_MS = 800;
+const LISTEN_DEFER_MS = 200;
 /** Defer first conversations/friends sync off the critical boot path. */
-const CONVERSATIONS_DEFER_MS = 1_800;
+const CONVERSATIONS_DEFER_MS = 600;
+/** Backoff when a listen WebSocket drops (mobile browsers kill idle WS). */
+const LISTEN_RECONNECT_MS = 1_200;
 
 type CallMeta = {
   conversationId: string | null;
@@ -127,6 +129,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [callSessionActive, setCallSessionActive] = useState(false);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
+  /** Bumped to force listen-socket rebind after close / visibility wake. */
+  const [listenEpoch, setListenEpoch] = useState(0);
+  const [connectedAt, setConnectedAt] = useState<number | null>(null);
 
   const callRef = useRef<CallSession | null>(null);
   const pendingOfferRef = useRef<string | null>(null);
@@ -140,6 +145,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const postedCallIdsRef = useRef<Set<string>>(new Set());
   const listenSocksRef = useRef<Map<string, WebSocket>>(new Map());
   const listenBootedRef = useRef(false);
+  const listenReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callSessionActiveRef = useRef(false);
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -150,12 +157,30 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     selfUserIdRef.current = selfUserId;
   }, [selfUserId]);
+  useEffect(() => {
+    callSessionActiveRef.current = callSessionActive;
+  }, [callSessionActive]);
 
   useEffect(() => {
     if (!getToken()) return;
     void api<{ id?: string; userId?: string }>("/v1/me")
       .then((me) => setSelfUserId(me.id ?? me.userId ?? null))
       .catch(() => setSelfUserId(null));
+  }, []);
+
+  const scheduleListenWake = useCallback(() => {
+    if (listenReconnectTimerRef.current) return;
+    listenReconnectTimerRef.current = setTimeout(() => {
+      listenReconnectTimerRef.current = null;
+      if (callSessionActiveRef.current) return;
+      // Drop dead sockets so the listen effect re-opens them.
+      for (const [id, sock] of [...listenSocksRef.current]) {
+        if (sock.readyState === WebSocket.CLOSING || sock.readyState === WebSocket.CLOSED) {
+          listenSocksRef.current.delete(id);
+        }
+      }
+      setListenEpoch((n) => n + 1);
+    }, LISTEN_RECONNECT_MS);
   }, []);
 
   const refreshConversations = useCallback(async () => {
@@ -209,7 +234,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCallPhase(phase);
     metaRef.current.phase = phase;
     if (phase === "connected" && !metaRef.current.connectedAt) {
-      metaRef.current.connectedAt = Date.now();
+      const at = Date.now();
+      metaRef.current.connectedAt = at;
+      setConnectedAt(at);
+    }
+    if (phase !== "connected") {
+      setConnectedAt(null);
     }
     if (phase === "incoming" && !metaRef.current.ringingAt) {
       metaRef.current.ringingAt = Date.now();
@@ -266,6 +296,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCallOpen(false);
     setPhase("idle");
     setCallNote(null);
+    setConnectedAt(null);
     metaRef.current = { ...EMPTY_META, video: metaRef.current.video };
   }, [setPhase]);
 
@@ -328,14 +359,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setCallNote(null);
       setCallOpen(true);
       // Leave "incoming" immediately so a late re-ring cannot flash Accept again.
-      setPhase("outgoing");
+      // Callee shows connecting (ICE in progress); caller keeps "Calling…".
+      const nextPhase: CallPhase = asAnswerer ? "connecting" : "outgoing";
+      setPhase(nextPhase);
       metaRef.current = {
         ...metaRef.current,
         conversationId,
         role: asAnswerer ? "callee" : "caller",
         video,
-        phase: "outgoing",
+        phase: nextPhase,
+        connectedAt: null,
       };
+      setConnectedAt(null);
       const initialOfferSdp = asAnswerer ? pendingOfferRef.current : null;
       const initialIceCandidates = asAnswerer ? [...pendingIceRef.current] : [];
       try {
@@ -378,20 +413,51 @@ export function CallProvider({ children }: { children: ReactNode }) {
           initialIceCandidates,
           existingLocalStream: opts?.existingLocalStream ?? null,
           onRemoteStream: (stream) => {
+            // Attach media early; do NOT mark connected until ICE succeeds.
             setRemoteStream(stream);
-            setPhase("connected");
+            if (metaRef.current.phase === "outgoing" || metaRef.current.phase === "incoming") {
+              setPhase("connecting");
+            }
           },
           onNote: (m) => {
-            if (m === "answered-remote-offer" || m === "got-remote-answer") {
-              setPhase("connected");
-            }
             // Ignore peer-ring on the session socket — re-offer must not reopen Accept UI.
             if (m === "peer-ring") return;
             if (m === "peer-hangup") {
               endCall("peer-hangup");
               return;
             }
-            setCallNote((prev) => `${prev ?? ""} · ${m}`);
+            if (m === "answered-remote-offer" || m === "got-remote-answer") {
+              if (metaRef.current.phase !== "connected") setPhase("connecting");
+              return;
+            }
+            if (m.startsWith("pc:")) {
+              const state = m.slice(3);
+              if (state === "connected") {
+                setPhase("connected");
+                return;
+              }
+              if (state === "failed") {
+                setCallNote(t("chat.callFailed"));
+                return;
+              }
+              // connecting / disconnected / new / closed — keep status UI, no log spam
+              if (state === "connecting" && metaRef.current.phase !== "connected") {
+                setPhase("connecting");
+              }
+              return;
+            }
+            // Quiet diagnostic chatter (reoffer / ice-restart / peer-joined).
+            if (
+              m.startsWith("reoffer:") ||
+              m.startsWith("ice-restart") ||
+              m === "peer-joined" ||
+              m.startsWith("got-") ||
+              m.startsWith("answered-") ||
+              m.startsWith("sent-")
+            ) {
+              return;
+            }
+            setCallNote((prev) => (prev ? `${prev} · ${m}` : m));
           },
         });
         callRef.current = session;
@@ -415,7 +481,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         answeringRef.current = false;
       }
     },
-    [callVideo, endCall, prepareIce, setPhase],
+    [callVideo, endCall, prepareIce, setPhase, t],
   );
 
   const acceptIncoming = useCallback(() => {
@@ -432,7 +498,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           video,
         });
         setLocalStream(early);
-        setPhase("outgoing");
+        setPhase("connecting");
       } catch {
         /* startCallSession will retry getUserMedia */
       }
@@ -545,6 +611,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (!wanted.has(id)) {
         sock.close();
         listenSocksRef.current.delete(id);
+      } else if (
+        sock.readyState === WebSocket.CLOSING ||
+        sock.readyState === WebSocket.CLOSED
+      ) {
+        listenSocksRef.current.delete(id);
       }
     }
     const missing = dmIds.filter((id) => !listenSocksRef.current.has(id));
@@ -607,6 +678,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
                     if (answeringRef.current || callRef.current) return;
                     if (
                       metaRef.current.phase === "outgoing" ||
+                      metaRef.current.phase === "connecting" ||
                       metaRef.current.phase === "connected"
                     ) {
                       return;
@@ -654,10 +726,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
                 if (listenSocksRef.current.get(conversationId) === sock) {
                   listenSocksRef.current.delete(conversationId);
                 }
+                // Mobile Chrome / iOS Safari often drop idle WS — rebind promptly.
+                if (!closed && !callSessionActiveRef.current) {
+                  scheduleListenWake();
+                }
+              };
+              sock.onerror = () => {
+                try {
+                  sock.close();
+                } catch {
+                  /* ignore */
+                }
               };
               listenSocksRef.current.set(conversationId, sock);
             } catch {
-              /* listen optional per convo */
+              /* listen optional per convo — retry on next wake */
+              if (!closed) scheduleListenWake();
             }
           }),
         );
@@ -670,10 +754,42 @@ export function CallProvider({ children }: { children: ReactNode }) {
       // Do not close live sockets here — effect re-runs on list refresh; we
       // only close on unmount / active call via the callSessionActive branch.
     };
-  }, [alertIncoming, callSessionActive, callListenKey, callVideo, postCallRecord, setPhase]);
+  }, [
+    alertIncoming,
+    callSessionActive,
+    callListenKey,
+    callVideo,
+    listenEpoch,
+    postCallRecord,
+    scheduleListenWake,
+    setPhase,
+  ]);
+
+  // Foreground wake: repair listen sockets killed while backgrounded.
+  useEffect(() => {
+    const wake = () => {
+      if (document.visibilityState !== "visible") return;
+      if (callSessionActiveRef.current) return;
+      if (!getToken()) return;
+      void refreshConversations();
+      scheduleListenWake();
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
+      window.removeEventListener("online", wake);
+    };
+  }, [refreshConversations, scheduleListenWake]);
 
   useEffect(() => {
     return () => {
+      if (listenReconnectTimerRef.current) {
+        clearTimeout(listenReconnectTimerRef.current);
+        listenReconnectTimerRef.current = null;
+      }
       for (const [, sock] of listenSocksRef.current) sock.close();
       listenSocksRef.current.clear();
     };
@@ -699,6 +815,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         phase={callPhase}
         peerLabel={peerLabel}
         note={callNote}
+        connectedAt={connectedAt}
         localStream={localStream}
         remoteStream={remoteStream}
         video={callVideo}
