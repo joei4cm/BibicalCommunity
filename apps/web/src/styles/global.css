@@ -5403,18 +5403,37 @@ body:has(.bible-reader) .tab-bar a.active::after {
   margin-bottom: 0.35rem;
 }
 
+/* Favorites are archival — don't stamp ★ on every bubble by default. */
 .im-fav-btn {
   min-width: 1.6rem;
   padding: 0 0.2rem;
   font-size: 0.85rem;
   line-height: 1;
-  opacity: 0.55;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.12s ease, transform 0.12s ease, color 0.12s ease;
+}
+
+.im-thread .chat-bubble:hover .im-fav-btn,
+.im-thread .chat-bubble:focus-within .im-fav-btn,
+.im-fav-btn:focus-visible,
+.im-fav-btn.is-active {
+  opacity: 0.7;
+  transform: scale(1);
 }
 
 .im-fav-btn.is-active,
 .im-fav-btn:disabled.is-active {
   opacity: 1;
   color: var(--lh-accent);
+}
+
+/* Touch: keep a quiet star so favorites stay reachable without hover. */
+@media (hover: none) {
+  .im-fav-btn:not(.is-active) {
+    opacity: 0.22;
+    transform: scale(1);
+  }
 }
 
 .chat-favorites-block {
@@ -5452,6 +5471,19 @@ body:has(.bible-reader) .tab-bar a.active::after {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.9rem;
+}
+
+.chat-favorite-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.chat-favorite-remove {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.4rem;
+  min-height: 0;
 }
 
 .home-current {
