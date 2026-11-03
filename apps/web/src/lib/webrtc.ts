@@ -45,6 +45,17 @@ export function createPeerConnection(
   pc.onconnectionstatechange = () => {
     callbacks.onConnectionStateChange?.(pc.connectionState);
   };
+  // Safari sometimes advances iceConnectionState before connectionState.
+  pc.oniceconnectionstatechange = () => {
+    const ice = pc.iceConnectionState;
+    if (ice === "connected" || ice === "completed") {
+      if (pc.connectionState === "connected" || pc.connectionState === "connecting") {
+        callbacks.onConnectionStateChange?.("connected");
+      }
+    } else if (ice === "failed") {
+      callbacks.onConnectionStateChange?.("failed");
+    }
+  };
 
   return pc;
 }
