@@ -1202,12 +1202,19 @@ export function ChatPanel({
     };
   }, [plaintexts, selectedId]);
 
-  async function favoriteMessage(m: ChatMessage) {
-    if (favoriteBusyId === m.id) return;
-    const text = payloadPreview(plaintexts[m.id], plaintexts[m.id] ?? "");
-    if (!text.trim()) return;
+  async function toggleFavoriteMessage(m: ChatMessage) {
+    if (favoriteBusyId === m.id || m.id.startsWith("temp_")) return;
+    const existing = favorites.find((f) => f.messageId === m.id);
     setFavoriteBusyId(m.id);
     try {
+      if (existing) {
+        await api(`/v1/chat/favorites/${encodeURIComponent(m.id)}`, { method: "DELETE" });
+        setFavorites((prev) => prev.filter((f) => f.messageId !== m.id));
+        setNote(null);
+        return;
+      }
+      const text = payloadPreview(plaintexts[m.id], plaintexts[m.id] ?? "");
+      if (!text.trim()) return;
       // Stable user-scoped key so archived favorites decrypt without conversation id.
       const key = await sessionKeyFor("fav");
       const enc = await encryptSessionPayload(key, text, "fav");
@@ -1219,8 +1226,20 @@ export function ChatPanel({
           iv: enc.ratchetHeader,
         }),
       });
-      setNote("message_favorited");
       await loadFavorites();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "error");
+    } finally {
+      setFavoriteBusyId(null);
+    }
+  }
+
+  async function removeFavoriteByMessageId(messageId: string) {
+    if (favoriteBusyId === messageId) return;
+    setFavoriteBusyId(messageId);
+    try {
+      await api(`/v1/chat/favorites/${encodeURIComponent(messageId)}`, { method: "DELETE" });
+      setFavorites((prev) => prev.filter((f) => f.messageId !== messageId));
     } catch (e) {
       setNote(e instanceof Error ? e.message : "error");
     } finally {
@@ -1522,14 +1541,19 @@ export function ChatPanel({
                           favorites.some((f) => f.messageId === m.id) ? " is-active" : ""
                         }`}
                         data-testid={`chat-favorite-${m.id}`}
-                        disabled={
-                          m.id.startsWith("temp_") ||
-                          favoriteBusyId === m.id ||
+                        disabled={m.id.startsWith("temp_") || favoriteBusyId === m.id}
+                        aria-pressed={favorites.some((f) => f.messageId === m.id)}
+                        aria-label={
                           favorites.some((f) => f.messageId === m.id)
+                            ? t("chat.unfavorite")
+                            : t("chat.favorite")
                         }
-                        aria-label={t("chat.favorite")}
-                        title={t("chat.favorite")}
-                        onClick={() => void favoriteMessage(m)}
+                        title={
+                          favorites.some((f) => f.messageId === m.id)
+                            ? t("chat.unfavorite")
+                            : t("chat.favorite")
+                        }
+                        onClick={() => void toggleFavoriteMessage(m)}
                       >
                         ★
                       </button>
@@ -1769,11 +1793,24 @@ export function ChatPanel({
                             <span className="chat-favorite-preview">
                               {f.preview?.trim() || t("chat.favoriteEncrypted")}
                             </span>
-                            {f.createdAt ? (
-                              <span className="muted convo-row-time">
-                                {formatConvoWhen(f.createdAt)}
-                              </span>
-                            ) : null}
+                            <span className="chat-favorite-actions">
+                              {f.createdAt ? (
+                                <span className="muted convo-row-time">
+                                  {formatConvoWhen(f.createdAt)}
+                                </span>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="btn ghost chat-favorite-remove"
+                                data-testid={`chat-favorite-remove-${f.id}`}
+                                disabled={favoriteBusyId === f.messageId}
+                                aria-label={t("chat.unfavorite")}
+                                title={t("chat.unfavorite")}
+                                onClick={() => void removeFavoriteByMessageId(f.messageId)}
+                              >
+                                {t("chat.unfavorite")}
+                              </button>
+                            </span>
                           </li>
                         ))}
                       </ul>

@@ -517,10 +517,24 @@ const favoriteSchema = z.object({
 chatRoutes.post("/favorites", async (c) => {
   const body = favoriteSchema.parse(await c.req.json());
   const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const existing = await db
+    .select({ id: schema.messageFavorites.id })
+    .from(schema.messageFavorites)
+    .where(
+      and(
+        eq(schema.messageFavorites.userId, userId),
+        eq(schema.messageFavorites.messageId, body.messageId),
+      ),
+    )
+    .limit(1);
+  if (existing[0]) {
+    return c.json({ id: existing[0].id, already: true });
+  }
   const id = createId("fav");
   await db.insert(schema.messageFavorites).values({
     id,
-    userId: c.get("userId"),
+    userId,
     messageId: body.messageId,
     ciphertext: body.ciphertext,
     iv: body.iv,
@@ -544,6 +558,24 @@ chatRoutes.get("/favorites", async (c) => {
       createdAt: f.createdAt,
     })),
   });
+});
+
+/** Remove a favorite by the underlying chat message id (toggle / archive list). */
+chatRoutes.delete("/favorites/:messageId", async (c) => {
+  const messageId = c.req.param("messageId");
+  if (!messageId) return c.json({ error: "missing_message_id" }, 400);
+  const db = drizzle(c.env.DB, { schema });
+  const userId = c.get("userId");
+  const deleted = await db
+    .delete(schema.messageFavorites)
+    .where(
+      and(
+        eq(schema.messageFavorites.userId, userId),
+        eq(schema.messageFavorites.messageId, messageId),
+      ),
+    )
+    .returning({ id: schema.messageFavorites.id });
+  return c.json({ ok: true, removed: deleted.length });
 });
 
 chatRoutes.post("/calls", async (c) => {
