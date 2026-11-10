@@ -106,6 +106,8 @@ export const loginSchema = z.object({
   password: z.string().min(1),
   deviceName: z.string().max(64).optional(),
   platform: z.enum(["web", "ios", "android"]).default("web"),
+  /** Reuse an existing device row when re-logging in on the same install. */
+  deviceId: z.string().min(1).max(64).optional(),
 });
 
 export const profileUpdateSchema = z.object({
