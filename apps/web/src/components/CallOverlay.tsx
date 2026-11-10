@@ -19,8 +19,10 @@ export function CallOverlay({
   localStream,
   remoteStream,
   video,
+  micMuted = false,
   onAccept,
   onHangup,
+  onToggleMic,
   onToggleVideo,
 }: {
   open: boolean;
@@ -32,37 +34,38 @@ export function CallOverlay({
   localStream?: MediaStream | null;
   remoteStream?: MediaStream | null;
   video: boolean;
+  micMuted?: boolean;
   onAccept: () => void;
   onHangup: () => void;
-  onToggleVideo: () => void;
+  onToggleMic?: () => void;
+  /** Omitted mid-call — video track renegotiation is not wired yet. */
+  onToggleVideo?: () => void;
 }) {
   const { t } = useTranslation();
   const remoteRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const localRef = useRef<HTMLVideoElement | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
 
   // Remote media: use a dedicated <audio> in audio-only mode. Mobile browsers
   // often mute <video> when CSS sets display:none (previous audio-call path).
   useEffect(() => {
     const videoEl = remoteRef.current;
     const audioEl = remoteAudioRef.current;
+    setNeedsAudioUnlock(false);
     if (videoEl) {
       videoEl.srcObject = remoteStream ?? null;
       // In audio mode the visible surface is the audio element; keep video muted.
       videoEl.muted = !video;
       if (remoteStream && video) {
-        void videoEl.play().catch(() => {
-          /* autoplay policy — Accept gesture usually unlocks */
-        });
+        void videoEl.play().catch(() => setNeedsAudioUnlock(true));
       }
     }
     if (audioEl) {
       if (!video && remoteStream) {
         audioEl.srcObject = remoteStream;
-        void audioEl.play().catch(() => {
-          /* Accept / outbound getUserMedia gesture should allow play */
-        });
+        void audioEl.play().catch(() => setNeedsAudioUnlock(true));
       } else {
         audioEl.srcObject = null;
       }
@@ -95,6 +98,20 @@ export function CallOverlay({
           ? t("chat.callConnected")
           : t("chat.callCalling");
 
+  const unlockAudio = () => {
+    const audioEl = remoteAudioRef.current;
+    const videoEl = remoteRef.current;
+    void (async () => {
+      try {
+        if (!video && audioEl) await audioEl.play();
+        if (video && videoEl) await videoEl.play();
+        setNeedsAudioUnlock(false);
+      } catch {
+        setNeedsAudioUnlock(true);
+      }
+    })();
+  };
+
   return (
     <div className="call-overlay" data-testid="call-overlay" role="dialog" aria-modal="true">
       <div className="call-overlay-bg" aria-hidden />
@@ -112,6 +129,16 @@ export function CallOverlay({
           </p>
         ) : null}
         {note ? <p className="call-note muted">{note}</p> : null}
+        {needsAudioUnlock ? (
+          <button
+            type="button"
+            className="btn call-audio-unlock"
+            data-testid="call-audio-unlock"
+            onClick={unlockAudio}
+          >
+            {t("chat.callTapToHear")}
+          </button>
+        ) : null}
 
         <div className={`call-videos${video ? " is-video" : ""}`}>
           {/* Always mounted — carries remote audio when video UI is hidden. */}
@@ -133,19 +160,59 @@ export function CallOverlay({
               <span>{t("chat.callAccept")}</span>
             </button>
           )}
-          <button
-            type="button"
-            className="call-btn ghost"
-            onClick={onToggleVideo}
-            aria-label={video ? t("chat.callAudio") : t("chat.callVideo")}
-          >
-            {video ? (
-              <IconVideoOff className="call-btn-icon" />
-            ) : (
-              <IconVideo className="call-btn-icon" />
-            )}
-            <span>{video ? t("chat.callAudio") : t("chat.callVideo")}</span>
-          </button>
+          {onToggleMic && phase !== "incoming" && phase !== "idle" ? (
+            <button
+              type="button"
+              className={`call-btn ghost${micMuted ? " is-muted" : ""}`}
+              onClick={onToggleMic}
+              aria-pressed={micMuted}
+              aria-label={micMuted ? t("chat.callUnmute") : t("chat.callMute")}
+              data-testid="call-mute"
+            >
+              <svg
+                className="call-btn-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                {micMuted ? (
+                  <>
+                    <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
+                    <path d="M15 9.34V5a3 3 0 0 0-5.94-.6" />
+                    <path d="M17 12a5 5 0 0 1-.3 1.7" />
+                    <path d="M12 19v3" />
+                    <path d="M8 22h8" />
+                    <path d="M2 2l20 20" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z" />
+                    <path d="M19 11a7 7 0 0 1-14 0" />
+                    <path d="M12 19v3" />
+                    <path d="M8 22h8" />
+                  </>
+                )}
+              </svg>
+              <span>{micMuted ? t("chat.callUnmute") : t("chat.callMute")}</span>
+            </button>
+          ) : null}
+          {onToggleVideo ? (
+            <button
+              type="button"
+              className="call-btn ghost"
+              onClick={onToggleVideo}
+              aria-label={video ? t("chat.callAudio") : t("chat.callVideo")}
+            >
+              {video ? (
+                <IconVideoOff className="call-btn-icon" />
+              ) : (
+                <IconVideo className="call-btn-icon" />
+              )}
+              <span>{video ? t("chat.callAudio") : t("chat.callVideo")}</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className="call-btn hangup"

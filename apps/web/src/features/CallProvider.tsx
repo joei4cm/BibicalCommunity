@@ -47,6 +47,8 @@ const LISTEN_DEFER_MS = 200;
 const CONVERSATIONS_DEFER_MS = 600;
 /** Backoff when a listen WebSocket drops (mobile browsers kill idle WS). */
 const LISTEN_RECONNECT_MS = 1_200;
+/** Give up if ICE never reaches connected (mobile NAT / missing TURN). */
+const CONNECTING_TIMEOUT_MS = 28_000;
 
 type CallMeta = {
   conversationId: string | null;
@@ -132,6 +134,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   /** Bumped to force listen-socket rebind after close / visibility wake. */
   const [listenEpoch, setListenEpoch] = useState(0);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
+  const [micMuted, setMicMuted] = useState(false);
 
   const callRef = useRef<CallSession | null>(null);
   const pendingOfferRef = useRef<string | null>(null);
@@ -147,6 +150,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const listenBootedRef = useRef(false);
   const listenReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callSessionActiveRef = useRef(false);
+  const connectingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endCallRef = useRef<(reason: "local-hangup" | "peer-hangup") => void>(() => {});
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -297,6 +302,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setPhase("idle");
     setCallNote(null);
     setConnectedAt(null);
+    setMicMuted(false);
+    if (connectingTimerRef.current) {
+      clearTimeout(connectingTimerRef.current);
+      connectingTimerRef.current = null;
+    }
     metaRef.current = { ...EMPTY_META, video: metaRef.current.video };
   }, [setPhase]);
 
@@ -306,7 +316,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       let event: CallEvent;
       if (meta.connectedAt || meta.phase === "connected") {
         event = "ended";
-      } else if (meta.role === "caller" || meta.phase === "outgoing") {
+      } else if (meta.role === "caller" || meta.phase === "outgoing" || meta.phase === "connecting") {
         event = reason === "local-hangup" ? "canceled" : "missed";
       } else {
         event = reason === "local-hangup" ? "declined" : "missed";
@@ -316,32 +326,53 @@ export function CallProvider({ children }: { children: ReactNode }) {
     },
     [clearCallUi, postCallRecord],
   );
+  endCallRef.current = endCall;
 
   const hangup = useCallback(() => {
     endCall("local-hangup");
   }, [endCall]);
 
+  const armConnectingWatchdog = useCallback(() => {
+    if (connectingTimerRef.current) clearTimeout(connectingTimerRef.current);
+    connectingTimerRef.current = setTimeout(() => {
+      connectingTimerRef.current = null;
+      const phase = metaRef.current.phase;
+      if (phase === "connected" || phase === "idle" || phase === "incoming") return;
+      setCallNote(t("chat.callTimeout"));
+      endCallRef.current("local-hangup");
+    }, CONNECTING_TIMEOUT_MS);
+  }, [t]);
+
   const prepareIce = useCallback(async (): Promise<RTCIceServer[]> => {
-    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-    try {
-      const turn = await api<{
-        username?: string;
-        credential?: string;
-        uris: string[];
-        ttl: number;
-        iceServers?: RTCIceServer[];
-        hasRelay?: boolean;
-        note?: string;
-      }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
-      iceServers = buildIceServersFromTurnResponse(turn, iceServers);
-      setCallNote(
-        turnResponseHasRelay(turn) ? t("chat.callRelayOn") : t("chat.turnRelayMissing"),
-      );
-    } catch {
-      setCallNote(t("chat.turnRelayMissing"));
+    const fallback: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+    // Closed beta: refuse STUN-only — cross-NAT mobile calls never connect without TURN.
+    const turn = await api<{
+      username?: string;
+      credential?: string;
+      uris: string[];
+      ttl: number;
+      iceServers?: RTCIceServer[];
+      hasRelay?: boolean;
+      note?: string;
+    }>("/v1/calls/turn-credentials", { method: "POST", body: "{}" });
+    if (!turnResponseHasRelay(turn)) {
+      throw new Error(t("chat.turnRelayMissing"));
     }
+    const iceServers = buildIceServersFromTurnResponse(turn, fallback);
+    setCallNote(t("chat.callRelayOn"));
     return iceServers;
   }, [t]);
+
+  const toggleMic = useCallback(() => {
+    setMicMuted((prev) => {
+      const next = !prev;
+      const stream = callRef.current?.localStream ?? null;
+      if (stream) {
+        for (const track of stream.getAudioTracks()) track.enabled = !next;
+      }
+      return next;
+    });
+  }, []);
 
   const runCall = useCallback(
     async (
@@ -404,6 +435,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
               `${res.signalingPath}?token=${encodeURIComponent(token)}&conversationId=${encodeURIComponent(conversationId)}`,
             )
           : null;
+        armConnectingWatchdog();
         const session = await startCallSession({
           wsUrl,
           iceServers,
@@ -433,6 +465,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
             if (m.startsWith("pc:")) {
               const state = m.slice(3);
               if (state === "connected") {
+                if (connectingTimerRef.current) {
+                  clearTimeout(connectingTimerRef.current);
+                  connectingTimerRef.current = null;
+                }
                 setPhase("connected");
                 return;
               }
@@ -465,6 +501,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         pendingIceRef.current = [];
         incomingConvoRef.current = null;
         setLocalStream(session.localStream);
+        setMicMuted(false);
         if (!asAnswerer) setPhase("outgoing");
       } catch (e) {
         setCallNote(e instanceof Error ? e.message : "error");
@@ -474,6 +511,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
         pendingOfferRef.current = null;
         pendingIceRef.current = [];
         incomingConvoRef.current = null;
+        if (connectingTimerRef.current) {
+          clearTimeout(connectingTimerRef.current);
+          connectingTimerRef.current = null;
+        }
         if (opts?.existingLocalStream) {
           for (const track of opts.existingLocalStream.getTracks()) track.stop();
         }
@@ -481,7 +522,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         answeringRef.current = false;
       }
     },
-    [callVideo, endCall, prepareIce, setPhase, t],
+    [armConnectingWatchdog, callVideo, endCall, prepareIce, setPhase, t],
   );
 
   const acceptIncoming = useCallback(() => {
@@ -790,8 +831,30 @@ export function CallProvider({ children }: { children: ReactNode }) {
         clearTimeout(listenReconnectTimerRef.current);
         listenReconnectTimerRef.current = null;
       }
+      if (connectingTimerRef.current) {
+        clearTimeout(connectingTimerRef.current);
+        connectingTimerRef.current = null;
+      }
       for (const [, sock] of listenSocksRef.current) sock.close();
       listenSocksRef.current.clear();
+    };
+  }, []);
+
+  // Best-effort hangup when the tab is killed / navigated away mid-call.
+  useEffect(() => {
+    const onHide = () => {
+      if (!callRef.current) return;
+      try {
+        callRef.current.signalHangup();
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("pagehide", onHide);
+    window.addEventListener("beforeunload", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("beforeunload", onHide);
     };
   }, []);
 
@@ -806,6 +869,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [callSessionActive, startOutboundCall, shareScreen, endScreen, screenShareReady],
   );
 
+  const canToggleVideo =
+    callPhase === "idle" || callPhase === "incoming" || callPhase === "outgoing";
+
   return (
     <CallContext.Provider value={value}>
       {children}
@@ -819,9 +885,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
         localStream={localStream}
         remoteStream={remoteStream}
         video={callVideo}
+        micMuted={micMuted}
         onAccept={acceptIncoming}
         onHangup={hangup}
-        onToggleVideo={() => setCallVideo((v) => !v)}
+        onToggleMic={toggleMic}
+        onToggleVideo={
+          canToggleVideo
+            ? () => setCallVideo((v) => !v)
+            : undefined
+        }
       />
     </CallContext.Provider>
   );
