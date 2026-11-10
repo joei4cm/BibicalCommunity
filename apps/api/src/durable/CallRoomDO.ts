@@ -162,8 +162,38 @@ export class CallRoomDO implements DurableObject {
     this.fanout(ws, text, from);
   }
 
-  async webSocketClose(ws: WebSocket) {
+  async webSocketClose(ws: WebSocket, code: number, reason: string, _wasClean: boolean) {
+    const meta = this.sessions.get(ws);
     this.sessions.delete(ws);
-    if (this.sessions.size === 0) this.clearBuffer();
+    if (this.sessions.size === 0) {
+      this.clearBuffer();
+      return;
+    }
+    // Listen → Accept replaces the same user's socket — must not hang up the peer.
+    if (reason === "replaced") return;
+    const userId = meta?.userId;
+    if (userId && [...this.sessions.values()].some((s) => s.userId === userId)) {
+      return;
+    }
+    // Pending inbound invite + callee listen drop: allow reconnect (don't cancel ring).
+    // Hang up when the caller abandons, or when the call was already answered (buffer cleared).
+    const callerAbandoned = Boolean(userId && this.buffered?.from === userId);
+    const midCall = this.buffered === null;
+    if (!callerAbandoned && !midCall) return;
+
+    const hangup = JSON.stringify({
+      type: "hangup",
+      from: userId,
+      reason: "peer-disconnect",
+      code,
+    });
+    for (const peer of this.openPeers()) {
+      try {
+        peer.send(hangup);
+      } catch {
+        /* peer already closed */
+      }
+    }
+    this.clearBuffer();
   }
 }

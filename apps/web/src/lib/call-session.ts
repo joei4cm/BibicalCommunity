@@ -18,6 +18,8 @@ export type CallSession = {
   sendScreenOffer: () => Promise<void>;
   /** Notify peer that screen share ended (no SDP). */
   sendScreenStop: () => void;
+  /** Best-effort hangup without tearing down media (pagehide). */
+  signalHangup: () => void;
   close: () => void;
 };
 
@@ -63,6 +65,9 @@ function parseSignal(data: unknown): {
   return {};
 }
 
+/** Delay before caller re-offers — covers Accept getUserMedia + listen→session handoff. */
+const REOFFER_DEBOUNCE_MS = 1_600;
+
 /** Start a call: open signaling WS, attach media, create offer, handle inbound SDP/ICE. */
 export async function startCallSession(opts: {
   wsUrl: string | null;
@@ -90,9 +95,11 @@ export async function startCallSession(opts: {
   let answerAsScreen = false;
   let gotRemoteAnswer = false;
   let reofferInFlight = false;
+  let hangupSent = false;
 
   let iceRestartInFlight = false;
   let iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
+  let reofferTimer: ReturnType<typeof setTimeout> | null = null;
   let pc!: RTCPeerConnection;
   /** ICE that arrived before remote description was set. */
   const pendingRemoteIce: RTCIceCandidateInit[] = [...(opts.initialIceCandidates ?? [])];
@@ -185,8 +192,16 @@ export async function startCallSession(opts: {
   );
 
   async function applyRemoteOffer(sdp: string, asScreen = false) {
-    // Ignore buffered/replayed initial offers once we already have a remote description.
-    if (!asScreen && pc.remoteDescription) return;
+    // Skip exact duplicate replay (listen buffer + Accept initialOfferSdp).
+    if (
+      !asScreen &&
+      pc.remoteDescription?.type === "offer" &&
+      pc.remoteDescription.sdp === sdp
+    ) {
+      return;
+    }
+    // Renegotiation (ICE restart / late reoffer) must be answered even when we
+    // already have a remote description — the old guard dropped those offers.
     answerAsScreen = asScreen;
     await handleRemoteOffer(pc, { type: "offer", sdp }, callbacks);
     await flushPendingIce();
@@ -216,12 +231,38 @@ export async function startCallSession(opts: {
     }
   }
 
+  /** Debounce reoffer so Accept handoff peer-joined doesn't glare with the buffered answer. */
+  function scheduleReoffer(reason: string) {
+    if (role !== "caller" || gotRemoteAnswer || pc.remoteDescription) return;
+    if (reofferTimer) clearTimeout(reofferTimer);
+    reofferTimer = setTimeout(() => {
+      reofferTimer = null;
+      void maybeReoffer(reason);
+    }, REOFFER_DEBOUNCE_MS);
+  }
+
+  const signalHangup = () => {
+    if (hangupSent) return;
+    hangupSent = true;
+    try {
+      if (channel instanceof WebSocket) {
+        if (channel.readyState === WebSocket.OPEN) {
+          channel.send(JSON.stringify({ type: "hangup" }));
+        }
+      } else {
+        channel.send({ type: "hangup" } as never);
+      }
+    } catch {
+      /* best-effort */
+    }
+  };
+
   const onMessage = async (ev: MessageEvent | CustomEvent) => {
     const raw = "data" in ev ? ev.data : (ev as CustomEvent).detail;
     const msg = parseSignal(raw);
     if (!msg.type) return;
     if (msg.type === "offer" && msg.sdp) {
-      if (role === "caller" && pc.localDescription) {
+      if (role === "caller" && pc.localDescription && !pc.remoteDescription) {
         // Glare / echo — ignore own fan-out style offers while calling out.
         return;
       }
@@ -230,6 +271,10 @@ export async function startCallSession(opts: {
       await applyRemoteOffer(msg.sdp, true);
     } else if ((msg.type === "answer" || msg.type === "screen-answer") && msg.sdp) {
       gotRemoteAnswer = true;
+      if (reofferTimer) {
+        clearTimeout(reofferTimer);
+        reofferTimer = null;
+      }
       await handleRemoteAnswer(pc, { type: "answer", sdp: msg.sdp });
       await flushPendingIce();
       opts.onNote?.(msg.type === "screen-answer" ? "got-screen-answer" : "got-remote-answer");
@@ -248,10 +293,10 @@ export async function startCallSession(opts: {
       opts.onNote?.("peer-ring");
     } else if (msg.type === "peer-joined") {
       opts.onNote?.("peer-joined");
-      await maybeReoffer("peer-joined");
+      scheduleReoffer("peer-joined");
     } else if (msg.type === "joined" && typeof msg.peers === "number" && msg.peers >= 2) {
       // Late join into a room that already has the peer (listen already up).
-      await maybeReoffer("joined-multi");
+      scheduleReoffer("joined-multi");
     }
   };
 
@@ -285,12 +330,17 @@ export async function startCallSession(opts: {
       sendSignal({ type: "screen" });
       opts.onNote?.("sent-screen-stop");
     },
+    signalHangup,
     close: () => {
       if (iceRestartTimer) {
         clearTimeout(iceRestartTimer);
         iceRestartTimer = null;
       }
-      sendSignal({ type: "hangup" });
+      if (reofferTimer) {
+        clearTimeout(reofferTimer);
+        reofferTimer = null;
+      }
+      signalHangup();
       for (const t of localStream.getTracks()) t.stop();
       pc.close();
       if (channel instanceof WebSocket) channel.close();

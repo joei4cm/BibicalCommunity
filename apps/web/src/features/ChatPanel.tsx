@@ -782,16 +782,16 @@ export function ChatPanel({
     });
   }, [messages, plaintexts, selectedId]);
 
-  /** Soft realtime: incremental poll of the open thread (full resync every ~30s). */
+  /** Soft realtime: incremental poll of the open thread (full resync every ~20s). */
   useEffect(() => {
     if (!selectedId) return;
-    const POLL_MS = 5_000;
+    const POLL_MS = 2_500;
     let ticks = 0;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
       ticks += 1;
       const ready = loadedThreadRef.current === selectedId;
-      const mode = ready && ticks % 6 !== 0 ? "incremental" : "full";
+      const mode = ready && ticks % 8 !== 0 ? "incremental" : "full";
       void loadMessages(selectedId, mode).catch(() => {
         /* keep last good snapshot while offline */
       });

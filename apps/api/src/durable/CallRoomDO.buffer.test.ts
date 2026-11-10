@@ -84,3 +84,72 @@ test("room capacity is by unique user, not socket count", () => {
   sockets.set("ws-callee-session", "callee");
   assert.equal(unique(), 2);
 });
+
+/**
+ * Disconnect hangup policy (mirrors CallRoomDO.webSocketClose):
+ * - replaced listen→session: never hangup
+ * - caller abandon while ringing: hangup
+ * - mid-call (buffer cleared): hangup
+ * - callee listen drop while invite buffered: no hangup (reconnect)
+ */
+function shouldHangupOnClose(opts: {
+  reason: string;
+  userId: string;
+  remainingUserIds: string[];
+  bufferedFrom: string | null;
+}): boolean {
+  if (opts.reason === "replaced") return false;
+  if (opts.remainingUserIds.includes(opts.userId)) return false;
+  if (opts.remainingUserIds.length === 0) return false;
+  const callerAbandoned = opts.bufferedFrom === opts.userId;
+  const midCall = opts.bufferedFrom === null;
+  return callerAbandoned || midCall;
+}
+
+test("replaced listen socket does not hang up", () => {
+  assert.equal(
+    shouldHangupOnClose({
+      reason: "replaced",
+      userId: "callee",
+      remainingUserIds: ["caller"],
+      bufferedFrom: "caller",
+    }),
+    false,
+  );
+});
+
+test("caller abandon while ringing hangs up", () => {
+  assert.equal(
+    shouldHangupOnClose({
+      reason: "",
+      userId: "caller",
+      remainingUserIds: ["callee"],
+      bufferedFrom: "caller",
+    }),
+    true,
+  );
+});
+
+test("callee listen drop while ringing does not hang up", () => {
+  assert.equal(
+    shouldHangupOnClose({
+      reason: "",
+      userId: "callee",
+      remainingUserIds: ["caller"],
+      bufferedFrom: "caller",
+    }),
+    false,
+  );
+});
+
+test("mid-call peer leave hangs up", () => {
+  assert.equal(
+    shouldHangupOnClose({
+      reason: "",
+      userId: "callee",
+      remainingUserIds: ["caller"],
+      bufferedFrom: null,
+    }),
+    true,
+  );
+});
