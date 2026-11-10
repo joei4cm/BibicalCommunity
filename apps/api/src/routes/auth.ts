@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createId, loginSchema, registerSchema, privacySettingsSchema } from "@logoshome/shared";
 import type { Env } from "../env";
 import * as schema from "../db/schema";
@@ -100,16 +100,34 @@ authRoutes.post("/login", async (c) => {
   const ok = await verifyPassword(body.password, user.passwordHash);
   if (!ok) return c.json({ error: "invalid_credentials" }, 401);
 
-  const deviceId = createId("dev");
   const sessionId = createId("ses");
   const now = Date.now();
-  await db.insert(schema.devices).values({
-    id: deviceId,
-    userId: user.id,
-    platform: body.platform,
-    name: body.deviceName ?? body.platform,
-    createdAt: now,
-  });
+  let deviceId = body.deviceId?.trim() || "";
+  if (deviceId) {
+    const owned = await db
+      .select({ id: schema.devices.id })
+      .from(schema.devices)
+      .where(and(eq(schema.devices.id, deviceId), eq(schema.devices.userId, user.id)))
+      .limit(1);
+    if (!owned[0]) deviceId = "";
+  }
+  if (!deviceId) {
+    deviceId = createId("dev");
+    await db.insert(schema.devices).values({
+      id: deviceId,
+      userId: user.id,
+      platform: body.platform,
+      name: body.deviceName ?? body.platform,
+      createdAt: now,
+    });
+  } else if (body.deviceName?.trim()) {
+    await db
+      .update(schema.devices)
+      .set({ name: body.deviceName.trim(), platform: body.platform })
+      .where(eq(schema.devices.id, deviceId));
+  }
+  // One live session per device — replace prior tokens for this install.
+  await db.delete(schema.sessions).where(eq(schema.sessions.deviceId, deviceId));
   const token = randomToken();
   await db.insert(schema.sessions).values({
     id: sessionId,

@@ -8,6 +8,7 @@
  * 4. "" → same-origin relative (Vite proxy / Pages+Worker proxy setups)
  */
 
+import { clearAuthSession, emitAuthLost, isUnauthorizedError } from "./auth-session";
 import { isPublicBibleGetPath } from "./api-public-path";
 
 const ENV_API_BASE = String(import.meta.env.VITE_API_BASE ?? "")
@@ -119,6 +120,15 @@ function shouldAttachAuth(path: string, init: ApiInit): boolean {
   return !isPublicBibleGetPath(path, method);
 }
 
+function noteAuthFailure(status: number, err: string | undefined, authAttached: boolean) {
+  if (!authAttached) return;
+  if (!isUnauthorizedError(status, err)) return;
+  // Stale Bearer left the shell half-logged-in (CommsLoginGate) while LoginPage
+  // refused to show the form because lh.token was still set.
+  clearAuthSession();
+  emitAuthLost(err ?? "unauthorized");
+}
+
 export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
   const { auth: _auth, ...rest } = init;
   const headers = new Headers(rest.headers);
@@ -126,7 +136,8 @@ export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
   const token = getToken();
-  if (token && shouldAttachAuth(path, init)) {
+  const attachAuth = Boolean(token && shouldAttachAuth(path, init));
+  if (attachAuth && token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
   const base = getApiBase();
@@ -134,6 +145,7 @@ export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
   const body = await readJsonBody(res);
   if (!res.ok) {
     const err = (body as { error?: string } | null)?.error;
+    noteAuthFailure(res.status, err, attachAuth);
     throw new Error(err ?? "request_failed");
   }
   return body as T;
@@ -143,7 +155,10 @@ export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
 export async function apiOptional<T>(path: string, init: ApiInit = {}): Promise<T | null> {
   const headers = new Headers(init.headers);
   const token = getToken();
-  if (token && shouldAttachAuth(path, { ...init, method: init.method ?? "GET" })) {
+  const attachAuth = Boolean(
+    token && shouldAttachAuth(path, { ...init, method: init.method ?? "GET" }),
+  );
+  if (attachAuth && token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
   const base = getApiBase();
@@ -152,6 +167,7 @@ export async function apiOptional<T>(path: string, init: ApiInit = {}): Promise<
   const body = await readJsonBody(res);
   if (!res.ok) {
     const err = (body as { error?: string } | null)?.error;
+    noteAuthFailure(res.status, err, attachAuth);
     throw new Error(err ?? "request_failed");
   }
   return body as T;

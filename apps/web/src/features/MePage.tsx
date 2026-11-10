@@ -9,6 +9,7 @@ import {
 } from "@logoshome/shared";
 import { applyTheme } from "@logoshome/ui";
 import { api, getApiBase, getToken, setToken } from "../lib/api";
+import { clearAuthSession } from "../lib/auth-session";
 import { wipeLocalClientState } from "../lib/local-wipe";
 import {
   loadProductSignalPrefer,
@@ -31,7 +32,13 @@ import { cachedSelfNickname, clearSelfNickname, persistSelfNickname } from "../l
 function authDevicePayload() {
   const detected = detectDevicePlatform();
   const platform = detected === "ios" || detected === "android" ? detected : "web";
-  return { platform, deviceName: buildDeviceName(detected) };
+  let deviceId: string | undefined;
+  try {
+    deviceId = localStorage.getItem("lh.deviceId") ?? undefined;
+  } catch {
+    deviceId = undefined;
+  }
+  return { platform, deviceName: buildDeviceName(detected), deviceId };
 }
 
 function friendlyDeviceTitle(d: { name: string | null; platform: string }): string {
@@ -269,6 +276,7 @@ export function MePage() {
         "/v1/auth/register",
         {
           method: "POST",
+          auth: false,
           body: JSON.stringify({
             handle: fields.handle,
             password: fields.password,
@@ -322,6 +330,7 @@ export function MePage() {
         userId: string;
       }>("/v1/auth/login", {
         method: "POST",
+        auth: false,
         body: JSON.stringify({
           handleOrEmail: fields.handle,
           password: fields.password,
@@ -477,9 +486,12 @@ export function MePage() {
   };
 
   function signOut() {
-    setToken(null);
-    localStorage.removeItem("lh.uid");
-    localStorage.removeItem("lh.userId");
+    const token = getToken();
+    // Best-effort server logout; always clear local session so re-login works.
+    if (token) {
+      void api("/v1/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
+    }
+    clearAuthSession();
     clearSelfNickname();
     setProfile(null);
     setDevices([]);

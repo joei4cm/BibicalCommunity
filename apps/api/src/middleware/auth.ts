@@ -39,6 +39,14 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: AuthVars
     if (!user || user.tombstoned) {
       return c.json({ error: "unauthorized" }, 401);
     }
+    // Sliding expiry: keep active installs signed in without a hard 30-day cliff.
+    const remaining = session.expiresAt - Date.now();
+    if (remaining < 7 * 24 * 60 * 60 * 1000) {
+      await db
+        .update(schema.sessions)
+        .set({ expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 })
+        .where(eq(schema.sessions.id, session.id));
+    }
     c.set("userId", session.userId);
     c.set("deviceId", session.deviceId);
     c.set("sessionId", session.id);

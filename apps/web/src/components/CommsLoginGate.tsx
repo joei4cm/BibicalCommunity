@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { getToken } from "../lib/api";
+import { clearAuthSession } from "../lib/auth-session";
 
 export const AUTH_NOTE_CODES = new Set(["login_required", "unauthorized", "401"]);
 
@@ -22,7 +23,15 @@ export function CommsLoginGate({
     <div className="comms-stage" data-testid={`${testIdPrefix}-login-gate`}>
       <div className="comms-gate">
         <p className="comms-gate-title">{t(titleKey)}</p>
-        <a className="btn" href="/app/login" data-testid={`${testIdPrefix}-login-cta`}>
+        <a
+          className="btn"
+          href="/app/login?reason=session_expired"
+          data-testid={`${testIdPrefix}-login-cta`}
+          onClick={() => {
+            // Drop the stale Bearer so LoginPage does not bounce back into the app.
+            clearAuthSession();
+          }}
+        >
           {t("comms.loginGateCta")}
         </a>
       </div>

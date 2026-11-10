@@ -11,6 +11,7 @@ import {
   setApiBase,
   setToken,
 } from "../lib/api";
+import { clearAuthSession } from "../lib/auth-session";
 import { buildDeviceName, detectDevicePlatform } from "../lib/device-label";
 import { humanizeStatus } from "../lib/status";
 import { BrandMark } from "../components/BrandMark";
@@ -18,7 +19,13 @@ import { BrandMark } from "../components/BrandMark";
 function authDevicePayload() {
   const detected = detectDevicePlatform();
   const platform = detected === "ios" || detected === "android" ? detected : "web";
-  return { platform, deviceName: buildDeviceName(detected) };
+  let deviceId: string | undefined;
+  try {
+    deviceId = localStorage.getItem("lh.deviceId") ?? undefined;
+  } catch {
+    deviceId = undefined;
+  }
+  return { platform, deviceName: buildDeviceName(detected), deviceId };
 }
 
 type Mode = "login" | "register";
@@ -49,6 +56,18 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const showServerField = isPackagedShell();
+  // Clear stale Bearer once on mount when bounced here from an expired session
+  // (otherwise Navigate below sends them straight back into the shell).
+  const [sessionExpiredHint] = useState(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const force = q.get("reason") === "session_expired" || q.get("reauth") === "1";
+      if (force) clearAuthSession();
+      return force;
+    } catch {
+      return false;
+    }
+  });
 
   if (getToken()) {
     return <Navigate to={returnTo} replace />;
@@ -104,6 +123,7 @@ export function LoginPage() {
         userId: string;
       }>("/v1/auth/login", {
         method: "POST",
+        auth: false,
         body: JSON.stringify({
           handleOrEmail: fields.handle,
           password: fields.password,
@@ -149,6 +169,7 @@ export function LoginPage() {
         userId: string;
       }>("/v1/auth/register", {
         method: "POST",
+        auth: false,
         body: JSON.stringify({
           handle: fields.handle,
           password: fields.password,
@@ -178,7 +199,11 @@ export function LoginPage() {
           {mode === "login" ? t("auth.login") : t("auth.register")}
         </h1>
         <p className="login-support">
-          {mode === "login" ? t("auth.loginHint") : t("auth.registerHint")}
+          {sessionExpiredHint
+            ? t("auth.sessionExpired")
+            : mode === "login"
+              ? t("auth.loginHint")
+              : t("auth.registerHint")}
         </p>
         {msg ? (
           <p className="auth-status" role="status" data-testid="login-status">
